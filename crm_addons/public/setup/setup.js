@@ -99,9 +99,70 @@
 		template: `<button :id="id" type="button" role="switch" class="sw" :class="{ on: !!modelValue }" :aria-checked="!!modelValue" :aria-label="label" :disabled="disabled" @click="$emit('update:modelValue', modelValue ? 0 : 1)"><span class="sw-k"></span><span class="sw-t">{{ modelValue ? 'On' : 'Off' }}</span></button>`,
 	}
 
+	// ------------------------------------------------------------------ default views (Leads, Contacts, Organizations)
+	const ViewDefaults = {
+		components: { Ico },
+		setup() {
+			const pages = ref([]); const loading = ref(true); const error = ref(''); const cfg = reactive({}); const saving = ref(false); const msg = ref(''); const overwrite = ref(false)
+			const OPS = [['=', 'is'], ['!=', 'is not'], ['like', 'contains'], ['in', 'is any of'], ['is', 'is set / not set']]
+			onMounted(async () => {
+				try {
+					const r = await call('crm_addons.views.get_view_config', {}); pages.value = r.pages
+					r.pages.forEach((p) => { const c = JSON.parse(JSON.stringify(p.config || {})); c.columns = c.columns || []; c.filters = c.filters || []; c.kanban = c.kanban || { card_fields: [] }; c.default_view = c.default_view || 'list'; c.order_by = c.order_by || ''; c.quick_filters = c.quick_filters || p.current_quick_filters.slice(); c._qf = 'quick_filters' in (p.config || {}); cfg[p.doctype] = c })
+				} catch (e) { error.value = e.message } finally { loading.value = false }
+			})
+			const label = (p, f) => (p.fields.find((x) => x.fieldname === f) || {}).label || f
+			const add = (list, f) => { if (f && !list.includes(f)) list.push(f) }
+			const drop = (list, f) => { const i = list.indexOf(f); if (i >= 0) list.splice(i, 1) }
+			const move = (list, i, d) => { const j = i + d; if (j < 0 || j >= list.length) return; list.splice(j, 0, list.splice(i, 1)[0]) }
+			const groupable = (p) => p.fields.filter((f) => ['Select', 'Link'].includes(f.fieldtype))
+			function body() {
+				const out = {}
+				pages.value.forEach((p) => {
+					const c = cfg[p.doctype]
+					const o = { default_view: c.default_view, columns: c.columns, order_by: c.order_by, filters: c.filters.filter((f) => f[0] && (f[1] === 'is' || String(f[2]).trim() !== '')).map((f) => [f[0], f[1], f[1] === 'like' ? '%' + String(f[2]).replace(/%/g, '') + '%' : f[2]]) }
+					if (c._qf || JSON.stringify(c.quick_filters) !== JSON.stringify(p.current_quick_filters)) o.quick_filters = c.quick_filters
+					if (p.kanban) o.kanban = { column_field: c.kanban.column_field, title_field: c.kanban.title_field, card_fields: c.kanban.card_fields }
+					out[p.doctype] = o
+				})
+				return out
+			}
+			async function save() {
+				saving.value = true; msg.value = ''
+				try { const r = await call('crm_addons.views.save_view_config', { config: JSON.stringify(body()), apply: 1, overwrite: overwrite.value ? 1 : 0 }); msg.value = 'Saved. ' + r.people + ' people checked, ' + r.written + ' views written. People who changed their own view keep it' + (overwrite.value ? ' (not this time: yours replaced them)' : '') + '.' } catch (e) { msg.value = e.message } finally { saving.value = false }
+			}
+			return { pages, loading, error, cfg, saving, msg, overwrite, OPS, label, add, drop, move, groupable, save }
+		},
+		template: `
+		<div class="vd">
+			<div v-if="loading" class="muted">Loading</div><div v-else-if="error" class="note-box bad">{{ error }}</div>
+			<template v-else>
+				<article v-for="p in pages" :key="p.doctype" class="card pad vd-card">
+					<h3>{{ p.label }}</h3>
+					<div class="vd-r"><label>Opens as</label><div class="rolechips"><button type="button" class="rolechip" :class="{ on: cfg[p.doctype].default_view === 'list' }" @click="cfg[p.doctype].default_view = 'list'">List</button><button v-if="p.kanban" type="button" class="rolechip" :class="{ on: cfg[p.doctype].default_view === 'kanban' }" @click="cfg[p.doctype].default_view = 'kanban'">Kanban</button><span v-else class="muted small">CRM has no Kanban for this page</span></div></div>
+					<div class="vd-r"><label>List columns</label><div class="vd-col">
+						<div v-for="(f, i) in cfg[p.doctype].columns" :key="f" class="menurow"><span class="menu-n">{{ i + 1 }}</span><span class="menu-l">{{ label(p, f) }}</span><button type="button" class="menu-b" :disabled="!i" @click="move(cfg[p.doctype].columns, i, -1)">&uarr;</button><button type="button" class="menu-b" :disabled="i === cfg[p.doctype].columns.length - 1" @click="move(cfg[p.doctype].columns, i, 1)">&darr;</button><button type="button" class="menu-b" @click="drop(cfg[p.doctype].columns, f)">&times;</button></div>
+						<div class="row wrap" style="gap:8px"><select class="inp" @change="add(cfg[p.doctype].columns, $event.target.value); $event.target.value = ''"><option value="">Add a column...</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname" :disabled="cfg[p.doctype].columns.includes(f.fieldname)">{{ f.label }}</option></select><button type="button" class="menu-reset" @click="cfg[p.doctype].columns = p.current_columns.slice()">Start from CRM's columns</button><button v-if="cfg[p.doctype].columns.length" type="button" class="menu-reset" @click="cfg[p.doctype].columns = []">Use CRM's own</button></div></div></div>
+					<div class="vd-r"><label>Sort by</label><div class="row" style="gap:8px"><select class="inp" :value="(cfg[p.doctype].order_by || '').split(' ')[0]" @change="cfg[p.doctype].order_by = $event.target.value ? $event.target.value + ' ' + ((cfg[p.doctype].order_by || '').split(' ')[1] || 'desc') : ''"><option value="">CRM's own (last modified)</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname">{{ f.label }}</option></select><select class="inp sm" :value="(cfg[p.doctype].order_by || '').split(' ')[1] || 'desc'" :disabled="!cfg[p.doctype].order_by" @change="cfg[p.doctype].order_by = (cfg[p.doctype].order_by || '').split(' ')[0] + ' ' + $event.target.value"><option value="desc">Newest / biggest first</option><option value="asc">Oldest / smallest first</option></select></div></div>
+					<div class="vd-r"><label>Default filters</label><div class="vd-col">
+						<div v-for="(f, i) in cfg[p.doctype].filters" :key="i" class="countrow"><select class="inp" v-model="f[0]"><option value="">Field</option><option v-for="o in p.fields" :key="o.fieldname" :value="o.fieldname">{{ o.label }}</option></select><select class="inp sm" v-model="f[1]"><option v-for="o in OPS" :key="o[0]" :value="o[0]">{{ o[1] }}</option></select><select v-if="f[1] === 'is'" class="inp" v-model="f[2]"><option value="set">set</option><option value="not set">not set</option></select><input v-else class="inp" v-model="f[2]" placeholder="Value (comma-separated for any of)" /><button type="button" class="menu-b" @click="cfg[p.doctype].filters.splice(i, 1)">&times;</button></div>
+						<button type="button" class="btn" @click="cfg[p.doctype].filters.push(['', '=', ''])">Add a filter</button></div></div>
+					<div class="vd-r"><label>Quick filters<span class="muted small"> (the boxes above the list)</span></label><div class="vd-col"><div class="rolechips"><span v-for="f in cfg[p.doctype].quick_filters" :key="f" class="rolechip on">{{ label(p, f) }}<button type="button" class="chip-x" @click="drop(cfg[p.doctype].quick_filters, f); cfg[p.doctype]._qf = true">&times;</button></span></div>
+						<select class="inp" @change="add(cfg[p.doctype].quick_filters, $event.target.value); cfg[p.doctype]._qf = true; $event.target.value = ''"><option value="">Add a quick filter...</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname" :disabled="cfg[p.doctype].quick_filters.includes(f.fieldname)">{{ f.label }}</option></select></div></div>
+					<template v-if="p.kanban"><h4>Kanban</h4>
+						<div class="vd-r"><label>Columns follow</label><select class="inp" v-model="cfg[p.doctype].kanban.column_field"><option :value="undefined">Status (CRM's own)</option><option v-for="f in groupable(p)" :key="f.fieldname" :value="f.fieldname">{{ f.label }}</option></select></div>
+						<div class="vd-r"><label>Card title</label><select class="inp" v-model="cfg[p.doctype].kanban.title_field"><option :value="undefined">Lead name (CRM's own)</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname">{{ f.label }}</option></select></div>
+						<div class="vd-r"><label>Card fields</label><div class="vd-col"><div class="rolechips"><span v-for="f in cfg[p.doctype].kanban.card_fields" :key="f" class="rolechip on">{{ label(p, f) }}<button type="button" class="chip-x" @click="drop(cfg[p.doctype].kanban.card_fields, f)">&times;</button></span><span v-if="!cfg[p.doctype].kanban.card_fields.length" class="muted small">CRM's own</span></div>
+							<select class="inp" @change="add(cfg[p.doctype].kanban.card_fields, $event.target.value); $event.target.value = ''"><option value="">Add a field to the cards...</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname" :disabled="cfg[p.doctype].kanban.card_fields.includes(f.fieldname)">{{ f.label }}</option></select></div></div></template>
+				</article>
+				<div class="card pad vd-save"><label class="check"><input type="checkbox" v-model="overwrite" /><span>Also replace the views people have changed themselves</span></label><button type="button" class="btn primary" :disabled="saving" @click="save">{{ saving ? 'Saving...' : 'Save and apply to everyone' }}</button><div v-if="msg" class="small" role="status">{{ msg }}</div></div>
+			</template>
+		</div>`,
+	}
+
 	// ------------------------------------------------------------------ the app
 	const App = {
-		components: { Ico, Info, Toggle },
+		components: { Ico, Info, Toggle, ViewDefaults },
 		setup() {
 			const loading = ref(true); const error = ref(''); const denied = ref(false)
 			const server = ref({}) // values as saved
@@ -115,6 +176,28 @@
 			const norm = (it, v) => (it && it.t === 'switch' ? (v ? 1 : 0) : it && (it.t === 'num') ? (v === '' || v == null ? 0 : Number(v)) : it && it.t === 'money' ? (v === '' || v == null ? '' : Number(v)) : v == null ? '' : v)
 			const rolesOfDraft = (k) => String(draft[k] || '').split(',').map((r) => r.trim()).filter(Boolean)
 			const hasRole = (k, role) => rolesOfDraft(k).includes(role)
+			// the left menu: CRM's own entries and this app's, in the order saved (anything not saved yet goes at the end)
+			const MENU_ALL = [['notifications', 'Notifications'], ['dashboard', 'Dashboard'], ['leads', 'Leads'], ['deals', 'Deals'], ['contacts', 'Contacts'], ['organizations', 'Organizations'], ['notes', 'Notes'], ['tasks', 'Tasks'], ['call-logs', 'Call Logs'], ['sales-dashboard', 'Sales Dashboard'], ['followups', 'Follow-ups'], ['meetings', 'Meetings'], ['campaigns', 'Campaigns'], ['assignment', 'Assignment']]
+			const MENU_OURS = ['sales-dashboard', 'followups', 'meetings', 'campaigns', 'assignment']
+			function menuItems(k) {
+				let saved = []; try { saved = JSON.parse(draft[k] || '[]') } catch (e) { saved = [] }
+				const known = saved.filter((x) => MENU_ALL.some((m) => m[0] === x.key))
+				const have = new Set(known.map((x) => x.key))
+				return [...known, ...MENU_ALL.filter((m) => !have.has(m[0])).map((m) => ({ key: m[0], hidden: 0 }))].map((x) => ({ key: x.key, hidden: x.hidden ? 1 : 0, label: (MENU_ALL.find((m) => m[0] === x.key) || [])[1], ours: MENU_OURS.includes(x.key) }))
+			}
+			const setMenu = (k, list) => { draft[k] = JSON.stringify(list.map((x) => ({ key: x.key, hidden: x.hidden ? 1 : 0 }))) }
+			function moveMenu(k, i, d) { const l = menuItems(k); const j = i + d; if (j < 0 || j >= l.length) return; ;[l[i], l[j]] = [l[j], l[i]]; setMenu(k, l) }
+			function toggleMenu(k, i) { const l = menuItems(k); l[i].hidden = l[i].hidden ? 0 : 1; setMenu(k, l) }
+			const resetMenu = (k) => { draft[k] = '' }
+			// "count leads by these fields" and "highlighted counts": JSON lists in the draft
+			const jlist = (k) => { try { const v = JSON.parse(draft[k] || '[]'); return Array.isArray(v) ? v : [] } catch (e) { return [] } }
+			const setJ = (k, v) => { draft[k] = v.length ? JSON.stringify(v) : '' }
+			const fieldLabel = (f) => ((choices.value.lead_fields || []).find((x) => x.value === f) || {}).label || f
+			const addField = (k, f) => { if (f && !jlist(k).includes(f)) setJ(k, [...jlist(k), f]) }
+			const dropField = (k, f) => setJ(k, jlist(k).filter((x) => x !== f))
+			const addCounter = (k) => setJ(k, [...jlist(k), { label: '', field: '', op: '=', value: '' }])
+			const setCounter = (k, i, key, val) => { const l = jlist(k); l[i] = { ...l[i], [key]: val }; setJ(k, l) }
+			const dropCounter = (k, i) => setJ(k, jlist(k).filter((_x, n) => n !== i))
 			function toggleRole(k, role) { const cur = rolesOfDraft(k); draft[k] = (cur.includes(role) ? cur.filter((r) => r !== role) : [...cur, role]).join(', ') }
 			function load(values) { server.value = values; Object.keys(draft).forEach((k) => delete draft[k]); Object.assign(draft, JSON.parse(JSON.stringify(values))) }
 			async function init() {
@@ -188,7 +271,7 @@
 			async function copy(text) { try { await navigator.clipboard.writeText(text); say('Copied') } catch (e) { say('Select the text and copy it.', 'err') } }
 			const stateText = { ok: 'Ready', todo: 'Needs setup', optional: 'Optional' }
 			const urls = (c) => (c.steps || []).map((s) => { const m = /(https?:\/\/\S+)/.exec(s); return m ? m[1] : '' })
-			return { hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
+			return { jlist, fieldLabel, addField, dropField, addCounter, setCounter, dropCounter, menuItems, moveMenu, toggleMenu, resetMenu, hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
 		},
 		template: `
 		<div class="shell">
@@ -241,6 +324,7 @@
 					<section v-for="g in visible" :key="g.key" class="stack">
 						<div class="card pad">
 							<div class="row"><span class="g-i"><Ico :name="g.icon" :size="19" /></span><div class="grow"><h2>{{ g.title }}</h2><p class="muted">{{ g.desc }}</p></div></div>
+							<ViewDefaults v-if="g.custom === 'views'" />
 							<template v-for="(it, i) in g.shown" :key="(it.k || it.h) + i">
 								<h3 v-if="it.h" class="sub">{{ it.h }}</h3>
 								<div v-else class="row-i" :class="{ locked: !met(it), child: it.when, bad: problem(it) }">
@@ -255,6 +339,20 @@
 										<template v-else-if="it.t === 'money'"><input :id="'f-' + it.k" class="inp num" type="number" inputmode="decimal" min="0" step="any" :placeholder="it.placeholder" v-model="draft[it.k]" :disabled="!met(it)" /></template>
 										<select v-else-if="it.t === 'select'" :id="'f-' + it.k" class="inp" v-model="draft[it.k]" :disabled="!met(it)"><option v-if="it.empty" value="">{{ it.empty }}</option><option v-for="o in optionsOf(it)" :key="o.value" :value="o.value">{{ o.label }}</option></select>
 										<div v-else-if="it.t === 'roles'" class="rolechips" role="group" :aria-label="it.label"><button v-for="o in optionsOf(it)" :key="o.value" type="button" class="rolechip" :class="{ on: hasRole(it.k, o.value) }" :aria-pressed="hasRole(it.k, o.value)" :disabled="!met(it)" @click="toggleRole(it.k, o.value)"><Ico v-if="hasRole(it.k, o.value)" name="check" :size="13" />{{ o.label }}</button></div>
+										<div v-else-if="it.t === 'menu'" class="menuedit">
+											<div v-for="(m, i) in menuItems(it.k)" :key="m.key" class="menurow" :class="{ off: m.hidden }"><span class="menu-n">{{ i + 1 }}</span><span class="menu-l">{{ m.label }}<em v-if="m.ours">Pro Pack</em></span>
+												<button type="button" class="menu-b" :disabled="i === 0" :aria-label="'Move ' + m.label + ' up'" @click="moveMenu(it.k, i, -1)">&uarr;</button><button type="button" class="menu-b" :disabled="i === menuItems(it.k).length - 1" :aria-label="'Move ' + m.label + ' down'" @click="moveMenu(it.k, i, 1)">&darr;</button>
+												<Toggle :model-value="!m.hidden" :label="'Show ' + m.label" @update:model-value="toggleMenu(it.k, i)" /></div>
+											<button type="button" class="menu-reset" @click="resetMenu(it.k)">Back to CRM's own order</button></div>
+										<div v-else-if="it.t === 'fieldlist'" class="fieldlist">
+											<div class="rolechips"><span v-for="f in jlist(it.k)" :key="f" class="rolechip on">{{ fieldLabel(f) }}<button type="button" class="chip-x" :aria-label="'Remove ' + fieldLabel(f)" @click="dropField(it.k, f)">&times;</button></span><span v-if="!jlist(it.k).length" class="muted small">Automatic</span></div>
+											<select class="inp" @change="addField(it.k, $event.target.value); $event.target.value = ''"><option value="">Add a field...</option><option v-for="o in (choices.lead_fields || [])" :key="o.value" :value="o.value" :disabled="jlist(it.k).includes(o.value)">{{ o.label }}</option></select></div>
+										<div v-else-if="it.t === 'counters'" class="countedit">
+											<div v-for="(c, i) in jlist(it.k)" :key="i" class="countrow"><input class="inp" placeholder="Name, e.g. Schools" :value="c.label" @input="setCounter(it.k, i, 'label', $event.target.value)" />
+												<select class="inp" :value="c.field" @change="setCounter(it.k, i, 'field', $event.target.value)"><option value="">Field</option><option v-for="o in (choices.lead_fields || [])" :key="o.value" :value="o.value">{{ o.label }}</option></select>
+												<select class="inp sm" :value="c.op" @change="setCounter(it.k, i, 'op', $event.target.value)"><option value="=">is</option><option value="!=">is not</option><option value="like">contains</option></select>
+												<input class="inp" placeholder="Value, e.g. School" :value="c.value" @input="setCounter(it.k, i, 'value', $event.target.value)" /><button type="button" class="menu-b" aria-label="Remove" @click="dropCounter(it.k, i)">&times;</button></div>
+											<button type="button" class="btn" @click="addCounter(it.k)">Add a count</button></div>
 										<textarea v-else-if="it.t === 'area'" :id="'f-' + it.k" class="inp area" rows="3" v-model="draft[it.k]" :disabled="!met(it)"></textarea>
 										<input v-else :id="'f-' + it.k" class="inp" type="text" :placeholder="it.placeholder" v-model="draft[it.k]" :disabled="!met(it)" autocomplete="off" />
 									</div>

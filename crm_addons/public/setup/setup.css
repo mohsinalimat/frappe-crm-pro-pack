@@ -159,3 +159,17 @@ h1, h2, h3 { font-stretch: 90%; }
 .rolechip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .rolechip:disabled { opacity: .55; cursor: not-allowed; }
 @media (max-width: 860px) { .rolechips { justify-content: flex-start; } }
+
+.menuedit { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 460px; }
+.menurow { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border, #e3e6eb); border-radius: 8px; background: var(--surface, #fff); } .menurow.off { opacity: .55; }
+.menu-n { width: 20px; text-align: center; font-size: 12px; color: var(--text-faint, #8b93a1); } .menu-l { flex: 1; font-size: 14px; } .menu-l em { margin-left: 8px; padding: 0 6px; border-radius: 99px; background: var(--accent-soft, #e8edff); color: var(--accent-text, #2447c9); font-size: 11px; font-style: normal; }
+.menu-b { width: 28px; height: 28px; border: 1px solid var(--border, #e3e6eb); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; } .menu-b:disabled { opacity: .35; cursor: default; }
+.menu-reset { align-self: flex-start; margin-top: 6px; border: 0; background: transparent; color: var(--accent-text, #2447c9); font-size: 13px; cursor: pointer; padding: 0; }
+
+.fieldlist, .countedit, .vd-col { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 560px; }
+.chip-x { margin-left: 6px; border: 0; background: transparent; color: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.countrow { display: grid; grid-template-columns: 1.1fr 1.1fr 92px 1.1fr 30px; gap: 6px; align-items: center; } .countrow .inp { min-width: 0; }
+.vd-card h3 { margin: 0 0 10px; } .vd-card h4 { margin: 14px 0 6px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint, #8b93a1); }
+.vd-r { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--border, #e3e6eb); } .vd-r > label { font-weight: 600; font-size: 13.5px; }
+.vd-save { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; } .check { display: flex; gap: 8px; align-items: center; }
+@media (max-width: 800px) { .vd-r { grid-template-columns: minmax(0, 1fr); } }

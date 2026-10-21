@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Coding Pro
+# Copyright (c) 2026, Siddharth Singh
 """Automations: triggers, conditions, actions, the managed message campaign, once-per-lead, and the Campaign Manager API.
 
 Run on a bench:  bench --site <site> run-tests --app crm_addons --module crm_addons.campaigns.doctype.crm_campaign.test_automation

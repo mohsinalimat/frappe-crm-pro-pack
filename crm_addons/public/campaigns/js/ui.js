@@ -274,7 +274,7 @@
 
 	// ------------------------------------------------------------------ uploader
 	C.Uploader = {
-		props: { modelValue: { type: Array, default: () => [] }, isPrivate: { type: Boolean, default: true }, accept: String, maxMb: { type: Number, default: 10 }, totalMb: Number, multiple: { type: Boolean, default: true }, title: String, hint: String },
+		props: { modelValue: { type: Array, default: () => [] }, isPrivate: { type: Boolean, default: true }, accept: String, maxMb: { type: Number, default: () => (CM.shared.config && CM.shared.config.attachment_limit_mb) || 30 }, totalMb: Number, multiple: { type: Boolean, default: true }, title: String, hint: String },
 		emits: ['update:modelValue'],
 		setup(props, { emit }) {
 			const jobs = reactive([]); const over = ref(false); const input = ref(null)
@@ -451,6 +451,8 @@
 	// ------------------------------------------------------------------ WhatsApp bubble
 	function waFormat(text) {
 		let s = CM.escape(text)
+		// WhatsApp shows "- item" / "* item" as bullets and "> text" as a quote
+		s = s.replace(/^[-*] /gm, '\u2022 ').replace(/^&gt; ?(.*)$/gm, '<span class="wa-quote">$1</span>')
 		s = s.replace(/```([\s\S]+?)```/g, '<code>$1</code>').replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/_([^_\n]+)_/g, '<i>$1</i>').replace(/~([^~\n]+)~/g, '<s>$1</s>')
 		return s
 	}

@@ -77,6 +77,8 @@ window.SETUP_SCHEMA = [
 				info: { what: 'Adds the two tabs beside Activity, Emails and Calls on a Lead page.' } },
 			{ k: 'show_sidebar_links', t: 'switch', label: 'Links in the left menu',
 				info: { what: 'Adds the Sales Dashboard (which also holds Lead Nurturing), Follow-ups, Meetings and Campaigns to the CRM\'s left menu, and a small button group in the Dashboard header.' } },
+			{ k: 'sidebar_layout', t: 'menu', label: 'Left menu: order and what is shown',
+				info: { what: 'Put the whole left menu in the order you want, CRM\'s own entries and this app\'s together, and switch off the ones nobody should see (Dashboard, Leads, Contacts, Organizations, ...). Applies to everyone.', note: 'Only hides the link and changes the order; the pages and permissions are untouched. Entries that are not listed (saved views) follow the listed ones.' } },
 			{ h: 'Things to hide (screen only)' },
 			{ k: 'hide_deals_menu', t: 'switch', label: 'Hide Deals in the left menu',
 				info: { what: 'Removes the Deals link (and its gap) from the left menu.', note: 'Only hides the link. Deals pages still exist for anyone who opens their address, and permissions do not change.' } },
@@ -95,6 +97,21 @@ window.SETUP_SCHEMA = [
 			{ k: 'hide_lead_notes_tab', t: 'switch', label: 'Hide the Notes tab on Lead pages',
 				info: { what: 'Removes the Notes tab from the row of tabs on a Lead page (Activity, Emails, ...).', note: 'Only hides the tab; nothing is deleted or blocked.' } },
 		],
+	},
+	{
+		key: 'dashboard', title: 'Sales Dashboard counts', icon: 'trend',
+		desc: 'More numbers on the Sales Dashboard: how many leads there are, counted by any field (state, type, industry ...), and counts you name yourself (schools, colleges, universities ...).',
+		items: [
+			{ k: 'dashboard_breakdowns', t: 'fieldlist', label: 'Count leads by these fields',
+				info: { what: 'Each field you choose becomes a chart on the Sales Dashboard that counts all leads by its values: one bar per state, per type, per industry and so on.', note: 'Left empty, the dashboard picks the usual ones it can find (industry, territory, source, status, anything called state or type).' } },
+			{ k: 'dashboard_counters', t: 'counters', label: 'Highlighted counts',
+				info: { what: 'Name a count and say which leads it covers, for example "Schools" where Industry is School. It appears as a number card at the top of the Sales Dashboard.', eg: 'Private colleges: Type is Private.' } },
+		],
+	},
+	{
+		key: 'views', title: 'Default views', icon: 'layout', custom: 'views',
+		desc: 'How the Leads, Contacts and Organizations pages open for everybody: list or Kanban, the columns, the order, the filters and the quick-filter boxes. People can still change their own view; yours applies until they do.',
+		items: [],
 	},
 	{
 		key: 'campaigns', title: 'Campaign Manager', icon: 'send',

@@ -1,4 +1,4 @@
-// Copyright (c) 2026, Coding Pro
+// Copyright (c) 2026, Siddharth Singh
 // Desk form for CRM Meeting (the CRM itself uses the meetings calendar page).
 frappe.ui.form.on("CRM Meeting", {
 	refresh(frm) {

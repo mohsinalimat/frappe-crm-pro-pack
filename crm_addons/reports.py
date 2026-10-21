@@ -6,7 +6,7 @@ Who sees what follows the roles. Sales Managers, System Managers and Administrat
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, cint, date_diff, getdate, now_datetime, nowdate
+from frappe.utils import add_days, cint, cstr, date_diff, getdate, now_datetime, nowdate
 
 from crm_addons import scoring, stale
 from crm_addons.utils import get_reference_info, get_settings, is_manager, user_details
@@ -197,6 +197,30 @@ def _build_report(from_date=None, to_date=None, user=None):
 		params,
 		as_dict=True,
 	)
+
+	# open leads by the person they are assigned to (people with none are "Unassigned"), with their statuses
+	assigned_rows = frappe.db.sql(
+		f"""select ifnull(l.lead_owner, '') as person, count(*) as open_leads,
+			sum(l.creation >= %(start)s and l.creation < %(end)s) as added, sum(ifnull(l.status, '') = 'New') as fresh
+		from `tabCRM Lead` l where l.converted = 0 {cond('l.lead_owner')} group by ifnull(l.lead_owner, '') order by open_leads desc""",
+		params,
+		as_dict=True,
+	)
+	by_owner_status = {}
+	for r in frappe.db.sql(
+		f"""select ifnull(l.lead_owner, '') as person, l.status as status, count(*) as n from `tabCRM Lead` l
+		where l.converted = 0 {cond('l.lead_owner')} group by ifnull(l.lead_owner, ''), l.status order by n desc""",
+		params,
+		as_dict=True,
+	):
+		by_owner_status.setdefault(r.person, []).append({"status": r.status or "-", "count": cint(r.n)})
+	assigned = [
+		{
+			"user": r.person, "full_name": (user_details(r.person)[1] or r.person) if r.person else _("Unassigned"),
+			"open": cint(r.open_leads), "added": cint(r.added), "fresh": cint(r.fresh), "statuses": by_owner_status.get(r.person, [])[:6],
+		}
+		for r in assigned_rows
+	]
 
 	bands = {"hot": 0, "warm": 0, "cold": 0}
 	if frappe.get_meta("CRM Lead").has_field(scoring.FIELD):
@@ -402,6 +426,7 @@ def _build_report(from_date=None, to_date=None, user=None):
 		"previous": _totals(_sum(previous)),
 		"daily": sorted(days.values(), key=lambda x: (x["date"], x["person"])),
 		"outcomes": [{"outcome": _(r.outcome), "key": r.outcome, "count": cint(r.count)} for r in outcomes],
+		"assigned": assigned,
 		"statuses": [{"status": r.status, "color": r.color, "count": cint(r.count), "age": round(float(r.age or 0))} for r in pipeline],
 		"funnel": funnel,
 		"speed_hours": speed_hours,
@@ -420,10 +445,71 @@ def _build_report(from_date=None, to_date=None, user=None):
 	}
 
 
+AUTO_BREAKDOWNS = ("industry", "territory", "source", "status")
+AUTO_WORDS = ("state", "type", "category", "private", "government", "board", "college", "school", "universit")
+BREAKDOWN_TYPES = ("Data", "Select", "Link", "Autocomplete", "Check")
+BREAKDOWN_ROWS = 30
+
+
+def _setting_json(name, default):
+	import json
+
+	try:
+		value = json.loads(frappe.db.get_single_value("CRM Addons Settings", name) or "")
+		return value if isinstance(value, type(default)) else default
+	except ValueError:
+		return default
+
+
+def breakdown_fields():
+	"""Lead fields the dashboard counts leads by: the administrator's list, else the usual ones that exist on this site."""
+	meta = frappe.get_meta("CRM Lead")
+	usable = {f.fieldname: f for f in meta.fields if f.fieldtype in BREAKDOWN_TYPES and f.label and not f.hidden}
+	chosen = [f for f in _setting_json("dashboard_breakdowns", []) if isinstance(f, str) and f in usable]
+	if chosen or frappe.db.get_single_value("CRM Addons Settings", "dashboard_breakdowns"):
+		return [usable[f] for f in chosen]
+	auto = [usable[f] for f in AUTO_BREAKDOWNS if f in usable]
+	auto += [f for n, f in usable.items() if f not in auto and any(w in (n + " " + cstr(f.label)).lower() for w in AUTO_WORDS) and f.fieldtype in ("Select", "Link", "Data")]
+	return auto[:6]
+
+
+def _extras(who):
+	"""Counts that do not depend on the date range: all leads, open, unassigned, the administrator's highlighted counts, and
+	leads counted by a field (state, type, industry ...). A sales user only gets their own leads counted."""
+	from crm_addons.campaigns import audience
+
+	scope = [["CRM Lead", "lead_owner", "=", who]] if who else []
+	count = lambda extra=(): frappe.db.count("CRM Lead", filters=scope + list(extra))  # noqa: E731
+	totals = {"total": count(), "open": count([["CRM Lead", "converted", "=", 0]]), "converted": count([["CRM Lead", "converted", "=", 1]])}
+	if not who:
+		totals["unassigned"] = count([["CRM Lead", "lead_owner", "is", "not set"]])
+	counters = []
+	for c in _setting_json("dashboard_counters", [])[:24]:
+		try:
+			rows = audience.clean_filters([[c.get("field"), c.get("op") or "=", c.get("value")]])
+			counters.append({"label": cstr(c.get("label")) or cstr(c.get("value")), "count": count(rows)})
+		except Exception:
+			continue
+	breakdowns = []
+	for f in breakdown_fields():
+		where, params = ("lead_owner = %(who)s", {"who": who}) if who else ("1 = 1", {})
+		rows = frappe.db.sql(
+			f"""select ifnull(nullif(`{f.fieldname}`, ''), %(none)s) as v, count(*) as n from `tabCRM Lead` where {where} group by v order by n desc limit {BREAKDOWN_ROWS + 1}""",
+			{**params, "none": _("Not set")},
+			as_dict=True,
+		)
+		total = totals["total"] or 1
+		shown = [{"value": ("Yes" if cstr(r.v) == "1" else "No" if cstr(r.v) == "0" else cstr(r.v)) if f.fieldtype == "Check" else cstr(r.v), "count": cint(r.n), "pct": round(cint(r.n) / total * 100, 1)} for r in rows[:BREAKDOWN_ROWS]]
+		breakdowns.append({"field": f.fieldname, "label": _(f.label), "rows": shown, "more": len(rows) > BREAKDOWN_ROWS})
+	return {"lead_totals": totals, "counters": counters, "breakdowns": breakdowns}
+
+
 @frappe.whitelist()
 def get_sales_report(from_date=None, to_date=None, user=None):
 	frappe.only_for(ROLES)
-	return _build_report(from_date, to_date, user)
+	out = _build_report(from_date, to_date, user)
+	out.update(_extras(_who(user)))
+	return out
 
 
 # -- export ----------------------------------------------------------------------------------------------

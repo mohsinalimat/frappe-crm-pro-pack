@@ -55,6 +55,11 @@ def _choices():
 		"google_calendars": [{"value": c.name, "label": c.name + ("" if c.enable and c.push_to_google_calendar else " (not ready)")} for c in calendars],
 		"providers": ["Google Meet", "Manual Link"],
 		"roles": _crm_roles(),
+		"lead_fields": [
+			{"value": f.fieldname, "label": f.label}
+			for f in frappe.get_meta("CRM Lead").fields
+			if f.fieldtype in ("Data", "Select", "Link", "Autocomplete", "Check") and f.label and not f.hidden
+		],
 	}
 
 

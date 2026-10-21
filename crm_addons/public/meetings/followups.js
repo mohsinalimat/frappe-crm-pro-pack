@@ -9,6 +9,7 @@
 	// ------------------------------------------------------------------ environment
 	const params = new URLSearchParams(location.search)
 	const EMBED = params.get('embed') === '1'
+	if (params.get('inline') === '1') document.documentElement.classList.add('inline') // shown as a page of the CRM: no Close / new-tab buttons
 	const VERSION = params.get('v') || String(Date.now())
 	const VIEW_KEY = 'crm_addons_fu_view'
 	const RANGE_KEY = 'crm_addons_fu_range'
@@ -287,7 +288,7 @@
 	}
 
 	// ------------------------------------------------------------------ the page
-	const TABS = [['overdue', 'Overdue'], ['today', 'Due today'], ['upcoming', 'Upcoming'], ['done', 'Done']]
+	const TABS = [['worked', "Today's work"], ['overdue', 'Overdue'], ['today', 'Due today'], ['upcoming', 'Upcoming'], ['done', 'Done']]
 	const PAGE = 50
 
 	const App = {
@@ -454,6 +455,13 @@
 			const serverNow = computed(() => nowMs.value + serverOffset)
 			const today = computed(() => startOfDay(new Date(serverNow.value)))
 			function due(i) {
+				// today's work: when it was logged, and what comes next
+				if (tab.value === 'worked') {
+					const at = fromSql(i.followed_up_on)
+					const next = i.next_follow_up_on ? fromSql(i.next_follow_up_on) : null
+					return { top: fmtTime(at), sub: next ? 'Next: ' + fmtDate(next, { weekday: 'short', day: 'numeric', month: 'short' }) + ', ' + fmtTime(next) : 'No next follow-up', tone: 'done' }
+				}
+				if (!i.next_follow_up_on) return { top: 'No date', sub: '', tone: 'done' }
 				const d = fromSql(i.next_follow_up_on)
 				const rel = relative(d.getTime() - serverNow.value)
 				const abs = `${fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' })}, ${fmtTime(d)}`
@@ -463,7 +471,7 @@
 			const statusColor = (c) => STATUS_COLORS[c] || '#94a3b8'
 			const outcomeTone = (o) => OUTCOME_TONE[o] || ''
 			const rows = computed(() => {
-				if (view.value !== 'agenda') return items.value.map((i) => ({ kind: 'row', key: i.name, item: i }))
+				if (view.value !== 'agenda' || tab.value === 'worked') return items.value.map((i) => ({ kind: 'row', key: i.name, item: i }))
 				const out = []
 				let last = ''
 				for (const i of items.value) {
@@ -478,7 +486,7 @@
 			})
 			const dayCount = (day) => items.value.filter((i) => i.next_follow_up_on.startsWith(day)).length
 
-			const canSelect = computed(() => tab.value !== 'done')
+			const canSelect = computed(() => tab.value !== 'done' && tab.value !== 'worked')
 			const selectedNames = computed(() => Object.keys(selected))
 			const allSelected = computed(() => items.value.length > 0 && items.value.every((i) => selected[i.name]))
 			function toggleAll() {
@@ -568,6 +576,7 @@
 			const emptyText = computed(() => {
 				if (filtered.value) return ['Nothing matches these filters', 'Try a different search, or clear the filters.']
 				return {
+					worked: ['Nothing logged today yet', 'The calls and follow-ups you log today appear here, so you can see your day at a glance.'],
 					overdue: ['Nothing overdue', 'Every follow-up is on time. Nice work.'],
 					today: ['Nothing else due today', 'Follow-ups scheduled for today will show up here.'],
 					upcoming: ['Nothing scheduled', 'Set a next follow-up date when you log a call and it appears here.'],
@@ -632,11 +641,11 @@
 				<table class="fu-table" :class="view === 'agenda' ? 'by-day' : 'plain-list'">
 					<thead><tr>
 						<th class="chk"><input type="checkbox" v-if="canSelect" :checked="allSelected" @change="toggleAll" aria-label="Select all" /></th>
-						<th>Lead</th><th>Contact</th><th>Last call</th><th>{{ tab === 'done' ? 'Was due' : 'Due' }}</th><th v-if="everyone || tab === 'done'">Owner</th><th class="remark">Remark</th><th class="act"></th>
+						<th>Lead</th><th>Contact</th><th>Last call</th><th>{{ tab === 'worked' ? 'Logged' : tab === 'done' ? 'Was due' : 'Due' }}</th><th v-if="everyone || tab === 'done'">Owner</th><th class="remark">Remark</th><th>Today</th><th class="act"></th>
 					</tr></thead>
 					<tbody>
 						<template v-for="r in rows" :key="r.key">
-							<tr class="day-row" v-if="r.kind === 'head'"><td :colspan="everyone || tab === 'done' ? 8 : 7"><span :class="{ late: r.late }">{{ r.label }}</span><span class="sub"> · {{ dayCount(r.day) }}</span></td></tr>
+							<tr class="day-row" v-if="r.kind === 'head'"><td :colspan="everyone || tab === 'done' ? 9 : 8"><span :class="{ late: r.late }">{{ r.label }}</span><span class="sub"> · {{ dayCount(r.day) }}</span></td></tr>
 							<tr v-else class="fu-row-item" :class="{ sel: selected[r.item.name], working: busy[r.item.name] }">
 								<td class="chk"><input type="checkbox" v-if="canSelect && r.item.can_edit" :checked="!!selected[r.item.name]" @change="toggle(r.item)" :aria-label="'Select ' + r.item.reference_title" /></td>
 								<td class="lead-cell">
@@ -651,6 +660,7 @@
 								<td class="when"><b :class="due(r.item).tone">{{ due(r.item).top }}</b><span class="sub">{{ due(r.item).sub }}</span></td>
 								<td class="owner" v-if="everyone || tab === 'done'"><span class="who"><avatar :name="r.item.assigned_name || r.item.assigned_to" /><span class="who-name">{{ r.item.assigned_name || r.item.assigned_to }}</span></span></td>
 								<td class="remark"><span class="remark-text" :title="r.item.remark">{{ r.item.remark || '' }}</span></td>
+								<td class="today"><span v-if="r.item.calls_today" class="chip t-blue" :title="'Last call today at ' + (r.item.last_call_today_at || '').slice(11, 16)">{{ plural(r.item.calls_today, 'call') }}</span><span v-else class="sub">-</span></td>
 								<td class="act">
 									<span class="acts">
 										<button class="btn small primary" @click="logFor(r.item)" title="Log a call or follow-up"><ico name="phone-call" /> Log</button>

@@ -1,5 +1,5 @@
-# Copyright (c) 2026, Coding Pro
-# For internal use in the Coding Pro CRM.
+# Copyright (c) 2026, Siddharth Singh
+# For use in Frappe CRM.
 
 import frappe
 from frappe import _

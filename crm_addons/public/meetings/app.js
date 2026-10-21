@@ -6,6 +6,7 @@
 	// ------------------------------------------------------------------ environment
 	const params = new URLSearchParams(location.search)
 	const EMBED = params.get('embed') === '1'
+	if (params.get('inline') === '1') document.documentElement.classList.add('inline') // shown as a page of the CRM: no Close / new-tab buttons
 	const MODE = ['editor', 'followup'].includes(params.get('mode')) ? params.get('mode') : 'calendar'
 	const HOUR = 48 // px per hour in the week / day grid
 

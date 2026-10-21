@@ -128,12 +128,51 @@ def get_csrf_token():
 	return get_csrf_token()
 
 
+def _email_templates_stamp():
+	"""Changes whenever a Lead email template is added, edited, switched on or off: CRM's template picker keeps its own saved
+	copy of the list and does not look again by itself, so the page compares this and tells it to."""
+	if not frappe.db.exists("DocType", "Email Template"):
+		return ""
+	meta = frappe.get_meta("Email Template")
+	where = " where 1 = 1"
+	if meta.has_field("reference_doctype"):
+		where += " and reference_doctype = 'CRM Lead'"
+	if meta.has_field("enabled"):
+		where += " and enabled = 1"
+	row = frappe.db.sql(f"select count(*), max(modified) from `tabEmail Template`{where}")[0]
+	return f"{row[0]}-{row[1]}"
+
+
+@frappe.whitelist()
+def email_templates_stamp():
+	return _email_templates_stamp()
+
+
 @frappe.whitelist()
 def get_client_config():
 	# settings.get(): a field added by a newer version is simply empty until `bench migrate` has run,
 	# instead of failing every page load
 	settings = get_settings()
+	from crm_addons import views
+	from crm_addons.inject import asset_version
+
+	try:
+		views_changed = 1 if views.ensure_for_user() else 0
+	except Exception:
+		frappe.log_error(title="CRM Pro Pack: default views", message=frappe.get_traceback())
+		views_changed = 0
+
+	try:
+		layout = frappe.parse_json(settings.get("sidebar_layout") or "[]")
+		layout = [{"key": str(x.get("key")), "hidden": cint(x.get("hidden"))} for x in layout if isinstance(x, dict) and x.get("key")] if isinstance(layout, list) else []
+	except Exception:
+		layout = []
+
 	return {
+		"asset_version": asset_version(),
+		"sidebar_layout": layout,
+		"views_changed": views_changed,
+		"email_templates_stamp": _email_templates_stamp(),
 		"user": frappe.session.user,
 		"user_name": user_details(frappe.session.user)[1] or frappe.session.user,
 		"is_manager": is_manager(),
@@ -144,6 +183,7 @@ def get_client_config():
 		"show_follow_up_button": cint(settings.get("show_follow_up_button")),
 		"hide_deals_menu": cint(settings.get("hide_deals_menu")),
 		"can_manage_campaigns": 1 if is_campaign_manager() else 0,
+		"can_assign": 1 if frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles() else 0,  # the Assignment menu: System Managers only
 		"show_campaigns_shortcut": 1 if campaigns_shortcut_visible(settings) else 0,
 		"deals_enabled": 0 if cint(settings.get("hide_deals_menu")) else 1,  # dashboards leave deal numbers out for a team that does not use Deals
 		"hide_notes_menu": cint(settings.get("hide_notes_menu")),

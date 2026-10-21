@@ -2,7 +2,7 @@ from . import __version__ as app_version  # noqa: F401
 
 app_name = "crm_addons"
 app_title = "CRM Pro Pack"
-app_publisher = "Coding Pro"
+app_publisher = "Siddharth Singh"
 app_description = (
 	"CRM Pro Pack for Frappe CRM: Google Meet and Google Calendar meetings, call follow-ups with "
 	"attempts and outcomes, lead scoring, stale-lead alerts, a role-aware Sales Dashboard with Excel "
@@ -18,10 +18,15 @@ after_install = "crm_addons.install.after_install"
 after_migrate = "crm_addons.install.after_migrate"
 before_uninstall = "crm_addons.install.before_uninstall"
 
-# Managers see every meeting; sales users only the ones they made or were invited to.
+# Managers see every meeting; sales users only the ones they made or were invited to (and see only their own leads, calls, notes and tasks).
 permission_query_conditions = {
 	"CRM Meeting": "crm_addons.permissions.get_permission_query_conditions",
 	"CRM Follow Up": "crm_addons.permissions.get_follow_up_query_conditions",
+	# A Sales User sees only their own data (see permissions.py); managers and Campaign Managers see everything.
+	"CRM Lead": "crm_addons.permissions.lead_query_conditions",
+	"CRM Call Log": "crm_addons.permissions.call_log_query_conditions",
+	"FCRM Note": "crm_addons.permissions.note_query_conditions",
+	"CRM Task": "crm_addons.permissions.task_query_conditions",
 	"CRM Campaign": "crm_addons.campaigns.permissions.campaign_query_conditions",
 	"CRM Campaign Recipient": "crm_addons.campaigns.permissions.recipient_query_conditions",
 	"CRM Campaign Automation": "crm_addons.campaigns.permissions.automation_query_conditions",
@@ -29,6 +34,10 @@ permission_query_conditions = {
 has_permission = {
 	"CRM Meeting": "crm_addons.permissions.has_permission",
 	"CRM Follow Up": "crm_addons.permissions.has_follow_up_permission",
+	"CRM Lead": "crm_addons.permissions.lead_has_permission",
+	"CRM Call Log": "crm_addons.permissions.call_log_has_permission",
+	"FCRM Note": "crm_addons.permissions.note_has_permission",
+	"CRM Task": "crm_addons.permissions.task_has_permission",
 	"CRM Campaign": "crm_addons.campaigns.permissions.campaign_has_permission",
 	"CRM Campaign Recipient": "crm_addons.campaigns.permissions.recipient_has_permission",
 	"CRM Campaign Automation": "crm_addons.campaigns.permissions.automation_has_permission",
@@ -43,8 +52,12 @@ doc_events = {
 		"on_update": "crm_addons.campaigns.engine.on_whatsapp_message_update",
 	},
 	"Communication": {"after_insert": "crm_addons.campaigns.rules.on_communication"},
+	# A campaign email template and CRM's own Email Template (the one used when mailing a lead by hand) are kept in step.
+	"CRM Campaign Email Template": {"on_update": "crm_addons.campaigns.email_sync.push", "on_trash": "crm_addons.campaigns.email_sync.disable_twin"},
+	"Email Template": {"on_update": "crm_addons.campaigns.email_sync.pull"},
 	"CRM Lead": {
-		"after_insert": "crm_addons.campaigns.triggers.on_lead_insert",
+		# the assignment rules first, so a campaign that starts on a new lead already sees its owner
+		"after_insert": ["crm_addons.assignment.on_lead_insert", "crm_addons.campaigns.triggers.on_lead_insert"],
 		"on_update": "crm_addons.campaigns.triggers.on_lead_update",
 	},
 }
@@ -60,6 +73,7 @@ website_redirects = [
 	{"source": "/sales-dashboard", "target": "/assets/crm_addons/meetings/dashboard.html"},
 	{"source": "/followups", "target": "/assets/crm_addons/meetings/followups.html"},
 	{"source": "/campaigns", "target": "/assets/crm_addons/campaigns/index.html"},
+	{"source": "/assignment", "target": "/assets/crm_addons/campaigns/assignment.html"},
 	{"source": "/pro-pack-setup", "target": "/assets/crm_addons/setup/index.html"},
 ]
 

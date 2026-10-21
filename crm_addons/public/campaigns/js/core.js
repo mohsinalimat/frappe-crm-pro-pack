@@ -15,6 +15,8 @@
 	/** Opened as a pop-up over CRM (iframe, ?embed=1)? Then the page fills the frame and offers Open-in-new-tab and Close. */
 	CM.embed = params.get('embed') === '1' && window.parent !== window
 	if (CM.embed) document.documentElement.classList.add('embed')
+	CM.inline = CM.embed && params.get('inline') === '1' // shown as a page of the CRM (not a pop-up): no Close / new-tab buttons
+	if (CM.inline) document.documentElement.classList.add('inline')
 	/** Tell the CRM page that opened us something (the bridge listens for {source:'crm-addons'}). */
 	CM.post = (type, extra) => { try { window.parent.postMessage({ source: 'crm-addons', type, ...(extra || {}) }, location.origin) } catch (e) { /* no parent */ } }
 	function readTheme() {
@@ -92,6 +94,7 @@
 	CM.cancel = (key) => { const c = inflight.get(key); if (c) c.abort(); inflight.delete(key) }
 	CM.call = call
 	CM.api = (m, a) => call('crm_addons.campaigns.api.' + m, a)
+	CM.apiA = (m, a) => call('crm_addons.assignment.' + m, a) // lead assignment (System Managers only)
 	CM.apiLatest = (key, m, a) => latest(key, 'crm_addons.campaigns.api.' + m, a)
 	CM.auto = (m, a) => call('crm_addons.campaigns.automation.' + m, a)
 	CM.analytics = (m, a) => call('crm_addons.campaigns.analytics.' + m, a)
@@ -130,8 +133,13 @@
 		shared.loading = true
 		sharedP = (async () => {
 			try {
-				;[shared.config, shared.fields] = await Promise.all([CM.api('get_config'), CM.api('get_audience_fields')])
-				shared.error = ''
+				// The two calls are independent: if the audience fields fail, the config (who may create campaigns, and so
+				// every Create button) must still arrive instead of leaving the whole screen read-only.
+				const [cfg, fields] = await Promise.allSettled([CM.api('get_config'), CM.api('get_audience_fields')])
+				if (cfg.status === 'rejected') throw cfg.reason
+				shared.config = cfg.value
+				if (fields.status === 'fulfilled') shared.fields = fields.value
+				shared.error = fields.status === 'rejected' ? fields.reason.message : ''
 				if (shared.config.now) CM.skew = new Date(shared.config.now.replace(' ', 'T')).getTime() - Date.now()
 			} catch (e) { shared.error = e.message; sharedP = null } finally { shared.loading = false }
 		})()
@@ -281,6 +289,9 @@
 		underline: '<path d="M6 4v6a6 6 0 0 0 12 0V4"/><line x1="4" x2="20" y1="20" y2="20"/>',
 		list: '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
 		'list-ol': '<path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
+		'align-left': '<path d="M21 6H3"/><path d="M15 12H3"/><path d="M17 18H3"/>',
+		'align-right': '<path d="M21 6H3"/><path d="M21 12H9"/><path d="M21 18H7"/>',
+		palette: '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.6 0-.4-.2-.8-.5-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.7 1.7-1.7H16c3.3 0 6-2.7 6-6 0-4.9-4.5-8.5-10-8.5Z"/>',
 		'align-center': '<path d="M21 6H3"/><path d="M17 12H7"/><path d="M19 18H5"/>',
 		clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
 		calendar: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>',

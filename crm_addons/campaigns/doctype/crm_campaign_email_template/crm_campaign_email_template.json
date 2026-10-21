@@ -13,7 +13,8 @@
   "body_text",
   "variables",
   "description",
-  "builder_json"
+  "builder_json",
+  "crm_email_template"
  ],
  "fields": [
   {
@@ -84,9 +85,18 @@
    "label": "Visual Builder Blocks",
    "hidden": 1,
    "description": "Block definition of the visual builder. Not used when sending."
+  },
+  {
+   "fieldname": "crm_email_template",
+   "fieldtype": "Data",
+   "label": "CRM Email Template",
+   "read_only": 1,
+   "hidden": 0,
+   "no_copy": 1,
+   "description": "The twin of this template in CRM's own Email Template list (kept in step on save)."
   }
  ],
- "modified": "2026-10-06 09:00:00.000000",
+ "modified": "2026-10-21 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Campaigns",
  "name": "CRM Campaign Email Template",

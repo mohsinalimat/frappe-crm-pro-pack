@@ -70,6 +70,11 @@ A separate OAuth client for each environment (production, staging, your laptop) 
 See the table in the README. Managers (System Manager, Sales Manager) see every meeting; sales
 users see meetings they created or were invited to.
 
+**A Sales User only ever sees their own data** (leads, follow-ups, calls, notes, tasks, meetings, their own dashboard numbers),
+enforced on the server. A lead counts as theirs when they own it or are assigned to it. System Managers, Sales Managers and
+Campaign Managers keep full access; Campaign results on the dashboard are company-wide for everyone. Only Sales Managers and
+System Managers can customize a dashboard.
+
 ## Testing as a new sales user
 
 Sales users never authorize Google. To see exactly what they will see:
@@ -139,11 +144,15 @@ Follow-ups tabs to Lead pages** can be switched off if you do not want them. **S
 
 ## Sales Dashboard
 
-Open it with **Dashboard** on the Leads list (header), the Leads Kanban view (floating button) or
-CRM's own Dashboard page. It opens as a large pop-up over the CRM (like the Meetings calendar); the
-**Open in a new tab** button next to Close opens the same tab, date range and person full screen, and
-`/sales-dashboard` goes there directly. Esc or a click outside closes the pop-up (Esc first closes an open
-dropdown or the date picker). Lead and meeting links move the CRM tab behind the pop-up.
+Open it with **Sales Dashboard** in CRM's left menu, or the buttons on the Leads list (header), the Leads Kanban view
+(floating button) or CRM's own Dashboard page. It opens as a page of the CRM, beside CRM's menu, at
+`/crm/pro-pack-sales-dashboard` (Back and reload work); the **Open in a new tab** button gives the full-screen version
+(`/sales-dashboard`) with the same date range and person. Clicking any CRM menu row leaves it. On a narrow screen (under 900 px)
+it opens as a pop-up instead. Lead and meeting links move the CRM tab to that record.
+
+- **Lead counts** (on top of the activity numbers): total, open and unassigned leads; leads counted by any field (state, type,
+  industry, source ...); named counts such as Schools or Private colleges; and **Leads assigned by person**. All of it is chosen
+  on the setup page, section *Sales Dashboard counts*. A sales user only gets counts of their own leads.
 
 - **Export** (top right) downloads an Excel workbook with a sheet for each section and the full call
   log, or the call log alone as CSV. Sales users can only export their own numbers.
@@ -199,3 +208,32 @@ These only hide things on the screen (they are off by default). They do not stop
 `/crm/deals` directly or calls the API; use Frappe's role permissions on **CRM Deal** for that. The
 button is found by its label, so check it after a CRM update. Reload the CRM page after changing a
 switch.
+
+## Setting up the CRM screens (setup page)
+
+Open `/pro-pack-setup` (System Managers). Besides the switches above it has:
+
+- **Left menu: order and what is shown** (section *CRM screens*): every entry of CRM's left menu and this app's
+  (Sales Dashboard, Follow-ups, Meetings, Campaigns, Assignment) in one list. Move entries up and down and switch any off, including
+  Dashboard, Leads, Contacts and Organizations. It applies to everyone, only hides and re-orders the links (pages and permissions are
+  untouched), and *Back to CRM's own order* undoes it. Saved views not in the list follow the listed entries.
+- **Default views** (own section): for Leads, Contacts and Organizations - opens as list or Kanban (CRM has Kanban for Leads only),
+  list columns, sort order, default filters, the quick-filter boxes above the list, and for Leads the Kanban field, card title and card
+  fields. **Save and apply to everyone** writes each person's own CRM view. Someone who saved their own view in CRM keeps it, unless you
+  tick *Also replace the views people have changed*. People who log in later get the layout on their first load (the page reloads once).
+- **Sales Dashboard counts**: see above.
+
+## Lead assignment
+
+See [ASSIGNMENT.md](ASSIGNMENT.md). System Managers only: rules for new leads, assigning existing leads, moving a person's leads to
+others, and a history with Undo for 24 hours.
+
+## Upgrading to 1.4.0
+
+1. `bench --site your-site migrate`, then `bench restart`. (No `bench build` is needed.) Migrate adds doctypes and a few hidden fields
+   (settings, CRM View Settings, WhatsApp Templates), adds the ready-made email templates and mirrors email templates with CRM's own
+   *Email Template* list.
+2. The workers must be running for jobs of more than 300 leads (assignment, undo) and for campaign sending.
+3. Everyone hard-refreshes the CRM once (Ctrl/Cmd + Shift + R). From then on a release loads by itself: if Pro Pack has not started 8
+   seconds after the CRM loads, the page clears CRM's saved copy of itself and reloads once, then shows a *Pro Pack did not load* bar.
+

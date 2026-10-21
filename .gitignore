@@ -1,11 +1,47 @@
+# Python
 __pycache__/
-*.pyc
-.DS_Store
+*.py[cod]
 *.egg-info/
-node_modules/
-*.bak
-.vscode/
-.idea/
+.eggs/
 build/
 dist/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Node (the UI has no build step; nothing from npm belongs here)
+node_modules/
+
+# Editors and operating systems
+.DS_Store
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+
+# Secrets and local settings: never commit these
+.env
+.env.*
+*.pem
+*.key
+site_config.json
+common_site_config.json
+
+# Local data, dumps, backups and logs
+*.log
+*.sqlite
+*.sqlite3
+*.sql
+*.sql.gz
 dump.rdb
+*.bak
+*.tgz
+*.tar.gz
+*.zip
+
+# Scratch files used to try the screens in a browser, and tool folders
+__*.html
+scratch/
+.claude/

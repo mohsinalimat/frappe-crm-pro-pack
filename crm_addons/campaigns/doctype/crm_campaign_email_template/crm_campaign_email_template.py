@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Coding Pro
+# Copyright (c) 2026, Siddharth Singh
 import frappe
 from frappe import _
 from frappe.model.document import Document

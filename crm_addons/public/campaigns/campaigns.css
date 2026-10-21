@@ -297,3 +297,15 @@ html.embed .te-bar { padding-right: 96px; }
 @media (max-width: 700px) { .tabs-row { flex-wrap: wrap; } }
 
 .clist td:first-child { min-width: 200px; } .clist td:first-child b { display: block; }
+.app.solo { display: block; } .app.solo .main { height: 100%; }
+.solo-back { position: fixed; top: 14px; right: 18px; z-index: 5; }
+
+/* a Pro Pack page shown inside the CRM: no pop-up controls */
+html.inline .embed-ctl button[aria-label="Close"] { display: none; } html.inline .embed-ctl { padding: 2px; } html.inline .pg-head, html.inline .te-bar, html.inline .wz-top-in > .row:first-child { padding-right: 52px; }
+
+/* Pro Pack pages shown inside the CRM share one header: a 56px bar, title and a short line beneath, actions on the right */
+html.inline .pg-head { position: sticky; top: 0; z-index: 6; align-items: center; min-height: 56px; margin: -28px -32px 6px; padding: 8px 52px 8px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+html.inline .pg-head h1 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.25; letter-spacing: -0.01em; }
+html.inline .pg-head p { margin: 1px 0 0; max-width: 70ch; font-size: 12.5px; line-height: 1.3; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.inline .pg-head .grow { min-width: 0; }
+@media (max-width: 900px) { html.inline .pg-head { margin: -18px -16px 6px; padding-left: 16px; } }

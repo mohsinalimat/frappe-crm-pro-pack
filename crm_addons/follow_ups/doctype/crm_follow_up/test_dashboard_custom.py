@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Coding Pro
+# Copyright (c) 2026, Siddharth Singh
 """A person's own dashboard layout, the Campaigns export, and leaving deals out for a team that does not use them.
 
 Run on a bench:  bench --site <site> run-tests --app crm_addons --module crm_addons.follow_ups.doctype.crm_follow_up.test_dashboard_custom

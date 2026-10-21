@@ -13,6 +13,7 @@ from frappe.utils import cint, cstr, now_datetime
 
 from crm_addons.campaigns import analytics, audience, automation, channels, engine, hygiene, journey, optout, personalization, rules, schedule_view
 from crm_addons.campaigns.channels import get_sender
+from crm_addons.campaigns.guard import http_timeout
 from crm_addons.campaigns.common import (
 	CAMPAIGN,
 	CHANNELS,
@@ -93,6 +94,7 @@ def get_config():
 		"rule_events": list(rules.EVENTS),
 		"rule_actions": list(rules.ACTIONS),
 		"can_configure": frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles(),
+		"can_assign": frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles(),
 		"types": ["Marketing", "Follow-up", "Announcement", "Reminder", "Other"],
 		"timezone": DEFAULT_TIMEZONE,
 		"now": now_datetime().strftime("%Y-%m-%d %H:%M:%S"),  # the site's wall clock: date pickers use its "today"
@@ -477,6 +479,28 @@ def save_email_template(data, name=None):
 	return get_email_template(doc.name)
 
 
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif", ".webp")
+
+
+@frappe.whitelist()
+def list_image_files(search=None, limit=60):
+	"""Public images already on this site (newest first), for "insert an image" in the email editors. Only public files:
+	a recipient's mail app could not open a private one."""
+	_check_user()
+	rows = frappe.get_list(
+		"File",
+		filters={"is_folder": 0, "is_private": 0, "file_url": ["is", "set"]},
+		or_filters=[["file_name", "like", f"%{ext}"] for ext in IMAGE_EXTENSIONS],
+		fields=["name", "file_name", "file_url", "file_size", "creation"],
+		order_by="creation desc",
+		limit_page_length=500 if search else min(cint(limit) or 60, 200),
+	)
+	term = cstr(search).strip().lower()
+	if term:
+		rows = [r for r in rows if term in cstr(r.file_name).lower()][: min(cint(limit) or 60, 200)]
+	return rows
+
+
 @frappe.whitelist()
 def duplicate_email_template(name):
 	_check_user()
@@ -674,7 +698,8 @@ def list_whatsapp_templates(search=None, category=None, status=None):
 		filters["category"] = category
 	rows = frappe.get_all(
 		"WhatsApp Templates", filters=filters,
-		fields=["name", "template_name", "actual_name", "status", "language_code", "category", "template", "header", "header_type", "footer", "sample_values", "sample", "whatsapp_account", "id", "modified"],
+		fields=["name", "template_name", "actual_name", "status", "language_code", "category", "template", "header", "header_type", "footer", "sample_values", "sample", "whatsapp_account", "id", "modified"]
+		+ (["crm_variable_map"] if frappe.get_meta("WhatsApp Templates").has_field("crm_variable_map") else []),
 		order_by="modified desc", limit_page_length=500,
 	)
 	buttons = {}
@@ -688,13 +713,20 @@ def list_whatsapp_templates(search=None, category=None, status=None):
 		if search and search.lower() not in f"{r.template_name} {r.template}".lower():
 			continue
 		samples = [x.strip() for x in cstr(r.sample_values).split(",")] if r.sample_values else []
+		try:
+			saved_map = json.loads(r.get("crm_variable_map") or "{}")
+		except ValueError:
+			saved_map = {}
 		out.append(
 			{
 				**r, "state": state, "approved": state == "APPROVED", "synced": bool(r.id),
+				"variable_map": saved_map if isinstance(saved_map, dict) else {},
+				"default_media": r.sample if cstr(r.header_type).upper() in ("IMAGE", "DOCUMENT", "VIDEO") and cstr(r.sample).startswith(("/", "http")) else "",
 				"placeholders": personalization.placeholders_in(r.template), "samples": samples, "buttons": buttons.get(r.name, []),
 			}
 		)
-	return {"installed": True, "rows": out, "can_sync": is_campaign_manager(), "account": default_whatsapp_account()}
+	languages = frappe.get_all("Language", filters={"enabled": 1}, pluck="name", order_by="name asc") or ["en"]
+	return {"installed": True, "rows": out, "can_sync": is_campaign_manager(), "can_create": is_campaign_manager(), "account": default_whatsapp_account(), "languages": languages}
 
 
 @frappe.whitelist()
@@ -712,6 +744,148 @@ def sync_whatsapp_templates():
 		frappe.throw(_("This version of frappe_whatsapp has no template sync. Use the sync button in WhatsApp Templates in Desk."))
 	message = fetch()
 	return {"message": cstr(message), "count": frappe.db.count("WhatsApp Templates")}
+
+
+WA_CATEGORIES = ("MARKETING", "UTILITY")
+WA_HEADER_TYPES = ("", "TEXT", "IMAGE", "DOCUMENT")
+WA_BUTTON_TYPES = ("Quick Reply", "Call Phone", "Visit Website")
+WA_BODY_MAX, WA_HEADER_MAX, WA_FOOTER_MAX, WA_BUTTON_MAX, WA_BUTTONS_MAX = 1024, 60, 60, 25, 10
+
+
+def _template_fields(data):
+	"""The checked fields of a new WhatsApp template, as ``WhatsApp Templates`` columns. Meta's own rules that are cheap to
+	check are checked here so the person gets a clear message before anything is sent to Meta."""
+	name = cstr(data.get("template_name")).strip().lower().replace(" ", "_")
+	if not re.fullmatch(r"[a-z0-9_]{1,100}", name):
+		frappe.throw(_("The template name can only have lower case letters, numbers and underscores, for example order_update."))
+	category = cstr(data.get("category")).upper()
+	if category not in WA_CATEGORIES:
+		frappe.throw(_("Choose a category: Marketing or Utility."))
+	language = cstr(data.get("language")).strip() or "en"
+	if not frappe.db.exists("Language", language):
+		frappe.throw(_("Language {0} was not found.").format(frappe.bold(language)))
+
+	body = cstr(data.get("template")).strip()
+	if not body:
+		frappe.throw(_("Write the message text (the body)."))
+	if len(body) > WA_BODY_MAX:
+		frappe.throw(_("The body can be at most {0} characters.").format(WA_BODY_MAX))
+	numbers = personalization.placeholders_in(body)
+	if numbers != list(range(1, len(numbers) + 1)):
+		frappe.throw(_("Number the variables in order: {{1}}, {{2}}, {{3}} ... with none missing."))
+	samples = [cstr(x).strip() for x in (data.get("sample_values") or [])][: len(numbers)]
+	if len(numbers) and (len(samples) != len(numbers) or not all(samples)):
+		frappe.throw(_("Meta needs an example value for every variable. Fill in all {0}.").format(len(numbers)))
+	if any("," in x for x in samples):
+		frappe.throw(_("An example value cannot contain a comma."))
+
+	header_type = cstr(data.get("header_type")).upper()
+	if header_type not in WA_HEADER_TYPES:
+		frappe.throw(_("The header can be text, an image or a document."))
+	header, sample = "", ""
+	if header_type == "TEXT":
+		header = cstr(data.get("header")).strip()
+		if not header or len(header) > WA_HEADER_MAX or "{{" in header:
+			frappe.throw(_("A text header needs 1 to {0} characters and no variables.").format(WA_HEADER_MAX))
+	elif header_type:
+		sample = cstr(data.get("sample")).strip()
+		if not sample:
+			frappe.throw(_("Upload an example {0} for the header; Meta reviews it.").format(header_type.lower()))
+		files_for_urls([sample])
+	footer = cstr(data.get("footer")).strip()
+	if len(footer) > WA_FOOTER_MAX or "{{" in footer:
+		frappe.throw(_("The footer can be at most {0} characters and has no variables.").format(WA_FOOTER_MAX))
+
+	buttons = []
+	for b in (data.get("buttons") or [])[:WA_BUTTONS_MAX]:
+		kind, label = cstr(b.get("button_type")), cstr(b.get("button_label")).strip()
+		if kind not in WA_BUTTON_TYPES or not label or len(label) > WA_BUTTON_MAX:
+			frappe.throw(_("Each button needs a type and a label of up to {0} characters.").format(WA_BUTTON_MAX))
+		row = {"button_type": kind, "button_label": label}
+		if kind == "Visit Website":
+			url = cstr(b.get("website_url")).strip()
+			if not re.match(r"https?://", url):
+				frappe.throw(_("The website button {0} needs a link that starts with https://.").format(frappe.bold(label)))
+			row.update(website_url=url, url_type="Dynamic" if "{{" in url else "Static")
+			if "{{" in url:
+				row["example_url"] = cstr(b.get("example_url")).strip() or frappe.throw(_("Add an example link for the website button {0}.").format(frappe.bold(label)))
+		elif kind == "Call Phone":
+			phone = re.sub(r"[^\d+]", "", cstr(b.get("phone_number")))
+			if len(re.sub(r"\D", "", phone)) < 7:
+				frappe.throw(_("The call button {0} needs a phone number with its country code.").format(frappe.bold(label)))
+			row["phone_number"] = phone
+		buttons.append(row)
+
+	# which lead field fills each variable by default (kept on the template so a campaign starts with it filled in)
+	raw_map = data.get("variable_map") or {}
+	variable_map = {str(n): cstr(raw_map.get(str(n)) or raw_map.get(n) or "").strip() for n in numbers}
+	if any(variable_map.values()):
+		personalization.parse_variable_map(variable_map)
+		if personalization.unknown_variables(*variable_map.values()):
+			frappe.throw(_("A variable is tied to a lead field that does not exist."))
+
+	return {
+		"variable_map": variable_map,
+		"template_name": name, "category": category, "language": language, "template": body, "sample_values": ",".join(samples),
+		"header_type": header_type or None, "header": header or None, "sample": sample or None, "footer": footer or None, "buttons": buttons,
+	}
+
+
+def _wa_name_status(name, language):
+	"""Is ``name`` usable for a new template in ``language``? Meta's rules: lower case letters, numbers and underscores only, and
+	the name must be new for that language (the same name may exist in other languages). Meta also keeps the name of a template
+	deleted in the last 30 days, which only Meta can tell us about, so a refusal from Meta is still passed on as it is."""
+	norm = cstr(name).strip().lower().replace(" ", "_")
+	if not norm:
+		return {"ok": None, "message": ""}
+	if not re.fullmatch(r"[a-z0-9_]{1,100}", norm):
+		return {"ok": False, "message": _("Use only lower case letters, numbers and underscores, for example order_update.")}
+	language = cstr(language).strip() or "en"
+	code = (frappe.db.get_value("Language", language) or "en").replace("-", "_") if frappe.db.exists("Language", language) else "en"
+	if frappe.db.exists("WhatsApp Templates", {"actual_name": norm, "language_code": code}) or frappe.db.exists("WhatsApp Templates", f"{norm}-{code}"):
+		taken = {r.lower() for r in frappe.get_all("WhatsApp Templates", filters={"language_code": code}, pluck="actual_name") if r}
+		suggestion = next((f"{norm}_v{n}" for n in range(2, 50) if f"{norm}_v{n}" not in taken), "")
+		return {"ok": False, "message": _("A {0} template named {1} already exists. Meta needs a new name for each template in a language.").format(code, frappe.bold(norm)) + (f" {_('Try')} {suggestion}." if suggestion else ""), "suggestion": suggestion}
+	others = frappe.get_all("WhatsApp Templates", filters={"actual_name": norm, "language_code": ["!=", code]}, pluck="language_code")
+	note = _(" It also exists in {0}; that is fine, a name can be used once per language.").format(", ".join(others)) if others else ""
+	return {"ok": True, "message": _("{0} is free for {1}.").format(norm, code) + note}
+
+
+@frappe.whitelist()
+def check_whatsapp_template_name(template_name=None, language=None):
+	"""Live name check for the Create template dialog."""
+	_check_user()
+	if not whatsapp_installed():
+		return {"ok": None, "message": ""}
+	return _wa_name_status(template_name, language)
+
+
+@frappe.whitelist()
+def create_whatsapp_template(data):
+	"""Create a template with frappe_whatsapp's own ``WhatsApp Templates`` document. Inserting it is what submits it to Meta
+	(its ``after_insert`` makes the call), so there is no Meta code here. The template starts as Pending. Managers only."""
+	_check_user()
+	_require_manager("create WhatsApp templates")
+	if not whatsapp_installed():
+		frappe.throw(_("The frappe_whatsapp app is not installed on this site."))
+	if not default_whatsapp_account():
+		frappe.throw(_("Set an active default outgoing WhatsApp Account first; templates are submitted through it."))
+	fields = _template_fields(_json(data))
+	status = _wa_name_status(fields["template_name"], fields["language"])
+	if not status["ok"]:
+		frappe.throw(status["message"])
+	buttons = fields.pop("buttons")
+	variable_map = fields.pop("variable_map")
+	doc = frappe.new_doc("WhatsApp Templates")
+	doc.update(fields)
+	if frappe.get_meta("WhatsApp Templates").has_field("crm_variable_map"):
+		doc.crm_variable_map = json.dumps(variable_map)
+	doc.whatsapp_account = default_whatsapp_account()  # the same account the campaigns send from
+	for b in buttons:
+		doc.append("buttons", b)
+	with http_timeout():
+		doc.insert(ignore_permissions=True)  # frappe_whatsapp sends it to Meta here; a refusal raises and nothing is kept
+	return {"name": doc.name, "status": cstr(doc.status).upper() or "PENDING", "message": _("Submitted to Meta. It is Pending until Meta approves it.")}
 
 
 # -- saved segments -----------------------------------------------------------------------------------------
