@@ -1,0 +1,61 @@
+# Test list by role (release 1.4.0)
+
+Use three real users: **Sales User** (call them Asha), a second **Sales User** (Ben) who owns different leads, a **Campaign Manager** (Cara, with the Sales User role too) and a **Sales Manager** (Meera). Give Asha and Ben at least one lead, one logged call, one follow-up and one note each. Hard-refresh the CRM (Ctrl/Cmd + Shift + R) once before you start.
+
+## Sales User (Asha)
+
+**Must work**
+1. Leads list shows only Asha's leads. Kanban the same.
+2. Follow-ups: tabs *Today's work*, *Overdue*, *Due today*, *Upcoming*, *Done*. *Today's work* lists the calls and follow-ups logged today with lead, phone, status, organization, last call outcome, remark, next follow-up and the **Today** call count. There is **no** owner or "Everyone" picker.
+3. Log a call on a lead: it appears under *Today's work* with the remark.
+4. Sales Dashboard: only Asha's calls, connected calls and numbers; **no Customize button**; the *Campaigns* tab shows the company-wide numbers (the same figures Meera sees).
+5. Campaigns: can open the list, a campaign, Reports and templates; **no** Create campaign / Create automation / Create template / Create audience buttons anywhere (list, empty states, Reports, dashboard Campaigns tab).
+6. WhatsApp templates page: sees the templates, **no** Create template or Sync button.
+
+**Must fail (try each)**
+7. Open Ben's lead by address (`/crm/leads/<Ben's lead id>`): not found / no permission.
+8. In Desk, `/app/crm-call-log`, `/app/fcrm-note`, `/app/crm-task`, `/app/crm-follow-up`: only Asha's rows. Open one of Ben's by name (`/app/crm-follow-up/<id>`): refused.
+9. Follow-ups page opened as `/followups?scope=all&owner=ben@example.com`: still only Asha's.
+10. Sales Dashboard opened as `/sales-dashboard?user=ben@example.com` (or the API `crm_addons.reports.get_sales_report?user=ben@example.com`): still only Asha's numbers.
+11. API `crm_addons.dashboard.save_layout` / `reset_layout`: permission error. `crm_addons.campaigns.api.create_whatsapp_template`, `save_email_template`, `save_campaign`: permission error.
+
+## Campaign Manager (Cara)
+
+1. Campaigns list shows **Create campaign** (right after the page loads, without a refresh). Create, edit, duplicate, launch a campaign; create an automation.
+2. WhatsApp templates: **Create template** (tie `{{1}}` to a lead field; the example fills in; the phone preview shows header image and values; use the template in a campaign step: the variables and the header file are already there) with a text header, a body with `{{1}}` and `{{2}}` plus example values, a footer and a quick-reply button. It appears as *Pending*. Missing example values or a wrong name is refused with a clear message before anything reaches Meta. **Sync status from Meta** updates it to Approved / Rejected once Meta has decided.
+3. Email templates (each of Visual builder, HTML, Rich text):
+   - **Change type** in the editor: switch to each other type; the confirmation says whether formatting is lost; the content is kept.
+   - Library: eight ready-made templates (welcome, follow-up, missed call, admissions, event, newsletter, announcement, reminder) are listed and open in the visual builder.
+   - Visual builder: one **Row** block; use + / - for 1 to 6 columns and pick the content of each column; Image alignment left / centre / right at 50% width; Text block with bold, italic, underline, font, size, colour, alignment, link, bullet and numbered lists; Heading font / size / bold / italic / underline; a **3 images in a row** block and a 2 column row with a line between columns; preview on Mobile (columns shrink or stack).
+   - Selection: click a block, click another (only one is highlighted); click outside the builder or press Escape (nothing is highlighted); switch editor type (no leftover selection).
+   - Scrolling: in the HTML and Rich text editors scroll the preview; the subject and toolbar stay put.
+   - HTML editor: **Image** button (upload, a file on the site, a web address) inserts at the cursor.
+   - Rich text: H1, H2, bold and italic still work.
+   - Attach a 25 MB file in each editor type (accepted); a 35 MB file is refused and the screen says "30 MB".
+4. Send a test email; merge fields `{{ first_name }}`, `{{ organization }}`, `{{ owner_name }}` are filled.
+5. In CRM open a lead, **Email**, **Insert template** (the template picker): the template saved in step 3 is listed and renders the same with the lead's name, organization and owner. Edit it there, save, and the campaign library shows the edit. Make a new CRM email template for Leads: it appears in the campaign library.
+6. Sales Dashboard *Campaigns* tab opens and shows company-wide numbers (needs Sales User as well).
+
+## Sales Manager (Meera)
+
+1. Sees every lead, follow-up, call, note, task and meeting; Follow-ups opens on *Everyone* and the owner picker narrows to one person.
+2. Sales Dashboard: whole team or one person; **Customize** works and saves; Export works.
+3. All Campaign Manager steps above that create or edit things (campaigns, automations, email templates, WhatsApp Create template and Sync).
+4. Sales Dashboard *Campaigns* tab shows the same numbers as Asha.
+
+## After an upgrade
+
+1. `bench --site <site> migrate` then `bench restart`.
+2. Open the CRM in a browser that had it open before the upgrade, **without** a hard refresh, and wait about a minute: the Pro Pack buttons and tabs still appear and no button is doubled. (After this first 1.4.0 load, later releases update themselves the same way.)
+3. In CRM, open Settings > Email Templates: every campaign template is listed, and no template existed twice.
+
+4. Watchdog: in the browser's developer tools block `/assets/crm_addons/addons.js` (Network > Block request URL) and open the CRM: after about 8 seconds the page reloads once by itself, and if the script is still blocked a "CRM Pro Pack did not load" bar with a Reload button appears. Unblock it and press Reload: everything appears and the bar does not come back.
+
+## System Manager: lead assignment
+
+1. The **Assignment** link shows in CRM's left menu for a System Manager, and for nobody else (Sales Manager and Campaign Manager do not see it; `/assignment` shows "Only System Managers can assign leads"; the API refuses). It is not in the Campaign Manager's side panel.
+2. Create a rule "Bihar" (State = Bihar) to two people, round robin; create two new Bihar leads: they go one to each. Create a lead from Kerala: untouched. Both people get a CRM notification; no email arrives.
+3. Create a rule "School" (Industry = School) to a third person with *All of them together*. The page warns that it can share leads with "Bihar"; agree. A new Bihar school lead is owned by the first person of "Bihar" and also assigned to the others; each of them can open it, nobody else can.
+4. *Least workload*: give one person many open leads; new leads go to the other.
+5. **Assign existing leads** on a rule: preview count, "only leads with no owner" versus "all matching", the clash warning when leads also match another rule, and the result in *History*.
+6. **Assign leads now** with typed conditions, and **Move leads** from A to B, C: A no longer sees the leads, B and C do, in turn.

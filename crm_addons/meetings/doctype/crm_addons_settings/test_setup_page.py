@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Coding Pro
+# Copyright (c) 2026, Siddharth Singh
 """The setup page's backend: what it shows, what it saves and who may use it.
 
 Run on a bench:  bench --site <site> run-tests --app crm_addons --module crm_addons.meetings.doctype.crm_addons_settings.test_setup_page

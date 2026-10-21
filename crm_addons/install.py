@@ -107,6 +107,13 @@ STARTER_EMAIL_TEMPLATES = [
 
 LOADER = """// Managed by the CRM Pro Pack app. It is rewritten when the app updates - do not edit.
 function crmAddonsLoad() {
+	// the page's own Pro Pack script did not start (an old saved copy of the CRM page): start it from here
+	if (!window.__crmAddonsUI && !window.__craEnsuring) {
+		window.__craEnsuring = true
+		const a = document.createElement("script")
+		a.src = "/assets/crm_addons/addons.js?v=__VERSION__"
+		document.head.appendChild(a)
+	}
 	if (window.crmAddons) return Promise.resolve(window.crmAddons)
 	// the add-on script is already on the page and knows the current version of every file
 	if (window.crmAddonsUI && window.crmAddonsUI.loadBridge) return window.crmAddonsUI.loadBridge()
@@ -292,6 +299,20 @@ def run_all():
 	ensure_workspace()
 	backfill_next_meetings()
 	ensure_campaign_setup()
+	ensure_whatsapp_template_fields()
+	ensure_view_fields()
+	ensure_default_email_templates()
+	sync_email_templates()
+
+
+def sync_email_templates():
+	"""Mirror campaign email templates and CRM's own Email Templates into each other (see campaigns/email_sync.py)."""
+	from crm_addons.campaigns import email_sync
+
+	try:
+		email_sync.backfill()
+	except Exception:
+		frappe.log_error(title="CRM Pro Pack: email template sync", message=frappe.get_traceback())
 
 
 # -- Desk workspace --------------------------------------------------------------------------
@@ -397,6 +418,51 @@ def ensure_campaign_setup():
 				{"doctype": "CRM Campaign Email Template", "template_name": title, "subject": subject, "body_html": body, "enabled": 1}
 			).insert(ignore_permissions=True)
 	frappe.db.set_default("crm_addons_campaign_templates_seeded", "1")
+
+
+WA_TEMPLATE_FIELDS = [
+	{
+		"fieldname": "crm_variable_map", "fieldtype": "Long Text", "label": "Default variable mapping (CRM Pro Pack)", "read_only": 1,
+		"description": "Which Lead field fills each {{n}} by default when a campaign uses this template.", "insert_after": "field_names",
+	}
+]
+
+
+def ensure_view_fields():
+	"""A mark on CRM's saved views, so the app can tell the views it wrote from the ones a person changed (views.py)."""
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+	if frappe.db.exists("DocType", "CRM View Settings"):
+		create_custom_fields(
+			{"CRM View Settings": [{"fieldname": "crm_addons_sig", "fieldtype": "Data", "label": "CRM Pro Pack mark", "read_only": 1, "hidden": 1, "no_copy": 1}]}, ignore_validate=True
+		)
+
+
+def ensure_whatsapp_template_fields():
+	"""A column on frappe_whatsapp's templates for the default variable mapping. Only when frappe_whatsapp is installed."""
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+	if frappe.db.exists("DocType", "WhatsApp Templates"):
+		create_custom_fields({"WhatsApp Templates": WA_TEMPLATE_FIELDS}, ignore_validate=True)
+
+
+def ensure_default_email_templates():
+	"""Ready-made email templates (campaigns/default_templates.py), added once per release. The admin owns them after
+	that: edit, archive or delete them; a deleted one is not brought back until the next release adds more."""
+	from crm_addons.campaigns import default_templates as dt
+
+	if not frappe.db.exists("DocType", "CRM Campaign Email Template") or frappe.db.get_default("crm_addons_default_email_templates") == dt.VERSION:
+		return
+	for name, subject, category, description, builder_json, body_html in dt.default_templates():
+		if frappe.db.exists("CRM Campaign Email Template", name):
+			continue
+		frappe.get_doc(
+			{
+				"doctype": "CRM Campaign Email Template", "template_name": name, "subject": subject, "category": category, "description": description,
+				"editor_mode": "Visual Builder", "builder_json": builder_json, "body_html": body_html, "enabled": 1,
+			}
+		).insert(ignore_permissions=True)
+	frappe.db.set_default("crm_addons_default_email_templates", dt.VERSION)
 
 
 def backfill_next_meetings():

@@ -11,20 +11,54 @@
 	const lines = (t) => esc(t).replace(/\r?\n/g, '<br>')
 	const url = (u) => esc(u || '#')
 	const absolute = (u) => (u && u.startsWith('/') ? location.origin + u : u)
+	/** A block drawn inside a row's column has less room: its 32px side padding becomes 10px. */
+	const narrow = (html) => html.replace(/padding:(\d+)px 32px/g, 'padding:$1px 10px')
+	const SIZES = [12, 13, 14, 15, 16, 18, 20, 24, 28, 32, 40]
+	const richCss = (p, s) => `font-family:${FONTS[p.font] || FONTS[s.font]};font-size:${+p.size || 15}px;line-height:1.65;color:${esc(p.color)};text-align:${p.align}`
+	/** Formatted text (from the text editor in the builder's side panel) as email-safe HTML: scripts and handlers removed,
+	 * spacing and link colour written inline, images made absolute. */
+	CM.inlineRich = (content) => {
+		const box = document.createElement('div')
+		box.innerHTML = CM.sanitizeHtml(content)
+		const st = (sel, css) => box.querySelectorAll(sel).forEach((el) => { el.setAttribute('style', css + (el.getAttribute('style') ? ';' + el.getAttribute('style') : '')) })
+		st('h1', 'margin:0 0 14px;font-size:26px;line-height:1.3;color:#14161a')
+		st('h2', 'margin:18px 0 10px;font-size:20px;line-height:1.3;color:#14161a')
+		st('h3', 'margin:16px 0 8px;font-size:17px;line-height:1.3;color:#14161a')
+		st('p, div', 'margin:0 0 14px')
+		st('ul, ol', 'margin:0 0 14px;padding-left:22px')
+		st('li', 'margin:0 0 6px')
+		box.querySelectorAll('a').forEach((a) => { if (!/(^|;)\s*color\s*:/.test(a.getAttribute('style') || '')) a.setAttribute('style', 'color:#2563eb;' + (a.getAttribute('style') || '')); a.setAttribute('target', '_blank') })
+		st('img', 'max-width:100%;height:auto;border-radius:6px')
+		st('blockquote', 'margin:0 0 14px;padding-left:14px;border-left:3px solid #d3d7de;color:#4b5563')
+		box.querySelectorAll('img').forEach((im) => { const src = im.getAttribute('src') || ''; if (src.startsWith('/')) im.setAttribute('src', location.origin + src) })
+		return box.innerHTML
+	}
+
+	/** A row of 1-3 columns; every column holds its own list of blocks. Three columns are kept even when fewer show,
+	 * so going from 2 back to 3 columns brings the third one's blocks back. */
+	const ROW_MAX = 6
+	const rowProps = (count) => ({ count, divider: false, dividerColor: '#e3e6eb', valign: 'top', cols: Array.from({ length: ROW_MAX }, () => ({ blocks: [] })) })
+	CM.ROW_MAX = ROW_MAX
 
 	/** Block catalogue: label, icon, defaults, property schema and renderer (returns one <tr>). */
 	const T = (CM.BLOCKS = {
 		heading: {
 			label: 'Heading', icon: 'heading', group: 'Content',
-			make: () => ({ text: 'Hello {{ first_name }}', level: 'h1', align: 'left', color: '#14161a' }),
-			schema: [{ key: 'text', label: 'Text', type: 'text', vars: true }, { key: 'level', label: 'Size', type: 'select', options: [{ value: 'h1', label: 'Large' }, { value: 'h2', label: 'Medium' }, { value: 'h3', label: 'Small' }] }, { key: 'align', label: 'Alignment', type: 'select', options: ALIGN }, { key: 'color', label: 'Colour', type: 'color' }],
-			html: (p, s) => { const size = { h1: 28, h2: 22, h3: 18 }[p.level] || 28; return `<tr><td align="${p.align}" style="padding:12px 32px 4px;font-family:${FONTS[s.font]};font-size:${size}px;line-height:1.3;font-weight:700;color:${esc(p.color)};text-align:${p.align}">${esc(p.text)}</td></tr>` },
+			make: () => ({ text: 'Hello {{ first_name }}', level: 'h1', align: 'left', color: '#14161a', font: '', fontSize: 0, bold: true, italic: false, underline: false, link: '' }),
+			schema: [{ key: 'text', label: 'Text', type: 'text', vars: true }, { key: 'level', label: 'Size', type: 'select', options: [{ value: 'h1', label: 'Large' }, { value: 'h2', label: 'Medium' }, { value: 'h3', label: 'Small' }] }, { key: 'fontSize', label: 'Custom size (px, 0 = by Size)', type: 'number', min: 0, max: 72 }, { key: 'font', label: 'Font', type: 'select', options: [{ value: '', label: 'Email font' }, ...Object.keys(FONTS).map((f) => ({ value: f, label: f }))] }, { key: 'bold', label: 'Bold', type: 'switch' }, { key: 'italic', label: 'Italic', type: 'switch' }, { key: 'underline', label: 'Underline', type: 'switch' }, { key: 'align', label: 'Alignment', type: 'select', options: ALIGN }, { key: 'color', label: 'Colour', type: 'color' }, { key: 'link', label: 'Link (optional)', type: 'text', placeholder: 'https://' }],
+			html: (p, s) => {
+				const size = +p.fontSize || { h1: 28, h2: 22, h3: 18 }[p.level] || 28
+				const text = p.link ? `<a href="${url(p.link)}" target="_blank" style="color:inherit;text-decoration:${p.underline ? 'underline' : 'none'}">${esc(p.text)}</a>` : esc(p.text)
+				return `<tr><td align="${p.align}" style="padding:12px 32px 4px;font-family:${FONTS[p.font] || FONTS[s.font]};font-size:${size}px;line-height:1.3;font-weight:${p.bold === false ? 400 : 700};font-style:${p.italic ? 'italic' : 'normal'};text-decoration:${p.underline ? 'underline' : 'none'};color:${esc(p.color)};text-align:${p.align}">${text}</td></tr>`
+			},
 		},
 		text: {
 			label: 'Text', icon: 'text', group: 'Content',
-			make: () => ({ text: 'Thank you for your interest. Write your message here and add personal touches with variables like {{ first_name }}.', align: 'left', color: '#3b4252', size: 15 }),
-			schema: [{ key: 'text', label: 'Text', type: 'textarea', vars: true }, { key: 'align', label: 'Alignment', type: 'select', options: ALIGN }, { key: 'size', label: 'Font size (px)', type: 'number', min: 11, max: 28 }, { key: 'color', label: 'Colour', type: 'color' }],
-			html: (p, s) => `<tr><td align="${p.align}" style="padding:8px 32px;font-family:${FONTS[s.font]};font-size:${+p.size || 15}px;line-height:1.65;color:${esc(p.color)};text-align:${p.align}">${lines(p.text)}</td></tr>`,
+			make: () => ({ html: '<p>Thank you for your interest. Write your message here and add personal touches with variables like {{ first_name }}.</p>', align: 'left', color: '#3b4252', size: 15, font: '' }),
+			// the text is edited with the formatting toolbar (bold, italic, underline, font, size, colour, alignment, links, lists)
+			schema: [{ key: 'html', label: 'Text', type: 'rich' }, { key: 'size', label: 'Default size (px)', type: 'number', min: 11, max: 40 }, { key: 'font', label: 'Default font', type: 'select', options: [{ value: '', label: 'Email font' }, ...Object.keys(FONTS).map((f) => ({ value: f, label: f }))] }, { key: 'color', label: 'Default colour', type: 'color' }, { key: 'align', label: 'Default alignment', type: 'select', options: ALIGN }],
+			// blocks saved before the toolbar existed only have plain `text`; they keep drawing as before until edited
+			html: (p, s) => `<tr><td align="${p.align}" style="padding:8px 32px;${richCss(p, s)}">${p.html ? CM.inlineRich(p.html) : lines(p.text)}</td></tr>`,
 		},
 		image: {
 			label: 'Image', icon: 'image', group: 'Content',
@@ -32,9 +66,9 @@
 			schema: [{ key: 'src', label: 'Image', type: 'image' }, { key: 'alt', label: 'Alt text', type: 'text' }, { key: 'link', label: 'Link (optional)', type: 'text', placeholder: 'https://' }, { key: 'width', label: 'Width (%)', type: 'number', min: 10, max: 100 }, { key: 'align', label: 'Alignment', type: 'select', options: ALIGN }, { key: 'radius', label: 'Rounded corners (px)', type: 'number', min: 0, max: 40 }],
 			html: (p) => {
 				const img = p.src
-					? `<img src="${esc(absolute(p.src))}" alt="${esc(p.alt)}" width="${Math.round(536 * ((+p.width || 100) / 100))}" style="display:block;width:${+p.width || 100}%;max-width:100%;height:auto;border:0;border-radius:${+p.radius || 0}px">`
+					? `<img src="${esc(absolute(p.src))}" alt="${esc(p.alt)}" width="${Math.round(536 * ((+p.width || 100) / 100))}" style="display:inline-block;vertical-align:top;width:${+p.width || 100}%;max-width:100%;height:auto;border:0;border-radius:${+p.radius || 0}px">`
 					: `<div style="padding:40px 12px;text-align:center;background:#f1f3f6;color:#8b93a1;font:13px Arial,sans-serif;border-radius:${+p.radius || 0}px">Choose an image</div>`
-				return `<tr><td align="${p.align}" style="padding:8px 32px;text-align:${p.align}">${p.link && p.src ? `<a href="${url(p.link)}" target="_blank">${img}</a>` : img}</td></tr>`
+				return `<tr><td align="${p.align}" style="padding:8px 32px;text-align:${p.align};font-size:0;line-height:0">${p.link && p.src ? `<a href="${url(p.link)}" target="_blank" style="display:inline-block;width:${+p.width || 100}%;max-width:100%">${img.replace(/width:\d+%/, 'width:100%')}</a>` : img}</td></tr>`
 			},
 		},
 		button: {
@@ -56,13 +90,30 @@
 			html: (p) => `<tr><td height="${+p.height || 24}" style="height:${+p.height || 24}px;line-height:${+p.height || 24}px;font-size:0">&nbsp;</td></tr>`,
 		},
 		columns: {
-			label: 'Columns', icon: 'columns', group: 'Layout',
+			label: 'Text columns', icon: 'columns', group: 'Layout', hidden: true, // older emails only; new ones use a Row
+
 			make: () => ({ count: 2, cols: [{ heading: 'Flexible fees', text: 'Pay in easy instalments.' }, { heading: 'Industry mentors', text: 'Learn from working leaders.' }, { heading: 'Placement help', text: 'Resume and interview support.' }], align: 'left' }),
 			schema: [{ key: 'count', label: 'Columns', type: 'select', options: [{ value: 2, label: '2 columns' }, { value: 3, label: '3 columns' }] }, { key: 'cols', type: 'cols' }],
 			html: (p, s) => {
 				const n = +p.count === 3 ? 3 : 2; const w = n === 3 ? 170 : 262
 				const cells = p.cols.slice(0, n).map((c) => `<div style="display:inline-block;width:100%;max-width:${w}px;vertical-align:top"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:8px 8px;font-family:${FONTS[s.font]};text-align:${p.align}"><div style="font-size:16px;font-weight:700;color:#14161a;margin-bottom:4px">${esc(c.heading)}</div><div style="font-size:14px;line-height:1.55;color:#4b5563">${lines(c.text)}</div></td></tr></table></div>`).join('')
 				return `<tr><td align="center" style="padding:8px 24px;font-size:0">${cells}</td></tr>`
+			},
+		},
+		row: {
+			label: 'Row', icon: 'columns', group: 'Layout',
+			make: () => rowProps(2),
+			// any number of columns (1 to 6); each column holds whatever blocks you put in it
+			schema: [{ type: 'rowcols' }, { key: 'divider', label: 'Line between columns', type: 'switch' }, { key: 'dividerColor', label: 'Line colour', type: 'color' }, { key: 'valign', label: 'Align content', type: 'select', options: [{ value: 'top', label: 'Top' }, { value: 'middle', label: 'Middle' }] }],
+			html: (p, s) => {
+				const n = Math.min(ROW_MAX, Math.max(1, +p.count || 1)); const w = (100 / n).toFixed(2)
+				const cells = Array.from({ length: n }, (_x, i) => (p.cols || [])[i] || { blocks: [] }).map((c, i) => {
+					const inner = (c.blocks || []).map((b) => (T[b.type] ? narrow(T[b.type].html(b.props, s)) : '')).join('') || '<tr><td style="font-size:0;line-height:0">&nbsp;</td></tr>'
+					const line = p.divider && i > 0 ? `border-left:1px solid ${esc(p.dividerColor)};` : ''
+					return `<td class="cm-col" width="${w}%" valign="${p.valign === 'middle' ? 'middle' : 'top'}" style="width:${w}%;vertical-align:${p.valign === 'middle' ? 'middle' : 'top'};${line}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${inner}</table></td>`
+				}).join('')
+				// columns share the width and shrink with the screen; clients that understand media queries stack them on a phone
+				return `<tr><td style="padding:8px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="cm-row" style="table-layout:fixed"><tr>${cells}</tr></table><style>@media only screen and (max-width:480px){.cm-col{display:block!important;width:100%!important;border-left:0!important}}</style></td></tr>`
 			},
 		},
 		banner: {
@@ -117,8 +168,24 @@
 			{ id: CM.uid(), type: 'footer', props: T.footer.make() },
 		],
 	})
-	CM.newBlock = (type) => ({ id: CM.uid(), type, props: T[type].make() })
+	CM.newBlock = (type) => ({ id: CM.uid(), type: T[type].as || type, props: T[type].make() })
+	/** A deep copy with fresh ids (also for the blocks inside a row's columns). */
+	CM.cloneBlock = (b) => { const c = CM.clone(b); const fresh = (x) => { x.id = CM.uid(); if (x.type === 'row') (x.props.cols || []).forEach((col) => (col.blocks || []).forEach(fresh)) }; fresh(c); return c }
+	/** Find a block anywhere in the email: { block, list, index, row, col } (row / col when it sits inside a row). */
+	CM.findBlock = (blocks, id) => {
+		for (let i = 0; i < blocks.length; i++) {
+			if (blocks[i].id === id) return { block: blocks[i], list: blocks, index: i }
+			if (blocks[i].type === 'row') for (let c = 0; c < blocks[i].props.cols.length; c++) {
+				const list = blocks[i].props.cols[c].blocks
+				const k = list.findIndex((b) => b.id === id)
+				if (k >= 0) return { block: list[k], list, index: k, row: blocks[i], col: c }
+			}
+		}
+		return null
+	}
 	CM.FONTS = Object.keys(FONTS)
+	CM.FONT_STACKS = FONTS
+	CM.FONT_SIZES = SIZES
 
 	/** Final email HTML for a builder document. */
 	CM.renderBuilder = (doc) => {
@@ -127,8 +194,9 @@
 		return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background-color:${esc(s.bg)}"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="${+s.width || 600}" cellpadding="0" cellspacing="0" style="width:100%;max-width:${+s.width || 600}px;background-color:${esc(s.contentBg)};border-radius:10px;overflow:hidden">${rows}</table></td></tr></table>`
 	}
 	/** One block as the canvas shows it (a one-row table). */
-	CM.renderBlockRow = (b, settings, chips) => {
-		const html = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${T[b.type] ? T[b.type].html(b.props, settings) : ''}</table>`
+	CM.renderBlockRow = (b, settings, chips, inner) => {
+		let html = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${T[b.type] ? T[b.type].html(b.props, settings) : ''}</table>`
+		if (inner) html = narrow(html) // inside a row's column
 		// in the canvas, show {{ variables }} in text as small chips (never inside attributes)
 		return chips ? CM.sanitizeHtml(html).replace(/>([^<>]*\{\{[^<>]*)</g, (_m, t) => '>' + t.replace(/\{\{\s*(\w+)\s*\}\}/g, '<span style="display:inline-block;padding:0 7px;border-radius:99px;background:#efe9fd;color:#6d28d9;font:600 0.72em Arial,sans-serif;line-height:1.9;vertical-align:middle;white-space:nowrap">$1</span>') + '<')
 			: html
@@ -136,21 +204,40 @@
 
 	/** Rich-text editor content -> a complete email body with inline styles. */
 	CM.richToEmail = (content) => {
-		const box = document.createElement('div')
-		box.innerHTML = content
-		const st = (sel, css) => box.querySelectorAll(sel).forEach((el) => { el.setAttribute('style', css + (el.getAttribute('style') ? ';' + el.getAttribute('style') : '')) })
-		st('h1', 'margin:0 0 14px;font-size:26px;line-height:1.3;color:#14161a')
-		st('h2', 'margin:18px 0 10px;font-size:20px;line-height:1.3;color:#14161a')
-		st('h3', 'margin:16px 0 8px;font-size:17px;line-height:1.3;color:#14161a')
-		st('p, div', 'margin:0 0 14px')
-		st('ul, ol', 'margin:0 0 14px;padding-left:22px')
-		st('li', 'margin:0 0 6px')
-		st('a', 'color:#2563eb')
-		st('img', 'max-width:100%;height:auto;border-radius:6px')
-		st('blockquote', 'margin:0 0 14px;padding-left:14px;border-left:3px solid #d3d7de;color:#4b5563')
-		box.querySelectorAll('img').forEach((im) => { const s = im.getAttribute('src') || ''; if (s.startsWith('/')) im.setAttribute('src', location.origin + s) })
-		return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background-color:#f4f5f7"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:10px"><tr><td style="padding:32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;color:#3b4252">${box.innerHTML}</td></tr></table></td></tr></table>`
+		const inner = CM.inlineRich(content)
+		return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background-color:#f4f5f7"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:10px"><tr><td style="padding:32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;color:#3b4252">${inner}</td></tr></table></td></tr></table>`
 	}
+	/** Switching editor type. Each returns the content for the new editor from the old one's. */
+	const flat = (blocks) => blocks.flatMap((b) => (b.type === 'row' ? (b.props.cols || []).slice(0, Math.min(ROW_MAX, +b.props.count || 1)).flatMap((c) => flat(c.blocks || [])) : [b]))
+	/** Visual builder -> rich text. Headings, text, images, buttons and links stay; colours, layout and columns do not. */
+	CM.builderToRich = (doc) => flat(doc.blocks).map((b) => {
+		const p = b.props
+		switch (b.type) {
+			case 'heading': return `<${p.level}>${p.link ? `<a href="${esc(p.link)}">${esc(p.text)}</a>` : esc(p.text)}</${p.level}>`
+			case 'text': return p.html || `<p>${lines(p.text)}</p>`
+			case 'image': return p.src ? `<p>${p.link ? `<a href="${esc(p.link)}">` : ''}<img src="${esc(p.src)}" alt="${esc(p.alt)}">${p.link ? '</a>' : ''}</p>` : ''
+			case 'button': return `<p><a href="${esc(p.url)}">${esc(p.label)}</a></p>`
+			case 'banner': return `<h2>${esc(p.title)}</h2><p>${lines(p.subtitle)}</p>${p.button ? `<p><a href="${esc(p.url)}">${esc(p.button)}</a></p>` : ''}`
+			case 'columns': return (p.cols || []).slice(0, +p.count || 2).map((c) => `<h3>${esc(c.heading)}</h3><p>${lines(c.text)}</p>`).join('')
+			case 'divider': return '<hr>'
+			case 'social': return `<p>${(p.links || []).map((l) => `<a href="${esc(l.url)}">${esc(l.network)}</a>`).join(' | ')}</p>`
+			case 'footer': return `<p>${lines(p.text)}</p>`
+			case 'html': return p.code || ''
+			default: return ''
+		}
+	}).join('')
+	/** HTML -> rich text: the part of the page inside <body> (our own rich-text wrapper is taken off), without scripts, styles or page structure. */
+	CM.htmlToRich = (html) => {
+		const own = CM.richFromEmail(html)
+		if (own !== html) return own
+		const doc = new DOMParser().parseFromString(String(html || ''), 'text/html')
+		doc.querySelectorAll('style,script,head').forEach((n) => n.remove())
+		return CM.sanitizeHtml(doc.body.innerHTML)
+	}
+	/** Rich text / HTML -> visual builder: the content becomes ONE block, so nothing in it changes. */
+	CM.richToBuilder = (richHtml) => { const d = CM.defaultBuilder(); d.blocks = [{ id: CM.uid(), type: 'text', props: { ...T.text.make(), html: richHtml } }]; return d }
+	CM.htmlToBuilder = (html) => { const d = CM.defaultBuilder(); d.blocks = [{ id: CM.uid(), type: 'html', props: { code: html } }]; return d }
+
 	/** Content of a rich-text template (the part inside the wrapper), for editing again. */
 	CM.richFromEmail = (html) => {
 		const m = String(html || '').match(/line-height:1\.65;color:#3b4252">([\s\S]*)<\/td><\/tr><\/table><\/td><\/tr><\/table>\s*$/)

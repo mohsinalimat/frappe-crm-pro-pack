@@ -110,12 +110,21 @@ def throw_if(condition, message):
 
 # -- attachments ---------------------------------------------------------------------------------------------
 
-DEFAULT_ATTACHMENT_MB = 10
+DEFAULT_ATTACHMENT_MB = 30
 
 
 def attachment_limit_bytes():
-	"""Total size of the files sent with one email. Setting ``campaign_max_attachment_mb`` (default 10)."""
-	return (cint(settings().get("campaign_max_attachment_mb")) or DEFAULT_ATTACHMENT_MB) * 1024 * 1024
+	"""Total size of the files sent with one email: the one place this limit is set. Setting ``campaign_max_attachment_mb``
+	(default 30 MB), never more than Frappe will accept as an upload (System Settings > Max File Size). The browser reads
+	it from ``get_config`` (``attachment_limit_mb``), so the number it shows is the number enforced here."""
+	wanted = (cint(settings().get("campaign_max_attachment_mb")) or DEFAULT_ATTACHMENT_MB) * 1024 * 1024
+	try:
+		from frappe.core.api.file import get_max_file_size
+
+		cap = cint(get_max_file_size())
+	except Exception:  # an older Frappe 15 without that helper: only our own limit applies
+		cap = 0
+	return min(wanted, cap) if cap else wanted
 
 
 def parse_url_list(raw):

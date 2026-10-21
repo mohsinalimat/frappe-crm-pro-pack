@@ -88,6 +88,7 @@ The **Campaign Manager** role is created on install and on every `bench migrate`
 | Create, edit, duplicate and launch campaigns | No | Yes |
 | Create and change automations (including turning them on and off) | No | Yes |
 | Create and change email templates and campaign templates | No | Yes |
+| Create WhatsApp templates (submitted to Meta) and sync their status | No | Yes |
 | Pause, resume, cancel, retry failed messages | On campaigns they own | Yes |
 
 The **Campaigns** button and menu link in CRM are controlled separately, in the setup page under *Campaign Manager* > *Who sees the Campaigns shortcuts*: tick the roles that should see them (nothing ticked: everyone sees them).
@@ -149,6 +150,8 @@ crm_addons/campaigns/audience.py          filter validation, paging, eligibility
 crm_addons/campaigns/channels.py          EmailSender, WhatsAppSender
 crm_addons/campaigns/engine.py            launch, materialise, dispatch, send, retry, status, pause/cancel
 crm_addons/campaigns/optout.py            opt-out list, unsubscribe link, STOP replies
+crm_addons/campaigns/email_sync.py        two-way sync with CRM's Email Template list
+crm_addons/campaigns/default_templates.py ready-made Visual Builder email templates
 crm_addons/campaigns/analytics.py
 crm_addons/campaigns/permissions.py
 crm_addons/campaigns/api.py
@@ -176,6 +179,15 @@ crm_addons/public/addons.js         Campaigns button (Kanban) and Lead tab
 README.md, CHANGELOG.md
 ```
 
+## Added in 1.4.0
+
+- **Email template builder:** one *Row* block with 1 to 6 columns, each holding any blocks (text, image, button, heading, divider, spacer, social links, custom HTML); text blocks have a formatting toolbar (bold, italic, underline, font, size, colour, alignment, links, lists); *Change type* switches between Visual builder, HTML and Rich text keeping the content (with a warning when formatting is lost); the HTML editor has an *Image* button (upload, files on the site or a web address); one block or column is selected at a time and a click outside or Esc deselects.
+- **Ready-made templates:** eight Visual Builder templates (welcome, follow-up after a call, missed call, admissions promotion, event invitation, newsletter, announcement, session reminder), added once per release.
+- **One template list with CRM:** a campaign email template is mirrored into CRM's *Email Template* list (used when mailing a lead by hand) and back; HTML, styles, tables and images are copied untouched; `{{ first_name }}`, `{{ organization }}` and the other lead fields work in both, and `{{ owner_name }}`, `{{ sender_name }}`, `{{ today }}`, `{{ lead_url }}` are translated (see `campaigns/email_sync.py`). CRM's picker keeps its own saved list; Pro Pack tells it to reload when a template changes.
+- **Attachments:** all three editors allow files; the limit is 30 MB per email (`campaign_max_attachment_mb`, never more than Frappe's *Max File Size*), shown and enforced from one server function.
+- **WhatsApp Create template:** saved through frappe_whatsapp's own *WhatsApp Templates* document, which submits it to Meta. Name, category, language, header (text / image / document), body with `{{1}}` variables, footer, buttons; a WhatsApp formatting bar (bold, italic, strikethrough, monospace, lists, quote, emoji); each variable can be tied to a lead field and the mapping and header file are kept with the template (`crm_variable_map`), so a campaign step starts with them filled in; the name is checked live (lower case, numbers and underscores, new for that language).
+- **Assignment** is its own page, not part of the Campaign Manager: see [ASSIGNMENT.md](ASSIGNMENT.md).
+
 ## Database changes
 
 Everything is created by `bench migrate` (doctypes from JSON) and `install.run_all()` (idempotent, runs after every
@@ -188,6 +200,7 @@ migrate). There is **no data patch** and no change to existing tables except one
 - Custom Field `CRM Lead-crm_wa_opt_in`.
 - Six new settings values (defaults only written when missing, never overwriting an admin's choice).
 - One starter email template, created once.
+- 1.4.0: `crm_email_template` on *CRM Campaign Email Template* (its twin in CRM's Email Template list); custom field `crm_variable_map` on *WhatsApp Templates*; custom field `crm_addons_sig` on *CRM View Settings*; doctypes *CRM Assignment Rule* and *CRM Assignment Log*; hidden settings `sidebar_layout`, `view_defaults`, `dashboard_breakdowns`, `dashboard_counters`.
 
 ## Email flow
 
@@ -267,7 +280,7 @@ filters on the creation day.
 | **Create campaign** | Five steps with a progress bar and a live **summary panel** (audience size and per-channel eligibility, channels, schedule, warnings): **Details** → **Audience** → **Channel and content** → **Preview and test** → **Schedule and review**. The draft is saved on every step change, with *Save draft*, and every 30 seconds while there are unsaved changes; leaving asks first. Advanced options (follow-up journey steps with day and condition, stop on reply, WhatsApp consent) are folded away. Launch has a second confirmation that states the number of messages; a success screen offers the next actions. |
 | **Audience** | Three cards: *Filter CRM leads* (rows of field, operator, value with friendly operators per field type; "Save as segment"), *Saved segment* (cards with live counts) and *Pick leads manually* (search and add). Always shows the matching count, how many can receive Email and WhatsApp, why the rest cannot (missing or invalid address, opted out, not opted in, duplicates) and a sample table with the reason per lead. |
 | **Email templates** | One shared library for campaigns and follow-ups: miniature live preview cards, search, category filter, favourites (stored in this browser), archive / restore, duplicate, delete (refused while used). *Create template* asks "How would you like to create your email?": **Visual builder** (blocks: heading, text, image, button, divider, spacer, columns, banner, social links, footer, custom HTML; click or drag to add, drag or arrows to reorder, per-block settings, table-based inline-styled output), **HTML editor** (line numbers, syntax colours, Format, Validate, live preview) or **Rich text** (toolbar, links, lists, headings, images), or start from an existing template. *Insert variable* works in the subject and every text field; previews use sample data; the preview has Desktop / Mobile / Full screen in an email-client frame. *Send test* and attachments are in the editor. Managers create and edit; everyone can preview. |
-| **WhatsApp templates** | Read from frappe_whatsapp (never copied). Search, category and status filters (Approved / Pending / Rejected / Disabled), *Meta-synced* or *Local* badge, a real chat-bubble preview (header media, text, footer, buttons, variables with sample values), details drawer and **Use in campaign** (approved only). The note "Create and get templates approved in Meta; they appear here after sync" is always shown, with **Refresh** and, for managers, **Sync from Meta** (frappe_whatsapp's own `fetch`). Nothing is created or edited in Meta from here. |
+| **WhatsApp templates** | Read from frappe_whatsapp (never copied). Search, category and status filters (Approved / Pending / Rejected / Disabled), *Meta-synced* or *Local* badge, a real chat-bubble preview, details drawer and **Use in campaign** (approved only). Managers get **Create template** (name, category, language, header text / image / document, body with `{{1}}` variables and example values, footer, buttons): it saves frappe_whatsapp's own *WhatsApp Templates* document, whose own code sends it to Meta, so it starts as Pending. **Sync status from Meta** runs frappe_whatsapp's own `fetch`. |
 | **Audiences** | The saved segments you may use (private to you, or shared by a manager), with live counts, rules in plain words, a leads drawer, "Use in a campaign" and delete. They are the saved filters of the Leads list. |
 | **Reports** | Date range picker (and *Compare to previous period*: each KPI card shows the change against the period of the same length right before it), the chosen range written under the title, KPI cards, messages per day (SVG), campaigns by status, an Email and a WhatsApp funnel, and a sortable comparison table with CSV export; a row opens the campaign. |
 | Campaign page | Actions by status (Draft: Edit / Review and launch; Running: Pause / Cancel / Retry failed; Paused: Resume / Cancel; others: Duplicate, Save as template for managers, Delete). KPI cards, messages per day, delivery donut, funnel per channel, failure and skip reasons, the Journey table, and a searchable, filterable **Recipients** report with CSV export. It refreshes itself while running. Only numbers the integrations really report are shown. |
@@ -276,7 +289,7 @@ filters on the creation day.
 | Opt-outs | *Opt-outs* button → the *CRM Campaign Opt Out* list. |
 
 **Attachments.** An email step can carry files (drag and drop or browse, progress, remove) and a template can carry files; both are sent with the email.
-Files are uploaded privately through Frappe's `upload_file`. The total per email is limited to **10 MB** (set `campaign_max_attachment_mb` in the settings
+Files are uploaded privately through Frappe's `upload_file`. The total per email is limited to **30 MB** (set `campaign_max_attachment_mb` in the settings
 to change it) and is checked when you save, when you launch and again when each email is sent. WhatsApp document / image headers use the existing `wa_attach`
 file, uploaded **publicly** (Meta has to fetch it) and sent by frappe_whatsapp; it is only offered when the template has a media header.
 
@@ -452,7 +465,7 @@ unsubscribe link refused, and a correctly signed one opting the address out.
 
 - Conditions on email clicks or other signals the integrations do not provide (see *Journeys*).
 - Email delivered / clicked metrics, and open tracking unless the Email Account supports it.
-- Creating or editing WhatsApp templates (that stays in Meta and frappe_whatsapp, which own the approval flow). The page only reads them and can ask frappe_whatsapp to sync them.
+- Editing a WhatsApp template after it is created, or deleting one (do that in frappe_whatsapp / Meta). *Create template* only creates; the approval flow stays with frappe_whatsapp and Meta.
 - Email delivered and clicked counts, and Email *opened* without open tracking (the page says so instead of showing zeros).
 - Deals as recipients (the add-on is Lead-only).
 - Throttling across campaigns: the rate limit is per campaign, so size it with your busiest day in mind.

@@ -38,6 +38,10 @@
   "show_follow_up_button",
   "show_floating_buttons",
   "show_sidebar_links",
+  "sidebar_layout",
+  "view_defaults",
+  "dashboard_breakdowns",
+  "dashboard_counters",
   "show_record_tabs",
   "hide_deals_menu",
   "hide_notes_menu",
@@ -278,6 +282,34 @@
    "description": "Adds the Sales Dashboard (it also holds Lead Nurturing), Follow-ups, Meetings and Campaigns to CRM's left menu, and to the Dashboard page header."
   },
   {
+   "fieldname": "sidebar_layout",
+   "fieldtype": "Long Text",
+   "label": "Left menu order and visibility",
+   "hidden": 1,
+   "description": "JSON, set on the setup page: [{\"key\": \"leads\", \"hidden\": 0}, ...] in the order the menu should show. Empty keeps CRM's own order."
+  },
+  {
+   "fieldname": "view_defaults",
+   "fieldtype": "Long Text",
+   "label": "Default list and Kanban views (JSON)",
+   "hidden": 1,
+   "description": "Set on the setup page."
+  },
+  {
+   "fieldname": "dashboard_breakdowns",
+   "fieldtype": "Long Text",
+   "label": "Sales Dashboard: count leads by these fields (JSON)",
+   "hidden": 1,
+   "description": "Set on the setup page."
+  },
+  {
+   "fieldname": "dashboard_counters",
+   "fieldtype": "Long Text",
+   "label": "Sales Dashboard: highlighted counts (JSON)",
+   "hidden": 1,
+   "description": "Set on the setup page."
+  },
+  {
    "fieldname": "show_record_tabs",
    "fieldtype": "Check",
    "label": "Add Meetings and Follow-ups tabs to Lead pages",
@@ -458,7 +490,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-09-30 12:00:00.000000",
+ "modified": "2026-10-21 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "Meetings",
  "name": "CRM Addons Settings",

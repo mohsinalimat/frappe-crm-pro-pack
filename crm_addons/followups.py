@@ -462,7 +462,7 @@ def get_queue(scope="mine", reference_doctype=None):
 
 # -- the Follow-ups workspace ---------------------------------------------------------------------------------
 
-TABS = ("overdue", "today", "upcoming", "done")
+TABS = ("worked", "overdue", "today", "upcoming", "done")  # "worked": what was logged today (calls and follow-ups)
 PAGE_MAX = 200
 DEFAULT_WINDOW_DAYS = 30
 
@@ -503,6 +503,21 @@ def _workspace_filters(scope, owner, reference_doctype, search, outcome):
 		if leads:
 			or_filters.append(["reference_docname", "in", leads])
 	return filters, or_filters
+
+
+def _worked_filters(scope, owner, reference_doctype, search, outcome):
+	"""Today's work: the follow-ups and calls LOGGED today, by whoever did them (``owner``). Same people rule as the other
+	tabs: a sales user only ever gets their own; managers see everyone's or one person's."""
+	filters, any_of = _workspace_filters(scope, owner, reference_doctype, search, outcome)
+	out = [f for f in filters if f[0] not in ("next_follow_up_on", "assigned_to")]
+	if is_manager() and scope == "all":
+		if owner:
+			out.append(["owner", "=", owner])
+	else:
+		out.append(["owner", "=", frappe.session.user])
+	today = _day_start(nowdate())
+	out += [["followed_up_on", ">=", today], ["followed_up_on", "<", _day_start(add_days(getdate(nowdate()), 1))]]
+	return out, any_of
 
 
 def _count(filters, or_filters):
@@ -563,14 +578,16 @@ def get_workspace(
 	def win(bucket):
 		return done_window if bucket == "done" else window
 
-	counts = {b: _count(shared + _bucket_filters(b, win(b)), any_of) for b in TABS}
+	worked, worked_any = _worked_filters(scope, owner, reference_doctype, search, outcome)
+	counts = {b: _count(shared + _bucket_filters(b, win(b)), any_of) for b in TABS if b != "worked"}
+	counts["worked"] = _count(worked, worked_any)
 
 	rows = frappe.get_list(
 		DOCTYPE,
-		filters=shared + _bucket_filters(tab, win(tab)),
-		or_filters=any_of or None,
+		filters=worked if tab == "worked" else shared + _bucket_filters(tab, win(tab)),
+		or_filters=(worked_any if tab == "worked" else any_of) or None,
 		fields=FIELDS,
-		order_by="next_follow_up_on desc, name desc" if tab == "done" else "next_follow_up_on asc, name asc",
+		order_by="followed_up_on desc, name desc" if tab == "worked" else "next_follow_up_on desc, name desc" if tab == "done" else "next_follow_up_on asc, name asc",
 		limit_start=(page - 1) * page_length,
 		limit_page_length=page_length,
 	)
@@ -627,6 +644,18 @@ def _add_lead_details(items, tab):
 	colors = {s.name: s.color for s in frappe.get_all("CRM Lead Status", fields=["name", "color"])}
 	now = now_datetime()
 	tomorrow = _day_start(add_days(getdate(nowdate()), 1))
+	# calls made today on these leads (a sales user's own; a manager looking at everyone gets everyone's)
+	today_calls = {}
+	if names:
+		mine = "" if is_manager() else " and owner = %(me)s"
+		for r in frappe.db.sql(
+			f"""select reference_docname as lead, count(*) as n, max(followed_up_on) as last from `tabCRM Follow Up`
+			where reference_doctype = 'CRM Lead' and reference_docname in %(names)s and mode = 'Call'
+			and followed_up_on >= %(start)s and followed_up_on < %(end)s {mine} group by reference_docname""",
+			{"names": tuple(names), "me": frappe.session.user, "start": _day_start(nowdate()), "end": tomorrow},
+			as_dict=True,
+		):
+			today_calls[r.lead] = {"n": cint(r.n), "last": _dt(r["last"])}
 	for item in items:
 		lead = leads.get(item["reference_docname"])
 		item["phone"] = (lead.mobile_no or lead.phone or "").strip() if lead else ""
@@ -634,6 +663,11 @@ def _add_lead_details(items, tab):
 		item["organization"] = (lead.organization or "") if lead else ""
 		item["lead_status"] = lead.status if lead else None
 		item["lead_status_color"] = colors.get(lead.status) if lead else None
+		item["calls_today"] = today_calls.get(item["reference_docname"], {}).get("n", 0)
+		item["last_call_today_at"] = today_calls.get(item["reference_docname"], {}).get("last")
+		if not item["next_follow_up_on"]:
+			item["bucket"] = "done"
+			continue
 		due = get_datetime(item["next_follow_up_on"])
 		item["bucket"] = "done" if item["next_closed"] else "overdue" if due < now else "today" if due < tomorrow else "upcoming"
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Coding Pro
+# Copyright (c) 2026, Siddharth Singh
 """Backend tests for follow-ups (call attempts, outcomes, next follow-up, escalation, queue),
 and for the other add-ons built on them: scoring, stale-lead alerts, meeting outcomes,
 templates and WhatsApp.
@@ -653,15 +653,16 @@ class TestNurturing(FollowUpBase):
 		self.assertEqual((data["totals"]["campaigns"], data["totals"]["sent"]), (1, 2))
 		self.assertEqual([c["campaign_name"] for c in data["top_campaigns"]], ["Mine Camp"])
 
-	def test_sales_user_only_sees_their_own_campaigns(self):
+	def test_sales_user_sees_the_same_company_wide_campaign_numbers(self):
+		everyone = self.nurturing()
 		frappe.set_user(self.rep.name)
 		for asked in (None, "Administrator", self.rival.name, self.rep.name):
-			data = self.nurturing(user=asked)
+			data = self.nurturing(user=asked)  # who they ask about makes no difference
 			self.assertFalse(data["scope"]["is_manager"])
-			self.assertEqual(data["scope"]["user"], self.rep.name)
-			self.assertEqual((data["totals"]["campaigns"], data["totals"]["sent"]), (1, 2))
-			self.assertEqual([c["campaign_name"] for c in data["top_campaigns"]], ["Mine Camp"])
-			self.assertNotIn("Theirs Camp", str(data))
+			self.assertFalse(data["scope"]["can_create_campaign"])
+			self.assertIsNone(data["scope"]["user"])
+			self.assertEqual(data["totals"], everyone["totals"])
+			self.assertEqual({c["campaign_name"] for c in data["top_campaigns"]}, {"Mine Camp", "Theirs Camp"})
 
 	def test_replies_and_opt_outs_are_counted(self):
 		frappe.get_doc(

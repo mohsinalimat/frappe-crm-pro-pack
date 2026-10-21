@@ -42,7 +42,7 @@
 			const tpl = ref(null); const filesOpen = ref(false)
 			const load = async () => { tpl.value = await CM.getEmailTemplate(props.step.email_template) }
 			watch(() => props.step.email_template, load); onMounted(() => { load(); filesOpen.value = props.step.attachments.length > 0 })
-			const limit = computed(() => (CM.shared.config && CM.shared.config.attachment_limit_mb) || 10)
+			const limit = computed(() => (CM.shared.config && CM.shared.config.attachment_limit_mb) || 30)
 			return { tpl, filesOpen, limit, CM }
 		},
 		template: `
@@ -68,7 +68,7 @@
 		setup(props) {
 			const tpl = computed(() => (props.templates || []).find((t) => t.name === props.step.wa_template))
 			const options = computed(() => (props.templates || []).slice().sort((x, y) => Number(y.approved) - Number(x.approved) || x.template_name.localeCompare(y.template_name)).map((t) => ({ value: t.name, label: t.template_name, sub: t.approved ? (t.category || '').toLowerCase() + ' - ' + (t.language_code || 'en') : 'Not approved: ' + CM.waState.label(t.state), disabled: !t.approved, icon: 'whatsapp', badge: t.approved ? undefined : CM.waState.label(t.state) })))
-			function pick(n) { props.step.wa_template = n; const t = props.templates.find((x) => x.name === n); const map = {}; ;(t ? t.placeholders : []).forEach((p, i) => { map[p] = props.step.variable_map[p] || ['{{ first_name }}', '{{ owner_name }}', '{{ organization }}', '{{ email }}'][i] || '' }); props.step.variable_map = map; props.step.wa_attach = '' }
+			function pick(n) { props.step.wa_template = n; const t = props.templates.find((x) => x.name === n); const map = {}; const saved = (t && t.variable_map) || {}; ;(t ? t.placeholders : []).forEach((p, i) => { map[p] = props.step.variable_map[p] || saved[p] || ['{{ first_name }}', '{{ owner_name }}', '{{ organization }}', '{{ email }}'][i] || '' }); props.step.variable_map = map; props.step.wa_attach = (t && t.default_media) || '' }
 			const vals = computed(() => (tpl.value ? tpl.value.placeholders.map((p) => CM.sampleFill(props.step.variable_map[p] || '')) : []))
 			const missing = computed(() => (tpl.value ? tpl.value.placeholders.filter((p) => !String(props.step.variable_map[p] || '').trim()) : []))
 			const insert = (p, tok) => { const el = document.querySelector(`[data-wa="${props.index}-${p}"]`); CM.insertAtCursor(el, tok) }

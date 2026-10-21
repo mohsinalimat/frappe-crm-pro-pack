@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Coding Pro
+# Copyright (c) 2026, Siddharth Singh
 """Tests for click tracking, sending hours, lead-update rules, list clean-up, health alerts, per-step pause, automatic
 campaigns, cost / ROI and the calendar.
 

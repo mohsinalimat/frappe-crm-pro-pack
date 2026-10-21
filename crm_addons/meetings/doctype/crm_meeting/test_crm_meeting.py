@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Coding Pro
+# Copyright (c) 2026, Siddharth Singh
 """Backend tests.
 
 Plain unittest on purpose: Frappe's IntegrationTestCase seeds sample Users,

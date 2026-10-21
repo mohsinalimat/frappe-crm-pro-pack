@@ -301,3 +301,7 @@ textarea.control { height: auto; min-height: 76px; padding: 8px 10px; resize: ve
 .pick-opt.hi, .pick-opt:hover { background: var(--bg-hover); }
 .pick-opt.on { font-weight: 600; }
 .pick .tick { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* a Pro Pack page shown inside the CRM: no pop-up controls */
+html.inline .btn[aria-label="Close"] { display: none; }
+html.inline .brand-ico { display: none; }

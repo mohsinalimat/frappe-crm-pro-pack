@@ -420,7 +420,7 @@ def get_dashboard(from_date=None, to_date=None, user=None):
 
 # -- Lead Nurturing: campaign numbers for the Sales Dashboard -------------------------------------------------
 
-NURTURE_ROLES = ("Sales User", "Sales Manager", "System Manager")
+NURTURE_ROLES = ("Sales User", "Sales Manager", "System Manager", "Campaign Manager")
 NURTURE_CHANNELS = ("Email", "WhatsApp")
 NURTURE_SENT = ("Sent", "Delivered", "Read")
 REPLY_WINDOW_DAYS = 14
@@ -437,12 +437,11 @@ def _nurture_period(from_date, to_date):
 
 
 def _nurture_who(user):
-	"""The one user whose campaigns to count, or None for every campaign (managers only)."""
-	from crm_addons.utils import is_manager
+	"""The one user whose campaigns to count, or None for every campaign. Campaign results are the same company-wide
+	numbers for everyone; only managers (and Campaign Managers) can narrow them to one person."""
+	from crm_addons.utils import is_campaign_manager
 
-	if not is_manager():
-		return frappe.session.user
-	return user or None
+	return (user or None) if is_campaign_manager() else None
 
 
 def _nurture_scope(who):
@@ -592,12 +591,12 @@ def _count_optouts(start, end, who):
 def get_nurturing(from_date=None, to_date=None, user=None, top_limit=10):
 	"""Campaign analytics for the Lead Nurturing view of the Sales Dashboard.
 
-	Managers see every campaign (and can look at one person's); a sales user only sees what comes from
-	the campaigns they own or run, whatever ``user`` says. "In the period" means: sent in the period.
+	Everyone sees the company-wide numbers; managers (and Campaign Managers) can look at one person's campaigns, a
+	sales user's ``user`` is ignored. "In the period" means: sent in the period.
 	A reply is a message from the lead (WhatsApp or email) within 14 days after a send.
 	"""
 	frappe.only_for(NURTURE_ROLES)
-	from crm_addons.utils import get_settings, is_manager
+	from crm_addons.utils import get_settings, is_campaign_manager, is_manager
 
 	start, end = _nurture_period(from_date, to_date)
 	who = _nurture_who(user)
@@ -681,7 +680,7 @@ def get_nurturing(from_date=None, to_date=None, user=None, top_limit=10):
 	counts = {r.status: r.n for r in status_rows}
 	return {
 		"enabled": bool(cint(get_settings().campaigns_enabled)),
-		"scope": {"from": str(start), "to": str(end), "user": who, "is_manager": is_manager()},
+		"scope": {"from": str(start), "to": str(end), "user": who, "is_manager": is_manager(), "can_create_campaign": is_campaign_manager()},
 		"totals": totals,
 		"previous": previous,
 		"channels": numbers["channels"],
@@ -732,10 +731,19 @@ def _clean_layout(raw):
 	return {"kpis": items("kpis", False), "widgets": items("widgets", True)}
 
 
+def _may_customize():
+	"""Only Sales Managers and System Managers can rearrange a dashboard; a Sales User always gets the default."""
+	from crm_addons.utils import is_manager
+
+	return is_manager()
+
+
 @frappe.whitelist()
 def get_layout(view):
 	"""The signed-in person's saved layout for ``view`` ("sales" or "campaigns"), or None to use the default."""
 	frappe.only_for(NURTURE_ROLES)
+	if not _may_customize():
+		return None
 	value = frappe.db.get_value("DefaultValue", {"parent": frappe.session.user, "parenttype": "__default", "defkey": _layout_key(view)}, "defvalue")
 	try:
 		return _clean_layout(value) if value else None
@@ -746,6 +754,8 @@ def get_layout(view):
 @frappe.whitelist()
 def save_layout(view, layout):
 	frappe.only_for(NURTURE_ROLES)
+	if not _may_customize():
+		frappe.throw(_("Only managers can customize the dashboard."), frappe.PermissionError)
 	clean = _clean_layout(layout)
 	frappe.defaults.set_user_default(_layout_key(view), json.dumps(clean), frappe.session.user)
 	return clean
@@ -754,5 +764,7 @@ def save_layout(view, layout):
 @frappe.whitelist()
 def reset_layout(view):
 	frappe.only_for(NURTURE_ROLES)
+	if not _may_customize():
+		frappe.throw(_("Only managers can customize the dashboard."), frappe.PermissionError)
 	frappe.defaults.clear_default(_layout_key(view), parent=frappe.session.user)
 	return None

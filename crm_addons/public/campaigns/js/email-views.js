@@ -94,13 +94,35 @@
 				if (dirty.value && !(await CM.confirm({ title: 'Discard your changes?', message: 'You have changes that are not saved yet.', confirmText: 'Discard changes', danger: true }))) return
 				if (props.embedded) emit('close'); else CM.go('/templates/email')
 			}
-			async function toHtml() {
-				if (!(await CM.confirm({ title: 'Switch to the HTML editor?', message: 'You can edit the code directly. You will not be able to go back to the visual builder for this template.', confirmText: 'Switch to HTML' }))) return
-				html.value = CM.formatHtml(finalHtml.value); t.mode = 'HTML'
+			// ---- switch between the three editors from inside the editor, keeping the content
+			const TYPES = [{ mode: 'Visual Builder', label: 'Visual builder', icon: 'layers' }, { mode: 'HTML', label: 'HTML editor', icon: 'code' }, { mode: 'Rich Text', label: 'Rich text', icon: 'edit' }]
+			const ADVICE = {
+				'Visual Builder>HTML': ['The email keeps its look. You edit its code from now on and the block editor is gone for it.', false],
+				'Visual Builder>Rich Text': ['Headings, text, images, buttons and links are kept. Colours, backgrounds, banners, rows and columns are not: everything becomes one column of plain document text.', true],
+				'HTML>Visual Builder': ['Your HTML becomes one Custom HTML block, untouched. Add blocks above and below it.', false],
+				'HTML>Rich Text': ['Tables, columns, backgrounds and custom styles may change or disappear in a rich-text document.', true],
+				'Rich Text>Visual Builder': ['Your text becomes one Text block with its formatting. Add blocks around it.', false],
+				'Rich Text>HTML': ['The email keeps its look. You edit its code from now on.', false],
+			}
+			async function switchTo(target) {
+				const from = t.mode
+				if (target === from) return
+				const [advice, lossy] = ADVICE[from + '>' + target]
+				if (!(await CM.confirm({ title: `Switch to the ${target === 'HTML' ? 'HTML editor' : target === 'Rich Text' ? 'rich text editor' : 'visual builder'}?`, message: advice + (lossy ? ' Formatting will be lost, and this cannot be undone once you save.' : ' Your content is kept.'), confirmText: 'Switch', danger: lossy }))) return
+				const current = finalHtml.value
+				if (from === 'Visual Builder' && target === 'HTML') html.value = CM.formatHtml(current)
+				else if (from === 'Visual Builder') rich.value = CM.builderToRich(builder)
+				else if (from === 'HTML' && target === 'Visual Builder') Object.assign(builder, CM.htmlToBuilder(html.value))
+				else if (from === 'HTML') rich.value = CM.htmlToRich(html.value)
+				else if (target === 'Visual Builder') Object.assign(builder, CM.richToBuilder(rich.value))
+				else html.value = CM.formatHtml(current)
+				// no leftover caret or selection from the editor that is going away
+				try { const s = getSelection(); s && s.removeAllRanges() } catch (e) { /* nothing selected */ }
+				t.mode = target
 			}
 			const insertSubject = (tok) => CM.insertAtCursor(subjectEl.value, tok)
-			const limit = computed(() => (CM.shared.config && CM.shared.config.attachment_limit_mb) || 10)
-			return { t, builder, html, rich, files, showFiles, testOpen, previewOpen, subjectEl, loading, error, saving, savedAt, existing, dirty, finalHtml, save, back, toHtml, insertSubject, limit, problems, tried, cats: computed(() => (CM.shared.config ? CM.shared.config.email_categories : [])), load, modeLabel: computed(() => t.mode) }
+			const limit = computed(() => (CM.shared.config && CM.shared.config.attachment_limit_mb) || 30)
+			return { t, builder, html, rich, files, showFiles, testOpen, previewOpen, subjectEl, loading, error, saving, savedAt, existing, dirty, finalHtml, save, back, switchTo, TYPES, insertSubject, limit, problems, tried, cats: computed(() => (CM.shared.config ? CM.shared.config.email_categories : [])), load, modeLabel: computed(() => t.mode) }
 		},
 		template: `
 		<div class="te" role="dialog" aria-label="Email template editor">
@@ -111,7 +133,7 @@
 				<span class="badge neutral nodot">{{ modeLabel }}</span>
 				<span v-if="dirty" class="small faint">Unsaved changes</span><span v-else-if="savedAt" class="small faint"><Ico name="check" size="sm" /> Saved {{ savedAt }}</span>
 				<span class="grow"></span>
-				<Menu v-if="t.mode !== 'HTML'" :items="[{ label: 'Switch to HTML editor', icon: 'code', run: toHtml }]"><Btn variant="ghost" icon="more" aria-label="More" /></Menu>
+				<Menu :items="TYPES.filter((x) => x.mode !== t.mode).map((x) => ({ label: 'Switch to ' + x.label, icon: x.icon, run: () => switchTo(x.mode) }))"><Btn variant="ghost" icon="layers" aria-label="Change editor type">Change type</Btn></Menu>
 				<Btn icon="eye" :disabled="!finalHtml" @click="previewOpen = true">Preview</Btn>
 				<Btn icon="send" @click="testOpen = true">Send test</Btn>
 				<Btn variant="primary" icon="save" :loading="saving" @click="save">Save template</Btn>

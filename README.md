@@ -1,6 +1,6 @@
 # CRM Pro Pack for Frappe CRM
 
-**Google Meet and Google Calendar meetings, call follow-ups, lead scoring, stale-lead alerts and a role-aware Sales Dashboard with Excel export - in one app, with no changes to Frappe CRM's own code.**
+**Google Meet and Google Calendar meetings, call follow-ups, lead scoring, email and WhatsApp campaigns, automatic lead assignment and a role-aware Sales Dashboard - in one app, with no changes to Frappe CRM's own code.**
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Frappe v15](https://img.shields.io/badge/Frappe-v15-blue)
@@ -20,6 +20,8 @@ It installs like any other Frappe app (`bench get-app`, `bench install-app`) and
 - [Using it](#using-it)
 - [Sales Dashboard](#sales-dashboard)
 - [Campaign Manager](#campaign-manager)
+- [Lead assignment](#lead-assignment)
+- [Setting up the CRM screens (admin)](#setting-up-the-crm-screens-admin)
 - [Roles and permissions](#roles-and-permissions)
 - [Settings reference](#settings-reference)
 - [How it works](#how-it-works)
@@ -74,11 +76,18 @@ It installs like any other Frappe app (`bench get-app`, `bench install-app`) and
 
 See [docs/CAMPAIGN_MANAGER.md](docs/CAMPAIGN_MANAGER.md).
 
+### Lead assignment (System Managers)
+
+- **Rules** on any Lead field, in any mix of conditions, give **new leads** to people: take turns, whoever is least busy, or everyone together (the first person owns it, the others work it too). Overlapping rules ask first.
+- **Assign leads now** (leads you already have, by conditions) and **Move leads** (everything one person has, to one or more others), with a count first, CRM notifications and no email.
+- **History with Undo** for 24 hours. See [docs/ASSIGNMENT.md](docs/ASSIGNMENT.md).
+
 ### Built into CRM's own screens
 
 - **Tabs on the Lead page:** Meetings and Follow-ups, next to Activity, Emails, Comments, Calls, Tasks, Notes and Attachments.
 - **Header buttons:** Schedule Meeting and Add Follow Up on the Lead page; Meetings, Follow-ups and Sales Dashboard on the Leads list; floating buttons on the Kanban view; a **CRM Pro Pack** group in the left menu and a button group in the Dashboard header (Meetings, Follow-ups, Campaigns, Sales Dashboard).
 - **On the Lead timeline:** every meeting, reschedule, cancellation and follow-up is posted as a comment.
+- **Pro Pack pages open inside the CRM**, not in a pop-up: Sales Dashboard, Follow-ups, Meetings, Campaigns and Assignment fill the area beside CRM's menu, with their own address (`/crm/pro-pack-<name>`), so Back, reload and shared links work.
 - **Optional:** hide the Deals menu entry and the Convert to Deal button, if your team only works with leads.
 - **CRM dashboard charts:** meetings and follow-ups charts you can add to CRM's own dashboard.
 
@@ -140,14 +149,15 @@ Follow-ups, scoring, the Sales Dashboard and the in-app notifications need no ex
 | Log a call | Open a Lead and click **Add Follow Up**, or open its **Follow-ups** tab |
 | See what is due | On the Leads list or Kanban view click **Follow-ups** |
 | See all meetings | On the Leads list click **Meetings** |
-| See team numbers | Click **Sales Dashboard** (Leads list, Kanban view or CRM's Dashboard page) |
+| See team numbers | Click **Sales Dashboard** in CRM's left menu (or the Leads list / Kanban view or CRM's Dashboard page) |
+| Give leads to people | **Assignment** in the left menu (System Managers) |
 | Change or cancel a meeting | Open the meeting, then **Edit** or **Cancel meeting** |
 | Tell guests something | Open the meeting, then **Notify guests** |
 | Add columns to the list | Leads list, **Columns** setting: Next Follow-up, Last Call Outcome, Lead Score and more |
 
 ## Sales Dashboard
 
-A large pop-up over the CRM, like the Meetings calendar (open it from the **Sales Dashboard** button); its **Open in a new tab** button gives the full-screen version (`/sales-dashboard`, same tab, date range, person and theme). It follows the roles: **sales users see only their own numbers; managers see the whole team and can pick one person.**
+A page of the CRM (open it from **Sales Dashboard** in the left menu); its **Open in a new tab** button gives the full-screen version (`/sales-dashboard`, same tab, date range, person and theme). It follows the roles: **sales users see only their own numbers; managers see the whole team and can pick one person.**
 
 - **Date range picker** (the same one on the Follow-ups page) with presets (today, yesterday, last 7 and 30 days, this and last week, this and last month, this quarter, this year) and a calendar for a custom range, usable with the keyboard (arrow keys, PageUp / PageDown, Esc). A range is always the days from the first to the last, both included, whole days; every number, chart, export and the "previous period" (the same number of days right before it) use that same range. The last range is remembered per page.
 - **KPI cards:** calls today, follow-ups due today and overdue, calls, connect rate, follow-ups added, leads added, meetings held, leads converted to deals, average time to first call, stale leads.
@@ -157,11 +167,25 @@ A large pop-up over the CRM, like the Meetings calendar (open it from the **Sale
 - **Pipeline** by status with average age, **leads by source**, **lead temperature**, **meetings by outcome**.
 - **Follow-up queue**, **recent calls** and **upcoming meetings**, each opening the lead.
 - **Export** to an Excel workbook (a sheet per section plus the full call log) or the call log as CSV. It follows the CRM's light / dark theme (no toggle of its own).
+- **Lead counts:** total, open and unassigned leads, leads counted by any field you choose (state, type, industry ...), your own named counts (Schools, Colleges, Private ...) and a **Leads assigned by person** table, set up in the setup page under *Sales Dashboard counts*.
 - **Lead Nurturing** tab (when the Campaign Manager is on; `/sales-dashboard#nurturing` opens it directly): the campaigns of the selected date range as KPI cards (campaigns, recipients reached, delivered, read / open and reply rates, failed, opt-outs), messages sent by day and channel, an engagement funnel, Email vs WhatsApp, campaigns by status, top campaigns (each opens in the Campaign Manager) and how many open leads were nurtured. Sales users only see their own campaigns.
 
 ## Campaign Manager
 
 Open it from the **Campaigns** button on the Leads list or Kanban view, or go to `/campaigns`. It needs an outgoing Email Account for email and the frappe_whatsapp app (active default account, approved templates) for WhatsApp; either channel works without the other. Full guide, flows, testing checklist and rollback: [docs/CAMPAIGN_MANAGER.md](docs/CAMPAIGN_MANAGER.md).
+
+## Lead assignment
+
+Open **Assignment** in CRM's left menu (System Managers only; also at `/assignment`). Four pages: **Rules** (leads like this always go to these people), **Assign leads now**, **Move leads** and **History** (with Undo for 24 hours). Full guide: [docs/ASSIGNMENT.md](docs/ASSIGNMENT.md).
+
+## Setting up the CRM screens (admin)
+
+On the **setup page** (`/pro-pack-setup`), System Managers can shape what everybody sees:
+
+- **Left menu:** put CRM's own entries and this app's in any order and hide any of them (even Dashboard, Leads, Contacts or Organizations). Screen only; permissions do not change.
+- **Default views:** for Leads, Contacts and Organizations choose whether the page opens as list or Kanban (Kanban exists for Leads), the list columns, sort order, default filters and quick-filter boxes, and the Kanban field and cards. *Save and apply to everyone* writes them as each person's own view; people who change their own view keep theirs.
+- **Sales Dashboard counts:** which fields leads are counted by, and named counts such as "Schools".
+- **Email templates** are shared with CRM's own *Email Template* list (a template saved in either place appears in the other), and ready-made templates are added on install.
 
 ## Roles and permissions
 
@@ -173,7 +197,7 @@ Open it from the **Campaigns** button on the Leads list or Kanban view, or go to
 
 **Campaigns:** Sales Users can only look at campaigns, the dashboards and reports. System Managers, Sales Managers and Campaign Managers create and edit campaigns, automations and templates, and see every campaign. Which roles see the Campaigns button and menu link is a setup-page option (*Campaign Manager* > *Who sees the Campaigns shortcuts*; nothing ticked means everyone).
 
-Sales users can only schedule on leads they are allowed to see in CRM. The dashboard and its export enforce the same rules on the server, so a sales user cannot see another person's numbers by changing the address.
+**A Sales User only ever sees their own data** - their leads, follow-ups, calls, notes, tasks and meetings - and the server enforces it (lists, direct links, the dashboard, reports and exports), so changing an address shows nothing of anyone else's. Campaign results on the dashboard are company-wide numbers for everyone. Only Sales Managers and System Managers can customize a dashboard.
 
 ## Settings reference
 
@@ -214,7 +238,8 @@ Follow-up templates are managed under **CRM Follow Up Template** (eight starters
 
 CRM Pro Pack does not modify Frappe CRM. On install and on every migrate (safe to repeat) it:
 
-- creates its doctypes: **CRM Meeting**, **CRM Meeting Attendee**, **CRM Follow Up**, **CRM Follow Up Template**, **CRM Addons Settings**;
+- creates its doctypes: **CRM Meeting**, **CRM Meeting Attendee**, **CRM Follow Up**, **CRM Follow Up Template**, **CRM Addons Settings**, the Campaign Manager's doctypes and **CRM Assignment Rule** / **CRM Assignment Log**;
+- adds a few hidden marker fields on other apps' doctypes (CRM View Settings, frappe_whatsapp's WhatsApp Templates, CRM Lead consent);
 - adds read-only fields to CRM Lead: Next Meeting, Next Follow-up, Last Call Outcome, Last Follow-up Remark, Call Attempt and Lead Score (plus a hidden stale-alert date);
 - adds CRM Form Scripts for the Lead page and the Leads list (the header buttons);
 - adds a short script to CRM's page through a Frappe `after_request` hook, which draws the tabs, Kanban buttons, follow-up form and dashboard link;
@@ -277,14 +302,17 @@ crm_addons/
   scoring.py          lead score rules
   stale.py            stale-lead alerts
   notifications.py    in-app notifications, emails, reminders
-  permissions.py      who sees what
+  permissions.py      who sees what (a Sales User only ever sees their own data)
+  assignment.py       lead assignment rules, assign now, move leads, undo
+  views.py            default list / Kanban views for everybody
   inject.py           adds the UI script to the CRM page
   providers/          Google Meet, Manual Link, Zoom / Teams placeholders
   meetings/           CRM Meeting, CRM Meeting Attendee, CRM Addons Settings
   follow_ups/         CRM Follow Up, CRM Follow Up Template
   patches/            data upgrades
-  public/             bridge.js, addons.js (CRM UI), meetings/ (calendar, follow-up form, dashboard)
-docs/                 ADMIN_GUIDE.md, ADDING_A_PROVIDER.md
+  campaigns/          Campaign Manager: engine, templates (incl. email_sync with CRM's Email Template), WhatsApp creator
+  public/             bridge.js, addons.js (CRM UI), meetings/ (calendar, follow-up form, dashboard), campaigns/ (Campaign Manager, Assignment), setup/
+docs/                 ADMIN_GUIDE.md, CAMPAIGN_MANAGER.md, ASSIGNMENT.md, TEST_CHECKLIST.md, ADDING_A_PROVIDER.md, DEBUGGING.md
 ```
 
 The UI is plain Vue 3 and JavaScript with no build step. Contributions are welcome: open an issue or a pull request.

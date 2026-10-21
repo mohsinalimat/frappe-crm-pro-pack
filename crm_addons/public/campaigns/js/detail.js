@@ -260,7 +260,7 @@
 			const statusParts = computed(() => (data.value ? Object.entries(data.value.status_counts).map(([k, v]) => ({ label: k, value: v, color: { Completed: 'var(--green)', Running: 'var(--accent)', Draft: 'var(--border-strong)', Scheduled: 'var(--amber)', Paused: 'var(--amber)', Failed: 'var(--red)', Cancelled: 'var(--text-faint)', Queued: 'var(--accent)' }[k] || 'var(--text-faint)' })) : []))
 			const rate = (v) => (v ? v + '%' : '-')
 			const hasCost = computed(() => !!(data.value && data.value.totals && data.value.totals.cost != null))
-			return { hasCost, data, loading, busy, error, range, compare, rangeText, prevText, t, kpis, rows, sort, setSort, load, exportCsv, statusParts, rate, CM, go: CM.go }
+			return { canCreate: computed(() => !!(CM.shared.config && CM.shared.config.is_manager)), hasCost, data, loading, busy, error, range, compare, rangeText, prevText, t, kpis, rows, sort, setSort, load, exportCsv, statusParts, rate, CM, go: CM.go }
 		},
 		template: `
 		<div class="page">
@@ -268,7 +268,7 @@
 				<p class="rng-note" role="status"><template v-if="rangeText">Showing <b>{{ rangeText }}</b><template v-if="prevText"> compared with <b>{{ prevText }}</b></template><template v-else-if="range.preset !== 'any' && compare && loading"> ...</template></template><template v-else>Showing <b>all time</b></template><span v-if="busy && !loading" class="spin" style="width:12px;height:12px;margin-left:8px" aria-label="Updating"></span></p>
 			<template v-if="loading"><div class="kpis"><Skel v-for="n in 6" :key="n" h="104" r="12" /></div><Skel h="280" r="12" /></template>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
-			<Empty v-else-if="!t.campaigns && !t.sent" icon="chart" title="No campaign results in this period" text="Launch a campaign, or choose a longer date range."><Btn variant="primary" icon="plus" @click="go('/campaigns/new')">Create campaign</Btn></Empty>
+			<Empty v-else-if="!t.campaigns && !t.sent" icon="chart" title="No campaign results in this period" text="Launch a campaign, or choose a longer date range."><Btn v-if="canCreate" variant="primary" icon="plus" @click="go('/campaigns/new')">Create campaign</Btn></Empty>
 			<template v-else>
 				<div class="rep" :class="{ busy }">
 				<div class="kpis"><div v-for="x in kpis" :key="x.l" class="kpi" :class="{ bad: x.bad }" :style="{ '--kc': x.c }"><div class="l"><Ico :name="x.i" size="sm" />{{ x.l }}</div><div class="v">{{ CM.num(x.v) }}<span v-if="x.d" class="d" :class="x.d.cls" :title="x.d.tip"><Ico v-if="x.d.arrow" :name="x.d.arrow" /> {{ x.d.text }}</span></div><div class="s">{{ x.s }}</div></div></div>

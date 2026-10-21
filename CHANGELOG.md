@@ -2,6 +2,67 @@
 
 All notable changes to CRM Pro Pack (the `crm_addons` Frappe app).
 
+## 1.4.0 - 2026-10-21
+
+**Upgrade (self-hosted admin):** `bench --site your-site migrate`, then `bench restart`. Migrate adds one field to the campaign email templates and copies
+existing templates to CRM's own Email Template list and back (see below); the restart loads the new permission rules. No `bench build` is needed.
+Everyone should hard-refresh the CRM once (Ctrl/Cmd + Shift + R) after this release; from then on a release loads fresh by itself (see *Fixed*).
+
+### Added
+
+- **A Sales User only sees their own data, enforced on the server.** Leads (CRM's own rule, plus the same rule here for CRM versions that have none), Call Logs,
+  Notes, Tasks, Follow-ups and Meetings: the lists, direct opens and the Follow-ups, Sales Dashboard and report APIs all refuse another person's records.
+  A record also counts as theirs when it is attached to a lead they own or are assigned. Sales Managers, System Managers and Administrator are unchanged; a
+  *Campaign Manager* only keeps CRM's own access to leads, calls, notes and tasks unless they also hold a Sales role.
+- **Follow-ups panel for a Sales User:** a **Today's work** tab (the calls and follow-ups they logged today), a **Today** column (calls made today on that lead and
+  when), and the Remark column. The owner and "Everyone" filters are gone for Sales Users (the server ignores them as well).
+- **WhatsApp: Create template** in the campaign panel. It saves frappe_whatsapp's own *WhatsApp Templates* document, whose own code submits it to Meta (no Meta calls
+  in Pro Pack). Name, category, language, header (text, image or document), body with numbered variables and example values, footer and buttons, with a live
+  preview. Status (Pending, Approved, Rejected) is shown on every template; **Sync status from Meta** (and *Check status with Meta* in the details) uses frappe_whatsapp's
+  own sync. Sales Managers, Campaign Managers and System Managers only. Each variable can be **tied to a lead field** (first name, organization, owner ...) while you create the template; that mapping and the header image / document are kept with the template (a new field on frappe_whatsapp's template, added by migrate), so a campaign step that picks the template starts with the variables filled in and the header file attached. The phone preview shows the header image, the filled-in values and the buttons.
+- **Email template builder:**
+  - **Switch editor type** from any type to any other, inside the editor, keeping the content, with a warning before any conversion that loses formatting.
+  - **Text formatting in the visual builder:** bold, italic, underline, font, size, colour, alignment, links, bullet and numbered lists for Text blocks; font, size, bold / italic / underline and a link for Headings.
+  - **One Row block with any number of columns (1 to 6).** Add or remove columns with + and -, and pick the content of each column (heading, text, image, button, divider, spacer, social links, custom HTML) right in the column or in the side panel. Optional line between columns; the columns shrink with the screen and stack on a phone where the mail app supports it.
+  - **Eight ready-made templates** (welcome, follow-up after a call, missed call, admissions promotion, event invitation, newsletter, announcement, session reminder), added to the library on migrate as editable Visual Builder templates (and so to CRM's Email Template list). You own them afterwards.
+  - **HTML editor: Image** button (upload, a file already on the site, or a web address), inserted at the cursor.
+- **Lead assignment (System Managers only).** A new *Assignment* page of its own (CRM left menu and `/assignment`; not part of the Campaign Manager; see [docs/ASSIGNMENT.md](docs/ASSIGNMENT.md)):
+  - Built like the Campaign Manager: a left menu (Rules, Assign leads now, Move leads, History), rules as cards with an on/off switch, and **Undo** for 24 hours in History. Each form reads like a sentence; the rule asks only for the leads and the people (the sharing choice appears once you pick two or more) and can give the matching leads that have no owner to them at the same time.
+  - **Rules** on any Lead field and any mix of conditions (all of them or any of them) give **new leads** to people, by round robin, by least workload (open leads plus follow-ups to do) or to all of them together (the first is the owner). A lead that matches several rules goes to everyone they name; saving a rule that can overlap another asks first.
+  - **Assign existing leads** from a rule or from conditions typed in (all matching, or only those with no owner), with a count first.
+  - **Move leads**: everything one person has goes to one or more others.
+  - CRM notifies the new people; no email is sent. Every assignment is in *History*. Bulk jobs over 300 leads run in the background.
+- **Campaign and CRM email templates are one set.** A template saved in the campaign builder also appears in CRM's Email Template list (the one used when mailing a lead by hand), and a template made or edited there for Leads
+  comes back into the campaign library. HTML, styles, tables and images are copied untouched; `{{ first_name }}`, `{{ organization }}` and the other lead fields work in both places, and `{{ owner_name }}`, `{{ sender_name }}`, `{{ today }}`
+  and `{{ lead_url }}` are written out as the Jinja CRM can evaluate. Archiving a campaign template switches its CRM twin off.
+
+- **WhatsApp Create template, second pass:** the name / category / language row lines up; the body has a WhatsApp formatting bar (bold `*`, italic `_`, strikethrough `~`, monospace, bullets, numbered list, quote, emoji picker) and the preview shows bullets and quotes; the Variables section has column headings and says what each value means; the name is checked live against Meta's rules (lower case, numbers, underscores) and must be new **for that language** (the same name in another language is allowed; a suggestion such as `name_v2` is offered).
+- **Sales Dashboard: "Leads assigned by person"** (Sales Managers and System Managers): open leads each person owns, how many are still New, how many were added in the period and their statuses, with an Unassigned row. It shows up on its own for people who already customized their layout.
+
+- **Campaign email templates did not appear in CRM's "Email Templates" picker** (the one on a Lead's email box). Two causes: the copy into CRM's list only starts after `bench migrate` (it needs the new field), and CRM's picker keeps a saved copy of its list and never looks again by itself. Pro Pack now notices when a Lead template was added or changed (also when you come back to the CRM tab) and tells the picker to reload, so a new template shows up without a hard refresh.
+
+- **Pro Pack screens open as pages of the CRM, not pop-ups.** Sales Dashboard, Follow-ups, Meetings, Campaigns and Assignment now fill the area to the right of CRM's own menu: the menu stays, its row is highlighted, and the address becomes `/crm/pro-pack-<name>`, so Back, reload and sharing the link work. Clicking any CRM menu row (Notifications too) leaves the page, the page keeps starting at the menu's edge when the menu folds or opens, and each page keeps its open-in-a-new-tab button. Small forms (a meeting, a follow-up) and screens narrower than 900 px still open as pop-ups.
+
+- **Left menu: order and visibility, set by the administrator.** On the setup page (*CRM screens*), put CRM's own entries (Notifications, Dashboard, Leads, Deals, Contacts, Organizations, Notes, Tasks, Call Logs) and this app's (Sales Dashboard, Follow-ups, Meetings, Campaigns, Assignment) in any order, and switch any of them off. Applies to everyone, only hides and reorders (pages and permissions are untouched), nothing in CRM is moved (the menu is re-ordered with CSS), and "Back to CRM's own order" undoes it. Needs `bench migrate` (one new setting).
+
+- **Sales Dashboard: many more counts.** New cards for *Total leads*, *Open leads* and *Leads with no owner*, and charts that count all leads by any field you choose (state, industry, source, type ...; left empty it picks the usual ones it finds). The administrator can also name **highlighted counts** (for example "Schools" where Industry is School, "Private colleges" where Type is Private) that show as number cards. A sales user only sees counts of their own leads. Set on the setup page, section *Sales Dashboard counts*; the existing "Leads assigned by person" table is there too.
+- **Default views for everybody.** Setup page, section *Default views*: for Leads, Contacts and Organizations the administrator sets whether the page opens as list or Kanban (Kanban exists in CRM for Leads only), the list columns, sort order, default filters and the quick-filter boxes, and for Leads the Kanban column field, card title and card fields. *Save and apply to everyone* writes them as each person's own CRM view; a person who changes their view keeps theirs (tick *replace the views people have changed* to override). People who open the CRM later get them on first load. Needs `bench migrate`.
+- **One header for every Pro Pack page** inside the CRM: a 56 px bar with the title, a short line beneath and the actions on the right.
+
+### Changed
+
+- **Campaign results on the Sales Dashboard** are the same company-wide numbers for everyone (a Sales User used to see only their own campaigns).
+- **Dashboards can only be customized by Sales Managers and System Managers**: the Customize button is gone for Sales Users and the server refuses the layout calls.
+- **The attachment limit is 30 MB** (was 10 MB), read from one place on the server (`campaign_max_attachment_mb`, default 30, never more than Frappe's own *Max File Size* from System Settings) and shown by the screens from the same value.
+- **Editors no longer scroll as a whole page.** The code, the canvas, the settings panel and the preview each scroll on their own, so the toolbar and subject stay in place while you scroll a long preview. The builder palette is a tile grid.
+- Selection in the builder: one block or column is selected at a time, a click outside the builder or Escape deselects, and nothing stays selected after switching editor.
+
+### Fixed
+
+- **Image alignment in the visual builder** (left, centre, right) did nothing when the image filled its row; images are now placed inline, so the alignment applies at any width.
+- **Create campaign missing** for the people who should have it: the screen asked for the campaign settings and the audience fields together, so when the second call failed no one was treated as a manager and every Create button stayed hidden. The two are now independent. The button on the Reports and Campaigns dashboard pages is also hidden for Sales Users only.
+- **Features not showing until a refresh.** CRM is an installable app whose service worker keeps serving the page it saved, including the script tag of an older Pro Pack release. Now every file URL carries the release and the newest file time, the page is marked `no-cache`, and the Pro Pack script compares itself with the server's version: when it is running old files it loads the new ones under a new address, tells the service worker to look for an update, and replaces the old copy without duplicating anything. The CRM is also looked at again for the first 45 seconds (it draws after our script loads), when the tab comes back into view, and the settings are re-read every 5 minutes. **If Pro Pack still has not started 8 seconds after the CRM loads** (an old saved copy of the page, a script that did not download), the page clears the browser's saved copy of the CRM (its service worker and caches) and reloads once on its own; if it is still missing it shows a "CRM Pro Pack did not load" bar with a **Reload** button. On a Leads list or Lead page the CRM's own Pro Pack scripts also start it directly, even when the page itself carries no Pro Pack tag.
+
 ## 1.3.0 - 2026-10-12
 
 ### Added

@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "creation": "2026-10-21 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "modified": "2026-10-21 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Campaigns",
+ "name": "CRM Assignment Rule",
+ "owner": "Administrator",
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "field:rule_name",
+ "field_order": [
+  "rule_name",
+  "enabled",
+  "priority",
+  "description",
+  "match_mode",
+  "conditions",
+  "assignees",
+  "distribution",
+  "clash_ack",
+  "rr_index",
+  "assigned_count",
+  "last_assigned_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_name",
+   "fieldtype": "Data",
+   "label": "Rule name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "label": "Order",
+   "default": "10",
+   "description": "Rules are listed and applied in this order (lowest first)."
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "match_mode",
+   "fieldtype": "Select",
+   "label": "A lead matches when",
+   "options": "All conditions\nAny condition",
+   "default": "All conditions"
+  },
+  {
+   "fieldname": "conditions",
+   "fieldtype": "Long Text",
+   "label": "Conditions",
+   "description": "JSON list of [field, operator, value] on the Lead."
+  },
+  {
+   "fieldname": "assignees",
+   "fieldtype": "Long Text",
+   "label": "People",
+   "description": "JSON list of users, in order. The first is the lead owner when several people share a lead."
+  },
+  {
+   "fieldname": "distribution",
+   "fieldtype": "Select",
+   "label": "How to share",
+   "options": "Round robin\nLeast workload\nAll of them",
+   "default": "Round robin"
+  },
+  {
+   "fieldname": "clash_ack",
+   "fieldtype": "Long Text",
+   "label": "Overlaps accepted",
+   "description": "JSON list of rule names the administrator agreed this rule may share leads with.",
+   "hidden": 1
+  },
+  {
+   "fieldname": "rr_index",
+   "fieldtype": "Int",
+   "label": "Round robin position",
+   "default": "0",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "assigned_count",
+   "fieldtype": "Int",
+   "label": "Leads assigned",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "last_assigned_on",
+   "fieldtype": "Datetime",
+   "label": "Last assigned on",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "search_fields": "rule_name",
+ "title_field": "rule_name"
+}

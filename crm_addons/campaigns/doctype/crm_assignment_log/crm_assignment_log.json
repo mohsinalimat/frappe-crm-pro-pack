@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "creation": "2026-10-21 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "modified": "2026-10-21 17:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Campaigns",
+ "name": "CRM Assignment Log",
+ "owner": "Administrator",
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "hash",
+ "field_order": [
+  "lead",
+  "lead_name",
+  "source",
+  "rule",
+  "from_users",
+  "to_users",
+  "distribution",
+  "by_user",
+  "note",
+  "prev_owner",
+  "batch",
+  "undone",
+  "undone_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "lead",
+   "fieldtype": "Data",
+   "label": "Lead",
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "lead_name",
+   "fieldtype": "Data",
+   "label": "Lead name"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "New lead\nRule run\nManual\nTransfer\nBatch",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "rule",
+   "fieldtype": "Data",
+   "label": "Rule"
+  },
+  {
+   "fieldname": "from_users",
+   "fieldtype": "Small Text",
+   "label": "From"
+  },
+  {
+   "fieldname": "to_users",
+   "fieldtype": "Small Text",
+   "label": "To",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "distribution",
+   "fieldtype": "Data",
+   "label": "How shared"
+  },
+  {
+   "fieldname": "by_user",
+   "fieldtype": "Link",
+   "label": "Done by",
+   "options": "User"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note"
+  },
+  {
+   "fieldname": "prev_owner",
+   "fieldtype": "Data",
+   "label": "Owner before"
+  },
+  {
+   "fieldname": "batch",
+   "fieldtype": "Data",
+   "label": "Batch",
+   "search_index": 1
+  },
+  {
+   "fieldname": "undone",
+   "fieldtype": "Check",
+   "label": "Undone",
+   "default": "0"
+  },
+  {
+   "fieldname": "undone_on",
+   "fieldtype": "Datetime",
+   "label": "Undone on"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ]
+}

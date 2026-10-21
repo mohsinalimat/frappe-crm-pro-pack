@@ -12,11 +12,16 @@
  */
 (function () {
 	'use strict'
-	if (window.__crmAddonsUI) return
-	window.__crmAddonsUI = true
+	var VER = (((document.currentScript && document.currentScript.src) || '').split('v=')[1] || '').split('&')[0]
+	// One copy per release. A copy of the same release that is already running wins; a copy of an older release
+	// (the browser kept an old file, or this one was loaded by the self-update below) is taken down first.
+	var running = window.__crmAddonsUI
+	if (running && running.ver === VER) return
+	if (running && typeof running.destroy === 'function') running.destroy()
+	window.__crmAddonsUI = { ver: VER, destroy: function () { teardown() } }
+	try { sessionStorage.removeItem('cra_rc') } catch (e) { /* the page's watchdog may reload once; it started fine now */ }
 
 	var API = '/api/method/crm_addons.'
-	var VER = ((document.currentScript && document.currentScript.src) || '').split('v=')[1] || ''
 	var NS = 'http://www.w3.org/2000/svg'
 
 	// ---- icons (Lucide / Feather paths) -------------------------------------------------------
@@ -168,11 +173,19 @@
 	}
 
 	var configPromise = null
+	var configAt = 0
+	var CONFIG_TTL = 5 * 60 * 1000 // settings and roles can change while the tab is open: ask again after a few minutes
 	function config() {
+		if (configPromise && Date.now() - configAt > CONFIG_TTL) configPromise = null
 		if (!configPromise) {
+			configAt = Date.now()
 			configPromise = Promise.all([call('api.get_client_config'), call('followups.get_config').catch(function () { return null })])
 				.then(function (a) {
 					a[0].fu = a[1]
+					updateIfStale(a[0].asset_version)
+					refreshTemplatePicker(a[0].email_templates_stamp)
+					// the administrator's default views were just written for this person: CRM has already loaded the old ones
+					if (a[0].views_changed && /^\/crm\/(leads|contacts|organizations)/.test(location.pathname)) { try { if (!sessionStorage.getItem('cra_views_reload')) { sessionStorage.setItem('cra_views_reload', '1'); location.reload() } } catch (e) { /* no storage: the next page shows them */ } }
 					return a[0]
 				})
 				.catch(function (e) {
@@ -183,9 +196,51 @@
 		return configPromise
 	}
 
+	// The CRM is a PWA: its service worker can keep serving the page it saved earlier, with the script tag of an older
+	// Pro Pack release in it. When the server says the files are newer than the ones running, load the new ones under
+	// their new version (a URL the browser has never seen), and ask the service worker to look for an update.
+	function updateIfStale(serverVer) {
+		serverVer = String(serverVer || '')
+		if (!serverVer || !VER || serverVer === VER || window.__craUpdatingTo === serverVer) return
+		window.__craUpdatingTo = serverVer
+		try { if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.update() }) }) } catch (e) { /* no service worker */ }
+		var css = document.createElement('link')
+		css.rel = 'stylesheet'
+		css.href = '/assets/crm_addons/addons.css?v=' + encodeURIComponent(serverVer)
+		document.head.appendChild(css)
+		var js = document.createElement('script')
+		js.src = '/assets/crm_addons/addons.js?v=' + encodeURIComponent(serverVer)
+		document.head.appendChild(js)
+	}
+
+	// CRM's "Email Templates" picker (on a Lead's email box) keeps its own saved copy of the list and only looks again when
+	// told to. When a Lead template was added or changed (for example in the Campaign Manager, which mirrors its templates
+	// there), tell it: now for a picker that is open, and through CRM's own "missed broadcast" note for one opened later.
+	var TPL_KEY = 'cra_tpl_stamp'
+	function refreshTemplatePicker(stamp) {
+		if (!stamp) return
+		var before = null
+		try { before = localStorage.getItem(TPL_KEY) } catch (e) { return }
+		if (before === stamp) return
+		try {
+			localStorage.setItem(TPL_KEY, stamp)
+			if (before === null) { /* first visit with this build: the saved list may predate the sync, so refresh once too */ }
+			var list = JSON.parse(localStorage.getItem('app_broadcasts') || '[]')
+			list.push({ event: 'refresh-email-templates', payload: {}, timestamp: Date.now() })
+			localStorage.setItem('app_broadcasts', JSON.stringify(list.slice(-20)))
+		} catch (e) { /* storage blocked */ }
+		window.dispatchEvent(new CustomEvent('refresh-email-templates', { detail: {} }))
+	}
+	var tplCheckedAt = 0
+	function checkTemplates() {
+		if (Date.now() - tplCheckedAt < 15000) return
+		tplCheckedAt = Date.now()
+		call('api.email_templates_stamp').then(refreshTemplatePicker).catch(function () {})
+	}
+
 	var bridgeLoading = null
 	function bridge() {
-		if (window.crmAddons) return Promise.resolve(window.crmAddons)
+		if (window.crmAddons && (!VER || window.crmAddons.ver === VER)) return Promise.resolve(window.crmAddons)
 		if (bridgeLoading) return bridgeLoading
 		bridgeLoading = new Promise(function (resolve, reject) {
 			var s = document.createElement('script')
@@ -570,6 +625,12 @@
 			.catch(function (err) { toast(err.message, true) })
 	}
 
+	function openAssignment() {
+		return bridge()
+			.then(function (b) { b.openAssignment() })
+			.catch(function (err) { toast(err.message, true) })
+	}
+
 	function openCampaigns(hash) {
 		return bridge()
 			.then(function (b) { b.openCampaigns(typeof hash === 'string' ? hash : '') })
@@ -667,6 +728,8 @@
 			run: function () { bridge().then(function (b) { b.openCalendar({ reference_doctype: 'CRM Lead', view: 'agenda' }) }).catch(function (err) { toast(err.message, true) }) },
 		})
 		if (c.campaigns_enabled && c.show_campaigns_shortcut) list.push({ key: 'campaigns', label: 'Campaigns', icon: 'send', title: 'Campaign Manager', run: function () { openCampaigns() } })
+		// lead assignment: System Managers only (the server checks as well)
+		if (c.can_assign) list.push({ key: 'assignment', label: 'Assignment', icon: 'users', title: 'Lead assignment rules, assigning and moving leads', run: function () { openAssignment() } })
 		return list
 	}
 
@@ -1109,6 +1172,59 @@
 		}
 	}
 
+	// ---- order and visibility of the left menu (set by the administrator on the setup page) --------------------------------
+	// CRM draws its menu as several lists (Notifications, then one list per section). To let rows swap places across them
+	// without moving anything Vue owns, the lists around the rows are made "transparent" (display: contents) so every row
+	// becomes a direct child of one column, and each row gets a CSS order. Nothing is moved, so CRM's own redraws stay safe.
+	var MENU_NATIVE = { dashboard: 1, leads: 1, deals: 1, contacts: 1, organizations: 1, notes: 1, tasks: 1, 'call-logs': 1 }
+	function menuKeyOf(row, seen) {
+		if (row.id === 'notifications-btn' || (row.querySelector && row.querySelector('#notifications-btn'))) return 'notifications'
+		var side = row.getAttribute && row.getAttribute('data-cra-side')
+		if (side) return side === 'dashboard' ? 'sales-dashboard' : side
+		var a = row.matches && row.matches('a[href]') ? row : row.querySelector && row.querySelector('a[href]')
+		var m = a && /^\/crm\/([a-z-]+)/.exec(a.getAttribute('href') || '')
+		if (m && MENU_NATIVE[m[1]] && !seen[m[1]]) { seen[m[1]] = 1; return m[1] }
+		return ''
+	}
+
+	function resetMenu() {
+		Array.prototype.forEach.call(document.querySelectorAll('[data-cra-flat]'), function (n) { n.removeAttribute('data-cra-flat'); n.style.removeProperty('display') })
+		Array.prototype.forEach.call(document.querySelectorAll('[data-cra-menu-off]'), function (n) { n.removeAttribute('data-cra-menu-off'); n.style.removeProperty('display') })
+		Array.prototype.forEach.call(document.querySelectorAll('[data-cra-menu-row]'), function (n) { n.removeAttribute('data-cra-menu-row'); n.style.removeProperty('order'); n.style.removeProperty('display') })
+	}
+
+	function applyMenuLayout(c) {
+		var layout = c.sidebar_layout
+		var nb = document.getElementById('notifications-btn')
+		var container = nb && nb.parentElement
+		if (!container || !layout || !layout.length) { if (document.querySelector('[data-cra-menu-row]')) resetMenu(); return }
+		var rows = [nb]
+		Array.prototype.forEach.call(container.querySelectorAll('nav > *'), function (r) { if (!r.classList.contains('cra-side-sep')) rows.push(r) })
+		var seen = {}, pos = {}, off = {}
+		layout.forEach(function (x, i) { pos[x.key] = i; if (x.hidden) off[x.key] = 1 })
+		rows.forEach(function (r, idx) {
+			// the lists around this row stop being boxes of their own (unless the section is folded away)
+			for (var n = r.parentElement; n && n !== container; n = n.parentElement) {
+				if (n.hasAttribute('data-cra-flat')) continue
+				if (getComputedStyle(n).display === 'none') break
+				n.setAttribute('data-cra-flat', '1')
+				n.style.display = 'contents'
+			}
+			var key = menuKeyOf(r, seen)
+			r.setAttribute('data-cra-menu-row', key || '-')
+			r.style.order = String(key in pos ? pos[key] * 10 : 1000 + idx)
+			if (key && off[key]) r.style.setProperty('display', 'none', 'important')
+			else if (r.style.display === 'none') r.style.removeProperty('display')
+		})
+		// section titles and our own divider have no place in a freely ordered menu
+		Array.prototype.forEach.call(container.querySelectorAll('[data-cra-flat]'), function (n) {
+			Array.prototype.forEach.call(n.children, function (ch) {
+				if (!ch.hasAttribute('data-cra-flat') && !ch.hasAttribute('data-cra-menu-row') && !ch.querySelector('[data-cra-menu-row]') && !ch.querySelector('a[href], button')) { ch.setAttribute('data-cra-menu-off', '1'); ch.style.display = 'none' }
+			})
+		})
+		Array.prototype.forEach.call(container.querySelectorAll('.cra-side-sep'), function (n) { n.style.display = 'none' })
+	}
+
 	// ---- keep everything in step with CRM's single-page navigation ----------------------------------------------------------
 	var timer = null
 	var retries = 0 // how many times in a row the Dashboard header was not there yet
@@ -1118,11 +1234,23 @@
 	}
 
 	var syncCount = 0
+	// A reload (or a link) on /crm/pro-pack-<name> shows that Pro Pack page again, as soon as CRM has drawn its menu.
+	var pageTries = 0
+	function openPageFromUrl() {
+		var m = /^\/crm\/pro-pack-([a-z-]+)\/?$/.exec(location.pathname)
+		if (!m) { pageTries = 0; return }
+		var slug = m[1]
+		if (window.crmAddons && window.crmAddons.ver === VER && window.crmAddons.openPage && window.crmAddons.openPage(slug)) return
+		if (pageTries++ > 14) return
+		bridge().then(function (b) { if (!b.openPage(slug)) setTimeout(schedule, 700) }).catch(function () { /* the next change of the page tries again */ })
+	}
+
 	function sync() {
 		syncCount++
 		timer = null
+		openPageFromUrl()
 		if (/^\/crm(\/|$)/.test(location.pathname)) {
-			config().then(function (c) { hideCrmParts(c); ensureSidebar(c) }).catch(function () { /* not signed in: nothing to hide */ })
+			config().then(function (c) { hideCrmParts(c); ensureSidebar(c); applyMenuLayout(c) }).catch(function () { /* not signed in: nothing to hide */ })
 		}
 		var r = route()
 		if (!r) {
@@ -1165,6 +1293,9 @@
 	})
 	window.addEventListener('popstate', schedule)
 	window.addEventListener('cra:route', schedule)
+	// coming back to the tab: the page may have changed while it was in the background
+	function onVisible() { if (document.visibilityState === 'visible') { schedule(); checkTemplates() } }
+	document.addEventListener('visibilitychange', onVisible)
 
 	// Our own changes (the menu rows, header buttons, tab panel, toasts, the floating buttons) must not call sync()
 	// again, and neither must text updates: only a node CRM itself added or removed can need a look.
@@ -1191,7 +1322,29 @@
 		}
 		return false
 	}
-	new MutationObserver(function (records) { if (relevant(records)) schedule() }).observe(document.body, { childList: true, subtree: true })
+	var observer = new MutationObserver(function (records) { if (relevant(records)) schedule() })
+	observer.observe(document.body, { childList: true, subtree: true })
 	window.__crmAddonsStats = function () { return { syncs: syncCount, timer: !!timer, retries: retries } }
+
+	// Our script can run before the CRM has drawn anything (the CRM is a single-page app that builds its screen after it
+	// has loaded). Look again every 1.5 seconds for the first 45 seconds; every step checks what is already there, so
+	// nothing is added twice.
+	var bootTicks = 0
+	var bootTimer = setInterval(function () {
+		if (++bootTicks > 30) { clearInterval(bootTimer); return }
+		schedule()
+	}, 1500)
+
+	function teardown() {
+		clearTimeout(timer)
+		clearInterval(bootTimer)
+		clearInterval(badgeTimer)
+		observer.disconnect()
+		window.removeEventListener('popstate', schedule)
+		window.removeEventListener('cra:route', schedule)
+		document.removeEventListener('visibilitychange', onVisible)
+		if (badgeListener) window.removeEventListener('cra:followups-changed', badgeListener)
+		;[].slice.call(document.querySelectorAll('[data-cra], [data-crm-addons], [data-cra-tab], .cra-fab, .cra-toast')).forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n) })
+	}
 	sync()
 })()

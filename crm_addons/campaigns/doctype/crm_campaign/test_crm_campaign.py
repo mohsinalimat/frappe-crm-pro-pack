@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Coding Pro
+# Copyright (c) 2026, Siddharth Singh
 """Campaign Manager tests.
 
 Run on a bench:  bench --site <site> run-tests --app crm_addons --module crm_addons.campaigns.doctype.crm_campaign.test_crm_campaign
@@ -1224,8 +1224,13 @@ class TestAttachments(UiApi):
 		with self.assertRaises(frappe.ValidationError):
 			api.save_campaign({"campaign_name": "x", "steps": [{"channel": "WhatsApp", "wa_template": "T", "attachments": json.dumps([f.file_url])}]})
 
-	def test_attachment_limit_defaults_to_10_mb(self):
-		self.assertEqual(common.attachment_limit_bytes(), 10 * 1024 * 1024)
+	def test_attachment_limit_defaults_to_30_mb(self):
+		with patch("frappe.core.api.file.get_max_file_size", return_value=100 * 1024 * 1024):
+			self.assertEqual(common.attachment_limit_bytes(), 30 * 1024 * 1024)
+
+	def test_attachment_limit_never_exceeds_what_frappe_accepts(self):
+		with patch("frappe.core.api.file.get_max_file_size", return_value=12 * 1024 * 1024):
+			self.assertEqual(common.attachment_limit_bytes(), 12 * 1024 * 1024)
 
 	def test_the_email_sender_attaches_step_and_template_files(self):
 		step_file, tpl_file = self.make_file(b"step", name="step.txt"), self.make_file(b"tpl", name="tpl.txt")

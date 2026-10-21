@@ -81,7 +81,7 @@
 		template: `<div><input class="inp" :list="id" :value="modelValue" placeholder="Type to search" @input="input" /><datalist :id="id"><option v-for="o in list" :key="o.value" :value="o.value">{{ o.description }}</option></datalist></div>`,
 	}
 	C.FilterBuilder = {
-		props: { rules: Array, hide: Function },
+		props: { rules: Array, hide: Function, joiner: { type: String, default: 'and' } },
 		setup(props) {
 			const fields = computed(() => (CM.shared.fields ? CM.shared.fields.fields : []))
 			const isHidden = (r) => !!(props.hide && props.hide(r))
@@ -112,7 +112,7 @@
 			<div v-if="!anyShown" class="fb-empty small">No extra filters. Add one for anything the quick filters above do not cover.</div>
 			<template v-for="(r, i) in rules" :key="r.id">
 				<template v-if="!isHidden(r)">
-				<div v-if="shownBefore(i)" class="fb-and"><span>and</span></div>
+				<div v-if="shownBefore(i)" class="fb-and"><span>{{ joiner }}</span></div>
 				<div class="fb-row">
 					<Dd v-model="r.field" :options="fieldOptions" searchable placeholder="Choose a field" aria-label="Field" @change="changeField(r)" />
 					<Dd v-model="r.op" :options="ops(r)" :disabled="!r.field" aria-label="Condition" @change="changeOp(r)" />
