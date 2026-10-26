@@ -44,3 +44,17 @@ class TestBranding(FrappeTestCase):
 		for fn, args in ((setup_page.get_branding, ()), (setup_page.save_branding, ("{}",)), (setup_page.reset_branding, ())):
 			with self.assertRaises(frappe.PermissionError):
 				fn(*args)
+
+
+class TestImageLibrary(FrappeTestCase):
+	def test_lists_public_images_only_and_filters_by_name(self):
+		png = frappe.get_doc({"doctype": "File", "file_name": "brand-lib-test.png", "content": b"\x89PNG\r\n\x1a\n" + b"x" * 20, "is_private": 0}).insert(ignore_permissions=True)
+		txt = frappe.get_doc({"doctype": "File", "file_name": "brand-lib-test.txt", "content": b"hello", "is_private": 0}).insert(ignore_permissions=True)
+		priv = frappe.get_doc({"doctype": "File", "file_name": "brand-lib-private.png", "content": b"\x89PNG\r\n\x1a\n" + b"y" * 20, "is_private": 1}).insert(ignore_permissions=True)
+		for d in (png, txt, priv):
+			self.addCleanup(frappe.delete_doc, "File", d.name, force=True, ignore_permissions=True)
+		names = [r["file_name"] for r in branding.image_library("brand-lib")]
+		self.assertIn("brand-lib-test.png", names)
+		self.assertNotIn("brand-lib-test.txt", names)
+		self.assertNotIn("brand-lib-private.png", names)
+		self.assertEqual([r["file_name"] for r in branding.image_library("no-such-file-xyz")], [])

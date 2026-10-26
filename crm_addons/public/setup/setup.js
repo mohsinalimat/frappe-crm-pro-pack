@@ -181,6 +181,13 @@
 			const fill = (r) => { Object.assign(v, r); saved = JSON.stringify(v) }
 			onMounted(async () => { try { fill(await call('crm_addons.setup_page.get_branding')) } catch (e) { error.value = e.message } finally { loading.value = false } })
 			const up = reactive({})
+			// choose an image that is already on the site (the upload would only make a duplicate)
+			const lib = reactive({ open: false, key: '', q: '', rows: [], busy: false })
+			let libTimer = null
+			async function loadLib() { lib.busy = true; try { lib.rows = (await call('crm_addons.setup_page.image_library', { search: lib.q })) || [] } catch (e) { msg.value = e.message } finally { lib.busy = false } }
+			function openLib(key) { lib.key = key; lib.q = ''; lib.open = true; loadLib() }
+			watch(() => lib.q, () => { clearTimeout(libTimer); libTimer = setTimeout(() => lib.open && loadLib(), 250) })
+			function useLib(row) { v[lib.key] = row.file_url; lib.open = false }
 			async function pick(key, e) {
 				const file = e.target.files && e.target.files[0]; e.target.value = ''
 				if (!file) return
@@ -203,7 +210,7 @@
 				saving.value = true; msg.value = ''
 				try { fill(await call('crm_addons.setup_page.reset_branding')); msg.value = 'Back to the default look.' } catch (e) { msg.value = e.message } finally { saving.value = false }
 			}
-			return { loading, error, saving, msg, v, dirty, up, pick, save, reset }
+			return { loading, error, saving, msg, v, dirty, up, pick, save, reset, lib, openLib, useLib }
 		},
 		template: `
 		<div class="br">
@@ -213,12 +220,12 @@
 				<div class="br-grid">
 					<div class="br-f"><label>Product or company name</label><input class="inp wide" type="text" v-model="v.name" maxlength="140" placeholder="Shown in the CRM menu, the login page and the Desk" /></div>
 					<div class="br-f"><label>Browser tab title prefix</label><input class="inp wide" type="text" v-model="v.title_prefix" maxlength="140" placeholder="Optional" /></div>
-					<div class="br-f"><label>Logo</label><div class="br-up"><img v-if="v.logo" :src="v.logo" alt="" class="br-img" /><span v-else class="br-none">Default logo</span><label class="btn sm" :class="{ off: up.logo }">{{ up.logo ? 'Uploading...' : v.logo ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('logo', $event)" /></label><button v-if="v.logo" type="button" class="menu-reset" @click="v.logo = ''">Use the default</button></div><span class="small muted">Used in the CRM menu, the login page and the Desk.</span></div>
-					<div class="br-f"><label>Favicon</label><div class="br-up"><img v-if="v.favicon" :src="v.favicon" alt="" class="br-img fav" /><span v-else class="br-none">Default icon</span><label class="btn sm" :class="{ off: up.favicon }">{{ up.favicon ? 'Uploading...' : v.favicon ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('favicon', $event)" /></label><button v-if="v.favicon" type="button" class="menu-reset" @click="v.favicon = ''">Use the default</button></div><span class="small muted">The small icon in the browser tab. Square, at least 64 px.</span></div>
+					<div class="br-f"><label>Logo</label><div class="br-up"><img v-if="v.logo" :src="v.logo" alt="" class="br-img" /><span v-else class="br-none">Default logo</span><label class="btn sm" :class="{ off: up.logo }">{{ up.logo ? 'Uploading...' : v.logo ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('logo', $event)" /></label><button type="button" class="btn sm" @click="openLib('logo')">Choose from library</button><button v-if="v.logo" type="button" class="menu-reset" @click="v.logo = ''">Use the default</button></div><span class="small muted">Used in the CRM menu, the login page and the Desk.</span></div>
+					<div class="br-f"><label>Favicon</label><div class="br-up"><img v-if="v.favicon" :src="v.favicon" alt="" class="br-img fav" /><span v-else class="br-none">Default icon</span><label class="btn sm" :class="{ off: up.favicon }">{{ up.favicon ? 'Uploading...' : v.favicon ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('favicon', $event)" /></label><button type="button" class="btn sm" @click="openLib('favicon')">Choose from library</button><button v-if="v.favicon" type="button" class="menu-reset" @click="v.favicon = ''">Use the default</button></div><span class="small muted">The small icon in the browser tab. Square, at least 64 px.</span></div>
 				</div>
 				<h3 class="sub">Login page</h3>
 				<div class="br-grid">
-					<div class="br-f"><label>Picture on the login page</label><div class="br-up"><img v-if="v.splash" :src="v.splash" alt="" class="br-img" /><span v-else class="br-none">Default</span><label class="btn sm" :class="{ off: up.splash }">{{ up.splash ? 'Uploading...' : v.splash ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('splash', $event)" /></label><button v-if="v.splash" type="button" class="menu-reset" @click="v.splash = ''">Use the default</button></div></div>
+					<div class="br-f"><label>Picture on the login page</label><div class="br-up"><img v-if="v.splash" :src="v.splash" alt="" class="br-img" /><span v-else class="br-none">Default</span><label class="btn sm" :class="{ off: up.splash }">{{ up.splash ? 'Uploading...' : v.splash ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('splash', $event)" /></label><button type="button" class="btn sm" @click="openLib('splash')">Choose from library</button><button v-if="v.splash" type="button" class="menu-reset" @click="v.splash = ''">Use the default</button></div></div>
 					<div class="br-f"><label class="check"><input type="checkbox" :checked="!!v.footer_on_login" @change="v.footer_on_login = $event.target.checked ? 1 : 0" /><span>Show the footer on the login page</span></label><label class="check"><input type="checkbox" :checked="!!v.hide_signup" @change="v.hide_signup = $event.target.checked ? 1 : 0" /><span>Hide the sign-up link in the footer</span></label></div>
 				</div>
 				<h3 class="sub">Footer</h3>
@@ -232,6 +239,10 @@
 					<div class="br-card"><div class="br-side"><img v-if="v.logo" :src="v.logo" alt="" class="br-pl" /><span v-else class="br-pl dflt"></span><b>{{ v.name || 'Frappe CRM' }}</b></div><div class="small muted">CRM menu</div></div>
 					<div class="br-card login"><img v-if="v.logo" :src="v.logo" alt="" class="br-pl big" /><span v-else class="br-pl big dflt"></span><b>Login to {{ v.name || 'Frappe CRM' }}</b><div class="br-fake"></div><div class="br-fake"></div><div class="small muted">{{ v.copyright || '' }}</div></div>
 				</div>
+				<div v-if="lib.open" class="br-ov" @mousedown.self="lib.open = false"><div class="br-lib" role="dialog" aria-label="Choose an image"><div class="row" style="gap:10px"><b class="grow">Choose an image from the library</b><button type="button" class="btn sm" @click="lib.open = false">Close</button></div>
+					<input class="inp wide" type="text" v-model="lib.q" placeholder="Search by file name" aria-label="Search images" />
+					<div v-if="lib.busy" class="muted small">Loading...</div><div v-else-if="!lib.rows.length" class="muted small">No images found. Upload one instead.</div>
+					<div class="br-libg"><button v-for="r in lib.rows" :key="r.name" type="button" class="br-tile" :title="r.file_name" @click="useLib(r)"><img :src="r.file_url" alt="" /><span class="ell">{{ r.file_name }}</span></button></div></div></div>
 				<div class="card pad vd-save"><button type="button" class="btn primary" :disabled="saving || !dirty" @click="save">{{ saving ? 'Saving...' : 'Save branding' }}</button><button type="button" class="btn" :disabled="saving" @click="reset">Reset to the default look</button><div v-if="msg" class="small">{{ msg }}</div></div>
 			</template>
 		</div>`,

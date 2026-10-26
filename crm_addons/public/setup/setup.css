@@ -213,3 +213,9 @@ h1, h2, h3 { font-stretch: 90%; }
 .br-card.login { align-items: center; text-align: center; min-width: 260px; } .br-fake { width: 200px; height: 28px; border-radius: 8px; background: var(--input); border: 1px solid var(--border); }
 
 input.inp.wide[type="text"], textarea.inp.wide { width: 100%; } .br-card { align-self: flex-start; }
+
+.br-ov { position: fixed; inset: 0; z-index: 2147483000; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: 16px; }
+.br-lib { width: min(720px, 100%); max-height: 80vh; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--pop); }
+.br-libg { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.br-tile { display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); text-align: center; } .br-tile:hover { border-color: var(--accent); }
+.br-tile img { width: 100%; height: 72px; object-fit: contain; background: #fff; border-radius: 6px; } .br-tile .ell { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }

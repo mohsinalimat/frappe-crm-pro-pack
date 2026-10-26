@@ -272,3 +272,12 @@ def reset_branding():
 	from crm_addons import branding
 
 	return branding.reset_branding()
+
+
+@frappe.whitelist()
+def image_library(search="", limit=48):
+	"""Images already on the site, to choose from instead of uploading again."""
+	_only_admins()
+	from crm_addons import branding
+
+	return branding.image_library(search, limit)
