@@ -39,9 +39,13 @@
 	const ROW_MAX = 6
 	const rowProps = (count) => ({ count, divider: false, dividerColor: '#e3e6eb', valign: 'top', cols: Array.from({ length: ROW_MAX }, () => ({ blocks: [] })) })
 	CM.ROW_MAX = ROW_MAX
-	/** Network name -> file name of its icon (public/campaigns/social/<key>-<look>.png). */
-	CM.SOCIAL_KEYS = { Facebook: 'facebook', Instagram: 'instagram', LinkedIn: 'linkedin', YouTube: 'youtube', X: 'x', Twitter: 'x', WhatsApp: 'whatsapp', Telegram: 'telegram', TikTok: 'tiktok', Pinterest: 'pinterest', Threads: 'threads', Website: 'website', Email: 'email' }
-	CM.SOCIAL_NETWORKS = ['Facebook', 'Instagram', 'LinkedIn', 'YouTube', 'X', 'WhatsApp', 'Telegram', 'TikTok', 'Pinterest', 'Threads', 'Website', 'Email']
+	/** The networks come from social/networks.js (one list, shared with the icon generator). A link keeps the network's label (older emails
+	 * saved "Instagram" etc.); "Custom" takes the user's own icon image and name. */
+	const REG = window.CM_SOCIAL || []
+	CM.SOCIAL_KEYS = Object.fromEntries(REG.map((n) => [n.label, n.key]))
+	Object.assign(CM.SOCIAL_KEYS, { Twitter: 'x', 'Stack Overflow': 'stackoverflow' })
+	CM.SOCIAL_NETWORKS = [...REG.map((n) => n.label), 'Custom']
+	CM.SOCIAL_COLORS = Object.fromEntries(REG.map((n) => [n.label, n.color]))
 	// ready-made rows for the palette: a row with its columns already holding blocks (an image in each, or an image and its text)
 	const imageCol = () => ({ blocks: [{ id: CM.uid(), type: 'image', props: { src: '', alt: '', link: '', width: 100, align: 'center', radius: 8 } }] })
 	const imageRow = (n) => { const p = rowProps(n); for (let i = 0; i < n; i++) p.cols[i] = imageCol(); return p }
@@ -144,8 +148,10 @@
 			html: (p, s) => {
 				const size = +p.size || 36; const look = p.look === 'dark' || p.look === 'light' ? p.look : 'color'
 				const cells = (p.links || []).filter((l) => l.network).map((l) => {
-					const key = CM.SOCIAL_KEYS[l.network] || 'website'
-					return `<td style="padding:0 5px"><a href="${url(l.url)}" target="_blank" style="text-decoration:none"><img src="${esc(absolute(`/assets/crm_addons/campaigns/social/${key}-${look}.png`))}" width="${size}" height="${size}" alt="${esc(l.network)}" style="display:block;width:${size}px;height:${size}px;border:0;border-radius:50%;font-family:${FONTS[s.font]};font-size:11px;color:#475569"></a></td>`
+					const custom = l.network === 'Custom'
+					const src = custom && l.icon ? absolute(l.icon) : absolute(`/assets/crm_addons/campaigns/social/${custom ? 'website' : CM.SOCIAL_KEYS[l.network] || 'website'}-${look}.png`)
+					const alt = custom ? l.name || 'Link' : l.network
+					return `<td style="padding:0 5px"><a href="${url(l.url)}" target="_blank" style="text-decoration:none"><img src="${esc(src)}" width="${size}" height="${size}" alt="${esc(alt)}" style="display:block;width:${size}px;height:${size}px;border:0;border-radius:50%;font-family:${FONTS[s.font]};font-size:11px;color:#475569"></a></td>`
 				}).join('')
 				return `<tr><td align="${p.align}" style="padding:10px 32px;text-align:${p.align}"><table role="presentation" cellpadding="0" cellspacing="0" align="${p.align}" style="display:inline-table;border-collapse:collapse"><tr>${cells}</tr></table></td></tr>`
 			},

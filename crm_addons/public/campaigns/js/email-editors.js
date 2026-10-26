@@ -258,6 +258,8 @@
 			const schema = computed(() => (sel.value ? CM.BLOCKS[sel.value.type].schema || [] : []))
 			function setColsCount() { const p = sel.value.props; p.count = +p.count; if (sel.value.type === 'columns') while (p.cols.length < p.count) p.cols.push({ heading: 'Heading', text: 'Text' }) }
 			const addLink = () => sel.value.props.links.push({ network: 'Website', url: 'https://' })
+			// a custom network's own icon: stored publicly (email apps must be able to load it)
+			async function uploadIcon(link, ev) { const file = ev.target.files && ev.target.files[0]; ev.target.value = ''; if (!file) return; try { const r = await CM.upload(file, { isPrivate: false }); link.icon = r.file_url } catch (err) { CM.toast(err.message, 'err') } }
 			const networks = CM.SOCIAL_NETWORKS
 			// a text block saved before the formatting toolbar existed: give the toolbar its plain text as paragraphs
 			watch(sel, (b) => { if (b && b.type === 'text' && !b.props.html && b.props.text) b.props.html = '<p>' + CM.escape(b.props.text).replace(/\r?\n/g, '<br>') + '</p>' })
@@ -269,7 +271,7 @@
 			function esc(e) { if (e.key === 'Escape' && !(e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"], .overlay'))) clear() }
 			onMounted(() => { document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc) })
 			onBeforeUnmount(() => { document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', esc); const s = getSelection(); if (s && s.rangeCount && root.value && root.value.contains(s.anchorNode)) s.removeAllRanges() })
-			return { root, panel, selId, colSel, drag, blocks, sel, found, groups, html, rowCols, keyOf, select, selectCol, clear, add, move, dup, del, at, dragNew, dragMove, dragOver, overEnd, drop, endDrag, insertVar, schema, setColsCount, addLink, networks, colRow, quick, setCount, addInto, COLTYPES, CM, fonts: CM.FONTS }
+			return { root, panel, selId, colSel, drag, blocks, sel, found, groups, html, rowCols, keyOf, select, selectCol, clear, add, move, dup, del, at, dragNew, dragMove, dragOver, overEnd, drop, endDrag, insertVar, schema, setColsCount, addLink, uploadIcon, networks, colRow, quick, setCount, addInto, COLTYPES, CM, fonts: CM.FONTS }
 		},
 		template: `
 		<div ref="root" class="bld">
@@ -313,7 +315,7 @@
 									<div class="row wrap" style="gap:4px;margin-top:8px"><button v-for="t in COLTYPES" :key="t" type="button" class="col-type" @click="addInto(sel, ci, t)"><Ico :name="CM.BLOCKS[t].icon" size="sm" />{{ CM.BLOCKS[t].label }}</button></div></div></div>
 						</template>
 						<template v-else-if="f.type === 'cols'"><div v-for="(c, ci) in sel.props.cols.slice(0, +sel.props.count)" :key="ci" class="card pad" style="padding:12px;box-shadow:none"><div class="lbl" style="margin-bottom:6px">Column {{ ci + 1 }}</div><input class="inp" v-model="c.heading" aria-label="Column heading" placeholder="Heading" style="margin-bottom:8px" /><textarea class="inp" v-model="c.text" aria-label="Column text" rows="3"></textarea></div></template>
-						<template v-else-if="f.type === 'links'"><div class="col" style="gap:8px"><div class="lbl">Links</div><div v-for="(l, li) in sel.props.links" :key="li" class="row" style="gap:6px"><div style="width:118px"><Dd v-model="l.network" :options="networks" size="sm" /></div><input class="inp grow" style="height:32px" v-model="l.url" aria-label="Link address" placeholder="https://" /><Btn size="sm" variant="ghost" icon="x" aria-label="Remove link" @click="sel.props.links.splice(li, 1)" /></div><Btn size="sm" icon="plus" @click="addLink">Add link</Btn></div></template>
+						<template v-else-if="f.type === 'links'"><div class="col" style="gap:8px"><div class="lbl">Links</div><div v-for="(l, li) in sel.props.links" :key="li" class="col" style="gap:6px"><div class="row" style="gap:6px"><div style="width:132px"><Dd v-model="l.network" :options="networks" size="sm" searchable /></div><input class="inp grow" style="height:32px" v-model="l.url" aria-label="Link address" placeholder="https://" /><Btn size="sm" variant="ghost" icon="x" aria-label="Remove link" @click="sel.props.links.splice(li, 1)" /></div><div v-if="l.network === 'Custom'" class="row" style="gap:6px;padding-left:4px"><input class="inp" style="height:32px;width:110px" v-model="l.name" aria-label="Name (shown if the image is blocked)" placeholder="Name" /><input class="inp grow" style="height:32px" v-model="l.icon" aria-label="Icon image address" placeholder="Icon image address" /><label class="btn sm" style="cursor:pointer;margin:0">Upload<input type="file" accept="image/*" style="display:none" @change="uploadIcon(l, $event)" /></label></div></div><Btn size="sm" icon="plus" @click="addLink">Add link</Btn><div class="small muted">Not in the list? Choose Custom and add your own icon image.</div></div></template>
 						<Field v-else :label="f.label" :hint="f.hint">
 							<MiniRich v-if="f.type === 'rich'" :key="sel.id" v-model="sel.props[f.key]" />
 							<div v-else-if="f.type === 'text'" class="row" style="gap:6px"><input class="inp grow" :data-key="f.key" v-model="sel.props[f.key]" :placeholder="f.placeholder" /><VarMenu v-if="f.vars" label="" size="sm" @pick="(t) => insertVar(f.key, t)" /></div>

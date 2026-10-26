@@ -378,8 +378,10 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
 - Clicking one of CRM's own menu rows while a Pro Pack page is open no longer sends CRM back to the previous address.
 
 ## Unreleased - visual email builder
-- **Social links now show real icons** (round, brand coloured) instead of text pills. 12 networks: Facebook, Instagram, LinkedIn, YouTube, X, WhatsApp,
-  Telegram, TikTok, Pinterest, Threads, Website, Email. Icon size (small / medium / large) and style (brand colours, dark, light) are options of the block.
+- **Social links now show real icons** (round, brand coloured) instead of text pills. 40 networks (Facebook, Instagram, LinkedIn,
+  YouTube, X, WhatsApp, Telegram, TikTok, Pinterest, Threads, Snapchat, Discord, GitHub, Reddit, Medium, Spotify, Slack, Google reviews, Google Play,
+  App Store, Blog / RSS, Phone, Location, Website, Email and more) in a searchable list, plus **Custom**: your own icon image (upload or address) and name for
+  anything not listed. The list lives in one file, `public/campaigns/social/networks.js`; adding a network is one line there plus `node make_icons.js`. Icon size (small / medium / large) and style (brand colours, dark, light) are options of the block.
   The icons are PNG images served by your own site (`public/campaigns/social/`, drawn from the MIT-licensed Bootstrap Icons; `make_icons.js` regenerates
   them), because Gmail and Outlook do not show SVG or icon fonts. They load for recipients when the site is reachable from the internet; with images blocked,
   the network's name shows instead. Templates saved before this change keep their text links until the block is opened and the template saved again.
