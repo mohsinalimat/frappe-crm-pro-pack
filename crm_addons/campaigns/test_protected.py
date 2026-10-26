@@ -21,7 +21,7 @@ class TestProtectedTemplates(AccessCase):
 			frappe.flags.crm_template_delete_ok = True
 			frappe.delete_doc("CRM Campaign Email Template", name, force=True, ignore_permissions=True)
 			frappe.flags.crm_template_delete_ok = False
-		doc = frappe.get_doc({"doctype": "CRM Campaign Email Template", "template_name": name, "subject": "s", "body_html": "<p>x</p>", "enabled": 1, "category": "Utility" if system else "Other", "is_system": system})
+		doc = frappe.get_doc({"doctype": "CRM Campaign Email Template", "template_name": name, "subject": "s", "body_html": "<p>x</p>", "enabled": 1, "category": "System" if system else "Other", "is_system": system})
 		doc.insert(ignore_permissions=True)
 
 		def cleanup():
@@ -69,5 +69,5 @@ class TestProtectedTemplates(AccessCase):
 
 	def test_the_list_tags_default_utility_and_marketing(self):
 		rows = {r["name"]: r for r in api.list_email_templates()}
-		self.assertEqual(rows[self.system]["purpose"], "Default")
-		self.assertEqual(rows[self.plain]["purpose"], "Marketing")
+		self.assertEqual(rows[self.system]["purpose"], "System")
+		self.assertEqual(rows[self.plain]["purpose"], "")

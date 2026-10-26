@@ -11,11 +11,10 @@
 		computed: { path() { return CM.ICONS[this.name] || '' } },
 		template: `<svg class="ico" :class="size" viewBox="0 0 24 24" aria-hidden="true" v-html="path"></svg>`,
 	}
-	/** What a template is for: Default (ready-made by the app, protected), Utility (a service message such as a booking) or Marketing. */
+	/** The app's own templates (bookings, login links, password reset ...): editable, but protected from deletion. */
 	C.PurposeTag = {
 		props: { purpose: String, title: String },
-		computed: { icon() { return this.purpose === 'Default' ? 'shield' : this.purpose === 'Utility' ? 'check-circle' : 'send' } },
-		template: `<span class="ptag" :class="String(purpose).toLowerCase()" :title="title || ({ Default: 'Ready-made by CRM Pro Pack for its own messages. It cannot be deleted by your team.', Utility: 'A service message (booking, reminder, login). Not marketing.', Marketing: 'A marketing message.' })[purpose]"><Ico :name="icon" size="sm" />{{ purpose }}</span>`,
+		template: `<span class="ptag system" :title="title || 'A system template: the app\\'s own messages (bookings, logins) use it. You can edit it; only a System Manager can delete it.'"><Ico name="shield" size="sm" />System</span>`,
 	}
 	/** Cards or list, remembered per browser under ``store``. */
 	C.LayoutSwitch = {

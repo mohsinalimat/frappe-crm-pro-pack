@@ -33,7 +33,7 @@ class TestDefaultMessages(DemoCase):
 			doc = frappe.get_doc("CRM Campaign Email Template", name)
 			self.assertEqual(personalization.unknown_variables(doc.subject, doc.body_html), [], name)
 			self.assertIn("{{ meet_link }}", doc.body_html if key != defaults.CANCELLED else doc.body_html + "{{ meet_link }}", name)
-			self.assertEqual(doc.category, "Utility")
+			self.assertEqual(doc.category, "System")
 
 	def test_the_email_templates_are_all_in_the_seed_list(self):
 		from crm_addons.campaigns import default_templates

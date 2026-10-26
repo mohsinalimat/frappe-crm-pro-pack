@@ -9,7 +9,7 @@ import json
 import zlib
 from html import escape
 
-VERSION = "1.7.0"  # bump to seed templates added in a later release
+VERSION = "1.8.0"  # bump to seed templates added in a later release
 ARIAL = "Arial, Helvetica, sans-serif"
 BLUE, INK, GREY = "#2563eb", "#14161a", "#3b4252"
 SETTINGS = {"bg": "#f4f5f7", "contentBg": "#ffffff", "width": 600, "font": "Arial"}
@@ -238,7 +238,7 @@ def _templates():
 			],
 		),
 		(
-			"Counselling session reminder", "Your session is coming up, {{ first_name }}", "Utility",
+			"Counselling session reminder", "Your session is coming up, {{ first_name }}", "System",
 			"A reminder for a booked call or meeting.",
 			[
 				heading("Your session is coming up", "h1"),
@@ -250,7 +250,7 @@ def _templates():
 		),
 		# ---- booking messages (names in demos/defaults.py; they use the demo_* variables) ------------------
 		(
-			"Booking confirmed", "Your {{ booking_title }} is confirmed: {{ booking_date }}", "Utility",
+			"Booking confirmed", "Your {{ booking_title }} is confirmed: {{ booking_date }}", "System",
 			"Sent right after someone books a time.",
 			[
 				heading("You are booked, {{ first_name }}", "h1"),
@@ -261,7 +261,7 @@ def _templates():
 			],
 		),
 		(
-			"Booking rescheduled", "Your {{ booking_title }} has a new time: {{ booking_date }}", "Utility",
+			"Booking rescheduled", "Your {{ booking_title }} has a new time: {{ booking_date }}", "System",
 			"Sent when the visitor picks a new time.",
 			[
 				heading("Your booking has a new time", "h1"),
@@ -272,7 +272,7 @@ def _templates():
 			],
 		),
 		(
-			"Booking cancelled", "Your {{ booking_title }} on {{ booking_date }} was cancelled", "Utility",
+			"Booking cancelled", "Your {{ booking_title }} on {{ booking_date }} was cancelled", "System",
 			"Sent when the visitor or a host cancels a booking.",
 			[
 				heading("Your booking was cancelled", "h1"),
@@ -282,7 +282,7 @@ def _templates():
 			],
 		),
 		(
-			"Booking reminder (24 hours)", "Tomorrow: {{ booking_title }} at {{ booking_time }}", "Utility",
+			"Booking reminder (24 hours)", "Tomorrow: {{ booking_title }} at {{ booking_time }}", "System",
 			"A reminder the day before a meeting.",
 			[
 				heading("Your meeting is tomorrow", "h1"),
@@ -293,7 +293,7 @@ def _templates():
 			],
 		),
 		(
-			"Booking reminder (1 hour)", "Starting in 1 hour: {{ booking_title }}", "Utility",
+			"Booking reminder (1 hour)", "Starting in 1 hour: {{ booking_title }}", "System",
 			"A reminder an hour before a meeting.",
 			[
 				heading("Your meeting starts in 1 hour", "h1"),
@@ -303,7 +303,7 @@ def _templates():
 			],
 		),
 		(
-			"Booking reminder (30 minutes)", "Starting in 30 minutes: {{ booking_title }}", "Utility",
+			"Booking reminder (30 minutes)", "Starting in 30 minutes: {{ booking_title }}", "System",
 			"A reminder half an hour before a meeting.",
 			[
 				heading("Your meeting starts in 30 minutes", "h1"),
@@ -313,7 +313,7 @@ def _templates():
 			],
 		),
 		(
-			"Booking starting now", "{{ booking_title }} is starting now", "Utility",
+			"Booking starting now", "{{ booking_title }} is starting now", "System",
 			"Sent at the start time of a meeting.",
 			[
 				heading("Your meeting is starting", "h1"),

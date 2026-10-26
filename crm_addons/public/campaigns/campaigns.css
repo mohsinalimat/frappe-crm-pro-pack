@@ -312,10 +312,9 @@ html.inline .pg-head .grow { min-width: 0; }
 
 /* template purpose tags: Default and Utility are service messages, so they are coloured; Marketing stays quiet */
 .ptag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: var(--r-tag); font-size: 12px; font-weight: 600; white-space: nowrap; }
-.ptag.default { background: var(--accent-soft); color: var(--accent-text); }
-.ptag.utility { background: var(--green-soft); color: var(--green); }
-.ptag.marketing { background: var(--input); color: var(--text-soft); font-weight: 500; }
-.card.p-default, .card.p-utility { box-shadow: inset 3px 0 0 var(--accent); } .card.p-utility { box-shadow: inset 3px 0 0 var(--green); }
-.tbl tr.p-default td:first-child, .tbl tr.p-utility td:first-child { box-shadow: inset 3px 0 0 var(--accent); } .tbl tr.p-utility td:first-child { box-shadow: inset 3px 0 0 var(--green); }
+
+.ptag.system { background: var(--accent-soft); color: var(--accent-text); }
+.card.p-system { box-shadow: inset 3px 0 0 var(--accent); }
+.tbl tr.p-system td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
 .pf-mail { margin-left: 8px; }
