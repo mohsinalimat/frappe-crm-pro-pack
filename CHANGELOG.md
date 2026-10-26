@@ -14,6 +14,8 @@ A patch release. **Upgrade:** `bench --site your-site migrate` and `bench restar
 
 ### Fixed
 
+- **The ready-made booking WhatsApp templates ended with a variable**, which Meta does not allow, so they could not be created. Every one now ends with a closing line ("See you soon."). A test checks
+  that no ready-made WhatsApp text starts or ends with a variable. A template already sent to Meta under the old text must be created again (delete the rejected one first).
 - **Team and access, People and Hierarchy listed only System Users.** CRM agents that are Frappe *Website Users* (the way CRM invites people) were missing from the People list, from
   the Hierarchy "Users" list, and from the guest suggestions when scheduling a meeting. Everyone who holds a CRM role is now listed, whatever their user type. Portal users without
   a CRM role are still left out.
