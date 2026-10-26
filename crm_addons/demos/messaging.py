@@ -353,6 +353,32 @@ def _deliver(name):
 	return _send_whatsapp(booking, demo, rule, context, row)
 
 
+def _is_busy_error(exc):
+	"""A database refusal that goes away when tried again: the row was changed by someone else a moment ago (1020), a deadlock (1213) or a lock wait (1205)."""
+	text = cstr(exc)
+	code = exc.args[0] if getattr(exc, "args", None) and isinstance(exc.args[0], int) else None
+	return code in (1020, 1205, 1213) or "try restarting transaction" in text or isinstance(exc, (frappe.QueryDeadlockError, frappe.QueryTimeoutError))
+
+
+def _deliver_with_retry(name, attempts=3):
+	"""``_deliver``, tried again when the database says a row changed under it. Only for email: the mail is queued inside the same transaction, so a
+	rolled-back attempt leaves nothing behind. A WhatsApp message is sent to Meta first, so it is never repeated here."""
+	import time
+
+	channel = frappe.db.get_value(MESSAGE, name, "channel")
+	for attempt in range(attempts):
+		try:
+			return _deliver(name)
+		except (Skipped, ChannelError) as exc:
+			if channel != "Email" or attempt == attempts - 1 or not _is_busy_error(exc):
+				raise
+		except Exception as exc:
+			if channel != "Email" or attempt == attempts - 1 or not _is_busy_error(exc):
+				raise
+		_rollback()
+		time.sleep(0.5 * (attempt + 1))
+
+
 def process(name):
 	"""Claim and send one message row. Safe to call from several workers at once: only one of them sends."""
 	token = frappe.generate_hash(length=12)
@@ -360,7 +386,7 @@ def process(name):
 		return False
 	_commit()
 	try:
-		reference = _deliver(name)
+		reference = _deliver_with_retry(name)
 		_finish(name, token, "Sent", reference=reference)
 	except Skipped as exc:
 		_finish(name, token, "Skipped", error=cstr(exc))

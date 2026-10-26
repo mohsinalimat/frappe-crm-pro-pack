@@ -14,7 +14,10 @@ A patch release. **Upgrade:** `bench --site your-site migrate` and `bench restar
 
 ### Fixed
 
-- **The ready-made booking WhatsApp templates ended with a variable**, which Meta does not allow, so they could not be created. Every one now ends with a closing line ("See you soon."). A test checks
+- **A booking's confirmation email could fail with `(1020, "Record has changed since last read in table 'tabCRM Lead'")`.** The email is now tried again (up to three times) when the database reports a
+  clashing change, as the booking's own work may still be updating the Lead at that moment. WhatsApp messages are never repeated this way. A message that already shows Failed can be sent again
+  with the retry button on the booking.
+- **The ready-made booking WhatsApp templates ended with a variable**, which Meta does not allow, so they could not be created. Every one now ends with a closing line ("Regards, Reducate.ai.", the `SIGNOFF` constant in `demos/defaults.py`). A test checks
   that no ready-made WhatsApp text starts or ends with a variable. A template already sent to Meta under the old text must be created again (delete the rejected one first).
 - **Team and access, People and Hierarchy listed only System Users.** CRM agents that are Frappe *Website Users* (the way CRM invites people) were missing from the People list, from
   the Hierarchy "Users" list, and from the guest suggestions when scheduling a meeting. Everyone who holds a CRM role is now listed, whatever their user type. Portal users without

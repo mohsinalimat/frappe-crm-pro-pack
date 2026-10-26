@@ -302,7 +302,7 @@ def _apply_profile(doc, first_name=None, last_name=None, mobile_no=None, designa
 
 @frappe.whitelist()
 def add_person(email, first_name, last_name="", role="Sales User", preset=None, send_invite=1, mobile_no="", designation="", company="", user_image="", reports_to=None, send_whatsapp=0):
-	"""Add a person to the CRM: a System User with a CRM role, profile details, an optional preset and team leader, and (by default) the
+	"""Add a person to the CRM: a user with a CRM role (Frappe decides System User or Website User from the role's desk access, so on a site where Sales User has no desk access they are a Website User like the other agents), profile details, an optional preset and team leader, and (by default) the
 	welcome email with the link to set a password.
 
 	An existing user (for example a website user, or someone without a CRM role) is given the role instead of being created again."""

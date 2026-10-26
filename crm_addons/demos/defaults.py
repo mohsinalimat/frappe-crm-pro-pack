@@ -16,6 +16,10 @@ def key_of(event, minutes_before=0):
 	return ("Reminder", int(minutes_before or 0)) if event == "Reminder" else (event, 0)
 
 
+# The closing line of every ready-made WhatsApp text (Meta does not allow a body to end with a variable). Change it here for another company.
+SIGNOFF = "Regards, Reducate.ai."
+
+
 EMAIL = {
 	CONFIRMED: "Booking confirmed",
 	RESCHEDULED: "Booking rescheduled",
@@ -40,37 +44,37 @@ def _wa(name, body, variables, samples):
 WHATSAPP = {
 	CONFIRMED: _wa(
 		"booking_confirmed",
-		"Hi {{1}}, your {{2}} is confirmed for {{3}} at {{4}}.\n\nJoin here: {{5}}\n\nNeed another time? Reschedule or cancel: {{6}}\n\nSee you soon.",
+		"Hi {{1}}, your {{2}} is confirmed for {{3}} at {{4}}.\n\nJoin here: {{5}}\n\nNeed another time? Reschedule or cancel: {{6}}\n\n" + SIGNOFF,
 		[_V["1"], _V["2"], _V["3"], _V["4"], _V["5"], _V["6"]], _SAMPLE,
 	),
 	RESCHEDULED: _wa(
 		"booking_rescheduled",
-		"Hi {{1}}, your {{2}} has been moved to {{3}} at {{4}}.\n\nJoin here: {{5}}\n\nChange it again: {{6}}\n\nSee you soon.",
+		"Hi {{1}}, your {{2}} has been moved to {{3}} at {{4}}.\n\nJoin here: {{5}}\n\nChange it again: {{6}}\n\n" + SIGNOFF,
 		[_V["1"], _V["2"], _V["3"], _V["4"], _V["5"], _V["6"]], _SAMPLE,
 	),
 	CANCELLED: _wa(
 		"booking_cancelled",
-		"Hi {{1}}, your {{2}} on {{3}} at {{4}} has been cancelled.\n\nWould you like another time? Book again here: {{5}}\n\nSee you soon.",
+		"Hi {{1}}, your {{2}} on {{3}} at {{4}} has been cancelled.\n\nWould you like another time? Book again here: {{5}}\n\n" + SIGNOFF,
 		[_V["1"], _V["2"], _V["3"], _V["4"], "{{ booking_link }}"], _SAMPLE[:4] + ["https://crm.example.com/book/free-demo"],
 	),
 	REMINDER_24H: _wa(
 		"booking_reminder_24h",
-		"Hi {{1}}, a reminder: your {{2}} is tomorrow, {{3}} at {{4}}.\n\nJoin here: {{5}}\n\nCan't make it? Reschedule or cancel: {{6}}\n\nSee you soon.",
+		"Hi {{1}}, a reminder: your {{2}} is tomorrow, {{3}} at {{4}}.\n\nJoin here: {{5}}\n\nCan't make it? Reschedule or cancel: {{6}}\n\n" + SIGNOFF,
 		[_V["1"], _V["2"], _V["3"], _V["4"], _V["5"], _V["6"]], _SAMPLE,
 	),
 	REMINDER_1H: _wa(
 		"booking_reminder_1h",
-		"Hi {{1}}, your {{2}} starts in 1 hour, at {{3}}.\n\nJoin here: {{4}}\n\nSee you soon.",
+		"Hi {{1}}, your {{2}} starts in 1 hour, at {{3}}.\n\nJoin here: {{4}}\n\n" + SIGNOFF,
 		[_V["1"], _V["2"], _V["4"], _V["5"]], [_SAMPLE[0], _SAMPLE[1], _SAMPLE[3], _SAMPLE[4]],
 	),
 	REMINDER_30M: _wa(
 		"booking_reminder_30m",
-		"Hi {{1}}, your {{2}} starts in 30 minutes, at {{3}}.\n\nJoin here: {{4}}\n\nSee you soon.",
+		"Hi {{1}}, your {{2}} starts in 30 minutes, at {{3}}.\n\nJoin here: {{4}}\n\n" + SIGNOFF,
 		[_V["1"], _V["2"], _V["4"], _V["5"]], [_SAMPLE[0], _SAMPLE[1], _SAMPLE[3], _SAMPLE[4]],
 	),
 	STARTING: _wa(
 		"booking_starting_now",
-		"Hi {{1}}, your {{2}} is starting now.\n\nJoin here: {{3}}\n\nSee you soon.",
+		"Hi {{1}}, your {{2}} is starting now.\n\nJoin here: {{3}}\n\n" + SIGNOFF,
 		[_V["1"], _V["2"], _V["5"]], [_SAMPLE[0], _SAMPLE[1], _SAMPLE[4]],
 	),
 }
