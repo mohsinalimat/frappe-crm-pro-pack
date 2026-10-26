@@ -83,6 +83,7 @@ website_redirects = [
 	{"source": "/assignment", "target": "/assets/crm_addons/campaigns/assignment.html"},
 	{"source": "/pro-pack-setup", "target": "/assets/crm_addons/setup/index.html"},
 	{"source": "/demos", "target": "/assets/crm_addons/demos/index.html"},
+	{"source": "/team-access", "target": "/assets/crm_addons/access/index.html"},
 ]
 
 # Demo booking pages: one www page (www/book) serves both; the slug or the token arrives in frappe.form_dict.

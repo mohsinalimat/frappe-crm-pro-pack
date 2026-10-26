@@ -218,3 +218,85 @@ class TestTeamScope(AccessCase):
 		user = self.person("nohier.acc@example.org", "Sales User")
 		with patch.object(access, "HIERARCHY", "No Such Hierarchy"):
 			self.assertEqual(access.team_users(user), {user})
+
+
+class TestAdminApi(AccessCase):
+	def as_user(self, user):
+		frappe.set_user(user)
+		self.addCleanup(frappe.set_user, "Administrator")
+
+	def test_only_a_system_manager_may_use_it(self):
+		from crm_addons.team_access import admin
+
+		rep = self.person("api.rep@example.org", "Sales User")
+		mgr = self.person("api.mgr@example.org", "Sales Manager")
+		for who in (rep, mgr):
+			self.as_user(who)
+			for fn, args in ((admin.get_overview, ()), (admin.get_user_access, (rep,)), (admin.save_user_access, (rep, None, "{}")), (admin.save_preset, ("x", "", "{}")), (admin.delete_preset, ("x",)), (admin.send_password_reset, (rep,))):
+				with self.assertRaises(frappe.PermissionError, msg=fn.__name__):
+					fn(*args)
+			frappe.set_user("Administrator")
+
+	def test_the_overview_lists_people_presets_and_the_registry(self):
+		from crm_addons.team_access import admin
+
+		rep = self.person("ov.rep@example.org", "Sales User")
+		self.configure(rep, "Sales Executive", {"followups": "all"})
+		out = admin.get_overview()
+		self.assertEqual({f["key"] for f in out["features"]}, set(R.BY_KEY))
+		self.assertIn("Sales Executive", {p["preset_name"] for p in out["presets"]})
+		me = next(p for p in out["people"] if p["user"] == rep)
+		self.assertEqual((me["preset"], me["overrides"], me["configured"]), ("Sales Executive", 1, True))
+		self.assertNotIn("Administrator", {p["user"] for p in out["people"]})
+
+	def test_saving_a_person_and_going_back_to_the_default(self):
+		from crm_addons.team_access import admin
+
+		rep = self.person("sv.rep@example.org", "Sales User")
+		out = admin.save_user_access(rep, "Team Lead", json.dumps({"followups": "all", "meetings": "team"}))
+		self.assertEqual(out["effective"]["followups"], {"value": "all", "source": "override"})
+		self.assertNotIn("meetings", out["overrides"])  # the preset already says team
+		self.assertEqual(out["effective"]["meetings"]["source"], "preset")
+		out = admin.save_user_access(rep, None, "{}")
+		self.assertFalse(frappe.db.exists("CRM User Access", rep))
+		self.assertEqual(out["effective"]["followups"]["source"], "default")
+
+	def test_bad_input_is_refused(self):
+		from crm_addons.team_access import admin
+
+		rep = self.person("bi.rep@example.org", "Sales User")
+		with self.assertRaises(frappe.ValidationError):
+			admin.save_user_access(rep, "No Such Preset", "{}")
+		with self.assertRaises(frappe.ValidationError):
+			admin.save_user_access(rep, None, json.dumps({"followups": "sideways"}))
+		with self.assertRaises(frappe.ValidationError):
+			admin.save_user_access("Administrator", None, "{}")
+
+	def test_presets_can_be_created_duplicated_and_deleted(self):
+		from crm_addons.team_access import admin
+
+		p = admin.save_preset("Test Preset A", "for testing", json.dumps({"followups": "team"}))
+		self.assertEqual(p["grants"], {"followups": "team"})
+		with self.assertRaises(frappe.ValidationError):
+			admin.save_preset("Test Preset A", "", "{}")
+		copy = admin.duplicate_preset("Test Preset A", "Test Preset B")
+		self.assertEqual(copy["grants"], {"followups": "team"})
+		rep = self.person("pr.rep@example.org", "Sales User")
+		admin.save_user_access(rep, "Test Preset B", "{}")
+		with self.assertRaises(frappe.ValidationError):
+			admin.delete_preset("Test Preset B")
+		admin.save_user_access(rep, None, "{}")
+		self.assertTrue(admin.delete_preset("Test Preset B"))
+
+	def test_a_password_reset_goes_through_frappe(self):
+		from unittest.mock import patch
+
+		from crm_addons.team_access import admin
+
+		rep = self.person("pw.rep@example.org", "Sales User")
+		from frappe.core.doctype.user.user import User
+
+		name = "_reset_password" if hasattr(User, "_reset_password") else "reset_password"
+		with patch.object(User, name) as reset:
+			self.assertEqual(admin.send_password_reset(rep), {"sent_to": rep})
+		reset.assert_called_once_with(send_email=True)

@@ -36,13 +36,14 @@
 		campaigns: { url: "/assets/crm_addons/campaigns/index.html?v=" + VER, title: "Campaign Manager", large: true },
 		assignment: { url: "/assets/crm_addons/campaigns/assignment.html?v=" + VER, title: "Lead assignment", large: true },
 		demos: { url: "/assets/crm_addons/demos/index.html?v=" + VER, title: "Demo booking", large: true },
+		access: { url: "/assets/crm_addons/access/index.html?v=" + VER, title: "Team and access", large: true },
 		editor: { url: "/assets/crm_addons/meetings/index.html?v=" + VER, title: "Meeting", large: false },
 		followup: { url: "/assets/crm_addons/meetings/index.html?v=" + VER, title: "Add follow-up", large: false },
 	}
 	// The big screens open as a PAGE of the CRM: they fill the area to the right of CRM's own menu, the menu stays, the address
 	// becomes /crm/pro-pack-<name> (so Back, reload and sharing the link work), and the menu row stays lit. Small screens, and
 	// the small forms (a meeting, a follow-up), still open as a pop-up.
-	var PAGES = { calendar: "meetings", dashboard: "sales-dashboard", followups: "followups", campaigns: "campaigns", assignment: "assignment", demos: "demos" }
+	var PAGES = { calendar: "meetings", dashboard: "sales-dashboard", followups: "followups", campaigns: "campaigns", assignment: "assignment", demos: "demos", access: "team-access" }
 	var SIDE_KEY = { calendar: "meetings", dashboard: "dashboard", followups: "followups", campaigns: "campaigns", assignment: "assignment", demos: "demos" }
 	var pagePath = ""
 	var layer = null
@@ -277,6 +278,7 @@
 		openCampaigns: function (hash) { open("campaigns", {}, null, typeof hash === "string" ? hash : "") },
 		openAssignment: function (hash) { open("assignment", {}, null, typeof hash === "string" ? hash : "") },
 		openDemos: function (hash) { open("demos", {}, null, typeof hash === "string" ? hash : "") },
+		openAccess: function (hash) { open("access", {}, null, typeof hash === "string" ? hash : "") },
 		// a reload (or a shared link) on /crm/pro-pack-<name>: open that page. False while CRM has not drawn its menu yet.
 		openPage: function (slug) {
 			var kind = Object.keys(PAGES).filter(function (k) { return PAGES[k] === slug })[0]
