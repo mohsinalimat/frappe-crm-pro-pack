@@ -1,4 +1,4 @@
-/* CRM Pro Pack - Campaign Manager: core (environment, theme, server calls, helpers, icons, toasts, dialogs).
+/* Frappe CRM Suite Pro - Campaign Manager: core (environment, theme, server calls, helpers, icons, toasts, dialogs).
  * Every file of the page shares one namespace: window.CM. No build step. */
 (() => {
 	const { reactive, ref } = Vue

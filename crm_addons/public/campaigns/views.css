@@ -1,4 +1,4 @@
-/* CRM Pro Pack - Campaign Manager: screen styles (list, templates, editors, audience, wizard, reports). */
+/* Frappe CRM Suite Pro - Campaign Manager: screen styles (list, templates, editors, audience, wizard, reports). */
 .tool { gap: 10px; } .grid { display: grid; gap: 18px; } .grid.two-one { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 960px) { .grid.two-one, .grid.two { grid-template-columns: minmax(0, 1fr); } }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-soft); } .legend i, .key i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 3px; }

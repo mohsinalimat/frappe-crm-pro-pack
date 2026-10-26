@@ -6,6 +6,10 @@ All notable changes to CRM Pro Pack (the `crm_addons` Frappe app).
 
 ### Changed
 
+- **The product is now called Frappe CRM Suite Pro** (was CRM Pro Pack): headings, setup page, README and docs. Technical names, URLs (`/pro-pack-setup`, `/team-access`) and the Desk workspace name are unchanged so live sites keep working.
+
+### Changed
+
 - **Team and access: Add person.** A button on the People page creates a CRM login (Sales User or Sales Manager), applies a preset and emails the invitation to set a password; if the email cannot be sent the person is still added and you are told why.
 - **Widgets can be shown as a list** (cards or list, remembered per browser), and the **Google Meet logo** marks Google Meet links and options wherever they appear.
 - **Demos is now Bookings, Demo widgets is now Widgets** (visible names only; the Report keeps its name). The ready-made access preset *Demo Host* is renamed *Booking Host* (people on it follow). URLs, API and doctype names are unchanged.

@@ -31,7 +31,7 @@
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
 			<nav class="rail" :class="{ collapsed }" aria-label="Team and access">
-				<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span><div class="brand-txt"><b>Team and access</b><span>CRM Pro Pack</span></div></div>
+				<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span><div class="brand-txt"><b>Team and access</b><span>Frappe CRM Suite Pro</span></div></div>
 				<template v-if="!denied">
 				<a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span></a>
 				</template>

@@ -1,4 +1,4 @@
-/* CRM Pro Pack - TEMPORARY browser diagnostics. See docs/DEBUGGING.md.
+/* Frappe CRM Suite Pro - TEMPORARY browser diagnostics. See docs/DEBUGGING.md.
  *
  * Finds out what freezes or crashes a page. It watches, and reports to the browser console and (through
  * crm_addons.debuglog.client_log) to <bench>/logs/crm_addons_debug.log:

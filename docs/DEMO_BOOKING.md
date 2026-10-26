@@ -3,7 +3,7 @@
 Status: design agreed with the owner, being built on branch `feature/demo-booking` (from `main` 1.4.0). Nothing here is merged to `main`.
 
 ## What it is
-A Cal.com-style booking page built into CRM Pro Pack. A visitor on one of the owner's websites (Coding Junior, Coding Pro, ...) clicks
+A Cal.com-style booking page built into Frappe CRM Suite Pro. A visitor on one of the owner's websites (Coding Junior, Coding Pro, ...) clicks
 "Book a demo", picks a date and a time slot, fills a short form, and gets a confirmation. The system then creates / matches the **Lead**,
 creates a **CRM Meeting** of type Demo (Google Meet link, owners + CC invited), records the **UTMs**, and sends **email and WhatsApp**
 messages (confirmation, reminders, reschedule, cancel) built from the **Campaign Manager template library**. Admins create and brand

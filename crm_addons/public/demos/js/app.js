@@ -47,7 +47,7 @@
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
 			<nav class="rail" :class="{ collapsed }" aria-label="Bookings">
-				<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg></span><div class="brand-txt"><b>Bookings</b><span>CRM Pro Pack</span></div></div>
+				<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg></span><div class="brand-txt"><b>Bookings</b><span>Frappe CRM Suite Pro</span></div></div>
 				<template v-if="!nothing">
 				<a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null" @click="nav($event, n.path)"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span></a>
 				</template>

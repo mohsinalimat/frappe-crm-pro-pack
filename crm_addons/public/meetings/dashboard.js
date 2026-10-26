@@ -1,4 +1,4 @@
-/* CRM Pro Pack - Sales Dashboard (Vue 3, no build step, charts drawn as SVG).
+/* Frappe CRM Suite Pro - Sales Dashboard (Vue 3, no build step, charts drawn as SVG).
  * A full-screen page of its own. What it shows follows the roles: managers see everyone (and can
  * look at one person), sales users only their own numbers. */
 (() => {

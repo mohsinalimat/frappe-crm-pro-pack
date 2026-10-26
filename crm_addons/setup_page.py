@@ -1,4 +1,4 @@
-"""Backend of the Pro Pack setup page (``/pro-pack-setup``).
+"""Backend of the Suite Pro setup page (``/pro-pack-setup``).
 
 The page is a friendlier front for the *CRM Addons Settings* record: it reads and writes the same fields (so the desk form
 keeps working), and it adds a live setup checklist that says what still needs to be done and how. System Managers only.

@@ -99,7 +99,7 @@
   {
    "fieldname": "is_system",
    "fieldtype": "Check",
-   "label": "Ready-made by CRM Pro Pack",
+   "label": "Ready-made by Frappe CRM Suite Pro",
    "read_only": 1,
    "no_copy": 1,
    "default": "0",

@@ -99,7 +99,7 @@ def push(doc, method=None):
 			frappe.db.set_value(doc.doctype, doc.name, LINK, twin.name, update_modified=False)
 			doc.set(LINK, twin.name)
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: could not copy the email template to CRM", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: could not copy the email template to CRM", message=frappe.get_traceback())
 
 
 def disable_twin(doc, method=None):
@@ -141,7 +141,7 @@ def pull(doc, method=None):
 				).insert(ignore_permissions=True)
 	except Exception:
 		# usually a variable the campaign engine does not know: the template stays CRM-only
-		frappe.logger().info(f"CRM Pro Pack: Email Template {doc.name} was not mirrored into the campaign library", exc_info=True)
+		frappe.logger().info(f"Frappe CRM Suite Pro: Email Template {doc.name} was not mirrored into the campaign library", exc_info=True)
 
 
 def cint_eq(a, b):

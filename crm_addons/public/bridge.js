@@ -1,4 +1,4 @@
-/* CRM Pro Pack bridge.
+/* Frappe CRM Suite Pro bridge.
  * Loaded on demand by the scripts the app installs into Frappe CRM. It opens the add-on screens (iframes
  * served by this app) on top of the CRM page, so CRM's own source code never has to change.
  *

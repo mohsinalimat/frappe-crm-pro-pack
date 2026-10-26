@@ -1,4 +1,4 @@
-/* CRM Pro Pack - the shared date-range picker (Vue 3, no build step).
+/* Frappe CRM Suite Pro - the shared date-range picker (Vue 3, no build step).
  * Loaded by dashboard.html and followups.html before their own script, it registers
  * window.CRMRangePicker.create(options) which returns the component both pages use.
  *

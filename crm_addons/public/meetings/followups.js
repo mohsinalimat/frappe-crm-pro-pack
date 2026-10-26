@@ -1,4 +1,4 @@
-/* CRM Pro Pack - Follow-ups workspace (Vue 3, no build step).
+/* Frappe CRM Suite Pro - Follow-ups workspace (Vue 3, no build step).
  * A full-screen page, built like the Sales Dashboard. Managers see everyone's follow-ups (and can
  * narrow to one person); a sales user only ever gets their own. The form for logging a follow-up is
  * the same one the Lead page uses (index.html?mode=followup), shown in a panel on top of this page.

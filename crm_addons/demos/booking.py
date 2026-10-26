@@ -534,7 +534,7 @@ def build_ics(name):
 	link = (frappe.db.get_value("CRM Meeting", b.meeting, "google_meet_link") if b.meeting else "") or demo.get("manual_link") or ""
 	stamp = common.utcnow().strftime("%Y%m%dT%H%M%SZ")
 	lines = [
-		"BEGIN:VCALENDAR", "PRODID:-//CRM Pro Pack//Demo booking//EN", "VERSION:2.0", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+		"BEGIN:VCALENDAR", "PRODID:-//Frappe CRM Suite Pro//Demo booking//EN", "VERSION:2.0", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
 		"BEGIN:VEVENT", f"UID:crm-demo-{b.name}@{frappe.local.site}", f"DTSTAMP:{stamp}",
 		f"DTSTART:{b.starts_utc:%Y%m%dT%H%M%SZ}", f"DTEND:{end:%Y%m%dT%H%M%SZ}", f"SUMMARY:{_ics_escape(demo.title)}",
 		f"STATUS:{'CANCELLED' if b.status == 'Cancelled' else 'CONFIRMED'}",
