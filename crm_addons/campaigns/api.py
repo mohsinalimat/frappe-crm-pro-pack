@@ -11,7 +11,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, cstr, now_datetime
 
-from crm_addons.campaigns import analytics, audience, automation, channels, engine, hygiene, journey, optout, personalization, rules, schedule_view
+from crm_addons.campaigns import analytics, audience, automation, channels, engine, hygiene, journey, optout, personalization, protected, rules, schedule_view
 from crm_addons.campaigns.channels import get_sender
 from crm_addons.campaigns.guard import http_timeout
 from crm_addons.campaigns.common import (
@@ -450,7 +450,7 @@ def list_email_templates(search=None, category=None, enabled=None):
 		filters["enabled"] = cint(enabled)
 	rows = frappe.get_list(
 		EMAIL_TEMPLATE, filters=filters,
-		fields=["name", "template_name", "subject", "body_html", "enabled", "category", "editor_mode", "description", "modified", "owner", "creation"],
+		fields=["name", "template_name", "subject", "body_html", "enabled", "category", "editor_mode", "description", "modified", "owner", "creation", "is_system"],
 		order_by="modified desc", limit_page_length=500,
 	)
 	if search:
@@ -462,6 +462,8 @@ def list_email_templates(search=None, category=None, enabled=None):
 	for r in rows:
 		r["used_in"] = len(usage.get(r.name, ()))
 		r["editor_mode"] = r.editor_mode or "HTML"
+		r["is_system"] = cint(r.is_system)
+		r["purpose"] = "Default" if r["is_system"] else "Utility" if r.category == "Transactional" else "Marketing"
 	return rows
 
 
@@ -482,6 +484,7 @@ def save_email_template(data, name=None):
 			doc.set(f, data[f])
 	if "builder_json" in data:
 		doc.builder_json = data["builder_json"] if isinstance(data["builder_json"], str) else json.dumps(data["builder_json"])
+	protected.guard_archive(doc)
 	if not name and frappe.db.exists(EMAIL_TEMPLATE, doc.template_name):
 		frappe.throw(_("A template named {0} already exists. Choose another name.").format(frappe.bold(doc.template_name)))
 	doc.save(ignore_permissions=True)  # the "Email templates" access check above decides (the doctype itself is read-only for Sales Users)
@@ -541,15 +544,36 @@ def duplicate_email_template(name):
 
 
 @frappe.whitelist()
-def delete_email_template(name):
+def delete_email_template(name, replacement=None):
 	"""Delete a template nobody uses. A template used by a campaign cannot be deleted: archive it (enabled = 0)."""
 	_check_user()
 	_need("email_templates", "edit", _("create or edit email templates"))
+	if protected.is_protected("email", name):
+		return protected.delete_protected("email", name, replacement)  # System Managers only; asks for a replacement when it is in use
 	used = _template_usage(name)
 	if used:
 		frappe.throw(_("This template is used by {0} campaign(s), so it cannot be deleted. Archive it instead.").format(len(used)))
 	frappe.delete_doc(EMAIL_TEMPLATE, name, ignore_permissions=True)
 	return True
+
+
+@frappe.whitelist()
+def template_delete_info(kind, name):
+	"""What the delete dialog needs: protected or not, who may delete it, what uses it, and the templates that could replace it."""
+	_check_user()
+	if kind not in protected.KINDS:
+		frappe.throw(_("Unknown template kind."))
+	_need_any(_("the template library"), ("email_templates", "edit"), ("whatsapp_templates", "create"))
+	return protected.delete_info(kind, name)
+
+
+@frappe.whitelist()
+def delete_whatsapp_template(name, replacement=None):
+	"""Delete a ready-made WhatsApp template (System Managers only), after moving what uses it to another approved template."""
+	_check_user()
+	if not protected.is_protected("whatsapp", name):
+		frappe.throw(_("Only the ready-made templates are deleted here. Other WhatsApp templates are managed in WhatsApp Manager."))
+	return protected.delete_protected("whatsapp", name, replacement)
 
 
 def _sample_or_lead(lead, owner=None):
@@ -725,7 +749,7 @@ def list_whatsapp_templates(search=None, category=None, status=None):
 	rows = frappe.get_all(
 		"WhatsApp Templates", filters=filters,
 		fields=["name", "template_name", "actual_name", "status", "language_code", "category", "template", "header", "header_type", "footer", "sample_values", "sample", "whatsapp_account", "id", "modified"]
-		+ (["crm_variable_map"] if frappe.get_meta("WhatsApp Templates").has_field("crm_variable_map") else []),
+		+ [f for f in ("crm_variable_map", "crm_system") if frappe.get_meta("WhatsApp Templates").has_field(f)],
 		order_by="modified desc", limit_page_length=500,
 	)
 	buttons = {}
@@ -746,6 +770,8 @@ def list_whatsapp_templates(search=None, category=None, status=None):
 		out.append(
 			{
 				**r, "state": state, "approved": state == "APPROVED", "synced": bool(r.id),
+				"is_system": cint(r.get("crm_system")),
+				"purpose": "Default" if cint(r.get("crm_system")) else "Marketing" if cstr(r.category).upper() == "MARKETING" else "Utility",
 				"variable_map": saved_map if isinstance(saved_map, dict) else {},
 				"default_media": r.sample if cstr(r.header_type).upper() in ("IMAGE", "DOCUMENT", "VIDEO") and cstr(r.sample).startswith(("/", "http")) else "",
 				"placeholders": personalization.placeholders_in(r.template), "samples": samples, "buttons": buttons.get(r.name, []),

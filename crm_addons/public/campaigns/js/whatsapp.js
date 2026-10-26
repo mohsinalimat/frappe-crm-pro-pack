@@ -106,7 +106,7 @@
 	V.WhatsAppTemplates = {
 		setup() {
 			const data = ref(null); const loading = ref(true); const error = ref(''); const syncing = ref(false)
-			const q = reactive({ search: '', category: '', status: '' }); const detail = ref(null); const createOpen = ref(false)
+			const q = reactive({ search: '', category: '', status: '', purpose: '' }); const layout = CM.useLayout('crm_wa_templates_layout'); const protectedDel = ref(null); const detail = ref(null); const createOpen = ref(false)
 			const created = async () => { createOpen.value = false; await load(true) }
 			async function load(quiet) { if (!quiet) loading.value = true; error.value = ''; try { data.value = await CM.api('list_whatsapp_templates', {}) } catch (e) { error.value = e.message } finally { loading.value = false } }
 			onMounted(() => { CM.loadShared(); load() })
@@ -114,8 +114,9 @@
 			const shown = computed(() => {
 				const term = q.search.trim().toLowerCase()
 				const rank = { APPROVED: 0, PENDING: 1, REJECTED: 2, PAUSED: 3, DISABLED: 3 }
-				return rows.value.slice().sort((x, y) => (rank[x.state] ?? 4) - (rank[y.state] ?? 4) || x.template_name.localeCompare(y.template_name)).filter((r) => (!q.category || r.category === q.category) && (!q.status || r.state === q.status || (q.status === 'DISABLED' && ['PAUSED', 'DISABLED'].includes(r.state))) && (!term || `${r.template_name} ${r.template}`.toLowerCase().includes(term)))
+				return rows.value.slice().sort((x, y) => (rank[x.state] ?? 4) - (rank[y.state] ?? 4) || x.template_name.localeCompare(y.template_name)).filter((r) => (!q.category || r.category === q.category) && (!q.purpose || r.purpose === q.purpose) && (!q.status || r.state === q.status || (q.status === 'DISABLED' && ['PAUSED', 'DISABLED'].includes(r.state))) && (!term || `${r.template_name} ${r.template}`.toLowerCase().includes(term)))
 			})
+			const purposeCount = (p) => rows.value.filter((r) => !p || r.purpose === p).length
 			const count = (s) => (s ? rows.value.filter((r) => r.state === s || (s === 'DISABLED' && r.state === 'PAUSED')).length : rows.value.length)
 			async function sync() {
 				syncing.value = true
@@ -124,7 +125,7 @@
 			async function refresh() { await load(true); CM.toast('List refreshed') }
 			const use = (t) => { if (!t.approved) return CM.toast('Only templates approved by Meta can be used in a campaign.', 'warn'); CM.go('/campaigns/new?wa=' + encodeURIComponent(t.name)) }
 			const cats = computed(() => CATEGORIES.filter((c) => rows.value.some((r) => r.category === c)).map((c) => ({ value: c, label: catLabel(c) })))
-			return { createOpen, created, data, loading, error, syncing, q, shown, rows, count, sync, refresh, detail, use, load, STATUSES, cats, stateTone, stateLabel, catLabel, CM }
+			return { protectedDel, layout, purposeCount, createOpen, created, data, loading, error, syncing, q, shown, rows, count, sync, refresh, detail, use, load, STATUSES, cats, stateTone, stateLabel, catLabel, CM }
 		},
 		template: `
 		<div class="page">
@@ -136,29 +137,39 @@
 			<template v-else>
 				<div class="row wrap tool">
 					<div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search templates" clearable aria-label="Search templates" /></div>
+ 					<div class="chips"><button v-for="p in ['', 'Default', 'Utility', 'Marketing']" :key="p" type="button" class="fchip" :class="{ on: q.purpose === p }" :aria-pressed="q.purpose === p" @click="q.purpose = p">{{ p || 'All' }} <span class="n">{{ purposeCount(p) }}</span></button></div>
 					<div style="width:180px"><Dd v-model="q.category" :options="cats" placeholder="All categories" allow-empty="All categories" size="sm" /></div>
 					<div class="chips"><button v-for="s in STATUSES" :key="s[0]" type="button" class="fchip" :class="{ on: q.status === s[0] }" @click="q.status = s[0]">{{ s[1] }} <span class="n">{{ count(s[0]) }}</span></button></div>
+					<div class="grow"></div><LayoutSwitch v-model="layout" />
 				</div>
 				<div v-if="loading" class="wgrid"><div v-for="n in 6" :key="n" class="card pad"><Skel h="150" r="10" /><Skel w="60%" h="14" style="margin-top:12px" /></div></div>
 				<ErrorState v-else-if="error" :message="error" @retry="load" />
 				<Empty v-else-if="!shown.length" icon="whatsapp" :title="rows.length ? 'No templates match' : 'No WhatsApp templates yet'" :text="rows.length ? 'Try a different search or status.' : 'Create a template in Meta (WhatsApp Manager), then press Sync from Meta. It appears here once synced.'"><Btn v-if="!rows.length && data && data.can_sync" variant="primary" icon="download" :loading="syncing" @click="sync">Sync from Meta</Btn></Empty>
+ 				<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
+					<thead><tr><th>Template</th><th>Type</th><th>Category</th><th>Status</th><th>Language</th><th></th></tr></thead>
+					<tbody><tr v-for="t in shown" :key="t.name" class="click" :class="'p-' + String(t.purpose).toLowerCase()" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
+						<td><b class="ellipsis" style="display:block;max-width:300px" :title="t.template_name">{{ t.template_name }}</b><div class="small muted ellipsis" style="max-width:300px">{{ t.template }}</div></td>
+						<td><PurposeTag :purpose="t.purpose" /></td><td>{{ catLabel(t.category) || '-' }}</td><td><span class="badge" :class="stateTone(t.state)">{{ stateLabel(t.state) }}</span></td><td>{{ t.language_code || 'en' }}</td>
+						<td class="num" @click.stop><Btn v-if="data && data.can_create" size="sm" :variant="t.approved ? 'primary' : ''" :disabled="!t.approved" @click="use(t)">Use in campaign</Btn></td>
+					</tr></tbody></table></div></div>
 				<div v-else class="wgrid">
-					<article v-for="t in shown" :key="t.name" class="wcard card hover" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
+					<article v-for="t in shown" :key="t.name" class="wcard card hover" :class="'p-' + String(t.purpose).toLowerCase()" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
 						<div class="wcard-pv"><WaTemplateBubble :t="t" compact /></div>
 						<div class="wcard-b">
 							<div class="row"><b class="grow ellipsis" :title="t.template_name">{{ t.template_name }}</b><span class="badge" :class="stateTone(t.state)">{{ stateLabel(t.state) }}</span></div>
-							<div class="row wrap" style="gap:6px"><span v-if="t.category" class="tchip">{{ catLabel(t.category) }}</span><span class="tchip">{{ t.language_code || 'en' }}</span><span class="tchip" :title="t.synced ? 'Fetched from Meta' : 'Created in this CRM, not synced from Meta'"><Ico :name="t.synced ? 'check-circle' : 'file'" size="sm" style="margin-right:4px" />{{ t.synced ? 'Meta-synced' : 'Local' }}</span><span v-if="t.placeholders.length" class="tchip">{{ t.placeholders.length }} variable{{ t.placeholders.length > 1 ? 's' : '' }}</span></div>
+							<div class="row wrap" style="gap:6px"><PurposeTag :purpose="t.purpose" /><span v-if="t.category" class="tchip">{{ catLabel(t.category) }}</span><span class="tchip">{{ t.language_code || 'en' }}</span><span class="tchip" :title="t.synced ? 'Fetched from Meta' : 'Created in this CRM, not synced from Meta'"><Ico :name="t.synced ? 'check-circle' : 'file'" size="sm" style="margin-right:4px" />{{ t.synced ? 'Meta-synced' : 'Local' }}</span><span v-if="t.placeholders.length" class="tchip">{{ t.placeholders.length }} variable{{ t.placeholders.length > 1 ? 's' : '' }}</span></div>
 							<div class="row" style="margin-top:6px"><Btn size="sm" :variant="t.approved ? 'primary' : ''" :disabled="!t.approved" :title="t.approved ? '' : 'Only approved templates can be used'" @click.stop="use(t)" v-if="data && data.can_create">Use in campaign</Btn><span class="grow"></span><Btn size="sm" variant="ghost" icon="eye" @click.stop="detail = t">Details</Btn></div>
 						</div>
 					</article>
 				</div>
 			</template>
+ 			<ProtectedDelete v-if="protectedDel" kind="whatsapp" :template="protectedDel" @close="protectedDel = null" @deleted="protectedDel = null; detail = null; load(true)" />
 			<WaTemplateCreate v-if="createOpen" :languages="(data && data.languages) || ['en']" @close="createOpen = false" @created="created" />
 			<Drawer v-if="detail" :title="detail.template_name" :subtitle="stateLabel(detail.state) + ' - ' + catLabel(detail.category)" @close="detail = null">
 				<div class="wa-stage"><WaTemplateBubble :t="detail" /></div>
 				<dl class="dl"><dt>Status</dt><dd><span class="badge" :class="stateTone(detail.state)">{{ stateLabel(detail.state) }}</span></dd><dt>Source</dt><dd>{{ detail.synced ? 'Synced from Meta' : 'Local (not synced from Meta)' }}</dd><dt>Category</dt><dd>{{ catLabel(detail.category) || '-' }}</dd><dt>Language</dt><dd>{{ detail.language_code || '-' }}</dd><dt>Header</dt><dd>{{ detail.header_type ? detail.header_type.charAt(0) + detail.header_type.slice(1).toLowerCase() : 'None' }}</dd><dt>Variables</dt><dd><span v-if="!detail.placeholders.length">None</span><div v-for="(p, i) in detail.placeholders" :key="p" class="mono small">{{ $wa(p) }} <span class="faint">sample:</span> {{ detail.samples[i] || '-' }}</div></dd><dt>Buttons</dt><dd><span v-if="!detail.buttons.length">None</span><div v-for="b in detail.buttons" :key="b.button_label">{{ b.button_label }} <span class="faint small">({{ b.button_type }})</span></div></dd><dt>Meta name</dt><dd class="mono small">{{ detail.actual_name || detail.name }}</dd><dt>Last updated</dt><dd>{{ CM.fmt(detail.modified) }}</dd></dl>
 				<div v-if="!detail.approved" class="alert warn"><Ico name="alert" /><div class="grow">This template is <b>{{ stateLabel(detail.state) }}</b>. Only templates approved by Meta can be sent. Check its status in WhatsApp Manager, then sync.</div></div>
-				<template #foot><Btn @click="detail = null">Close</Btn><Btn v-if="data && data.can_sync && !detail.approved" icon="refresh" :loading="syncing" @click="sync().then(() => { detail = rows.find((r) => r.name === detail.name) || detail })">Check status with Meta</Btn><Btn v-if="data && data.can_create" variant="primary" icon="send" :disabled="!detail.approved" @click="use(detail)">Use in campaign</Btn></template>
+				<template #foot><Btn v-if="detail.is_system && data && data.can_create" variant="ghost" icon="trash" @click="protectedDel = detail">Delete</Btn><Btn @click="detail = null">Close</Btn><Btn v-if="data && data.can_sync && !detail.approved" icon="refresh" :loading="syncing" @click="sync().then(() => { detail = rows.find((r) => r.name === detail.name) || detail })">Check status with Meta</Btn><Btn v-if="data && data.can_create" variant="primary" icon="send" :disabled="!detail.approved" @click="use(detail)">Use in campaign</Btn></template>
 			</Drawer>
 		</div>`,
 	}

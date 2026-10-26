@@ -62,7 +62,9 @@ doc_events = {
 	# a demo cancelled, moved or closed inside CRM is followed by its booking (and the visitor is told)
 	"CRM Meeting": {"on_update": "crm_addons.demos.booking.on_meeting_update"},
 	# A campaign email template and CRM's own Email Template (the one used when mailing a lead by hand) are kept in step.
-	"CRM Campaign Email Template": {"on_update": "crm_addons.campaigns.email_sync.push", "on_trash": "crm_addons.campaigns.email_sync.disable_twin"},
+	"CRM Campaign Email Template": {"on_update": "crm_addons.campaigns.email_sync.push", "on_trash": ["crm_addons.campaigns.protected.guard_delete", "crm_addons.campaigns.email_sync.disable_twin"]},
+	# the ready-made WhatsApp templates (bookings, login link) cannot be deleted outside the guided delete
+	"WhatsApp Templates": {"on_trash": "crm_addons.campaigns.protected.guard_delete"},
 	"Email Template": {"on_update": "crm_addons.campaigns.email_sync.pull"},
 	"CRM Lead": {
 		# the assignment rules first, so a campaign that starts on a new lead already sees its owner
