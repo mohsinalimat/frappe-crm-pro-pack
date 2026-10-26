@@ -76,6 +76,19 @@
 	function sidebarEl() {
 		var link = document.querySelector('nav a[href^="/crm/"]')
 		var nav = link && link.closest("nav")
+		if (!nav) {
+			// older CRM versions draw the menu as buttons: the nav whose buttons are named like the CRM pages
+			var names = ["Dashboard", "Leads", "Deals", "Contacts", "Organizations", "Notes", "Tasks", "Call Logs"]
+			var navs = document.querySelectorAll("nav")
+			for (var n = 0; n < navs.length && !nav; n++) {
+				var hits = 0
+				Array.prototype.forEach.call(navs[n].children, function (c) {
+					var t = (c.textContent || "").trim()
+					if (c.tagName === "BUTTON" && names.some(function (x) { return t === x || (typeof window.__ === "function" && t === window.__(x)) })) hits++
+				})
+				if (hits >= 2) nav = navs[n]
+			}
+		}
 		if (!nav) return null
 		var el = nav
 		for (var i = 0; el && i < 6; i++, el = el.parentElement) {
@@ -133,7 +146,8 @@
 		if (!layer || !pagePath) return
 		// any row of CRM's menu (Notifications included: its panel would open underneath this page)
 		var a = e.target && e.target.closest && e.target.closest("nav a[href], aside a[href], nav button, aside button, #notifications-btn")
-		if (a && !a.closest("[data-cra]")) close()
+		// no history.back() here: the row is about to take CRM somewhere itself, and a "back" queued first would undo that move
+		if (a && !a.closest("[data-cra]")) close(true)
 	}, true)
 	// CRM moved to another screen by itself (its menu, a link): our page is not the current one any more
 	window.addEventListener("cra:route", function () { if (layer && pagePath && location.pathname !== pagePath) close(true) })

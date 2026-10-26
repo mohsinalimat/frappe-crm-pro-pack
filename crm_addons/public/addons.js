@@ -888,6 +888,25 @@
 		return !el.hasAttribute('data-cra-hidden') && getComputedStyle(el).display !== 'none'
 	}
 
+	// Older CRM versions (for example 1.74) draw the menu as plain buttons, not as links: their rows are found by their labels.
+	var MENU_LABELS = { 'Dashboard': 'dashboard', 'Leads': 'leads', 'Deals': 'deals', 'Contacts': 'contacts', 'Organizations': 'organizations', 'Notes': 'notes', 'Tasks': 'tasks', 'Call Logs': 'call-logs' }
+	function labelKey(text) {
+		text = (text || '').trim()
+		for (var k in MENU_LABELS) if (text === k || text === translated(k)) return MENU_LABELS[k]
+		return ''
+	}
+	/** The native menu list of a CRM that draws it as buttons: a nav whose own children are buttons named like the CRM pages. */
+	function buttonNav() {
+		var navs = document.querySelectorAll('nav')
+		for (var i = 0; i < navs.length; i++) {
+			var nav = navs[i]
+			if (nav.closest('[data-cra]')) continue
+			var named = Array.prototype.filter.call(nav.children, function (r) { return r.tagName === 'BUTTON' && !r.hasAttribute('data-cra') && labelKey(r.textContent) }).length
+			if (named >= 2) return nav
+		}
+		return null
+	}
+
 	/** The first menu list (CRM's "All Views" section) with its native rows, the row to copy, and the last visible row. */
 	function sideNative() {
 		var links = document.querySelectorAll('nav a[href^="/crm/"], aside a[href^="/crm/"]')
@@ -899,6 +918,7 @@
 			nav = a.closest('nav')
 			break
 		}
+		if (!nav) nav = buttonNav()
 		if (!nav) return null
 		var rows = Array.prototype.filter.call(nav.children, function (r) {
 			return !r.hasAttribute('data-cra') && visible(r) && (r.matches('a[href], button') || !!r.querySelector('a[href], button'))
@@ -906,8 +926,8 @@
 		if (!rows.length) return null
 		var proto = rows[0]
 		for (var j = 0; j < rows.length; j++) {
-			var link = rows[j].matches('a') ? rows[j] : rows[j].querySelector('a')
-			if (link && link.getAttribute('aria-current') !== 'page' && !/router-link-(exact-)?active/.test(String(link.className)) && getComputedStyle(link).backgroundColor === 'rgba(0, 0, 0, 0)') { proto = rows[j]; break }
+			var link = rows[j].matches('a, button') ? rows[j] : (rows[j].querySelector('a') || rows[j].querySelector('button'))
+			if (link && link.getAttribute('aria-current') !== 'page' && !/router-link-(exact-)?active|bg-surface-selected/.test(String(link.className)) && getComputedStyle(link).backgroundColor === 'rgba(0, 0, 0, 0)') { proto = rows[j]; break }
 		}
 		return { nav: nav, proto: proto, last: rows[rows.length - 1] }
 	}
