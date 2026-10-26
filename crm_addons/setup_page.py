@@ -219,6 +219,15 @@ def field_values(fieldname):
 
 
 @frappe.whitelist()
+def get_meta_usage():
+	"""The connected WhatsApp number's daily limit, quality and recent charges, as Meta reports them (or why they are not available)."""
+	_only_admins()
+	from crm_addons import meta_usage
+
+	return meta_usage.get_usage()
+
+
+@frappe.whitelist()
 def create_missed_call_template():
 	"""Submit the ready-made missed-call WhatsApp template to Meta (it stays Pending until Meta approves it)."""
 	_only_admins()

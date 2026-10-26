@@ -271,6 +271,8 @@
 			const waInfo = (name) => (choices.value.whatsapp_templates || []).find((t) => t.value === name)
 			const waStateText = (s) => ({ APPROVED: 'Approved by Meta', PENDING: 'Waiting for Meta', REJECTED: 'Rejected by Meta' }[s] || s.toLowerCase())
 			const waOptions = (current) => [{ value: '', label: 'No template (send the plain text)' }, ...(choices.value.whatsapp_templates || []).map((t) => ({ value: t.value, label: t.label, sub: t.state === 'APPROVED' ? t.category : waStateText(t.state), disabled: t.state !== 'APPROVED' && t.value !== current }))]
+			const meta = reactive({ busy: false, data: null })
+			async function loadMeta() { meta.busy = true; try { meta.data = await call('crm_addons.setup_page.get_meta_usage') } catch (e) { say(e.message, 'err') } finally { meta.busy = false } }
 			const creatingWa = ref(false)
 			async function createMissedTemplate(k) {
 				creatingWa.value = true
@@ -372,7 +374,7 @@
 			async function copy(text) { try { await navigator.clipboard.writeText(text); say('Copied') } catch (e) { say('Select the text and copy it.', 'err') } }
 			const stateText = { ok: 'Ready', todo: 'Needs setup', optional: 'Optional' }
 			const urls = (c) => (c.steps || []).map((s) => { const m = /(https?:\/\/\S+)/.exec(s); return m ? m[1] : '' })
-			return { waInfo, waStateText, waOptions, creatingWa, createMissedTemplate, valueOpts, menuDrag, selectOptions, leadFieldOptions, COUNT_OPS, jlist, fieldLabel, addField, dropField, addCounter, setCounter, dropCounter, menuItems, moveMenu, toggleMenu, resetMenu, hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
+			return { meta, loadMeta, waInfo, waStateText, waOptions, creatingWa, createMissedTemplate, valueOpts, menuDrag, selectOptions, leadFieldOptions, COUNT_OPS, jlist, fieldLabel, addField, dropField, addCounter, setCounter, dropCounter, menuItems, moveMenu, toggleMenu, resetMenu, hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
 		},
 		template: `
 		<div class="shell">
@@ -428,7 +430,7 @@
 							<ViewDefaults v-if="g.custom === 'views'" />
 							<template v-for="(it, i) in g.shown" :key="(it.k || it.h) + i">
 								<h3 v-if="it.h" class="sub">{{ it.h }}</h3>
-								<div v-else class="row-i" :class="{ locked: !met(it), child: it.when, bad: problem(it), wide: ['menu', 'fieldlist', 'counters', 'area'].includes(it.t) }">
+								<div v-else class="row-i" :class="{ locked: !met(it), child: it.when, bad: problem(it), wide: ['menu', 'fieldlist', 'counters', 'area', 'watemplate', 'metausage'].includes(it.t) }">
 									<div class="row-l">
 										<div class="lab"><label :for="'f-' + it.k">{{ it.label }}</label><Info :info="it.info" :label="it.label" /></div>
 										<div v-if="!met(it)" class="hint"><Ico name="lock" :size="12" /> {{ lockText(it) }}</div>
@@ -454,13 +456,24 @@
 												<Sel small :model-value="c.op || '='" :options="COUNT_OPS" placeholder="is" @update:model-value="(v) => setCounter(it.k, i, 'op', v)" />
 												<Sel v-if="c.op !== 'like' && valueOpts(c).length" searchable :model-value="c.value" :options="valueOpts(c)" placeholder="Pick a value" @update:model-value="(v) => setCounter(it.k, i, 'value', v)" /><input v-else class="inp" placeholder="Value, e.g. School" :value="c.value" @input="setCounter(it.k, i, 'value', $event.target.value)" /><button type="button" class="menu-b" aria-label="Remove" @click="dropCounter(it.k, i)">&times;</button></div>
 											<button type="button" class="btn" @click="addCounter(it.k)">Add a count</button></div>
+										<div v-else-if="it.t === 'metausage'" class="metabox">
+											<button type="button" class="btn" :disabled="meta.busy" @click="loadMeta">{{ meta.busy ? 'Asking Meta...' : meta.data ? 'Refresh' : 'Check with Meta' }}</button>
+											<template v-if="meta.data">
+												<div v-if="!meta.data.available" class="small err">{{ meta.data.reason }}</div>
+												<template v-else>
+													<dl class="metadl"><dt>Daily limit</dt><dd>{{ meta.data.limit_text || 'not available' }}</dd><dt>Quality rating</dt><dd>{{ meta.data.quality || 'not available' }}</dd>
+														<template v-if="meta.data.charges"><dt>Last {{ meta.data.charges.days }} days</dt><dd><span v-for="(v, k) in meta.data.charges.by_category" :key="k" class="metarow">{{ k.toLowerCase() }}: {{ v.messages }} messages, {{ v.cost.toFixed(2) }} {{ meta.data.charges.currency }}</span><span v-if="!Object.keys(meta.data.charges.by_category).length">nothing charged</span></dd></template>
+														<template v-else><dt>Charges</dt><dd>not available</dd></template></dl>
+													<div v-for="n in meta.data.notes" :key="n" class="small muted">{{ n }}</div>
+												</template>
+											</template></div>
 										<div v-else-if="it.t === 'watemplate'" class="watpl">
 											<Sel :id="'f-' + it.k" :model-value="draft[it.k]" :options="waOptions(draft[it.k])" placeholder="No template (send the plain text)" searchable :aria-label="it.label" @update:model-value="(v) => (draft[it.k] = v)" />
 											<div v-if="waInfo(draft[it.k])" class="wa-card"><div class="row" style="gap:8px"><span class="pill" :class="waInfo(draft[it.k]).state === 'APPROVED' ? 'ok' : waInfo(draft[it.k]).state === 'REJECTED' ? 'todo' : 'warn'">{{ waStateText(waInfo(draft[it.k]).state) }}</span><span class="small muted">{{ waInfo(draft[it.k]).category }}</span></div><div class="wa-body">{{ waInfo(draft[it.k]).body }}</div>
 												<div v-if="waInfo(draft[it.k]).state !== 'APPROVED'" class="small err">Not sent until Meta approves it. Check its status in Campaign Manager, WhatsApp templates (Sync from Meta).</div></div>
 											<div v-else-if="draft[it.k]" class="small err">This template no longer exists. Choose another.</div>
-											<div class="row wrap" style="gap:8px"><button type="button" class="btn" :disabled="creatingWa" @click="createMissedTemplate(it.k)">{{ creatingWa ? 'Sending to Meta...' : 'Create the ready-made template' }}</button><span class="small muted">Submits "Hi {{1}}, we just tried to call you..." to Meta for review.</span></div></div>
-										<textarea v-else-if="it.t === 'area' :id="'f-' + it.k" class="inp area" rows="3" v-model="draft[it.k]" :disabled="!met(it)"></textarea>
+											<div class="row wrap" style="gap:8px"><button type="button" class="btn" :disabled="creatingWa" @click="createMissedTemplate(it.k)">{{ creatingWa ? 'Sending to Meta...' : 'Create the ready-made template' }}</button><span class="small muted">Submits &ldquo;Hi (name), we just tried to call you...&rdquo; to Meta for review.</span></div></div>
+										<textarea v-else-if="it.t === 'area'" :id="'f-' + it.k" class="inp area" rows="3" v-model="draft[it.k]" :disabled="!met(it)"></textarea>
 										<input v-else :id="'f-' + it.k" class="inp" type="text" :placeholder="it.placeholder" v-model="draft[it.k]" :disabled="!met(it)" autocomplete="off" />
 									</div>
 								</div>
