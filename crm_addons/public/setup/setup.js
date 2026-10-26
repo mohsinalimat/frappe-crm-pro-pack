@@ -7,6 +7,7 @@
 
 	// ------------------------------------------------------------------ theme (same rules as the other pages)
 	const params = new URLSearchParams(location.search)
+	const embedded = params.get('embed') === '1' // opened inside the CRM (a page of it): no Back to CRM link
 	function readTheme() {
 		let t = params.get('theme')
 		try { const v = String(localStorage.getItem('theme') || '').replace(/"/g, ''); if (!t && (v === 'dark' || v === 'light')) t = v } catch (e) { /* storage blocked */ }
@@ -52,6 +53,7 @@
 		layout: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
 		send: '<path d="M14.5 21.7a.5.5 0 0 0 .9 0l6.5-19a.5.5 0 0 0-.6-.6l-19 6.5a.5.5 0 0 0 0 .9l7.9 3.2a2 2 0 0 1 1.1 1.1z"/><path d="m21.9 2.1-10.9 10.9"/>',
 		bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+		palette: '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
 		coin: '<circle cx="12" cy="12" r="9"/><path d="M14.8 9a3 3 0 0 0-2.8-1.5c-1.7 0-3 1-3 2.3 0 3 6 1.6 6 4.5 0 1.3-1.3 2.2-3 2.2a3.2 3.2 0 0 1-3-1.6M12 6v1.5M12 16.5V18"/>',
 		check: '<path d="M20 6 9 17l-5-5"/>', list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
 		alert: '<path d="m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3z"/><path d="M12 9v4M12 17h.01"/>',
@@ -168,6 +170,73 @@
 	const arrayMove = (list, from, to) => { list.splice(to, 0, list.splice(from, 1)[0]) }
 
 	// ------------------------------------------------------------------ default views (Leads, Contacts, Organizations)
+	// ------------------------------------------------------------------ branding (name, logos, login page, footer)
+	const Branding = {
+		components: { Ico },
+		setup() {
+			const loading = ref(true); const error = ref(''); const saving = ref(false); const msg = ref('')
+			const v = reactive({ name: '', logo: '', favicon: '', splash: '', title_prefix: '', copyright: '', address: '', powered: '', hide_signup: 0, footer_on_login: 0 })
+			let saved = ''
+			const dirty = computed(() => JSON.stringify(v) !== saved)
+			const fill = (r) => { Object.assign(v, r); saved = JSON.stringify(v) }
+			onMounted(async () => { try { fill(await call('crm_addons.setup_page.get_branding')) } catch (e) { error.value = e.message } finally { loading.value = false } })
+			const up = reactive({})
+			async function pick(key, e) {
+				const file = e.target.files && e.target.files[0]; e.target.value = ''
+				if (!file) return
+				if (!/^image\//.test(file.type)) { msg.value = 'Choose an image file.'; return }
+				if (file.size > 3 * 1048576) { msg.value = 'The image is over 3 MB.'; return }
+				up[key] = true; msg.value = ''
+				try {
+					const fd = new FormData(); fd.append('file', file, file.name); fd.append('is_private', '0'); fd.append('folder', 'Home')
+					const res = await fetch('/api/method/upload_file', { method: 'POST', credentials: 'same-origin', headers: { 'X-Frappe-CSRF-Token': await token(), Accept: 'application/json' }, body: fd })
+					const j = await res.json(); if (!res.ok || !j.message) throw new Error('The upload failed.')
+					v[key] = j.message.file_url
+				} catch (err) { msg.value = err.message } finally { up[key] = false }
+			}
+			async function save() {
+				saving.value = true; msg.value = ''
+				try { fill(await call('crm_addons.setup_page.save_branding', { values: JSON.stringify(v) })); msg.value = 'Saved. Open pages pick up the new look when they are refreshed.' } catch (e) { msg.value = e.message } finally { saving.value = false }
+			}
+			async function reset() {
+				if (!window.confirm('Go back to the default look? The name, logos, login image and footer you set here are cleared.')) return
+				saving.value = true; msg.value = ''
+				try { fill(await call('crm_addons.setup_page.reset_branding')); msg.value = 'Back to the default look.' } catch (e) { msg.value = e.message } finally { saving.value = false }
+			}
+			return { loading, error, saving, msg, v, dirty, up, pick, save, reset }
+		},
+		template: `
+		<div class="br">
+			<div v-if="loading" class="muted">Loading</div><div v-else-if="error" class="note-box bad">{{ error }}</div>
+			<template v-else>
+				<h3 class="sub">Name and logos</h3>
+				<div class="br-grid">
+					<div class="br-f"><label>Product or company name</label><input class="inp wide" type="text" v-model="v.name" maxlength="140" placeholder="Shown in the CRM menu, the login page and the Desk" /></div>
+					<div class="br-f"><label>Browser tab title prefix</label><input class="inp wide" type="text" v-model="v.title_prefix" maxlength="140" placeholder="Optional" /></div>
+					<div class="br-f"><label>Logo</label><div class="br-up"><img v-if="v.logo" :src="v.logo" alt="" class="br-img" /><span v-else class="br-none">Default logo</span><label class="btn sm" :class="{ off: up.logo }">{{ up.logo ? 'Uploading...' : v.logo ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('logo', $event)" /></label><button v-if="v.logo" type="button" class="menu-reset" @click="v.logo = ''">Use the default</button></div><span class="small muted">Used in the CRM menu, the login page and the Desk.</span></div>
+					<div class="br-f"><label>Favicon</label><div class="br-up"><img v-if="v.favicon" :src="v.favicon" alt="" class="br-img fav" /><span v-else class="br-none">Default icon</span><label class="btn sm" :class="{ off: up.favicon }">{{ up.favicon ? 'Uploading...' : v.favicon ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('favicon', $event)" /></label><button v-if="v.favicon" type="button" class="menu-reset" @click="v.favicon = ''">Use the default</button></div><span class="small muted">The small icon in the browser tab. Square, at least 64 px.</span></div>
+				</div>
+				<h3 class="sub">Login page</h3>
+				<div class="br-grid">
+					<div class="br-f"><label>Picture on the login page</label><div class="br-up"><img v-if="v.splash" :src="v.splash" alt="" class="br-img" /><span v-else class="br-none">Default</span><label class="btn sm" :class="{ off: up.splash }">{{ up.splash ? 'Uploading...' : v.splash ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('splash', $event)" /></label><button v-if="v.splash" type="button" class="menu-reset" @click="v.splash = ''">Use the default</button></div></div>
+					<div class="br-f"><label class="check"><input type="checkbox" :checked="!!v.footer_on_login" @change="v.footer_on_login = $event.target.checked ? 1 : 0" /><span>Show the footer on the login page</span></label><label class="check"><input type="checkbox" :checked="!!v.hide_signup" @change="v.hide_signup = $event.target.checked ? 1 : 0" /><span>Hide the sign-up link in the footer</span></label></div>
+				</div>
+				<h3 class="sub">Footer</h3>
+				<div class="br-grid">
+					<div class="br-f"><label>Copyright line</label><input class="inp wide" type="text" v-model="v.copyright" maxlength="140" placeholder="e.g. Acme Learning" /></div>
+					<div class="br-f"><label>"Powered by" text</label><textarea class="inp wide area" rows="2" v-model="v.powered" maxlength="500" placeholder="Leave empty for the default"></textarea></div>
+					<div class="br-f"><label>Company address</label><textarea class="inp wide area" rows="2" v-model="v.address" maxlength="500"></textarea></div>
+				</div>
+				<h3 class="sub">Preview</h3>
+				<div class="br-prev">
+					<div class="br-card"><div class="br-side"><img v-if="v.logo" :src="v.logo" alt="" class="br-pl" /><span v-else class="br-pl dflt"></span><b>{{ v.name || 'Frappe CRM' }}</b></div><div class="small muted">CRM menu</div></div>
+					<div class="br-card login"><img v-if="v.logo" :src="v.logo" alt="" class="br-pl big" /><span v-else class="br-pl big dflt"></span><b>Login to {{ v.name || 'Frappe CRM' }}</b><div class="br-fake"></div><div class="br-fake"></div><div class="small muted">{{ v.copyright || '' }}</div></div>
+				</div>
+				<div class="card pad vd-save"><button type="button" class="btn primary" :disabled="saving || !dirty" @click="save">{{ saving ? 'Saving...' : 'Save branding' }}</button><button type="button" class="btn" :disabled="saving" @click="reset">Reset to the default look</button><div v-if="msg" class="small">{{ msg }}</div></div>
+			</template>
+		</div>`,
+	}
+
 	const ViewDefaults = {
 		components: { Ico, Sel },
 		setup() {
@@ -238,7 +307,7 @@
 
 	// ------------------------------------------------------------------ the app
 	const App = {
-		components: { Ico, Info, Toggle, ViewDefaults, Sel },
+		components: { Ico, Info, Toggle, ViewDefaults, Branding, Sel },
 		setup() {
 			const loading = ref(true); const error = ref(''); const denied = ref(false)
 			const server = ref({}) // values as saved
@@ -253,7 +322,7 @@
 			const rolesOfDraft = (k) => String(draft[k] || '').split(',').map((r) => r.trim()).filter(Boolean)
 			const hasRole = (k, role) => rolesOfDraft(k).includes(role)
 			// the left menu: CRM's own entries and this app's, in the order saved (anything not saved yet goes at the end)
-			const MENU_ALL = [['notifications', 'Notifications'], ['dashboard', 'Dashboard'], ['leads', 'Leads'], ['deals', 'Deals'], ['contacts', 'Contacts'], ['organizations', 'Organizations'], ['notes', 'Notes'], ['tasks', 'Tasks'], ['call-logs', 'Call Logs'], ['sales-dashboard', 'Sales Dashboard'], ['followups', 'Follow-ups'], ['meetings', 'Meetings'], ['campaigns', 'Campaigns'], ['assignment', 'Assignment'], ['demos', 'Demos']]
+			const MENU_ALL = [['notifications', 'Notifications'], ['dashboard', 'Dashboard'], ['leads', 'Leads'], ['deals', 'Deals'], ['contacts', 'Contacts'], ['organizations', 'Organizations'], ['notes', 'Notes'], ['tasks', 'Tasks'], ['call-logs', 'Call Logs'], ['sales-dashboard', 'Sales Dashboard'], ['followups', 'Follow-ups'], ['meetings', 'Meetings'], ['campaigns', 'Campaigns'], ['assignment', 'Assignment'], ['demos', 'Bookings']]
 			const MENU_OURS = ['sales-dashboard', 'followups', 'meetings', 'campaigns', 'assignment', 'demos']
 			function menuItems(k) {
 				let saved = []; try { saved = JSON.parse(draft[k] || '[]') } catch (e) { saved = [] }
@@ -365,7 +434,7 @@
 
 			// ---- navigation and the checklist
 			function go(group, key) { q.value = ''; tab.value = group; nextTick(() => { const el = key && document.getElementById('f-' + key); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); try { el.focus({ preventScroll: true }) } catch (e) { /* fine */ } const row = el.closest('.row-i'); if (row) { row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 1800) } } }) }
-			function goToField(c) { const key = c.field || (c.key === 'google' ? 'google_calendar' : ''); if (key && itemMap[key]) go(itemMap[key].group, key) }
+			function goToField(c) { if (c.key === 'branding') { q.value = ''; tab.value = 'branding'; return } const key = c.field || (c.key === 'google' ? 'google_calendar' : ''); if (key && itemMap[key]) go(itemMap[key].group, key) }
 			async function recheck() { rechecking.value = true; try { const r = await call('crm_addons.setup_page.get_setup'); status.value = r.status; choices.value = r.choices } catch (e) { say(e.message, 'err') } finally { rechecking.value = false } }
 			async function testGoogle() {
 				test.busy = true; test.text = ''
@@ -374,7 +443,7 @@
 			async function copy(text) { try { await navigator.clipboard.writeText(text); say('Copied') } catch (e) { say('Select the text and copy it.', 'err') } }
 			const stateText = { ok: 'Ready', todo: 'Needs setup', optional: 'Optional' }
 			const urls = (c) => (c.steps || []).map((s) => { const m = /(https?:\/\/\S+)/.exec(s); return m ? m[1] : '' })
-			return { meta, loadMeta, waInfo, waStateText, waOptions, creatingWa, createMissedTemplate, valueOpts, menuDrag, selectOptions, leadFieldOptions, COUNT_OPS, jlist, fieldLabel, addField, dropField, addCounter, setCounter, dropCounter, menuItems, moveMenu, toggleMenu, resetMenu, hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
+			return { embedded, meta, loadMeta, waInfo, waStateText, waOptions, creatingWa, createMissedTemplate, valueOpts, menuDrag, selectOptions, leadFieldOptions, COUNT_OPS, jlist, fieldLabel, addField, dropField, addCounter, setCounter, dropCounter, menuItems, moveMenu, toggleMenu, resetMenu, hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
 		},
 		template: `
 		<div class="shell">
@@ -382,7 +451,7 @@
 				<div class="top-in">
 					<div class="grow"><h1>Frappe CRM Suite Pro setup</h1><p>Switch features on or off, set how they behave, and see what still needs connecting.</p></div>
 					<div class="search"><Ico name="search" :size="16" /><input v-model="q" type="search" placeholder="Find an option" aria-label="Find an option" /></div>
-					<a class="btn" href="/crm"><Ico name="home" :size="16" /> Back to CRM</a>
+					<a v-if="!embedded" class="btn" href="/crm"><Ico name="home" :size="16" /> Back to CRM</a>
 				</div>
 			</header>
 
@@ -415,7 +484,7 @@
 								<template v-if="c.state !== 'ok' && c.steps && c.steps.length"><b class="small">How to set it up</b><ol class="steps"><li v-for="(s, i) in c.steps" :key="i">{{ s }}</li></ol></template>
 								<div class="row wrap" style="gap:8px">
 									<a v-if="c.fix" class="btn primary" :href="c.fix.url" target="_blank" rel="noopener">{{ c.fix.label }} <Ico name="external" :size="14" /></a>
-									<button v-if="c.field || c.key === 'google'" class="btn" type="button" @click="goToField(c)">{{ c.key === 'google' ? 'Choose the calendar' : 'Go to the setting' }}</button>
+									<button v-if="c.field || c.key === 'google' || c.key === 'branding'" class="btn" type="button" @click="goToField(c)">{{ c.key === 'google' ? 'Choose the calendar' : c.key === 'branding' ? 'Open Branding' : 'Go to the setting' }}</button>
 									<button v-if="c.key === 'google'" class="btn" type="button" :disabled="test.busy" @click="testGoogle">{{ test.busy ? 'Testing...' : 'Test the connection' }}</button>
 								</div>
 								<div v-if="c.key === 'google' && test.text" class="note-box" :class="test.ok ? 'ok' : 'bad'">{{ test.text }}</div>
@@ -427,7 +496,7 @@
 					<section v-for="g in visible" :key="g.key" class="stack">
 						<div class="card pad">
 							<div class="row"><span class="g-i"><Ico :name="g.icon" :size="19" /></span><div class="grow"><h2>{{ g.title }}</h2><p class="muted">{{ g.desc }}</p></div></div>
-							<ViewDefaults v-if="g.custom === 'views'" />
+							<ViewDefaults v-if="g.custom === 'views'" /><Branding v-if="g.custom === 'branding'" />
 							<template v-for="(it, i) in g.shown" :key="(it.k || it.h) + i">
 								<h3 v-if="it.h" class="sub">{{ it.h }}</h3>
 								<div v-else class="row-i" :class="{ locked: !met(it), child: it.when, bad: problem(it), wide: ['menu', 'fieldlist', 'counters', 'area', 'watemplate', 'metausage'].includes(it.t) }">

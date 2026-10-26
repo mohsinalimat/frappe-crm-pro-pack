@@ -94,6 +94,19 @@ def _status():
 	settings = frappe.get_doc(SETTINGS)
 	checks = []
 
+	from crm_addons import branding
+
+	brand = branding.get_branding()
+	named = bool(brand["name"] or brand["logo"])
+	checks.append(
+		{
+			"key": "branding", "label": _("Branding"), "state": "ok" if named else "optional",
+			"message": _("Name, logo and favicon are set.") if named else _("Still the default look. Set your own name, logo and favicon."),
+			"why": _("People see this in the CRM menu, on the login page and in the browser tab."),
+			"steps": [_("Open Branding in the list on the left.")],
+		}
+	)
+
 	google = GoogleMeetProvider().status()
 	checks.append(
 		{
@@ -234,3 +247,28 @@ def create_missed_call_template():
 	from crm_addons import system_messages
 
 	return system_messages.create_missed_call_template()
+
+
+@frappe.whitelist()
+def get_branding():
+	"""The name, logos, login page and footer as stored now (empty = the default look)."""
+	_only_admins()
+	from crm_addons import branding
+
+	return branding.get_branding()
+
+
+@frappe.whitelist()
+def save_branding(values):
+	_only_admins()
+	from crm_addons import branding
+
+	return branding.save_branding(values)
+
+
+@frappe.whitelist()
+def reset_branding():
+	_only_admins()
+	from crm_addons import branding
+
+	return branding.reset_branding()

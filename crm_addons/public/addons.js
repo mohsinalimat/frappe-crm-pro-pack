@@ -30,6 +30,7 @@
 		'phone-call':
 			'<path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
 		chart: '<path d="M3 3v18h18"/><path d="M8 17v-6M13 17V7M18 17v-3"/>',
+		settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
 		'shield-check': '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
 		'calendar-check': '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/>',
 		send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>',
@@ -687,6 +688,12 @@
 			.catch(function (err) { toast(err.message, true) })
 	}
 
+	function openSettings(hash) {
+		return bridge()
+			.then(function (b) { b.openSettings(typeof hash === 'string' ? hash : '') })
+			.catch(function (err) { toast(err.message, true) })
+	}
+
 	function openDemos(hash) {
 		return bridge()
 			.then(function (b) { b.openDemos(typeof hash === 'string' ? hash : '') })
@@ -803,6 +810,7 @@
 		if (c.demos_enabled !== 0 && ((c.access || {}).demos !== 'none' || ((c.access || {}).demo_widgets || 'none') !== 'none' || Number((c.access || {}).demo_report))) list.push({ key: 'demos', label: 'Bookings', icon: 'calendar-check', title: 'Bookings: website bookings, widgets and the report', run: function () { openDemos() } })
 		// who sees what (presets and per-person changes): System Managers only (the server checks as well)
 		if (c.can_manage_access) list.push({ key: 'access', label: 'Team and access', icon: 'shield-check', title: 'Who sees what: presets and changes per person', run: function () { openAccess() } })
+		if (c.can_manage_access) list.push({ key: 'settings', label: 'Settings', icon: 'settings', title: 'Setup, branding and everything else you can switch on or off', run: function () { openSettings() } })
 		return list
 	}
 

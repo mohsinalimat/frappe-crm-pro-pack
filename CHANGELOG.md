@@ -4,6 +4,11 @@ All notable changes to CRM Pro Pack (the `crm_addons` Frappe app).
 
 ## 1.5.0 - 2026-10-26
 
+### Added
+
+- **Settings in the CRM menu** (System Managers only), below Team and access: opens the setup page inside the CRM.
+- **Branding in Setup**: name, logo, favicon, login page picture, footer and tab title in one place, written to CRM's brand settings, Website Settings and Navbar Settings together; empty means the default look, with a preview and a reset. Also shown as an optional item in the setup checklist.
+
 ### Changed
 
 - **The product is now called Frappe CRM Suite Pro** (was CRM Pro Pack): headings, setup page, README and docs. Technical names, URLs (`/pro-pack-setup`, `/team-access`) and the Desk workspace name are unchanged so live sites keep working.
