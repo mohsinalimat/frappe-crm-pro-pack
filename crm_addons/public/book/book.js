@@ -758,7 +758,7 @@
 			function download() {
 				if (!info.value) return
 				var a = document.createElement('a')
-				a.href = URL.createObjectURL(icsBlob(info.value)); a.download = 'demo.ics'
+				a.href = URL.createObjectURL(icsBlob(info.value)); a.download = 'booking.ics'
 				document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href) }, 4000)
 				menu.value = false
 			}

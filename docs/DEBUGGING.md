@@ -5,6 +5,8 @@ switch it off or remove it when the problem is solved (see the end).
 
 ## What to do
 
+It is **off by default**. Switch it on first: `bench --site your-site.com set-config crm_addons_debug_log 1`, then `clear-cache`.
+
 1. Restart the bench so the new hooks load: `bench --site your-site.com clear-cache`, then stop and start `bench start`.
 2. Hard-refresh the CRM page (Ctrl/Cmd + Shift + R).
 3. Use the app until it freezes (the Campaign Manager first).

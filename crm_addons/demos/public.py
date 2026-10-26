@@ -144,6 +144,6 @@ def cancel(token, reason=""):
 def ics(token):
 	spam.throttle("token", 60, 600)
 	name = _booking_by_token(token)
-	frappe.response["filename"] = "demo.ics"
+	frappe.response["filename"] = "booking.ics"
 	frappe.response["filecontent"] = booking.build_ics(name)
 	frappe.response["type"] = "download"

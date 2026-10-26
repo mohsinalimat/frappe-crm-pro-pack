@@ -353,7 +353,7 @@
 		<div class="field">
 			<div class="video-row">
 				<label class="check"><input type="checkbox" v-model="f.addVideo" /> <ico :name="f.provider === 'Google Meet' ? 'gmeet' : 'video'" /> Add a video meeting</label>
-				<select class="control select" v-model="f.provider"><option v-for="p in config.providers" :key="p.key" :value="p.key">{{ p.label }}</option></select>
+				<pick v-model="f.provider" :options="config.providers.map((p) => ({ value: p.key, label: p.label }))" placeholder="Meeting provider" />
 			</div>
 			<div v-if="f.addVideo && f.provider === 'Manual Link'" style="margin-top:8px"><input class="control" type="url" v-model="f.link" placeholder="https://zoom.us/j/... or any meeting link" /></div>
 			<div class="notice" v-if="f.addVideo && setupNotice"><ico name="alert" /><div>{{ setupNotice }} <a v-if="config.is_manager" :href="setupUrl" target="_blank" rel="noopener">Open setup</a></div></div>
@@ -538,6 +538,7 @@
 	}
 
 	// ------------------------------------------------------------------ follow-up editor
+	Editor.components.Pick = Pick // the schedule form uses it for the provider (Pick is defined after Editor)
 	const FollowUpEditor = {
 		components: { Ico, Pick },
 		props: { form: Object },
