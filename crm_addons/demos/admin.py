@@ -349,6 +349,40 @@ def resend_message(booking, event=None, message=None):
 
 
 @frappe.whitelist()
+def get_lead_field_choices():
+	"""For the widget editor: the Lead fields a widget can set on the leads it creates."""
+	_widgets("view")
+	return common.lead_default_choices()
+
+
+@frappe.whitelist()
+def search_team(txt=""):
+	"""Team members (people with a CRM role) for the host and CC pickers of a widget. Unlike the meeting guest search it never offers contacts or
+	leads. Whole-name matches come first, then names that start with the text, then the rest."""
+	_widgets("view")
+	txt = cstr(txt).strip()
+	team = set(frappe.get_all("Has Role", filters={"parenttype": "User", "role": ["in", ["System Manager", "Sales Manager", "Sales User", "Campaign Manager"]]}, pluck="parent"))
+	team -= {"Administrator", "Guest"}
+	if not team:
+		return []
+	rows = frappe.get_all("User", filters={"enabled": 1, "name": ["in", list(team)]}, fields=["email", "full_name", "user_image"], order_by="full_name asc", limit_page_length=1000)
+	needle = txt.lower()
+
+	def rank(r):
+		name, mail = cstr(r.full_name).lower(), cstr(r.email).lower()
+		if not needle:
+			return 3
+		if needle in (name, mail):
+			return 0
+		if name.startswith(needle) or mail.startswith(needle):
+			return 1
+		return 2 if (needle in name or needle in mail) else None
+
+	ranked = sorted(((rank(r), cstr(r.full_name).lower(), r) for r in rows if rank(r) is not None), key=lambda x: (x[0], x[1]))
+	return [{"email": r.email, "full_name": r.full_name or r.email, "attendee_type": "Team", "image": r.user_image} for _k, _n, r in ranked[:15]]
+
+
+@frappe.whitelist()
 def get_notify_options(booking):
 	"""For the Notify dialog: what can be sent again, on which channels, and whether the visitor agreed to WhatsApp."""
 	_demos(others=True)

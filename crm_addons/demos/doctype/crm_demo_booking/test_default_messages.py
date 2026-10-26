@@ -117,3 +117,24 @@ class TestDefaultMessages(DemoCase):
 			admin.create_default_whatsapp_template("Confirmed")
 		with self.assertRaises(frappe.PermissionError):
 			admin.default_messages()
+
+
+from frappe.tests.utils import FrappeTestCase  # noqa: E402
+
+
+class TestMetaWordingRules(FrappeTestCase):
+	def test_no_ready_made_whatsapp_text_starts_or_ends_with_a_variable(self):
+		"""Meta refuses a template body that begins or ends with a {{n}} (or has two next to each other)."""
+		import re
+
+		from crm_addons import system_messages
+		from crm_addons.demos import defaults
+
+		bodies = {f"booking {k}": v["template"] for k, v in defaults.WHATSAPP.items()}
+		bodies["login"] = system_messages.LOGIN["template"]
+		bodies["missed call"] = system_messages.MISSED_CALL["template"]
+		for name, body in bodies.items():
+			text = body.strip()
+			self.assertFalse(re.match(r"^\{\{\d+\}\}", text), f"{name} starts with a variable")
+			self.assertFalse(re.search(r"\{\{\d+\}\}[\s.!?,:;]*$", text), f"{name} ends with a variable")
+			self.assertFalse(re.search(r"\{\{\d+\}\}\s*\{\{\d+\}\}", text), f"{name} has two variables in a row")

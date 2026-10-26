@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 import frappe
 from frappe import _
-from frappe.utils import cint, cstr, get_url
+from frappe.utils import cint, cstr, flt, get_url
 
 from crm_addons.campaigns.common import valid_timezone
 from crm_addons.utils import system_timezone
@@ -166,3 +166,69 @@ def get_demo_by_slug(slug, must_be_enabled=True):
 def minutes(value, default):
 	value = cint(value)
 	return value if value > 0 else default
+
+
+# -- fields a widget can set on the leads it creates ----------------------------------------------------------------------------
+
+_DEFAULT_TYPES = ("Data", "Select", "Link", "Check", "Int", "Float", "Small Text", "Text", "Autocomplete", "Percent", "Currency")
+_NOT_DEFAULTS = {
+	"first_name", "last_name", "lead_name", "salutation", "email", "mobile_no", "phone", "lead_owner", "owner", "name", "converted", "status", "source",
+	"converted_by", "sla", "sla_creation", "response_by", "first_response_time", "first_responded_on", "communication_status", "modified_by", "creation",
+}
+
+
+def lead_default_choices():
+	"""The Lead fields a widget may set on the leads it creates: [{fieldname, label, fieldtype, options}]. The visitor's own details, the owner,
+	the source and the status have their own settings and are not offered."""
+	from crm_addons.campaigns import personalization
+
+	return [
+		f for f in personalization.lead_fields()
+		if f["fieldtype"] in _DEFAULT_TYPES and f["fieldname"] not in _NOT_DEFAULTS and not f["fieldname"].startswith("crm_")
+	]
+
+
+def clean_lead_defaults(raw):
+	"""[{field, value}] from a JSON string or list: only real, allowed Lead fields, each value checked against the field (a Select's options, an existing
+	Link record, a number). Raises a plain message for anything that would not save on a lead."""
+	import json
+
+	if raw in (None, "", []):
+		return []
+	try:
+		rows = json.loads(raw) if isinstance(raw, str) else list(raw)
+	except ValueError:
+		frappe.throw(_("The lead field settings are not valid."))
+	choices = {f["fieldname"]: f for f in lead_default_choices()}
+	out, seen = [], set()
+	for row in rows[:25]:
+		field = cstr((row or {}).get("field")).strip()
+		if not field:
+			continue
+		if field not in choices:
+			frappe.throw(_("{0} cannot be set from a widget.").format(frappe.bold(field)))
+		if field in seen:
+			continue
+		seen.add(field)
+		f, value = choices[field], (row or {}).get("value")
+		kind = f["fieldtype"]
+		if kind == "Check":
+			value = 1 if cint(value) else 0
+		elif kind in ("Int",):
+			value = cint(value)
+		elif kind in ("Float", "Percent", "Currency"):
+			value = flt(value)
+		else:
+			value = cstr(value).strip()
+			if value == "":
+				continue
+			if kind == "Select":
+				allowed = [o.strip() for o in cstr(f["options"]).split("\n") if o.strip()]
+				if allowed and value not in allowed:
+					frappe.throw(_("{0}: {1} is not one of its options.").format(frappe.bold(f["label"]), frappe.bold(value)))
+			elif kind == "Link" and f["options"] and not frappe.db.exists(f["options"], value):
+				frappe.throw(_("{0}: {1} does not exist.").format(frappe.bold(f["label"]), frappe.bold(value)))
+			else:
+				value = value[:500]
+		out.append({"field": field, "value": value})
+	return out

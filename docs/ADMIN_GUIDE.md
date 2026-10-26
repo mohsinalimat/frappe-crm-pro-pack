@@ -77,7 +77,7 @@ System Managers can customize a dashboard.
 
 ## Team and access (who sees what)
 
-Open **Team and access** from the CRM menu or the Dashboard header (System Managers only), or go to `/team-access`.
+Open **Team and access** from the CRM menu (System Managers only), or go to `/team-access`.
 
 **Add person** (top right) creates the login: email, name, role (Sales User or Sales Manager), a starting preset, and an optional invitation email with the link to set a password. If your site has no outgoing email account the person is still added; set the account up and use **Send password reset email** on their access page. Where they sit in the Sales Hierarchy is still set in CRM's own Settings.
 
@@ -193,7 +193,7 @@ it opens as a pop-up instead. Lead and meeting links move the CRM tab to that re
 
 ## Follow-ups page
 
-Open it from **Follow-ups** (Leads list, Kanban view, Dashboard header or the side menu) or go to `/followups`;
+Open it from **Follow-ups** (Leads list, Kanban view or the side menu) or go to `/followups`;
 it opens as a large pop-up over the CRM (**Open in a new tab** for the full page, keeping your filters) and follows CRM's light or dark theme. Deep links: `/followups#today`,
 `#overdue`, `#upcoming`, `#done`.
 

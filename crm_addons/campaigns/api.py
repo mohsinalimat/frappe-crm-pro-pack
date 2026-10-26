@@ -1038,7 +1038,8 @@ def audience_insight(definition, channels=None, consent_confirmed=0, start=0, pa
 
 @frappe.whitelist()
 def search_field_values(fieldname, txt="", limit=10):
-	"""Suggestions for a Link field of the Lead (owner, source...), through Frappe's own permission-aware search."""
+	"""The values of a Link field of the Lead (owner, source, territory, organization type ...) for the audience filters: Frappe's own search first, and when
+	that returns nothing for an empty search (the person may not be allowed to list that master data) the names of the target records."""
 	_check_user()
 	_need_any(_("audiences"), ("audiences", "view"), ("campaign_create", 1))
 	field = frappe.get_meta(LEAD).get_field(fieldname)
@@ -1046,7 +1047,15 @@ def search_field_values(fieldname, txt="", limit=10):
 		return []
 	from frappe.desk.search import search_link
 
-	return [{"value": r.get("value"), "description": r.get("description")} for r in (search_link(field.options, txt, page_length=max(1, min(cint(limit) or 10, 50))) or [])]
+	page = max(1, min(cint(limit) or 10, 200))
+	try:
+		rows = [{"value": r.get("value"), "description": r.get("description")} for r in (search_link(field.options, txt, page_length=page) or [])]
+	except Exception:
+		frappe.clear_messages()
+		rows = []
+	if not rows and not cstr(txt).strip() and frappe.db.exists("DocType", field.options):
+		rows = [{"value": n, "description": ""} for n in frappe.get_all(field.options, pluck="name", order_by="name asc", limit_page_length=page, ignore_permissions=True)]
+	return rows
 
 
 @frappe.whitelist()

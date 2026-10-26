@@ -159,6 +159,45 @@ class TestSending(MessageCase):
 		self.assertEqual(row.status, "Sent")
 		self.assertEqual(row.reference, "Q-1")
 
+	def test_an_email_is_tried_again_when_the_database_says_the_row_changed(self):
+		"""MariaDB 1020 ("Record has changed since last read") happens when the booking's own work is still touching the Lead."""
+		import pymysql
+
+		demo = self.demo_with_messages()
+		name = self.book(demo, ist("2030-03-06", 10))
+		row = self.by_event(name)[("Confirmed", 0, "Email")]
+		real = messaging._deliver
+		calls = []
+
+		def flaky(n):
+			calls.append(n)
+			if len(calls) < 3:
+				raise pymysql.err.OperationalError(1020, "Record has changed since last read in table 'tabCRM Lead'")
+			return real(n)
+
+		with patch.object(messaging, "_deliver", side_effect=flaky), patch("time.sleep"):
+			self.assertTrue(messaging.process(row.name))
+		self.assertEqual(len(calls), 3)
+		self.assertEqual(frappe.db.get_value(MESSAGE, row.name, "status"), "Sent")
+		self.assertEqual(len(self.sent), 1)  # one mail, however many attempts
+
+	def test_a_whatsapp_message_is_never_repeated_after_a_database_error(self):
+		import pymysql
+
+		demo = self.demo_with_messages()
+		name = self.book(demo, ist("2030-03-06", 10), consent=1)
+		row = self.by_event(name)[("Reminder", 60, "WhatsApp")]
+		calls = []
+
+		def boom(n):
+			calls.append(n)
+			raise pymysql.err.OperationalError(1020, "Record has changed since last read")
+
+		with patch.object(messaging, "_deliver", side_effect=boom):
+			messaging.process(row.name)
+		self.assertEqual(len(calls), 1)  # Meta may already have the message: not sent again
+		self.assertEqual(frappe.db.get_value(MESSAGE, row.name, "status"), "Failed")
+
 	def test_a_message_is_sent_once_even_if_the_scheduler_runs_again(self):
 		demo = self.demo_with_messages()
 		self.book(demo, ist("2030-03-06", 10))

@@ -534,7 +534,9 @@ def search_guests(txt="", reference_doctype=None, reference_docname=None):
 			seen.add(email.lower())
 			out.append({"email": email, "full_name": name, "attendee_type": kind})
 
-	filters = {"enabled": 1, "user_type": "System User", "name": ["not in", ["Administrator", "Guest"]]}
+	# the CRM team: everyone with a CRM role, whether a System User or a Website User
+	team = set(frappe.get_all("Has Role", filters={"parenttype": "User", "role": ["in", ["System Manager", "Sales Manager", "Sales User", "Campaign Manager"]]}, pluck="parent"))
+	filters = {"enabled": 1, "name": ["in", [n for n in team if n not in ("Administrator", "Guest")] or [""]]}
 	kwargs = {"or_filters": {"full_name": ["like", like], "email": ["like", like]}} if txt else {}
 	for u in frappe.get_all("User", filters=filters, fields=["email", "full_name"], limit_page_length=8, **kwargs):
 		add(u.email, u.full_name, "Team")

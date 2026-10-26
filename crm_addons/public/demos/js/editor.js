@@ -6,6 +6,45 @@
 	const DM = window.DM
 	const V = DM.views
 
+	/** "Also set these lead fields": pick a Lead field, then its value (a dropdown for choices and links, a switch for yes/no). New leads from this widget get them. */
+	V.LeadDefaults = {
+		props: { doc: Object, disabled: Boolean },
+		setup(props) {
+			const choices = ref([]); const linkVals = reactive({})
+			onMounted(async () => { try { choices.value = (await DM.api('get_lead_field_choices', {})) || [] } catch (e) { choices.value = [] } props.doc.lead_defaults.forEach((r) => loadLink(r.field)) })
+			const meta = (f) => choices.value.find((c) => c.fieldname === f)
+			async function loadLink(f) {
+				const m = meta(f); if (!m || m.fieldtype !== 'Link' || linkVals[f]) return
+				linkVals[f] = []
+				try { linkVals[f] = ((await CM.api('search_field_values', { fieldname: f, txt: '', limit: 200 })) || []).map((v) => v.value) } catch (e) { linkVals[f] = [] }
+			}
+			const fieldOpts = computed(() => choices.value.map((c) => ({ value: c.fieldname, label: c.label, sub: c.fieldname })).sort((a, b) => a.label.localeCompare(b.label)))
+			const valueOpts = (r) => { const m = meta(r.field); if (!m) return []; return m.fieldtype === 'Select' ? String(m.options || '').split('\n').filter(Boolean) : (linkVals[r.field] || []) }
+			const kind = (r) => { const m = meta(r.field); return !m ? 'none' : m.fieldtype === 'Check' ? 'check' : m.fieldtype === 'Select' || (m.fieldtype === 'Link' && (linkVals[r.field] || []).length) ? 'list' : ['Int', 'Float', 'Percent', 'Currency'].includes(m.fieldtype) ? 'num' : 'text' }
+			const add = () => props.doc.lead_defaults.push({ field: '', value: '' })
+			const remove = (i) => props.doc.lead_defaults.splice(i, 1)
+			function changeField(r) { r.value = meta(r.field) && meta(r.field).fieldtype === 'Check' ? 1 : ''; loadLink(r.field) }
+			const taken = (i) => props.doc.lead_defaults.filter((_x, n) => n !== i).map((x) => x.field)
+			const optsFor = (i) => fieldOpts.value.map((o) => ({ ...o, disabled: taken(i).includes(o.value) }))
+			return { choices, fieldOpts, valueOpts, kind, add, remove, changeField, optsFor, meta }
+		},
+		template: `
+		<div class="col" style="gap:8px">
+			<div v-for="(r, i) in doc.lead_defaults" :key="i" class="row" style="gap:8px;align-items:center;flex-wrap:nowrap">
+				<div style="flex:1;min-width:0"><Dd v-model="r.field" :options="optsFor(i)" searchable placeholder="Lead field" :disabled="disabled" aria-label="Lead field" @change="changeField(r)" /></div>
+				<div style="flex:1;min-width:0">
+					<span v-if="kind(r) === 'none'" class="faint small">Choose a field first</span>
+					<Dd v-else-if="kind(r) === 'list'" v-model="r.value" :options="valueOpts(r)" :searchable="valueOpts(r).length > 7" placeholder="Choose a value" :disabled="disabled" aria-label="Value" />
+					<label v-else-if="kind(r) === 'check'" class="check"><input type="checkbox" :checked="!!r.value" :disabled="disabled" @change="r.value = $event.target.checked ? 1 : 0" /> Ticked</label>
+					<input v-else class="inp" :type="kind(r) === 'num' ? 'number' : 'text'" v-model="r.value" placeholder="Value" :disabled="disabled" aria-label="Value" />
+				</div>
+				<Btn size="sm" variant="ghost" icon="trash" aria-label="Remove" title="Remove" :disabled="disabled" @click="remove(i)" />
+			</div>
+			<div v-if="!doc.lead_defaults.length" class="small faint">None. Every lead from this widget starts the way CRM creates it.</div>
+			<div><Btn size="sm" icon="plus" :disabled="disabled" @click="add">Set another field</Btn></div>
+		</div>`,
+	}
+
 	const TABS = [
 		{ key: 'details', label: 'Details', icon: 'file', comp: 'DetailsTab' },
 		{ key: 'availability', label: 'Availability', icon: 'clock', comp: 'AvailabilityTab' },
@@ -211,10 +250,13 @@
 			const fixed = computed(() => doc.fields.filter((f) => DM.FIXED_FIELDS.includes(f.key)))
 			const extra = computed(() => doc.fields.filter((f) => !DM.FIXED_FIELDS.includes(f.key)))
 			const open = reactive({}); const dragFrom = ref(null); const dragOver = ref(null)
+			// a question's list key must not change while its label is typed (the saved key follows the label), or the box is rebuilt and loses the cursor
+			const ids = new WeakMap(); let nextId = 0
+			const uid = (f) => { let v = ids.get(f); if (!v) { v = 'q' + ++nextId; ids.set(f, v) } return v }
 			function add() {
 				let n = extra.value.length + 1; while (doc.fields.some((f) => f.key === 'question_' + n)) n++
 				const f = { key: 'question_' + n, label: '', kind: 'Text', required: false, options: '', placeholder: '', enabled: true, lead_field: '' }
-				doc.fields.push(f); open[f.key] = true
+				doc.fields.push(f); open[uid(doc.fields[doc.fields.length - 1])] = true
 				nextTick(() => { const el = document.querySelector('[data-q="' + f.key + '"] input'); if (el) el.focus() })
 			}
 			function setLabel(f, v) { const auto = f.key === DM.keyify(f.label) || /^question_\d+$/.test(f.key); f.label = v; if (auto && v.trim()) { let k = DM.keyify(v) || f.key, i = 2; const base = k; while (doc.fields.some((x) => x !== f && x.key === k)) k = base + '_' + i++; f.key = k } }
@@ -229,7 +271,7 @@
 			onMounted(() => { DM.loadLookups() })
 			const sources = computed(() => DM.lookups.sources.map((s) => ({ value: s, label: s })))
 			const statuses = computed(() => DM.lookups.statuses.map((s) => ({ value: s, label: s })))
-			return { fixed, extra, open, add, setLabel, remove, move, dragFrom, dragOver, drop, leadFields, KINDS, KIND_ICON, kindOpts: KINDS.map((k) => ({ value: k, label: k, icon: KIND_ICON[k] })), sources, statuses, DM }
+			return { uid, fixed, extra, open, add, setLabel, remove, move, dragFrom, dragOver, drop, leadFields, KINDS, KIND_ICON, kindOpts: KINDS.map((k) => ({ value: k, label: k, icon: KIND_ICON[k] })), sources, statuses, DM }
 		},
 		template: `
 		<div class="col tabcol">
@@ -240,13 +282,13 @@
 						<ul class="qlist" role="list">
 							<li v-for="f in fixed" :key="f.key" class="q fixed"><span class="grip off" aria-hidden="true"><Ico name="shield" /></span><div class="grow"><b>{{ f.label || f.key }}</b><span class="small muted"> - {{ f.kind }}, always required</span></div><span class="badge neutral nodot">Fixed</span>
 								<input class="inp q-ph" v-model="f.placeholder" :aria-label="'Placeholder for ' + f.key" placeholder="Placeholder" /></li>
-							<li v-for="(f, n) in extra" :key="f.key" class="q" :data-q="f.key" :class="{ over: dragOver === f && dragFrom !== f, off: !f.enabled }" draggable="true" @dragstart="dragFrom = f" @dragover.prevent="dragOver = f" @dragleave="dragOver = null" @drop.prevent="drop(f)" @dragend="dragFrom = dragOver = null">
+							<li v-for="(f, n) in extra" :key="uid(f)" class="q" :data-q="f.key" :class="{ over: dragOver === f && dragFrom !== f, off: !f.enabled }" draggable="true" @dragstart="dragFrom = f" @dragover.prevent="dragOver = f" @dragleave="dragOver = null" @drop.prevent="drop(f)" @dragend="dragFrom = dragOver = null">
 								<div class="q-h"><span class="grip" aria-hidden="true"><Ico name="grip" /></span><Ico :name="KIND_ICON[f.kind]" class="faint" />
 									<input class="inp q-l" :value="f.label" placeholder="Question, for example: How many students?" :aria-label="'Question ' + (n + 1)" @input="setLabel(f, $event.target.value)" />
 									<span class="small muted nowrap">Required</span><Switch v-model="f.required" :label="'Required: ' + f.label" />
 									<Btn size="sm" variant="ghost" icon="arrow-up" :disabled="n === 0" :aria-label="'Move up'" @click="move(f, -1)" /><Btn size="sm" variant="ghost" icon="arrow-down" :disabled="n === extra.length - 1" aria-label="Move down" @click="move(f, 1)" />
-									<Btn size="sm" variant="ghost" :icon="open[f.key] ? 'chevron-up' : 'chevron-down'" :aria-expanded="!!open[f.key]" aria-label="More settings" @click="open[f.key] = !open[f.key]" /><Btn size="sm" variant="ghost" icon="trash" aria-label="Remove question" @click="remove(f)" /></div>
-								<div v-if="open[f.key]" class="q-b">
+									<Btn size="sm" variant="ghost" :icon="open[uid(f)] ? 'chevron-up' : 'chevron-down'" :aria-expanded="!!open[uid(f)]" aria-label="More settings" @click="open[uid(f)] = !open[uid(f)]" /><Btn size="sm" variant="ghost" icon="trash" aria-label="Remove question" @click="remove(f)" /></div>
+								<div v-if="open[uid(f)]" class="q-b">
 									<div class="g3"><Field label="Answer type"><Dd v-model="f.kind" :options="kindOpts" aria-label="Answer type" /></Field><Field label="Placeholder"><input class="inp" v-model="f.placeholder" /></Field><Field label="Save the answer on the lead as" hint="Optional."><Dd v-model="f.lead_field" :options="leadFields" searchable allow-empty="Do not copy to the lead" placeholder="Do not copy to the lead" aria-label="Lead field" /></Field></div>
 									<Field v-if="f.kind === 'Select'" label="Options" hint="One per line."><textarea class="inp" rows="3" v-model="f.options" placeholder="Option one&#10;Option two"></textarea></Field>
 									<Toggle v-model="f.enabled" label="Show this question" text="Switch off to hide it without losing it." />
@@ -266,6 +308,7 @@
 						<Field label="Lead source"><Dd v-model="doc.lead_source" :options="sources" searchable allow-empty="Leave the source as it is" placeholder="Leave the source as it is" aria-label="Lead source" /></Field>
 						<Field label="Lead status" hint="Used only for new leads."><Dd v-model="doc.lead_status" :options="statuses" searchable allow-empty="Default status" placeholder="Default status" aria-label="Lead status" /></Field>
 						<Toggle v-model="doc.assign_lead_to_owner" label="Assign the lead to the first host" text="The organizer becomes the lead's owner when it is created." />
+						<Field label="Also set these lead fields" hint="For example Organization type = School. Only new leads get them, and what the visitor types is never overwritten."><LeadDefaults :doc="doc" /></Field>
 					</Section>
 					<Section title="How the form looks" icon="eye">
 						<div class="formpv"><div class="fp-t">Your details</div><div v-for="f in doc.fields.filter((x) => x.enabled)" :key="f.key" class="fp-f"><span>{{ f.label || f.key }}<b v-if="f.required"> *</b></span><div class="fp-i" :class="f.kind === 'Long Text' ? 'tall' : ''">{{ f.kind === 'Checkbox' ? '' : f.placeholder }}</div></div><div v-if="doc.allow_guests" class="fp-f"><span>Add guests</span><div class="fp-i">Email addresses</div></div><label v-if="doc.consent_text" class="fp-c"><i :class="{ on: doc.consent_default }"></i>{{ doc.consent_text }}</label></div>

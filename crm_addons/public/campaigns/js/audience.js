@@ -13,7 +13,7 @@
 	const OPS = {
 		text: [['=', 'is'], ['!=', 'is not'], ['contains', 'contains'], ['not contains', 'does not contain'], ['starts', 'starts with'], ['set', 'is set'], ['notset', 'is not set']],
 		select: [['=', 'is'], ['!=', 'is not'], ['in', 'is any of'], ['not in', 'is none of'], ['set', 'is set'], ['notset', 'is not set']],
-		link: [['=', 'is'], ['!=', 'is not'], ['in', 'is any of'], ['set', 'is set'], ['notset', 'is not set']],
+		link: [['=', 'is'], ['!=', 'is not'], ['in', 'is any of'], ['not in', 'is none of'], ['set', 'is set'], ['notset', 'is not set']],
 		check: [['=', 'is']],
 		num: [['=', 'equals'], ['!=', 'does not equal'], ['>', 'is greater than'], ['<', 'is less than'], ['>=', 'is at least'], ['<=', 'is at most'], ['between', 'is between'], ['set', 'is set'], ['notset', 'is not set']],
 		date: [['=', 'is on'], ['>', 'is after'], ['<', 'is before'], ['>=', 'is on or after'], ['<=', 'is on or before'], ['between', 'is between'], ['set', 'is set'], ['notset', 'is not set']],
@@ -91,7 +91,18 @@
 			const meta = (r) => fields.value.find((f) => f.fieldname === r.field)
 			const kind = (r) => kindOf(meta(r))
 			const ops = (r) => OPS[kind(r)].map(([value, label]) => ({ value, label }))
-			const options = (r) => (meta(r) && meta(r).options ? String(meta(r).options).split('\n').filter(Boolean) : [])
+			// the values of a Link field (organization type, territory, source ...) as CRM has them: loaded once per field, up to 200
+			const linkVals = reactive({})
+			async function loadLink(field) {
+				if (!field || linkVals[field] !== undefined) return
+				linkVals[field] = []
+				try { linkVals[field] = ((await CM.api('search_field_values', { fieldname: field, txt: '', limit: 200 })) || []).map((v) => v.value) } catch (e) { linkVals[field] = [] }
+			}
+			watch(() => props.rules.map((r) => r.field).join('|') + '|' + fields.value.length, () => props.rules.forEach((r) => { if (kind(r) === 'link') loadLink(r.field) }), { immediate: true })
+			const options = (r) => {
+				if (kind(r) === 'link') { const v = linkVals[r.field] || []; return r.value && !Array.isArray(r.value) && !v.includes(r.value) ? [r.value, ...v] : v }
+				return meta(r) && meta(r).options ? String(meta(r).options).split('\n').filter(Boolean) : []
+			}
 			function add(field) {
 				const f = fields.value.find((x) => x.fieldname === field)
 				const k = kindOf(f); const r = { id: CM.uid(), field: field || '', op: OPS[k][0][0], value: k === 'check' ? 1 : '' }
@@ -119,9 +130,9 @@
 					<div class="fb-val">
 						<span v-if="['set', 'notset'].includes(r.op)" class="faint small">No value needed</span>
 						<template v-else-if="r.op === 'between'"><input class="inp" :type="kind(r) === 'date' ? 'date' : 'number'" v-model="r.value[0]" aria-label="From" /><span class="faint">and</span><input class="inp" :type="kind(r) === 'date' ? 'date' : 'number'" v-model="r.value[1]" aria-label="To" /></template>
-						<div v-else-if="['in', 'not in'].includes(r.op) && kind(r) === 'select'" class="chips"><button v-for="o in options(r)" :key="o" type="button" class="fchip" :class="{ on: (r.value || []).includes(o) }" @click="toggleIn(r, o)">{{ o }}</button></div>
+						<div v-else-if="['in', 'not in'].includes(r.op) && ['select', 'link'].includes(kind(r)) && options(r).length" class="chips"><button v-for="o in options(r)" :key="o" type="button" class="fchip" :class="{ on: (r.value || []).includes(o) }" @click="toggleIn(r, o)">{{ o }}</button></div>
 						<input v-else-if="['in', 'not in'].includes(r.op)" class="inp" :value="csv(r)" placeholder="value, value, value" @input="setCsv(r, $event.target.value)" />
-						<Dd v-else-if="kind(r) === 'select'" v-model="r.value" :options="options(r)" placeholder="Choose" />
+						<Dd v-else-if="kind(r) === 'select' || (kind(r) === 'link' && options(r).length)" v-model="r.value" :options="options(r)" :searchable="options(r).length > 7" placeholder="Choose" />
 						<Dd v-else-if="kind(r) === 'check'" v-model="r.value" :options="yn" />
 						<LinkInp v-else-if="kind(r) === 'link'" v-model="r.value" :field="r.field" />
 						<input v-else class="inp" :type="kind(r) === 'date' ? 'date' : kind(r) === 'num' ? 'number' : 'text'" v-model="r.value" :placeholder="r.field ? 'Value' : ''" :disabled="!r.field" aria-label="Value" />

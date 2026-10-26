@@ -1,6 +1,6 @@
 """The ready-made presets. An admin can edit or delete them; a deleted one is not brought back until the next version changes the list."""
 
-VERSION = "2"
+VERSION = "3"
 
 PRESETS = [
 	(
@@ -58,3 +58,13 @@ PRESETS = [
 		},
 	),
 ]
+
+
+def _role_default(index):
+	"""What a person gets with no preset at all, for the role at ``index`` of each feature's ``legacy`` (0 manager, 1 Campaign Manager, 2 everybody else)."""
+	from crm_addons.team_access import registry as R
+
+	return {f["key"]: R.normalise(f, f["legacy"][index]) for f in R.FEATURES}
+
+
+PRESETS.append(("Sales User (default)", "What a plain Sales User gets today with no preset: their own data, and the shared templates to view.", _role_default(2)))

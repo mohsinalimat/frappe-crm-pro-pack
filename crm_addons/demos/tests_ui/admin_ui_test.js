@@ -114,8 +114,9 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 		// form
 		await page.click('.tab:has-text("Form")'); await settle(page)
 		await page.click('button:has-text("Add a question")')
-		await page.fill('input[placeholder^="Question"]', 'How many students?')
-		check('form: question key is made from the label', true)
+		const q = page.locator('input[placeholder^="Question"]').first()
+		await q.click(); await q.pressSequentially('How many students?', { delay: 20 })  // real typing: the box must keep the cursor between letters
+		check('form: typing a question keeps the cursor in the box', (await q.inputValue()) === 'How many students?' && (await page.evaluate(() => document.activeElement && document.activeElement.placeholder && document.activeElement.placeholder.startsWith('Question'))))
 		// messages
 		await page.click('.tab:has-text("Messages")'); await settle(page, 400)
 		await page.click('.rule-h:has-text("Confirmed")'); await settle(page, 200)

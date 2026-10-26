@@ -2,6 +2,44 @@
 
 All notable changes to Frappe CRM Suite Pro (the `crm_addons` Frappe app).
 
+## 1.5.1 - 2026-10-27
+
+A patch release. **Upgrade:** take a backup, then `bench --site your-site migrate` and `bench restart` (migrate adds two hidden fields and rewrites the Leads list script), and hard-refresh the CRM once.
+
+### Added
+
+- **Choose an existing approved WhatsApp template for the login link** (Team and access, People: "Choose a template"). The template must be approved by Meta and have one or two
+  variables (the first name, then the link; or only the link). It becomes a system template. "Use the ready-made one" goes back. Added setting field `login_link_whatsapp_template`
+  (hidden), created by `migrate`.
+
+- **A widget can set lead fields.** In the widget editor, Leads: "Also set these lead fields". Pick a Lead field (organization type, industry, website, territory ...) and a value from a dropdown;
+  every new lead created from that widget gets it. What the visitor types is never overwritten and an existing lead is left alone. Stored in the hidden field `lead_defaults` (added by `migrate`).
+- **Presets as a list**, next to the cards (remembered per browser), and a **Sales User (default)** preset: what a plain Sales User gets with no preset.
+
+### Changed
+
+- **Fewer shortcuts on the CRM screens now that the left menu has them.** The button group in the CRM Dashboard header is gone, and the Leads list header and the Kanban floating buttons show only
+  **Meetings** and **Follow-ups** (the things that belong to Leads). The Sales Dashboard, Campaigns and the rest are in the left menu. `migrate` rewrites the Leads list script (script version 6).
+
+### Fixed
+
+- **Typing a question in a widget's Form tab lost the cursor after every letter.** The list item was keyed by the question's saved key, which follows the label as you type, so it was rebuilt on each
+  keystroke. It now has its own steady key. The browser test types for real now.
+- **Widget host and CC pickers listed contacts and leads.** Hosts and CC now search only team members (people with a CRM role), best match first; a full email address can still be typed in CC.
+- **Audience filters did not list the values of CRM fields such as Organization type or Territory** (only ten, in a plain search box). They are now a searchable dropdown with up to 200 values, and "is any of" / "is none of" work for them too.
+- **A rule or filter value typed with spaces around it** ("School ") did not match "School", so "is not School" could let School leads through. Values are trimmed.
+- Setup: the WhatsApp template picker and the Meta card are aligned with the other options.
+- **A booking's confirmation email could fail with `(1020, "Record has changed since last read in table 'tabCRM Lead'")`.** The email is now tried again (up to three times) when the database reports a
+  clashing change, as the booking's own work may still be updating the Lead at that moment. WhatsApp messages are never repeated this way. A message that already shows Failed can be sent again
+  with the retry button on the booking.
+- **The ready-made booking WhatsApp templates ended with a variable**, which Meta does not allow, so they could not be created. Every one now ends with a closing line ("Regards, Reducate.ai.", the `SIGNOFF` constant in `demos/defaults.py`). A test checks
+  that no ready-made WhatsApp text starts or ends with a variable. A template already sent to Meta under the old text must be created again (delete the rejected one first).
+- **Team and access, People and Hierarchy listed only System Users.** CRM agents that are Frappe *Website Users* (the way CRM invites people) were missing from the People list, from
+  the Hierarchy "Users" list, and from the guest suggestions when scheduling a meeting. Everyone who holds a CRM role is now listed, whatever their user type. Portal users without
+  a CRM role are still left out.
+- **The WhatsApp login-link template could not be created** ("A variable is tied to a lead field that does not exist"): `login_link` is now a known variable. The ready-made wording
+  is also plainer ("Your CRM account has been created. Continue here: ..."), because Meta rejected the earlier text, which talked about passwords.
+
 ## 1.5.0 - 2026-10-26
 
 **Frappe CRM Suite Pro** (the product was called CRM Pro Pack): a bigger release with website booking pages, team and access control, branding and many fixes.

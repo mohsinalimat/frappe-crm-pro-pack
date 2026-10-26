@@ -55,6 +55,24 @@ def _login_template():
 
 
 @frappe.whitelist()
+def get_login_templates():
+	"""For the picker in Team and access: the approved WhatsApp templates, and which one the login link uses now."""
+	_admin()
+	from crm_addons import system_messages
+
+	return {"templates": system_messages.approved_templates(), "status": system_messages.login_template_status()}
+
+
+@frappe.whitelist()
+def link_login_template(name=None):
+	"""Use an approved WhatsApp template for the login link (empty = back to the ready-made one)."""
+	_admin()
+	from crm_addons import system_messages
+
+	return system_messages.link_login_template(name)
+
+
+@frappe.whitelist()
 def create_login_template():
 	"""Submit the ready-made WhatsApp login-link template to Meta (System Managers). It stays Pending until Meta approves it."""
 	_admin()
@@ -64,14 +82,14 @@ def create_login_template():
 
 
 def _people():
-	users = frappe.get_all(
-		"User", filters={"user_type": "System User", "name": ["not in", ["Administrator", "Guest"]]},
-		fields=["name", "full_name", "user_image", "last_active", "enabled", "mobile_no"] + _extra_fields(), order_by="full_name asc", limit_page_length=2000,
-	)
-	names = [u.name for u in users] or [""]
+	"""Everyone who holds a CRM role, whatever their Frappe user type: System Users and also the CRM agents that are Website Users."""
 	roles = {}
-	for r in frappe.get_all("Has Role", filters={"parenttype": "User", "parent": ["in", names], "role": ["in", list(CRM_ROLES)]}, fields=["parent", "role"], limit_page_length=20000):
+	for r in frappe.get_all("Has Role", filters={"parenttype": "User", "role": ["in", list(CRM_ROLES)]}, fields=["parent", "role"], limit_page_length=50000):
 		roles.setdefault(r.parent, []).append(r.role)
+	users = frappe.get_all(
+		"User", filters={"name": ["in", [n for n in roles if n not in ("Administrator", "Guest")] or [""]]},
+		fields=["name", "full_name", "user_image", "last_active", "enabled", "mobile_no"] + _extra_fields(), order_by="full_name asc", limit_page_length=5000,
+	)
 	configured = {r.user: r for r in frappe.get_all("CRM User Access", fields=["user", "preset", "overrides"], limit_page_length=5000)}
 	tree = _hierarchy_rows()
 	node_user = {n.name: n.user for n in tree}
@@ -284,7 +302,7 @@ def _apply_profile(doc, first_name=None, last_name=None, mobile_no=None, designa
 
 @frappe.whitelist()
 def add_person(email, first_name, last_name="", role="Sales User", preset=None, send_invite=1, mobile_no="", designation="", company="", user_image="", reports_to=None, send_whatsapp=0):
-	"""Add a person to the CRM: a System User with a CRM role, profile details, an optional preset and team leader, and (by default) the
+	"""Add a person to the CRM: a user with a CRM role (Frappe decides System User or Website User from the role's desk access, so on a site where Sales User has no desk access they are a Website User like the other agents), profile details, an optional preset and team leader, and (by default) the
 	welcome email with the link to set a password.
 
 	An existing user (for example a website user, or someone without a CRM role) is given the role instead of being created again."""

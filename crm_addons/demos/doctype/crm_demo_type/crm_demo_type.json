@@ -39,6 +39,7 @@
   "sb_lead",
   "lead_source",
   "lead_status",
+  "lead_defaults",
   "assign_lead_to_owner",
   "sb_messages",
   "messages",
@@ -254,6 +255,13 @@
    "fieldtype": "Link",
    "label": "Lead status",
    "options": "CRM Lead Status"
+  },
+  {
+   "fieldname": "lead_defaults",
+   "fieldtype": "Long Text",
+   "label": "Lead fields to set",
+   "hidden": 1,
+   "description": "JSON list of {field, value}: fields a NEW lead gets from this widget (for example organization type = School)."
   },
   {
    "fieldname": "assign_lead_to_owner",

@@ -54,6 +54,11 @@ def clean_filters(rows):
 			frappe.throw(_("{0} is not a field of the Lead and cannot be used as a filter.").format(frappe.bold(cstr(field))))
 		if op not in OPERATORS:
 			frappe.throw(_("The operator {0} is not allowed.").format(frappe.bold(op)))
+		# a value copied or typed with spaces around it ("School ") must still mean "School"; the database does not ignore leading spaces
+		if isinstance(value, str):
+			value = value.strip()
+		elif isinstance(value, (list, tuple)):
+			value = [v.strip() if isinstance(v, str) else v for v in value]
 		if op in ("in", "not in") and not isinstance(value, (list, tuple)):
 			value = [v.strip() for v in cstr(value).split(",") if v.strip()]
 		if op == "between" and not (isinstance(value, (list, tuple)) and len(value) == 2):

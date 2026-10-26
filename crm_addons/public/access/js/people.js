@@ -197,7 +197,17 @@
 
 	V.People = {
 		setup() {
-			const q = ref(''); const filter = ref('all'); const editing = ref(null); const adding = ref(false); const creatingTpl = ref(false)
+			const q = ref(''); const filter = ref('all'); const editing = ref(null); const adding = ref(false); const creatingTpl = ref(false); const linkOpen = ref(false); const lt = ref([]); const pickTpl = ref(''); const linking = ref(false)
+			async function openLink() {
+				linkOpen.value = true; pickTpl.value = (d.login_template && d.login_template.linked) ? d.login_template.name : ''
+				try { const r = await AX.api('get_login_templates', {}); lt.value = r.templates || [] } catch (e) { CM.toast(e.message, 'err') }
+			}
+			async function saveLink(name) {
+				linking.value = true
+				try { await AX.api('link_login_template', { name: name || '' }); await AX.load(true); linkOpen.value = false; CM.toast(name ? 'The login link will use this template.' : 'Back to the ready-made template.') } catch (e) { CM.toast(e.message, 'err') } finally { linking.value = false }
+			}
+			const ltOptions = computed(() => lt.value.map((t) => ({ value: t.value, label: t.label, sub: t.fits ? t.category : t.variables + ' variables: needs 1 or 2', disabled: !t.fits })))
+			const ltPicked = computed(() => lt.value.find((t) => t.value === pickTpl.value))
 			async function createTpl() {
 				creatingTpl.value = true
 				try { const r = await AX.api('create_login_template', {}); CM.toast(r.message || 'Submitted to Meta.'); await AX.load(true) } catch (e) { CM.toast(e.message, 'err') } finally { creatingTpl.value = false }
@@ -213,12 +223,21 @@
 				return !s || (p.full_name + ' ' + p.user).toLowerCase().includes(s)
 			}))
 			const counts = computed(() => ({ all: d.people.length, custom: d.people.filter((p) => p.configured).length, default: d.people.filter((p) => !p.configured).length, inactive: d.people.filter((p) => !p.enabled).length }))
-			return { createTpl, creatingTpl, d, q, filter, editing, adding, people, counts, AX }
+			return { linkOpen, openLink, saveLink, ltOptions, ltPicked, pickTpl, linking, createTpl, creatingTpl, d, q, filter, editing, adding, people, counts, AX }
 		},
 		template: `
 		<div class="page wide">
 			<div class="pg-head"><div class="grow"><h1>Team and access</h1><p>Choose who sees what in Suite Pro: follow-ups, meetings, demos, assignment and the Campaign Manager. Each person gets a preset, and you can change anything on top of it.</p></div><div class="actions"><Btn variant="primary" icon="plus" @click="adding = true">Add person</Btn></div></div>
-			<div v-if="d.loaded && d.login_template && d.login_template.available && !d.login_template.ready" class="alert info"><Ico name="info" /><div class="grow"><template v-if="!d.login_template.exists"><b>WhatsApp login link is not set up.</b> Create the ready-made template to send new people their login link on WhatsApp. Meta reviews it before it can be used.</template><template v-else><b>WhatsApp login template: {{ d.login_template.state.toLowerCase() }}.</b> It can be used once Meta approves it (Campaign Manager, WhatsApp templates, Sync from Meta).</template></div><Btn v-if="!d.login_template.exists" size="sm" :loading="creatingTpl" @click="createTpl">Create template</Btn></div>
+			<div v-if="d.loaded && d.login_template && d.login_template.available" class="alert" :class="d.login_template.ready ? 'ok' : 'info'"><Ico name="info" /><div class="grow">
+				<template v-if="d.login_template.ready"><b>WhatsApp login link is ready.</b> It uses the template <b>{{ d.login_template.label }}</b>.</template>
+				<template v-else-if="!d.login_template.exists"><b>WhatsApp login link is not set up.</b> Choose a WhatsApp template that Meta has approved, or create the ready-made one (Meta reviews it before it can be used).</template>
+				<template v-else><b>WhatsApp login template {{ d.login_template.label }}: {{ d.login_template.state.toLowerCase() }}.</b> It can be used once Meta approves it. Or choose a different approved template.</template>
+				<div v-if="linkOpen" class="row wrap" style="gap:8px;margin-top:8px;align-items:flex-start"><div style="width:300px;max-width:100%"><Dd v-model="pickTpl" :options="ltOptions" searchable allow-empty="Choose an approved template" placeholder="Choose an approved template" aria-label="Approved WhatsApp template" /></div>
+					<Btn variant="primary" :loading="linking" :disabled="!pickTpl || (ltPicked && !ltPicked.fits)" @click="saveLink(pickTpl)">Use this template</Btn>
+					<Btn v-if="d.login_template.linked" :loading="linking" @click="saveLink('')">Use the ready-made one</Btn><Btn @click="linkOpen = false">Close</Btn>
+					<div v-if="ltPicked" class="small" style="width:100%;white-space:pre-wrap;padding:6px 8px;border-radius:8px;background:var(--surface)">{{ ltPicked.body }}<div class="muted" style="margin-top:4px">It is sent with the first name as &#123;&#123;1&#125;&#125; and the link as &#123;&#123;2&#125;&#125; (a template with one variable gets just the link). It becomes a system template.</div></div></div></div>
+				<Btn v-if="!linkOpen" size="sm" @click="openLink">{{ d.login_template.linked ? 'Change template' : 'Choose a template' }}</Btn>
+				<Btn v-if="!d.login_template.exists && !linkOpen" size="sm" :loading="creatingTpl" @click="createTpl">Create the ready-made one</Btn></div>
 			<div v-if="d.error" class="alert err"><Ico name="alert" /><div class="grow">{{ d.error }}</div></div>
 			<div v-if="d.loaded && !d.hierarchy.available" class="alert warn"><Ico name="info" /><div class="grow"><b>This CRM has no Sales Hierarchy.</b> "My team" then means just the person themselves. Newer Frappe CRM versions have the hierarchy in Settings, under User Management.</div></div>
 			<div v-else-if="d.loaded && !d.hierarchy.enabled" class="alert info"><Ico name="info" /><div class="grow"><b>The Sales Hierarchy is switched off in CRM.</b> "My team" still follows the tree ({{ d.hierarchy.people }} people in it); CRM itself only uses it for leads once you switch it on in Settings.</div></div>

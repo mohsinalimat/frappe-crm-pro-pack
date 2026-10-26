@@ -10,7 +10,7 @@ import frappe
 
 APP_VERSION_KEY = "crm_addons_scripts_version"
 SEEDED_KEY = "crm_addons_dashboard_seeded"  # comma-separated chart groups already added once
-SCRIPT_VERSION = "5"  # bump when the scripts below change
+SCRIPT_VERSION = "6"  # bump when the scripts below change
 SCRIPT_PREFIX = "CRM Add-ons"
 
 NEW_SETTING_DEFAULTS = {
@@ -176,16 +176,12 @@ async function setupList() {
 	const actions = [
 		{ label: "Meetings", icon: "calendar", onClick: () => cm.openCalendar({ reference_doctype: "__DT__", view: "agenda" }) },
 	]
-	if (config.campaigns_enabled) {
-		actions.push({ label: "Campaigns", icon: "send", onClick: () => cm.openCampaigns() })
-	}
 	if (config.follow_ups_enabled) {
 		actions.push({
 			label: "Follow-ups",
 			icon: "phone-call",
 			onClick: () => window.crmAddonsUI && window.crmAddonsUI.openQueue("__DT__"),
 		})
-		actions.push({ label: "Sales Dashboard", icon: "bar-chart-2", onClick: () => cm.openDashboard() })
 	}
 	return { actions }
 }

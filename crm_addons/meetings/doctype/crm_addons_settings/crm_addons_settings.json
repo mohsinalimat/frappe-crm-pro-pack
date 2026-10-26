@@ -31,6 +31,7 @@
   "lead_scoring_enabled",
   "stale_lead_days",
   "column_break_insights",
+  "login_link_whatsapp_template",
   "missed_call_whatsapp_template",
   "missed_call_whatsapp_text",
   "ui_section",
@@ -236,6 +237,13 @@
   {
    "fieldname": "column_break_insights",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "login_link_whatsapp_template",
+   "fieldtype": "Data",
+   "label": "WhatsApp template for the login link",
+   "hidden": 1,
+   "description": "An approved WhatsApp template chosen in Team and access to send new people their login link. Empty = the ready-made crm_login_link template."
   },
   {
    "fieldname": "missed_call_whatsapp_template",

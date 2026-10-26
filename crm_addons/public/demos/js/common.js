@@ -119,7 +119,7 @@
 		owners: [], cc: [], owner_notify: true,
 		hours: DM.weekdayHours(DM.WEEKDAYS.slice(0, 5)), overrides: [],
 		fields: DM.defaultFields(), allow_guests: false, consent_text: 'Send me my booking confirmation and reminders on WhatsApp.', consent_default: true,
-		lead_source: '', lead_status: '', assign_lead_to_owner: true,
+		lead_source: '', lead_status: '', lead_defaults: [], assign_lead_to_owner: true,
 		messages: DM.defaultMessages(),
 		brand_name: '', logo: '', accent_color: '#2d36a3', theme: 'Auto', heading: '', button_text: 'Confirm booking', success_title: 'You are booked', success_text: 'A confirmation is on its way to your email.', footer_text: '', redirect_url: '', allowed_origins: '',
 		max_active_per_contact: 1, max_per_ip_per_hour: 10,
@@ -127,6 +127,7 @@
 	/** The server's document into the shape the editor works on (booleans, HH:MM, every list present). */
 	DM.fromServer = (d) => {
 		const o = Object.assign(DM.newDoc(), CM.clone(d || {}))
+		o.lead_defaults = (() => { try { const v = typeof d.lead_defaults === 'string' ? JSON.parse(d.lead_defaults || '[]') : d.lead_defaults || []; return Array.isArray(v) ? v.map((x) => ({ field: x.field || '', value: x.value === undefined ? '' : x.value })) : [] } catch (e) { return [] } })()
 		DM.CHECKS.forEach((k) => { o[k] = DM.bool(d && d[k] !== undefined ? d[k] : DM.newDoc()[k]) })
 		o.owners = (d.owners || []).map((x) => (typeof x === 'string' ? { user: x } : { user: x.user, full_name: x.full_name || x.user_name || '' }))
 		o.cc = (d.cc || []).map((x) => (typeof x === 'string' ? (DM.isEmail(x) ? { email: x } : { user: x }) : { user: x.user || '', email: x.email || '', full_name: x.full_name || '' }))
@@ -141,6 +142,7 @@
 	}
 	DM.toServer = (doc) => {
 		const o = CM.clone(doc)
+		o.lead_defaults = JSON.stringify((o.lead_defaults || []).filter((x) => x.field))
 		DM.CHECKS.forEach((k) => { o[k] = o[k] ? 1 : 0 })
 		o.hours = o.hours.map((h) => ({ weekday: DM.SHORT[h.weekday] || h.weekday, from_time: h.from_time + ':00', to_time: h.to_time + ':00' }))
 		o.overrides = o.overrides.map((x) => ({ date: x.date, kind: x.kind, from_time: x.kind === 'Custom hours' ? x.from_time + ':00' : null, to_time: x.kind === 'Custom hours' ? x.to_time + ':00' : null, note: x.note }))
@@ -153,7 +155,7 @@
 
 	// ------------------------------------------------------------------ people (team members for owners / CC)
 	DM.searchUsers = async (txt) => {
-		const r = await CM.call('crm_addons.api.search_guests', { txt: txt || '' })
+		const r = await DM.api('search_team', { txt: txt || '' })
 		return (r || []).map((x) => ({ user: x.email, email: x.email, full_name: x.full_name || x.email, kind: x.attendee_type }))
 	}
 	DM.nameOf = (p) => (p && (p.full_name || p.user || p.email)) || ''
