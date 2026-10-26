@@ -249,9 +249,12 @@ def _check_leader(user, leader):
 		frappe.throw(_("A person cannot be their own team leader."))
 	if not frappe.db.get_value("User", leader, "enabled"):
 		frappe.throw(_("{0} is not an active user.").format(frappe.bold(leader)))
-	# no loops: the leader must not already sit below this person
-	if leader in access.team_users(user):
-		frappe.throw(_("{0} already reports to this person.").format(frappe.bold(leader)))
+	# no loops: the leader must not already sit below this person (walk up from the leader through the reports-to links)
+	cursor, steps = leader, 0
+	while cursor and steps < 200:
+		if cursor == user:
+			frappe.throw(_("{0} already reports to this person.").format(frappe.bold(leader)))
+		cursor, steps = _leader(cursor), steps + 1
 	return leader
 
 
@@ -386,3 +389,101 @@ def set_active(user, enabled):
 	doc.save(ignore_permissions=True)
 	access.clear()
 	return {"user": user, "enabled": bool(enabled)}
+
+
+# -- the Sales Hierarchy ---------------------------------------------------------------------------------------------------------
+
+
+def _tree():
+	"""Every person in CRM's Sales Hierarchy as a flat list, parents before children (built from the reports-to links, so it does not
+	depend on how the tree is numbered): [{user, full_name, image, designation, enabled, reports_to, depth, below}]."""
+	if not frappe.db.exists("DocType", access.HIERARCHY):
+		return []
+	rows = _hierarchy_rows()
+	user_of = {r.name: r.user for r in rows}
+	boss_of = {r.user: user_of.get(r.get("reports_to")) for r in rows}
+	people = {u.name: u for u in frappe.get_all("User", filters={"name": ["in", list(boss_of) or [""]]}, fields=["name", "full_name", "user_image", "enabled"] + _extra_fields(), limit_page_length=5000)}
+	kids = {}
+	for user, boss in boss_of.items():
+		kids.setdefault(boss if boss in boss_of else None, []).append(user)
+	for k in kids.values():
+		k.sort(key=lambda u: (people.get(u).full_name if people.get(u) else u).lower())
+	out, seen = [], set()
+
+	def count_below(user, path):
+		path = path | {user}
+		return sum(1 + count_below(c, path) for c in kids.get(user, []) if c not in path)
+
+	def walk(user, depth):
+		if user in seen:
+			return
+		seen.add(user)
+		p = people.get(user)
+		size = count_below(user, set())
+		out.append({"user": user, "full_name": (p.full_name if p else user) or user, "image": p.user_image if p else None, "designation": p.get("crm_designation") if p else None,
+			"enabled": bool(p.enabled) if p else False, "reports_to": boss_of.get(user), "depth": depth, "below": size})
+		for c in kids.get(user, []):
+			walk(c, depth + 1)
+
+	for root in kids.get(None, []):
+		walk(root, 0)
+	for user in boss_of:  # a loop or a leader missing from the list: still shown, at the top
+		if user not in seen:
+			walk(user, 0)
+	return out
+
+
+@frappe.whitelist()
+def get_hierarchy():
+	"""The Sales Hierarchy for the Hierarchy page: the tree, and the people who are not in it yet."""
+	_admin()
+	info = access.hierarchy_info()
+	tree = _tree()
+	placed = {n["user"] for n in tree}
+	loose = [p for p in _people() if p["user"] not in placed and p["enabled"]]
+	return {**info, "tree": tree, "loose": [{"user": p["user"], "full_name": p["full_name"], "image": p["image"], "designation": p.get("designation")} for p in loose]}
+
+
+@frappe.whitelist()
+def set_leader(user, reports_to=None):
+	"""Put a person under a team leader (or at the top when none is given). Adds them to the hierarchy when they are not in it yet."""
+	_admin()
+	if not frappe.db.exists("DocType", access.HIERARCHY):
+		frappe.throw(_("This CRM has no Sales Hierarchy."))
+	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
+		frappe.throw(_("User {0} was not found.").format(frappe.bold(user)))
+	leader = _check_leader(user, reports_to)
+	if leader:
+		_place(user, leader)
+	else:
+		if not _node(user):
+			frappe.get_doc({"doctype": access.HIERARCHY, "user": user}).insert(ignore_permissions=True)
+		else:
+			_place(user, None)
+	access.clear()
+	return get_hierarchy()
+
+
+@frappe.whitelist()
+def remove_from_hierarchy(user):
+	"""Take a person out of the hierarchy. Not possible while people report to them: move their team first."""
+	_admin()
+	node = _node(user)
+	if not node:
+		return get_hierarchy()
+	if frappe.db.count(access.HIERARCHY, {"reports_to": node.name}):
+		frappe.throw(_("Other people report to {0}. Move them first.").format(frappe.bold(user)))
+	frappe.delete_doc(access.HIERARCHY, node.name, ignore_permissions=True, force=True)
+	access.clear()
+	return get_hierarchy()
+
+
+@frappe.whitelist()
+def set_hierarchy_enabled(enabled):
+	"""CRM's own switch for using the Sales Hierarchy (Settings in CRM). 'My team' in this app follows the tree either way."""
+	_admin()
+	if not frappe.get_meta("FCRM Settings").has_field("enable_sales_hierarchy"):
+		frappe.throw(_("This CRM has no Sales Hierarchy switch."))
+	frappe.db.set_single_value("FCRM Settings", "enable_sales_hierarchy", cint(enabled))
+	frappe.clear_cache()
+	return get_hierarchy()

@@ -456,3 +456,53 @@ class TestLoginLink(HierarchyMixin):
 			out = admin.add_person(email, "Wa", "Link", "Sales User", None, 0, "9876543210", "", "", "", None, 1)
 		self.assertEqual(out["problems"], [])
 		self.assertIn("update-password?key=", send.call_args[0][1])  # a set-password link, never a password
+
+
+class TestHierarchyPage(HierarchyMixin):
+	def setUp(self):
+		super().setUp()
+		frappe.db.delete(HIER)
+		self.addCleanup(frappe.set_user, "Administrator")
+
+	def test_tree_loose_people_and_changing_leaders(self):
+		from crm_addons.team_access import admin
+
+		boss, mid, rep = (self.person(f"hp{i}.acc@example.org", "Sales User") for i in range(3))
+		admin.set_leader(boss, None)  # at the top
+		admin.set_leader(mid, boss)
+		admin.set_leader(rep, mid)
+		out = admin.get_hierarchy()
+		tree = {n["user"]: n for n in out["tree"]}
+		self.assertEqual((tree[boss]["depth"], tree[mid]["depth"], tree[rep]["depth"]), (0, 1, 2))
+		self.assertEqual((tree[boss]["below"], tree[mid]["below"], tree[rep]["below"]), (2, 1, 0))
+		self.assertEqual([n["user"] for n in out["tree"] if n["user"] in (boss, mid, rep)], [boss, mid, rep])  # parents before children
+		other = self.person("hp3.acc@example.org", "Sales User")
+		self.assertIn(other, [p["user"] for p in admin.get_hierarchy()["loose"]])
+		admin.set_leader(rep, boss)  # moved up one level
+		self.assertEqual({n["user"]: n["depth"] for n in admin.get_hierarchy()["tree"]}[rep], 1)
+
+	def test_loops_and_removing_someone_with_a_team_are_refused(self):
+		from crm_addons.team_access import admin
+
+		boss, mid = (self.person(f"hq{i}.acc@example.org", "Sales User") for i in range(2))
+		admin.set_leader(boss, None)
+		admin.set_leader(mid, boss)
+		with self.assertRaises(frappe.ValidationError):
+			admin.set_leader(boss, mid)  # a loop
+		with self.assertRaises(frappe.ValidationError):
+			admin.set_leader(boss, boss)
+		with self.assertRaises(frappe.ValidationError):
+			admin.remove_from_hierarchy(boss)  # mid reports to them
+		admin.remove_from_hierarchy(mid)
+		self.assertNotIn(mid, [n["user"] for n in admin.get_hierarchy()["tree"]])
+
+	def test_only_a_system_manager(self):
+		from crm_addons.team_access import admin
+
+		rep = self.person("hr.acc@example.org", "Sales User")
+		self.addCleanup(setattr, frappe.flags, "in_test", frappe.flags.in_test)
+		frappe.flags.in_test = False
+		frappe.set_user(rep)
+		for fn, args in ((admin.get_hierarchy, ()), (admin.set_leader, (rep, None)), (admin.remove_from_hierarchy, (rep,)), (admin.set_hierarchy_enabled, (1,))):
+			with self.assertRaises(frappe.PermissionError):
+				fn(*args)
