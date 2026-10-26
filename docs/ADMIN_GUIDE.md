@@ -237,3 +237,72 @@ others, and a history with Undo for 24 hours.
 3. Everyone hard-refreshes the CRM once (Ctrl/Cmd + Shift + R). From then on a release loads by itself: if Pro Pack has not started 8
    seconds after the CRM loads, the page clears CRM's saved copy of itself and reloads once, then shows a *Pro Pack did not load* bar.
 
+## Demo booking: embedding
+
+Put this once on each of your websites (before `</body>`), using your CRM address:
+
+```html
+<script src="https://CRM-HOST/assets/crm_addons/book/embed.js" async></script>
+```
+
+Then any button or link with `data-crm-demo="your-demo-slug"` opens the booking pop-up:
+
+```html
+<button data-crm-demo="coding-junior-demo">Book a demo</button>
+<a data-crm-demo="coding-junior-demo" href="https://CRM-HOST/book/coding-junior-demo">Book a free demo class</a>
+<div data-crm-demo-inline="coding-junior-demo"></div>   <!-- the booking page inside the page -->
+```
+
+From your own code: `CRMDemo.open('coding-junior-demo', { prefill: { name, email, phone }, utm: { utm_source: 'x' } })`.
+Add each website's address (for example `https://codingjunior.com`) to the demo type's **Allowed origins**; other sites cannot show the page in a frame.
+The script remembers the visitor's campaign tags (utm_*, gclid, fbclid) and referrer for 30 days, so the lead shows what really brought them. A ready sample is in
+`public/book/demo-host.html`.
+
+
+## Demo booking (book a demo from your websites)
+
+A visitor on one of your websites clicks **Book a demo**, picks a day and time, fills in a short form and gets a confirmation. CRM Pro Pack creates (or finds) the Lead,
+creates one CRM Meeting with a Google Meet link, invites the hosts, remembers where the visitor came from (UTM tags) and sends email and WhatsApp messages.
+Only Sales Managers and System Managers set it up; a Sales User only sees the demos they take part in (**Meetings > Demos**, or the *My demos* list).
+
+### 1. Create a demo type
+Open **Demos** in the CRM menu (or `/demos`), then **Create demo type**. One demo type per website or product (for example *Coding Junior demo*, *Coding Pro demo*).
+
+| Tab | What to set |
+|---|---|
+| Details | Title, **slug** (the page address `/book/<slug>`; it cannot be changed later; `manage`, `embed` and `api` are taken), length, time zone of your availability, Google Meet or a fixed meeting link. The fixed link is also used when Google is not connected. |
+| Availability | Weekly hours (several time ranges per day are fine), days off or special hours on a date, minimum notice, how many days ahead, demos per day, buffer before and after, and how often a slot starts. |
+| Team | The **owners** (one or many; no round robin). With several owners there is **one meeting**, every owner is invited, the first owner is the organizer and the one who gets a new Lead. **CC** people (a user or just an email) are invited too. |
+| Form | Name, email and phone always exist. Add or hide the other questions, mark them required, and tie an answer to a Lead field. Allow guests, and the text of the WhatsApp consent box. |
+| Messages | The confirmation, reschedule and cancel messages and the reminders (24 hours, 1 hour, 30 minutes before, and at the start; edit the list freely). For each, switch Email and/or WhatsApp on and pick the template. They start switched off until you pick templates. |
+| Branding | Name, logo, accent colour, light/dark/auto, heading, button and success texts, footer, an optional address to go to after booking, and **Websites that may embed this page**. |
+
+Spam protection is on by default: the phone number must be valid (Indian numbers: 10 digits starting 6-9, with or without +91 or 0; other countries 8 to 15 digits, using *Default country code*
+from the setup page), disposable email addresses are refused, one upcoming demo per phone or email, 10 bookings per network address per hour, a hidden field for robots and a minimum fill time.
+There is no CAPTCHA and no OTP. Only a scrambled form of the visitor's IP address is stored.
+
+### 2. Put it on your website
+In the demo type open **Embed**: copy the script tag and give any button or link `data-crm-demo="<slug>"` (see *Demo booking: embedding* below), or link straight to `https://YOUR-CRM/book/<slug>`.
+List each website under **Websites that may embed this page** (one address per line, for example `https://www.codingjunior.com`); no other website can show the page in a frame.
+
+### 3. Templates and variables
+Messages use the same **email template library** as the Campaign Manager (an email template can be used in both) and **approved WhatsApp templates** from frappe_whatsapp.
+Variables for the demo: `{{ demo_title }}`, `{{ demo_date }}`, `{{ demo_time }}`, `{{ demo_datetime }}` (the visitor's own time zone, with its name), `{{ demo_duration }}`, `{{ meet_link }}`,
+`{{ host_name }}`, `{{ host_names }}`, `{{ booking_link }}`, `{{ reschedule_link }}`, `{{ cancel_link }}`, and every Lead variable (`{{ first_name }}` ...). For a WhatsApp template map the numbered variables the same way as a campaign step, for example
+`{"1": "{{ first_name }}", "2": "{{ demo_datetime }}", "3": "{{ meet_link }}"}`. Use **Send me a test** to see a message with sample data.
+
+### 4. What happens to a booking
+* Confirmation goes out at once; a reminder goes out at its time. A reminder is skipped when the demo is sooner than the reminder (booked 30 minutes ahead, no 24-hour reminder) and is re-planned when the visitor reschedules. Cancelling drops the reminders that were waiting and sends the cancel message.
+* WhatsApp is sent only to a visitor who ticked the consent box, and never to a number that replied STOP. These are transactional messages: the marketing unsubscribe list does not block the confirmation email.
+* If no outgoing Email Account is set up, or a template is not approved, the message row shows **Failed** with the reason (open the booking, **Messages**), and **Resend** puts it back in line. One failing message never stops the others.
+* The visitor can reschedule or cancel from the link in the message, until the demo starts. If your team cancels, moves or closes the meeting inside CRM, the booking follows (and the visitor is told).
+* Slots already taken by a host's other meetings (organizer or guest, any owner) are not offered; a booked slot disappears for everyone at once and two people can never get the same slot.
+* If Google is not connected the booking still works: the meeting shows *Not synced* and the visitor gets the demo type's fixed link.
+
+### 5. Where did the bookings come from (UTM report)
+**Demos > Report** shows bookings made in a date range by source, medium, campaign, demo type and day, with how many were held, no-show or cancelled. A new Lead also gets
+*First UTM Source / Medium / Campaign* (an existing Lead keeps what it had). The booking itself keeps all tags, the landing page and the referrer.
+
+### Upgrading
+`bench --site your-site migrate`, then `bench restart` (new doctypes, a few fields on CRM Meeting and CRM Lead, the minute-by-minute message sender). No `bench build` is needed.
+If your nginx adds `X-Frame-Options: SAMEORIGIN` to every page, current browsers still allow the listed websites to frame `/book/...` because the page sends `frame-ancestors`; remove that nginx line for `/book` only if you must support very old browsers.

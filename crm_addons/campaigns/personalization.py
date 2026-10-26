@@ -43,6 +43,23 @@ COMPUTED = {
 }
 
 
+# Filled in by the demo-booking messages (crm_addons/demos/messaging.py). In a normal campaign they are empty, so a template can be
+# written once and used in both places. Listed as "computed" so the template editor offers them with the others.
+DEMO_VARIABLES = {
+	"demo_title": "Demo: name of the demo",
+	"demo_date": "Demo: date, in the visitor's time zone",
+	"demo_time": "Demo: start time, in the visitor's time zone",
+	"demo_datetime": "Demo: date and time with the time zone name",
+	"demo_duration": "Demo: length (for example 30 minutes)",
+	"meet_link": "Demo: meeting link",
+	"host_name": "Demo: the first host's name",
+	"host_names": "Demo: all hosts' names",
+	"booking_link": "Demo: link to manage the booking",
+	"reschedule_link": "Demo: link to reschedule",
+	"cancel_link": "Demo: link to cancel",
+}
+
+
 def lead_fields():
 	"""Real fields of the CRM Lead on this site: [{fieldname, label, fieldtype, options}]."""
 	meta = frappe.get_meta(LEAD)
@@ -57,6 +74,7 @@ def lead_fields():
 def available_variables():
 	out = [{"name": f["fieldname"], "label": f["label"], "kind": "field"} for f in lead_fields()]
 	out += [{"name": k, "label": v, "kind": "computed"} for k, v in COMPUTED.items()]
+	out += [{"name": k, "label": v, "kind": "computed"} for k, v in DEMO_VARIABLES.items() if k not in COMPUTED]
 	return out
 
 
@@ -83,6 +101,8 @@ def build_context(lead, campaign):
 	context["sender_name"] = _full_name(campaign.get("campaign_owner") or campaign.get("owner"))
 	context["today"] = frappe.utils.formatdate(nowdate())
 	context["lead_url"] = get_url_to_form(LEAD, row.get("name")) if row.get("name") else ""
+	for key in DEMO_VARIABLES:
+		context.setdefault(key, "")
 	return context
 
 
@@ -102,6 +122,12 @@ def sample_context(campaign_owner=None):
 	context["lead_url"] = frappe.utils.get_url() + "/crm/leads/CRM-LEAD-0001"
 	context["owner_name"] = context["owner_name"] or "Siddharth Singh"
 	context["sender_name"] = context["sender_name"] or "Siddharth Singh"
+	base = frappe.utils.get_url()
+	context.update(
+		demo_title="Product demo", demo_date="Tuesday, 3 November 2026", demo_time="4:30 PM IST", demo_datetime="Tue, 3 Nov 2026, 4:30 PM IST",
+		demo_duration="30 minutes", meet_link="https://meet.google.com/abc-defg-hij", host_name=context["owner_name"], host_names=context["owner_name"],
+		booking_link=f"{base}/book/manage/sample", reschedule_link=f"{base}/book/manage/sample?action=reschedule", cancel_link=f"{base}/book/manage/sample?action=cancel",
+	)
 	return context
 
 

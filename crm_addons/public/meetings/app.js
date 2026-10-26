@@ -88,6 +88,9 @@
 	}
 	const isEmail = (s) => /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(s)
 	const statusClass = (m) => (m.status || 'Scheduled').toLowerCase()
+	/** A meeting that was booked through a public demo page (is_demo, or the demo fields the server adds to it). */
+	const isDemo = (m) => !!(m && (m.is_demo || m.demo_type || m.demo_booking))
+	const demoSource = (m) => [m.demo_utm_source, m.demo_utm_medium].filter(Boolean).join(' / ')
 	const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) } }
 
 	// ------------------------------------------------------------------ icons
@@ -98,6 +101,7 @@
 		'chevron-right': '<path d="m9 18 6-6-6-6"/>',
 		external: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
 		x: '<path d="M18 6 6 18M6 6l12 12"/>',
+		check: '<path d="M20 6 9 17l-5-5"/>',
 		plus: '<path d="M5 12h14M12 5v14"/>',
 		video: '<path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
 		clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
@@ -369,7 +373,7 @@
 	// ------------------------------------------------------------------ details drawer
 	const Detail = {
 		components: { Avatar, Ico },
-		props: { meeting: Object },
+		props: { meeting: Object, config: Object },
 		emits: ['edit', 'close', 'changed', 'toast'],
 		setup(props, { emit }) {
 			const busy = ref(false)
@@ -394,7 +398,12 @@
 			const rsvpText = (r) => (r && r !== 'Needs action' ? r : 'No response yet')
 			const openRecord = () => (window.parent !== window ? tellParent('navigate', { url: m.value.reference_url }) : (location.href = m.value.reference_url))
 			const finished = computed(() => m.value.status !== 'Scheduled')
-			return { busy, dialog, notifyGuests, message, byEmail, inApp, m, guests, responded, complete, refresh, cancel, notify, copy, rsvpText, openRecord, finished, whenText, statusClass }
+			// a demo booked on a public page: how it went (the booking, its lead and the reports follow)
+			const demo = computed(() => isDemo(m.value))
+			const demoUtm = computed(() => [['Source', m.value.demo_utm_source], ['Medium', m.value.demo_utm_medium], ['Campaign', m.value.demo_utm_campaign]].filter((x) => x[1]))
+			// the same outcome the follow-up screens record; the booking follows the meeting on the server (Held -> Completed, No Show -> No Show)
+			const outcome = (kind) => run(() => call('crm_addons.api.record_meeting_outcome', { name: m.value.name, outcome: kind === 'held' ? 'Held' : 'No Show' }), (r) => { emit('changed', r); emit('toast', kind === 'held' ? 'Marked as held.' : 'Marked as no-show.') })
+			return { demo, demoUtm, outcome, busy, dialog, notifyGuests, message, byEmail, inApp, m, guests, responded, complete, refresh, cancel, notify, copy, rsvpText, openRecord, finished, whenText, statusClass }
 		},
 		template: `
 <aside class="drawer">
@@ -410,6 +419,9 @@
 		<div class="row" v-else-if="m.status === 'Scheduled'"><ico name="video" /><div class="sub">No video link on this meeting.</div></div>
 		<div class="row"><ico name="contact" /><div><a href="#" @click.prevent="openRecord">{{ m.reference_title }}</a><div class="sub">Lead · {{ m.reference_docname }}</div></div></div>
 		<div class="row"><ico name="user" /><div>Organizer: <b>{{ m.organizer_name }}</b></div></div>
+		<div class="demo-box" v-if="demo"><div class="demo-h"><span class="badge demo">Demo</span><b>{{ m.demo_type_title || m.demo_type || 'Demo booking' }}</b></div>
+			<div class="demo-utm" v-if="demoUtm.length"><span v-for="u in demoUtm" :key="u[0]"><i>{{ u[0] }}</i> {{ u[1] }}</span></div>
+			<div class="demo-act" v-if="m.can_edit !== false && m.status !== 'Cancelled'"><button class="btn" :class="{ on: m.meeting_outcome === 'Held' }" :disabled="busy" @click="outcome('held')"><ico name="check" /> Held</button><button class="btn" :class="{ on: m.meeting_outcome === 'No Show' }" :disabled="busy" @click="outcome('noshow')"><ico name="x" /> No show</button></div></div>
 		<div class="row" v-if="m.description"><ico name="text" /><div style="white-space:pre-wrap">{{ m.description }}</div></div>
 		<div v-if="m.sync_status === 'Failed' || (m.sync_status === 'Not synced' && m.provider === 'Google Meet')" class="banner" style="margin:0">{{ m.sync_error }}</div>
 		<div>
@@ -705,6 +717,7 @@
 			const view = ref(params.get('view') || 'agenda')
 			const cursor = ref(sod(new Date()))
 			const scope = ref('mine')
+			const demosOnly = ref(params.get('demos') === '1') // the Demos view: only meetings booked through a demo page (everyone sees it)
 			const meetings = ref([])
 			const loading = ref(false)
 			const selected = ref(null)
@@ -738,6 +751,17 @@
 				return sameDay(c, sod(new Date())) ? 'Upcoming' : `From ${fmtDay(c, { day: 'numeric', month: 'short', year: 'numeric' })}`
 			})
 
+			// the demo type's title and where the visitor came from (UTM) come with the booking, not the meeting: joined here by meeting
+			async function addDemoDetails(list, s, e, my) {
+				if (list.every((m) => m.demo_type_title && m.demo_utm_source !== undefined)) return
+				try {
+					const day = (d) => toSql(d).slice(0, 10)
+					const rows = await call('crm_addons.demos.admin.my_demos', { from_date: day(addDays(s, -1)), to_date: day(addDays(e, 1)), scope: config.value && config.value.is_manager ? 'all' : 'mine', page_size: 200 })
+					if (my !== seq) return
+					const by = new Map((rows || []).filter((r) => r.meeting).map((r) => [String(r.meeting), r]))
+					list.forEach((m) => { const r = by.get(String(m.name)); if (r) { m.demo_type_title = m.demo_type_title || r.demo_title; m.demo_utm_source = m.demo_utm_source ?? r.utm_source; m.demo_utm_medium = m.demo_utm_medium ?? r.utm_medium; m.demo_utm_campaign = m.demo_utm_campaign ?? r.utm_campaign } })
+				} catch (err) { /* the cards simply show less */ }
+			}
 			let seq = 0
 			async function load(silent) {
 				const my = ++seq
@@ -745,15 +769,17 @@
 				try {
 					const [s, e] = range.value
 					const rows = await call('crm_addons.api.list_meetings', {
-						start: toSql(s), end: toSql(e), scope: scope.value, reference_name: refName || undefined,
+						start: toSql(s), end: toSql(e), scope: scope.value, reference_name: refName || undefined, demos_only: demosOnly.value ? 1 : undefined,
 					})
 					if (my !== seq) return
-					meetings.value = rows
+					// also filtered here, so the view is right even when the server has not learned the argument yet
+					meetings.value = demosOnly.value ? rows.filter(isDemo) : rows
+					if (demosOnly.value && meetings.value.length) await addDemoDetails(meetings.value, s, e, my)
 					if (selected.value) { const fresh = rows.find((r) => r.name === selected.value.name); if (fresh) selected.value = fresh }
 					fatal.value = ''
 				} catch (err) { if (my === seq) fatal.value = err.message } finally { if (my === seq) loading.value = false }
 			}
-			watch([view, cursor, scope], () => load())
+			watch([view, cursor, scope, demosOnly], () => load())
 
 			function step(dir) {
 				const c = cursor.value
@@ -911,7 +937,7 @@
 			onBeforeUnmount(() => { document.removeEventListener('keydown', onKey); clearInterval(timer); clearInterval(clock) })
 
 			return {
-				config, fatal, view, cursor, scope, meetings, loading, selected, editor, toasts, stage, label, agenda, monthCells, columns, days, nowTop,
+				config, fatal, view, cursor, scope, demosOnly, isDemo, demoSource, meetings, loading, selected, editor, toasts, stage, label, agenda, monthCells, columns, days, nowTop,
 				step, today, go, goHome, dateValue, jump, openPicker, pickMeeting, newMeeting, editMeeting, onSaved, onChanged, closeEditor, closeSelf, openFull, slotClick, toast, load, editorOnly,
 				dowNames: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
 				hours: Array.from({ length: 24 }, (_, h) => h), clockLabel, fmtTime, fmtDay, fromSql, whenText, shortRange, statusClass, sameDay, sod, EMBED, HOUR, refName,
@@ -929,7 +955,7 @@
 		<label class="range-picker" title="Jump to a date"><span>{{ label }}</span><ico name="calendar" /><input type="date" :value="dateValue" @change="jump" @click="openPicker" aria-label="Jump to a date" /></label>
 		<span class="spin" v-if="loading"></span>
 		<span class="spacer"></span>
-		<div class="seg" v-if="config.is_manager"><button :class="{ on: scope === 'mine' }" @click="scope = 'mine'">Mine</button><button :class="{ on: scope === 'all' }" @click="scope = 'all'">Everyone</button></div>
+		<div class="seg" role="group" aria-label="Which meetings"><button :class="{ on: scope === 'mine' && !demosOnly }" :aria-pressed="scope === 'mine' && !demosOnly" @click="scope = 'mine'; demosOnly = false">Mine</button><button v-if="config.is_manager" :class="{ on: scope === 'all' && !demosOnly }" :aria-pressed="scope === 'all' && !demosOnly" @click="scope = 'all'; demosOnly = false">Everyone</button><button :class="{ on: demosOnly }" :aria-pressed="demosOnly" title="Meetings booked through a demo page" @click="demosOnly = true"><ico name="calendar-check" /> Demos</button></div>
 		<div class="seg"><button v-for="v in ['agenda','month','week','day']" :key="v" :class="{ on: view === v }" @click="view = v">{{ v[0].toUpperCase() + v.slice(1) }}</button></div>
 		<button class="btn primary" @click="newMeeting()"><ico name="plus" /> Schedule</button>
 		<button class="btn ghost icon" v-if="EMBED" @click="openFull" title="Open in a new tab" aria-label="Open in a new tab"><ico name="external" size="lg" /></button>
@@ -944,12 +970,12 @@
 				<div class="day-group" v-for="g in agenda" :key="g.date.getTime()">
 					<div class="day-head" :class="{ today: sameDay(g.date, new Date()) }"><div class="dow">{{ g.date.toLocaleDateString([], { weekday: 'short' }) }}</div><div class="num">{{ g.date.getDate() }}</div><div class="mon">{{ g.date.toLocaleDateString([], { month: 'short' }) }}</div></div>
 					<div class="cards">
-						<div class="card" :class="statusClass(m)" v-for="m in g.items" :key="m.name" @click="pickMeeting(m)" tabindex="0" @keydown.enter="pickMeeting(m)">
+						<div class="card" :class="[statusClass(m), { demo: isDemo(m) }]" v-for="m in g.items" :key="m.name" @click="pickMeeting(m)" tabindex="0" @keydown.enter="pickMeeting(m)">
 							<div class="bar"></div>
 							<div class="card-body">
-								<div class="time">{{ shortRange(m) }} <span class="badge cancelled" v-if="m.status === 'Cancelled'">Cancelled</span><span class="badge completed" v-else-if="m.status === 'Completed'">Completed</span></div>
+								<div class="time">{{ shortRange(m) }} <span class="badge demo" v-if="isDemo(m)">Demo</span> <span class="badge cancelled" v-if="m.status === 'Cancelled'">Cancelled</span><span class="badge completed" v-else-if="m.status === 'Completed'">Completed</span></div>
 								<div class="title">{{ m.subject }}</div>
-								<div class="meta"><span class="chip">Lead · {{ m.reference_title }}</span><span v-if="scope === 'all'">by {{ m.organizer_name }}</span><span v-if="m.attendees.length">{{ m.attendees.length }} guest{{ m.attendees.length === 1 ? '' : 's' }}</span></div>
+								<div class="meta"><span class="chip demo-type" v-if="isDemo(m) && (m.demo_type_title || m.demo_type)">{{ m.demo_type_title || m.demo_type }}</span><span class="chip">Lead · {{ m.reference_title }}</span><span class="chip src" v-if="isDemo(m) && demoSource(m)" title="Where the visitor came from (UTM)">{{ demoSource(m) }}</span><span v-if="scope === 'all' && !isDemo(m)">by {{ m.organizer_name }}</span><span v-if="m.attendees.length">{{ m.attendees.length }} guest{{ m.attendees.length === 1 ? '' : 's' }}</span></div>
 							</div>
 							<div class="card-side"><avatars :guests="m.attendees" /><a v-if="m.google_meet_link && m.status === 'Scheduled'" class="join" :href="m.google_meet_link" target="_blank" rel="noopener" @click.stop><ico name="video" /> Join</a></div>
 						</div>
@@ -963,7 +989,7 @@
 				<div class="month-grid">
 					<div class="cell" v-for="c in monthCells" :key="c.date.getTime()" :class="{ dim: c.dim, today: c.today }" @click="go(c.date, 'day')">
 						<div class="cell-num">{{ c.date.getDate() }}</div>
-						<button class="ev" :class="statusClass(m)" v-for="m in c.events.slice(0, 3)" :key="m.name" @click.stop="pickMeeting(m)"><span class="t">{{ fmtTime(fromSql(m.starts_on)) }}</span> {{ m.subject }}</button>
+						<button class="ev" :class="[statusClass(m), { demo: isDemo(m) }]" v-for="m in c.events.slice(0, 3)" :key="m.name" @click.stop="pickMeeting(m)"><span class="t">{{ fmtTime(fromSql(m.starts_on)) }}</span> {{ m.subject }}</button>
 						<div class="more-link" v-if="c.events.length > 3">+{{ c.events.length - 3 }} more</div>
 					</div>
 				</div>
@@ -978,12 +1004,12 @@
 					<div class="col" v-for="c in columns" :key="c.date.getTime()" @click="slotClick($event, c.date)">
 						<div class="hour-line" v-for="h in hours" :key="h"></div>
 						<div class="now-line" v-if="c.today" :style="{ top: nowTop }"></div>
-						<button class="tev" :class="statusClass(e.m)" v-for="e in c.events" :key="e.m.name" :style="e.style" @click.stop="pickMeeting(e.m)"><div class="tt">{{ e.m.subject }}</div><div>{{ fmtTime(fromSql(e.m.starts_on)) }}</div></button>
+						<button class="tev" :class="[statusClass(e.m), { demo: isDemo(e.m) }]" v-for="e in c.events" :key="e.m.name" :style="e.style" @click.stop="pickMeeting(e.m)"><div class="tt">{{ e.m.subject }}</div><div>{{ fmtTime(fromSql(e.m.starts_on)) }}</div></button>
 					</div>
 				</div>
 			</div>
 		</div>
-		<detail v-if="selected" :meeting="selected" @close="selected = null" @edit="editMeeting" @changed="onChanged" @toast="toast" />
+		<detail v-if="selected" :meeting="selected" :config="config" @close="selected = null" @edit="editMeeting" @changed="onChanged" @toast="toast" />
 	</div>
 	<div class="empty" v-else-if="!fatal"><span class="spin"></span></div>
 	</template>

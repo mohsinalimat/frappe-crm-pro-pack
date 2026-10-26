@@ -10,6 +10,7 @@
  *   window.crmAddons.openFollowUps(hash?)     the Follow-ups workspace (hash: #overdue #today #upcoming #done)
  *   window.crmAddons.openCampaigns(hash?)     the Campaign Manager (hash e.g. "#/c/CAMP-00001")
  *   window.crmAddons.openAssignment()         lead assignment (System Managers only)
+ *   window.crmAddons.openDemos(hash?)         Demo booking admin (managers; hash e.g. "#/bookings")
  *   window.crmAddons.openFollowUp({reference_docname, entry})   the "Add follow-up" form for a Lead
  *   window.crmAddons.close()                  close whatever is open
  *   window.addEventListener("crm-addons:changed", ...)  fires after a save / cancel
@@ -34,14 +35,15 @@
 		followups: { url: "/assets/crm_addons/meetings/followups.html?v=" + VER, title: "Follow-ups", large: true },
 		campaigns: { url: "/assets/crm_addons/campaigns/index.html?v=" + VER, title: "Campaign Manager", large: true },
 		assignment: { url: "/assets/crm_addons/campaigns/assignment.html?v=" + VER, title: "Lead assignment", large: true },
+		demos: { url: "/assets/crm_addons/demos/index.html?v=" + VER, title: "Demo booking", large: true },
 		editor: { url: "/assets/crm_addons/meetings/index.html?v=" + VER, title: "Meeting", large: false },
 		followup: { url: "/assets/crm_addons/meetings/index.html?v=" + VER, title: "Add follow-up", large: false },
 	}
 	// The big screens open as a PAGE of the CRM: they fill the area to the right of CRM's own menu, the menu stays, the address
 	// becomes /crm/pro-pack-<name> (so Back, reload and sharing the link work), and the menu row stays lit. Small screens, and
 	// the small forms (a meeting, a follow-up), still open as a pop-up.
-	var PAGES = { calendar: "meetings", dashboard: "sales-dashboard", followups: "followups", campaigns: "campaigns", assignment: "assignment" }
-	var SIDE_KEY = { calendar: "meetings", dashboard: "dashboard", followups: "followups", campaigns: "campaigns", assignment: "assignment" }
+	var PAGES = { calendar: "meetings", dashboard: "sales-dashboard", followups: "followups", campaigns: "campaigns", assignment: "assignment", demos: "demos" }
+	var SIDE_KEY = { calendar: "meetings", dashboard: "dashboard", followups: "followups", campaigns: "campaigns", assignment: "assignment", demos: "demos" }
 	var pagePath = ""
 	var layer = null
 	var frameEl = null
@@ -102,6 +104,29 @@
 		var row = kind && document.querySelector('[data-cra-side="' + SIDE_KEY[kind] + '"]')
 		if (row) row.classList.add("cra-side-on")
 	}
+
+	// CRM's own dialogs (Settings, a confirmation) and menus are drawn at the end of <body> with a low z-index. Our page sits at
+	// z-index 30 over the area right of the menu, so it used to hide them: only the dimmed backdrop and a sliver of the dialog
+	// showed. While one of our pages is open, anything CRM adds to <body> above the page level is lifted over it.
+	var LIFT_Z = 2147482500
+	function lift(node) {
+		if (!layer || !node || node.nodeType !== 1 || node === layer || node.closest("[data-crm-addons]") || node.hasAttribute("data-cra")) return
+		if (/^(SCRIPT|STYLE|LINK|META|NOSCRIPT|IFRAME)$/.test(node.tagName) || node.id === "app") return
+		var cs = getComputedStyle(node)
+		var z = parseInt(cs.zIndex, 10)
+		if (z >= LIFT_Z) return
+		if (cs.position === "static") {
+			// a portal root has no position of its own; its children (fixed dialogs) follow its stacking order
+			if (node.id !== "headlessui-portal-root" && !node.querySelector('[role="dialog"], [role="menu"]')) return
+			node.style.position = "relative"
+		}
+		node.style.zIndex = String(LIFT_Z)
+	}
+	function liftAll() { Array.prototype.forEach.call(document.body.children, lift) }
+	new MutationObserver(function (records) {
+		if (!layer) return
+		records.forEach(function (r) { Array.prototype.forEach.call(r.addedNodes, lift) })
+	}).observe(document.body, { childList: true })
 
 	// a click on any of CRM's own menu rows leaves our page (and CRM goes where the row says)
 	document.addEventListener("click", function (e) {
@@ -181,6 +206,7 @@
 			} catch (e) { /* the address stays as it was */ }
 		}
 		document.addEventListener("keydown", onKey, true)
+		liftAll()
 		pending = opts || {}
 		// the page inside gets the keyboard (Esc, shortcuts) once it is there
 		frame.addEventListener("load", function () { if (frameEl === frame) { try { frame.focus() } catch (e) { /* ignore */ } } })
@@ -236,6 +262,7 @@
 		openFollowUps: function (hash) { open("followups", {}, null, typeof hash === "string" ? hash : "") },
 		openCampaigns: function (hash) { open("campaigns", {}, null, typeof hash === "string" ? hash : "") },
 		openAssignment: function (hash) { open("assignment", {}, null, typeof hash === "string" ? hash : "") },
+		openDemos: function (hash) { open("demos", {}, null, typeof hash === "string" ? hash : "") },
 		// a reload (or a shared link) on /crm/pro-pack-<name>: open that page. False while CRM has not drawn its menu yet.
 		openPage: function (slug) {
 			var kind = Object.keys(PAGES).filter(function (k) { return PAGES[k] === slug })[0]

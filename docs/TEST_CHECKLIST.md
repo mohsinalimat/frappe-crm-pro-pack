@@ -59,3 +59,27 @@ Use three real users: **Sales User** (call them Asha), a second **Sales User** (
 4. *Least workload*: give one person many open leads; new leads go to the other.
 5. **Assign existing leads** on a rule: preview count, "only leads with no owner" versus "all matching", the clash warning when leads also match another rule, and the result in *History*.
 6. **Assign leads now** with typed conditions, and **Move leads** from A to B, C: A no longer sees the leads, B and C do, in turn.
+
+## Demo booking (backend)
+
+Automated, on a bench with a test site: `bench --site <site> run-tests --module <module>` for each of
+`crm_addons.demos.doctype.crm_demo_booking.test_demo_booking` (slot math without a database: weekly hours, date overrides, minimum notice, horizon, daylight saving start and end, the spring-forward gap, zones ahead of UTC;
+phone / email / form-token / IP-hash rules; owners' meetings block slots, all owners, cancelled meetings, buffers, per-day cap, booked slot disappears, visitor-zone labels, range cap; booking creates lead, one meeting, attendees,
+Meet link; Google missing or failing; lead match by email then phone and first-touch UTMs only on a new lead; double booking, the unique key alone, shared owners across demo types; reschedule frees the old slot and refuses a taken one;
+cancel frees it; started demos cannot change; repeat-contact and per-IP limits; required fields; guests; the team cancelling / moving / closing the meeting in CRM),
+`...test_messages` (rows and due times, too-soon reminders skipped, WhatsApp without consent skipped, reschedule re-plans, cancel drops the waiting rows; wording in the visitor's zone, sent once, claim once, reminders at their time,
+started demo, failure isolated per row, no email account, resend, WhatsApp consent and STOP, unsubscribe list does not block email, unapproved template, stuck Sending, empty rendering; campaign variables),
+`...test_api` (guest API shape and secrecy, full journey as Guest, error codes, honeypot, fill time, token isolation, ics, hashed IP, throttle; every manager function refuses a Sales User; create / edit / duplicate / delete and validation;
+bookings list filters; booking detail and status; resend; embed code; permissions for Sales User, guest of the meeting, manager; report numbers; framing headers; hooks, route rules, fields and indexes; screen support),
+`...test_concurrency` (real threads and connections: two or five visitors for one slot, different slots, two demo types with a shared owner, a move against a new booking, two workers for one message; this module commits and deletes its own data).
+133 tests. Run them on a test site without an outgoing Email Account (see the note in the Campaign Manager doc).
+
+Manual, with a real Google calendar, SMTP and Meta WhatsApp (not covered by the automated tests, which fake all three):
+
+1. Create a demo type with two owners and a CC address; book a slot from `/book/<slug>`: one Google event, both owners and the CC invited, the first owner organizes, a Meet link, the confirmation email and WhatsApp arrive, the Lead shows the UTMs, the meeting shows in **Meetings > Demos**.
+2. Book from a phone whose time zone differs from the demo's: the email shows the visitor's time and zone name.
+3. Reschedule and cancel from the links in the messages; Google's event moves / disappears; the old slot is free; a reminder planned for the old time does not arrive.
+4. Embed `embed.js` on a second site that is listed under *Websites that may embed this page*, and on one that is not: the first shows the pop-up, the second shows a blocked frame.
+5. Reply STOP to a WhatsApp message: later reminders for that number are skipped; the confirmation email is still sent.
+6. Disconnect Google: the booking still works, the meeting says *Not synced*, the visitor gets the fixed link.
+7. As a Sales User, **My demos** shows only your demos, and the Demos admin API and page refuse you.

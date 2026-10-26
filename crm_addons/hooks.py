@@ -30,6 +30,9 @@ permission_query_conditions = {
 	"CRM Campaign": "crm_addons.campaigns.permissions.campaign_query_conditions",
 	"CRM Campaign Recipient": "crm_addons.campaigns.permissions.recipient_query_conditions",
 	"CRM Campaign Automation": "crm_addons.campaigns.permissions.automation_query_conditions",
+	# Demo booking: managers see all; a Sales User only the demos they take part in, and never the demo types
+	"CRM Demo Booking": "crm_addons.demos.permissions.booking_query_conditions",
+	"CRM Demo Type": "crm_addons.demos.permissions.demo_type_query_conditions",
 }
 has_permission = {
 	"CRM Meeting": "crm_addons.permissions.has_permission",
@@ -41,6 +44,8 @@ has_permission = {
 	"CRM Campaign": "crm_addons.campaigns.permissions.campaign_has_permission",
 	"CRM Campaign Recipient": "crm_addons.campaigns.permissions.recipient_has_permission",
 	"CRM Campaign Automation": "crm_addons.campaigns.permissions.automation_has_permission",
+	"CRM Demo Booking": "crm_addons.demos.permissions.booking_has_permission",
+	"CRM Demo Type": "crm_addons.demos.permissions.demo_type_has_permission",
 }
 
 # Campaign Manager: STOP replies opt a number out, and Meta's delivery/read callbacks (which the
@@ -52,6 +57,8 @@ doc_events = {
 		"on_update": "crm_addons.campaigns.engine.on_whatsapp_message_update",
 	},
 	"Communication": {"after_insert": "crm_addons.campaigns.rules.on_communication"},
+	# a demo cancelled, moved or closed inside CRM is followed by its booking (and the visitor is told)
+	"CRM Meeting": {"on_update": "crm_addons.demos.booking.on_meeting_update"},
 	# A campaign email template and CRM's own Email Template (the one used when mailing a lead by hand) are kept in step.
 	"CRM Campaign Email Template": {"on_update": "crm_addons.campaigns.email_sync.push", "on_trash": "crm_addons.campaigns.email_sync.disable_twin"},
 	"Email Template": {"on_update": "crm_addons.campaigns.email_sync.pull"},
@@ -63,7 +70,7 @@ doc_events = {
 }
 
 # CRM's page has no place for an app's script, so the tag is added to the response (see inject.py).
-after_request = ["crm_addons.inject.add_addon_script", "crm_addons.debuglog.after_request"]
+after_request = ["crm_addons.inject.add_addon_script", "crm_addons.debuglog.after_request", "crm_addons.demos.framing.add_frame_headers"]
 
 # TEMPORARY diagnostics (see docs/DEBUGGING.md): time every request to this app and watch for stalls.
 before_request = ["crm_addons.debuglog.before_request"]
@@ -75,6 +82,13 @@ website_redirects = [
 	{"source": "/campaigns", "target": "/assets/crm_addons/campaigns/index.html"},
 	{"source": "/assignment", "target": "/assets/crm_addons/campaigns/assignment.html"},
 	{"source": "/pro-pack-setup", "target": "/assets/crm_addons/setup/index.html"},
+	{"source": "/demos", "target": "/assets/crm_addons/demos/index.html"},
+]
+
+# Demo booking pages: one www page (www/book) serves both; the slug or the token arrives in frappe.form_dict.
+website_route_rules = [
+	{"from_route": "/book/manage/<token>", "to_route": "book"},
+	{"from_route": "/book/<slug>", "to_route": "book"},
 ]
 
 scheduler_events = {
@@ -86,7 +100,7 @@ scheduler_events = {
 			"crm_addons.campaigns.health.check",
 		],
 		# Campaign Manager: claims rate-limited batches and starts scheduled campaigns.
-		"* * * * *": ["crm_addons.campaigns.engine.dispatch"],
+		"* * * * *": ["crm_addons.campaigns.engine.dispatch", "crm_addons.demos.messaging.send_due"],
 	},
 	"hourly": ["crm_addons.utils.refresh_stale_next_meetings"],
 	"daily": ["crm_addons.stale.send_stale_alerts", "crm_addons.scoring.refresh_all"],
