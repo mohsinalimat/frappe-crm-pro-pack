@@ -24,7 +24,7 @@
 		},
 		template: `
 		<li class="hx-li">
-			<div class="hx-card" :class="{ over, inactive: !node.enabled, drag: dragUser === node.user }" draggable="true" @dragstart="dragUser = node.user; $event.dataTransfer.effectAllowed = 'move'; $event.dataTransfer.setData('text/plain', node.user)" @dragend="dragUser = ''; over = false" @dragover="onOver" @dragleave="over = false" @drop="onDrop">
+			<div class="hx-card" :class="['lv' + (node.depth % 5), { over, inactive: !node.enabled, drag: dragUser === node.user }]" draggable="true" @dragstart="dragUser = node.user; $event.dataTransfer.effectAllowed = 'move'; $event.dataTransfer.setData('text/plain', node.user)" @dragend="dragUser = ''; over = false" @dragover="onOver" @dragleave="over = false" @drop="onDrop">
 				<button v-if="children.length" type="button" class="hx-tog" :aria-expanded="open" :aria-label="(open ? 'Collapse ' : 'Expand ') + node.full_name" @click="open = !open"><Ico :name="open ? 'chevron-down' : 'chevron-right'" size="sm" /></button><span v-else class="hx-tog sp"></span>
 				<span class="hx-grip" aria-hidden="true">&#8942;&#8942;</span>
 				<Pic :name="node.full_name" :image="node.image" :size="32" />

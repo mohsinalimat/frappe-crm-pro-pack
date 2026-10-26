@@ -60,3 +60,14 @@
 .hx-ov { position: fixed; inset: 0; z-index: 2147483000; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: 16px; }
 .hx-pick { width: min(460px, 100%); max-height: 80vh; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--pop); } .hx-pick .hx-list { overflow: auto; }
 .hx-pickrow { width: 100%; text-align: left; cursor: pointer; }
+
+/* hierarchy: more air, slimmer rows, a light shade per level */
+.hx-ul > .hx-li { padding-top: 12px; } .hx-ul > .hx-li::before { left: -12px; } .hx-ul > .hx-li:last-child::before { height: 28px; }
+.hx-ul > .hx-li::after { left: -12px; top: 28px; width: 12px; } .hx-ul { padding-left: 28px; }
+.hx-card { padding: 3px 8px; gap: 10px; min-height: 0; }
+.hx-card .btn.sm { height: 22px; } .hx-count { height: 22px; }
+.hx-tree { padding: 14px; } .hx-tree > .hx-root { margin-bottom: 4px; }
+:root { --lv0: #eaf1ff; --lv1: #e6f6f2; --lv2: #f0ebfd; --lv3: #fdf3e0; --lv4: #fdecef; --lvb: #c9d6f2; }
+:root[data-theme="dark"] { --lv0: #1a2540; --lv1: #14302b; --lv2: #261f42; --lv3: #3a2f16; --lv4: #3b1f27; }
+.hx-card.lv0 { background: var(--lv0); } .hx-card.lv1 { background: var(--lv1); } .hx-card.lv2 { background: var(--lv2); } .hx-card.lv3 { background: var(--lv3); } .hx-card.lv4 { background: var(--lv4); }
+.hx-card.over { background: var(--accent-soft); }
