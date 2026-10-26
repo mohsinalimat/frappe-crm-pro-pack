@@ -452,4 +452,7 @@ def create_default_whatsapp_template(event, minutes_before=0):
 	spec = defaults.WHATSAPP.get(defaults.key_of(event, minutes_before))
 	if not spec:
 		frappe.throw(_("There is no ready-made WhatsApp template for this message."))
-	return campaign_api.create_whatsapp_template(json.loads(json.dumps(spec)))
+	out = campaign_api.create_whatsapp_template(json.loads(json.dumps(spec)))
+	if frappe.get_meta("WhatsApp Templates").has_field("crm_system"):
+		frappe.db.set_value("WhatsApp Templates", out["name"], "crm_system", 1)  # ready-made: protected from deletion
+	return out

@@ -309,3 +309,11 @@ html.inline .pg-head h1 { margin: 0; font-size: 17px; font-weight: 650; line-hei
 html.inline .pg-head p { margin: 1px 0 0; max-width: 70ch; font-size: 12.5px; line-height: 1.3; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.inline .pg-head .grow { min-width: 0; }
 @media (max-width: 900px) { html.inline .pg-head { margin: -18px -16px 6px; padding-left: 16px; } }
+
+/* template purpose tags: Default and Utility are service messages, so they are coloured; Marketing stays quiet */
+.ptag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: var(--r-tag); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.ptag.default { background: var(--accent-soft); color: var(--accent-text); }
+.ptag.utility { background: var(--green-soft); color: var(--green); }
+.ptag.marketing { background: var(--input); color: var(--text-soft); font-weight: 500; }
+.card.p-default, .card.p-utility { box-shadow: inset 3px 0 0 var(--accent); } .card.p-utility { box-shadow: inset 3px 0 0 var(--green); }
+.tbl tr.p-default td:first-child, .tbl tr.p-utility td:first-child { box-shadow: inset 3px 0 0 var(--accent); } .tbl tr.p-utility td:first-child { box-shadow: inset 3px 0 0 var(--green); }

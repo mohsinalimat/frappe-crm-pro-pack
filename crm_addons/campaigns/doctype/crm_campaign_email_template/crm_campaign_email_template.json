@@ -14,7 +14,8 @@
   "variables",
   "description",
   "builder_json",
-  "crm_email_template"
+  "crm_email_template",
+  "is_system"
  ],
  "fields": [
   {
@@ -94,6 +95,15 @@
    "hidden": 0,
    "no_copy": 1,
    "description": "The twin of this template in CRM's own Email Template list (kept in step on save)."
+  },
+  {
+   "fieldname": "is_system",
+   "fieldtype": "Check",
+   "label": "Ready-made by CRM Pro Pack",
+   "read_only": 1,
+   "no_copy": 1,
+   "default": "0",
+   "description": "Created by the app for its own messages (bookings, login links). Protected from deletion."
   }
  ],
  "modified": "2026-10-21 09:00:00.000000",

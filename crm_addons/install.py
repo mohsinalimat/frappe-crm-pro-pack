@@ -449,6 +449,10 @@ def ensure_demo_setup():
 
 WA_TEMPLATE_FIELDS = [
 	{
+		"fieldname": "crm_system", "fieldtype": "Check", "label": "Ready-made by CRM Pro Pack", "read_only": 1, "no_copy": 1, "default": "0",
+		"description": "Created by the app for its own messages. Protected from deletion.", "insert_after": "crm_variable_map",
+	},
+	{
 		"fieldname": "crm_variable_map", "fieldtype": "Long Text", "label": "Default variable mapping (CRM Pro Pack)", "read_only": 1,
 		"description": "Which Lead field fills each {{n}} by default when a campaign uses this template.", "insert_after": "field_names",
 	}
@@ -471,15 +475,22 @@ def ensure_whatsapp_template_fields():
 
 	if frappe.db.exists("DocType", "WhatsApp Templates"):
 		create_custom_fields({"WhatsApp Templates": WA_TEMPLATE_FIELDS}, ignore_validate=True)
+		# the ready-made booking templates already on the site are protected like new ones
+		from crm_addons.demos import defaults
+
+		names = [s["template_name"] for s in defaults.WHATSAPP.values()]
+		frappe.db.sql("update `tabWhatsApp Templates` set crm_system = 1 where template_name in %(n)s or actual_name in %(n)s", {"n": names})
 
 
 def ensure_default_email_templates():
 	"""Ready-made email templates (campaigns/default_templates.py), added once per release. The admin owns them after
 	that: edit, archive or delete them; a deleted one is not brought back until the next release adds more."""
 	from crm_addons.campaigns import default_templates as dt
+	from crm_addons.demos import defaults as booking_defaults
 
 	if not frappe.db.exists("DocType", "CRM Campaign Email Template") or frappe.db.get_default("crm_addons_default_email_templates") == dt.VERSION:
 		return
+	booking_names = set(booking_defaults.EMAIL.values())
 	for name, subject, category, description, builder_json, body_html in dt.default_templates():
 		old = next((o for o, n in dt.RENAMED.items() if n == name), None)
 		if old and frappe.db.exists("CRM Campaign Email Template", old) and not frappe.db.exists("CRM Campaign Email Template", name):
@@ -494,9 +505,13 @@ def ensure_default_email_templates():
 		frappe.get_doc(
 			{
 				"doctype": "CRM Campaign Email Template", "template_name": name, "subject": subject, "category": category, "description": description,
-				"editor_mode": "Visual Builder", "builder_json": builder_json, "body_html": body_html, "enabled": 1,
+				"editor_mode": "Visual Builder", "builder_json": builder_json, "body_html": body_html, "enabled": 1, "is_system": 1 if name in booking_names else 0,
 			}
 		).insert(ignore_permissions=True)
+	# the booking messages are protected from deletion (see campaigns/api.py): mark the ones already on the site too
+	booking = list(booking_names)
+	if booking and frappe.get_meta("CRM Campaign Email Template").has_field("is_system"):
+		frappe.db.sql("update `tabCRM Campaign Email Template` set is_system = 1 where name in %s", (booking,))
 	frappe.db.set_default("crm_addons_default_email_templates", dt.VERSION)
 
 

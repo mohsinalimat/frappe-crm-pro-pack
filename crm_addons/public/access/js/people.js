@@ -128,9 +128,9 @@
 				<div class="card pad col" style="gap:12px">
 					<b>Profile</b>
 					<PhotoPick v-model="pf.image" :name="person.full_name" />
-					<div class="ax-two"><Field label="First name"><Inp v-model="pf.first_name" aria-label="First name" /></Field><Field label="Last name"><Inp v-model="pf.last_name" aria-label="Last name" /></Field></div>
-					<div class="ax-two"><Field label="Contact number" hint="Their default number in CRM."><Inp v-model="pf.mobile_no" placeholder="+91 98765 43210" aria-label="Contact number" /></Field><Field label="Designation"><Inp v-model="pf.designation" placeholder="e.g. Sales Executive" aria-label="Designation" /></Field></div>
-					<div class="ax-two"><Field label="Company"><Inp v-model="pf.company" aria-label="Company" /></Field>
+					<div class="ax-two"><Field label="First name"><Inp icon="user" v-model="pf.first_name" aria-label="First name" /></Field><Field label="Last name"><Inp icon="user" v-model="pf.last_name" aria-label="Last name" /></Field></div>
+					<div class="ax-two"><Field label="Contact number" hint="Their default number in CRM."><Inp icon="phone" v-model="pf.mobile_no" placeholder="+91 98765 43210" aria-label="Contact number" /></Field><Field label="Designation"><Inp icon="briefcase" v-model="pf.designation" placeholder="e.g. Sales Executive" aria-label="Designation" /></Field></div>
+					<div class="ax-two"><Field label="Company"><Inp icon="building" v-model="pf.company" aria-label="Company" /></Field>
 						<Field v-if="AX.data.hierarchy.available" label="Team leader" hint="Reports to, in CRM's Sales Hierarchy."><Dd v-model="pf.reports_to" :options="leaderOptions" searchable allow-empty="Nobody" placeholder="Nobody" aria-label="Team leader" /></Field></div>
 				</div>
 				<div v-if="isAdmin" class="alert info"><Ico name="shield" /><div class="grow"><b>System Managers always have full access.</b> It cannot be limited here, so an administrator can never lock themselves out.</div></div>
@@ -180,9 +180,9 @@
 			<div class="col" style="gap:14px">
 				<div v-if="err" class="alert err"><Ico name="alert" /><div class="grow">{{ err }}</div></div>
 				<PhotoPick v-model="f.image" :name="(f.first_name + ' ' + f.last_name).trim() || f.email" />
-				<div class="ax-two"><Field label="First name" required><Inp v-model="f.first_name" aria-label="First name" /></Field><Field label="Last name"><Inp v-model="f.last_name" aria-label="Last name" /></Field></div>
-				<div class="ax-two"><Field label="Email" required><Inp v-model="f.email" placeholder="name@company.com" aria-label="Email" /></Field><Field label="Contact number" hint="Their default number in CRM."><Inp v-model="f.mobile_no" placeholder="+91 98765 43210" aria-label="Contact number" /></Field></div>
-				<div class="ax-two"><Field label="Designation"><Inp v-model="f.designation" placeholder="e.g. Sales Executive" aria-label="Designation" /></Field><Field label="Company"><Inp v-model="f.company" aria-label="Company" /></Field></div>
+				<div class="ax-two"><Field label="First name" required><Inp icon="user" v-model="f.first_name" aria-label="First name" /></Field><Field label="Last name"><Inp icon="user" v-model="f.last_name" aria-label="Last name" /></Field></div>
+				<div class="ax-two"><Field label="Email" required><Inp icon="mail" v-model="f.email" placeholder="name@company.com" aria-label="Email" /></Field><Field label="Contact number" hint="Their default number in CRM."><Inp icon="phone" v-model="f.mobile_no" placeholder="+91 98765 43210" aria-label="Contact number" /></Field></div>
+				<div class="ax-two"><Field label="Designation"><Inp icon="briefcase" v-model="f.designation" placeholder="e.g. Sales Executive" aria-label="Designation" /></Field><Field label="Company"><Inp icon="building" v-model="f.company" aria-label="Company" /></Field></div>
 				<Field label="Role in CRM" hint="Sales Manager can also manage other people's leads in CRM. Sales User sees their own."><Seg v-model="f.role" :options="[{ value: 'Sales User', label: 'Sales User' }, { value: 'Sales Manager', label: 'Sales Manager' }]" /></Field>
 				<div class="ax-two"><Field label="Preset" hint="The ready-made access to start from."><Dd v-model="f.preset" :options="presetOptions" aria-label="Preset" /></Field>
 					<Field v-if="AX.data.hierarchy.available" label="Team leader" hint="They are added under this person in the Sales Hierarchy."><Dd v-model="f.reports_to" :options="leaderOptions" searchable allow-empty="Nobody" placeholder="Nobody" aria-label="Team leader" /></Field></div>
