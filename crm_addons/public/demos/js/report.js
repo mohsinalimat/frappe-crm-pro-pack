@@ -80,7 +80,7 @@
 		},
 		template: `
 		<div class="page">
-			<div class="pg-head"><div class="grow"><h1>Report</h1><p>How many demos are booked, how many take place, and which campaigns, sources and pages bring them.</p></div><div class="actions"><button v-if="range.preset !== 'any'" type="button" class="fchip" :class="{ on: compare }" :aria-pressed="compare" @click="compare = !compare"><Ico name="refresh" size="sm" />Compare to previous period</button><DateRange v-model="range" any align="right" size="" aria-label="Report dates" /><Btn icon="download" :disabled="!data || !t.bookings" @click="exportCsv">Export CSV</Btn></div></div>
+			<div class="pg-head"><div class="grow"><h1>Report</h1></div><div class="actions"><button v-if="range.preset !== 'any'" type="button" class="fchip" :class="{ on: compare }" :aria-pressed="compare" @click="compare = !compare"><Ico name="refresh" size="sm" />Compare to previous period</button><DateRange v-model="range" any align="right" size="" aria-label="Report dates" /><Btn icon="download" :disabled="!data || !t.bookings" @click="exportCsv">Export CSV</Btn></div></div>
 			<p class="rng-note" role="status"><template v-if="rangeText">Showing <b>{{ rangeText }}</b><template v-if="prevText"> compared with <b>{{ prevText }}</b></template></template><template v-else>Showing <b>all time</b></template><span v-if="busy && !loading" class="spin" style="width:12px;height:12px;margin-left:8px" aria-label="Updating"></span></p>
 			<template v-if="loading"><div class="kpis"><Skel v-for="n in 5" :key="n" h="104" r="12" /></div><Skel h="280" r="12" /></template>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
