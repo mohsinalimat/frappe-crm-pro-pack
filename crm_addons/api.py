@@ -152,6 +152,14 @@ def _check_reference(reference_doctype, reference_docname):
 
 
 @frappe.whitelist(methods=["GET", "POST"])
+def get_asset_version():
+	"""The version of the files the server has now. The CRM page asks every few minutes, to tell people when it is running old ones."""
+	from crm_addons.inject import asset_version
+
+	return asset_version()
+
+
+@frappe.whitelist(methods=["GET", "POST"])
 def get_csrf_token():
 	"""Lets the meetings page (a static file) send changes when it is opened on its own.
 	The token is only readable from the same origin, exactly like the one in Desk's HTML."""
