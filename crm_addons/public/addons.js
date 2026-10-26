@@ -737,10 +737,8 @@
 	function ensureFab(r, c) {
 		if (fab && fab.__doctype === r.doctype && document.body.contains(fab)) return
 		removeFab()
-		// same order as the menus: Sales Dashboard, Follow-ups, Meetings, Campaigns
-		var kids = [
-			h('button', { type: 'button', class: 'cra-fab-btn', title: 'Sales Dashboard', onclick: function () { openDashboard() } }, [svg('chart'), h('span', { text: 'Sales Dashboard' })]),
-		]
+		// only what belongs to Leads: Follow-ups and Meetings (the dashboard and Campaigns are in CRM's left menu)
+		var kids = []
 		var badge = h('span', { class: 'cra-badge', hidden: true })
 		if (c.follow_ups_enabled) {
 			kids.push(h('button', { type: 'button', class: 'cra-fab-btn', title: 'Follow-ups', onclick: function () { openQueue(r.doctype) } }, [svg('phone-call'), h('span', { text: 'Follow-ups' }), badge]))
@@ -751,9 +749,6 @@
 				onclick: function () { bridge().then(function (b) { b.openCalendar({ reference_doctype: r.doctype, view: 'agenda' }) }).catch(function (err) { toast(err.message, true) }) },
 			}, [svg('calendar'), h('span', { text: 'Meetings' })])
 		)
-		if (c.campaigns_enabled && c.show_campaigns_shortcut) {
-			kids.push(h('button', { type: 'button', class: 'cra-fab-btn', title: 'Campaign Manager', onclick: function () { openCampaigns() } }, [svg('send'), h('span', { text: 'Campaigns' })]))
-		}
 		if (c.follow_ups_enabled) {
 			var refreshBadge = function () {
 				if (document.hidden) return // nobody is looking: the next visit refreshes it
@@ -1365,12 +1360,10 @@
 				var now = route()
 				if (!now) return
 				if (now.kind === 'dashboard') {
+					// the shortcuts that used to sit in this header are in CRM's left menu now
 					removeFab()
+					removeDashLink()
 					deactivate(true)
-					ensureDashLink(c)
-					// the header is still loading: look again, a few times (never for ever)
-					if (!dashLink && retries++ < 8) setTimeout(schedule, 1200)
-					if (dashLink) retries = 0
 					return
 				}
 				retries = 0

@@ -172,7 +172,7 @@ Guide: [docs/roles-and-permissions.md](docs/roles-and-permissions.md) &middot; [
 
 | | |
 |---|---|
-| <img src="docs/images/dashboard-shortcuts.png" alt="Shortcut buttons in the CRM Dashboard header"> | <img src="docs/images/lead-page-tabs.png" alt="Meetings and Follow-ups tabs on a Lead"> |
+| <img src="docs/images/lead-page-tabs.png" alt="Meetings and Follow-ups tabs on a Lead"> |
 
 </details>
 
@@ -253,7 +253,7 @@ Full walkthrough: [docs/getting-started.md](docs/getting-started.md).
 
 Works on Leads: Deals are not extended.
 
-The shortcuts in CRM's left menu are added by copying CRM's own menu links, so they appear on CRM versions that draw the menu as links. On CRM 1.74 the menu is not made of links, so only the Dashboard header buttons and the Lead-page tabs show (everything else is unaffected).
+The shortcuts in CRM's left menu are added by copying CRM's own menu rows, so they follow the CRM's own look on both link-style and button-style menus.
 
 ## Documentation
 

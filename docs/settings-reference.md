@@ -46,7 +46,7 @@ All settings live in one record, **CRM Addons Settings**. Edit them on the setup
 | Show "Meetings" and "Follow-ups" buttons on the Leads list pages (`show_list_button`) | On | "Meetings" and "Follow-ups" buttons on the Leads list pages. |
 | Show an "Add Follow Up" button at the top of the Lead page (next to Schedule Meeting) (`show_follow_up_button`) | On | "Add Follow Up" button at the top of the Lead page. Needs follow-ups on. |
 | Show floating Meetings / Follow-ups buttons on the Kanban view of Leads (`show_floating_buttons`) | On | Floating Meetings / Follow-ups / Sales Dashboard buttons on the Leads Kanban view. |
-| Show links in the side menu (`show_sidebar_links`) | On | Sales Dashboard, Follow-ups, Meetings and Campaigns rows in CRM's left menu and a button group in the Dashboard header (Assignment for System Managers). |
+| Show links in the side menu (`show_sidebar_links`) | On | Sales Dashboard, Follow-ups, Meetings and Campaigns rows in CRM's left menu (Assignment for System Managers). |
 | Add Meetings and Follow-ups tabs to Lead pages (`show_record_tabs`) | On | Meetings and Follow-ups tabs on Lead pages. |
 | Hide "Deals" from the CRM side menu (`hide_deals_menu`) | Off | Hide Deals from the left menu, and "Converted to deals" from the dashboard, funnel and exports. Screen only: the Deals pages stay reachable by address. |
 | Hide "Notes" from the CRM side menu (`hide_notes_menu`) | Off | Hide Notes from the left menu (screen only). |

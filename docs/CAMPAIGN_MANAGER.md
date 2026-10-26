@@ -285,7 +285,7 @@ filters on the creation day.
 | **Reports** | Date range picker (and *Compare to previous period*: each KPI card shows the change against the period of the same length right before it), the chosen range written under the title, KPI cards, messages per day (SVG), campaigns by status, an Email and a WhatsApp funnel, and a sortable comparison table with CSV export; a row opens the campaign. |
 | Campaign page | Actions by status (Draft: Edit / Review and launch; Running: Pause / Cancel / Retry failed; Paused: Resume / Cancel; others: Duplicate, Save as template for managers, Delete). KPI cards, messages per day, delivery donut, funnel per channel, failure and skip reasons, the Journey table, and a searchable, filterable **Recipients** report with CSV export. It refreshes itself while running. Only numbers the integrations really report are shown. |
 | Lead page → **Campaigns** tab | That lead's campaign history: campaign, channel, status, time. |
-| Left menu and Dashboard | Rows in CRM's left menu, right after its own entries (on every CRM page), and a compact button group in the Dashboard header: Meetings, Follow-ups, Campaigns, Lead Nurturing (opens the Sales Dashboard on its Lead Nurturing tab), Sales Dashboard. Switch off with *CRM Addons Settings → Show links in the side menu*. The menu entries are copies of one of CRM's own menu links, so they follow CRM's theme; if CRM's menu markup ever changes and no link can be copied, they simply do not appear and the buttons on the Leads list, Kanban and Dashboard still work. |
+| Left menu | Rows in CRM's left menu, right after its own entries (on every CRM page): Sales Dashboard, Follow-ups, Meetings, Campaigns and more. |
 | Opt-outs | *Opt-outs* button → the *CRM Campaign Opt Out* list. |
 
 **Attachments.** An email step can carry files (drag and drop or browse, progress, remove) and a template can carry files; both are sent with the email.
@@ -380,7 +380,7 @@ After pulling the branch and running `bench migrate` + `bench build` + `bench re
 5. **Watch it:** the campaign page refreshes by itself; recipients go Queued → Sent. Check the email arrives and appears on the Lead's timeline. Click the unsubscribe link in it and check the address lands in *Campaign Opt-outs*.
 6. **WhatsApp:** repeat with WhatsApp only (an approved template, your own number). Reply STOP and check the number is opted out.
 7. **Journey:** day 0 email + a day-1 WhatsApp "only if not read"; use only your own leads.
-8. **Menus:** the left menu shows the *Frappe CRM Suite Pro* group; the Dashboard header shows the four buttons.
+8. **Menus:** the left menu shows the *Frappe CRM Suite Pro* group; the Leads list and Kanban views show Meetings and Follow-ups.
 
 If something fails, the red message in the page is the server's own error; send it with the steps. Server errors also appear in
 *Error Log* in Desk and in `bench --site <site> console` output of the worker.

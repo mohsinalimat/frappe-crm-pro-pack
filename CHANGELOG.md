@@ -18,6 +18,11 @@ A patch release. **Upgrade:** `bench --site your-site migrate` and `bench restar
   every new lead created from that widget gets it. What the visitor types is never overwritten and an existing lead is left alone. Stored in the hidden field `lead_defaults` (added by `migrate`).
 - **Presets as a list**, next to the cards (remembered per browser), and a **Sales User (default)** preset: what a plain Sales User gets with no preset.
 
+### Changed
+
+- **Fewer shortcuts on the CRM screens now that the left menu has them.** The button group in the CRM Dashboard header is gone, and the Leads list header and the Kanban floating buttons show only
+  **Meetings** and **Follow-ups** (the things that belong to Leads). The Sales Dashboard, Campaigns and the rest are in the left menu. `migrate` rewrites the Leads list script (script version 6).
+
 ### Fixed
 
 - **Widget host and CC pickers listed contacts and leads.** Hosts and CC now search only team members (people with a CRM role), best match first; a full email address can still be typed in CC.

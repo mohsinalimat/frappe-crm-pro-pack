@@ -83,7 +83,7 @@ window.SETUP_SCHEMA = [
 			{ k: 'show_record_tabs', t: 'switch', label: 'Meetings and Follow-ups tabs on Lead pages',
 				info: { what: 'Adds the two tabs beside Activity, Emails and Calls on a Lead page.' } },
 			{ k: 'show_sidebar_links', t: 'switch', label: 'Links in the left menu',
-				info: { what: 'Adds the Sales Dashboard (which also holds Lead Nurturing), Follow-ups, Meetings and Campaigns to the CRM\'s left menu, and a small button group in the Dashboard header.' } },
+				info: { what: 'Adds the Sales Dashboard (which also holds Lead Nurturing), Follow-ups, Meetings and Campaigns to the CRM\'s left menu.' } },
 			{ k: 'sidebar_layout', t: 'menu', label: 'Left menu: order and what is shown',
 				info: { what: 'Put the whole left menu in the order you want, CRM\'s own entries and this app\'s together, and switch off the ones nobody should see (Dashboard, Leads, Contacts, Organizations, ...). Applies to everyone.', note: 'Only hides the link and changes the order; the pages and permissions are untouched. Entries that are not listed (saved views) follow the listed ones.' } },
 			{ h: 'Things to hide (screen only)' },
