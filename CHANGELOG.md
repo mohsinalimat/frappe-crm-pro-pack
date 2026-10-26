@@ -2,6 +2,24 @@
 
 All notable changes to Frappe CRM Suite Pro (the `crm_addons` Frappe app).
 
+## 1.5.1 - 2026-10-27
+
+A patch release. **Upgrade:** `bench --site your-site migrate` and `bench restart` (migrate adds one hidden setting field).
+
+### Added
+
+- **Choose an existing approved WhatsApp template for the login link** (Team and access, People: "Choose a template"). The template must be approved by Meta and have one or two
+  variables (the first name, then the link; or only the link). It becomes a system template. "Use the ready-made one" goes back. Added setting field `login_link_whatsapp_template`
+  (hidden), created by `migrate`.
+
+### Fixed
+
+- **Team and access, People and Hierarchy listed only System Users.** CRM agents that are Frappe *Website Users* (the way CRM invites people) were missing from the People list, from
+  the Hierarchy "Users" list, and from the guest suggestions when scheduling a meeting. Everyone who holds a CRM role is now listed, whatever their user type. Portal users without
+  a CRM role are still left out.
+- **The WhatsApp login-link template could not be created** ("A variable is tied to a lead field that does not exist"): `login_link` is now a known variable. The ready-made wording
+  is also plainer ("Your CRM account has been created. Continue here: ..."), because Meta rejected the earlier text, which talked about passwords.
+
 ## 1.5.0 - 2026-10-26
 
 **Frappe CRM Suite Pro** (the product was called CRM Pro Pack): a bigger release with website booking pages, team and access control, branding and many fixes.

@@ -506,3 +506,34 @@ class TestHierarchyPage(HierarchyMixin):
 		for fn, args in ((admin.get_hierarchy, ()), (admin.set_leader, (rep, None)), (admin.remove_from_hierarchy, (rep,)), (admin.set_hierarchy_enabled, (1,))):
 			with self.assertRaises(frappe.PermissionError):
 				fn(*args)
+
+
+class TestWebsiteUsersAreListed(AccessCase):
+	def test_crm_agents_that_are_website_users_appear_in_people_and_guest_suggestions(self):
+		from crm_addons import api
+		from crm_addons.team_access import admin
+
+		email = "web.agent.acc@example.org"
+		if frappe.db.exists("User", email):
+			frappe.delete_doc("User", email, force=True, ignore_permissions=True)
+		user = frappe.get_doc({"doctype": "User", "email": email, "first_name": "Web", "last_name": "Agent", "user_type": "Website User", "send_welcome_email": 0, "roles": [{"role": "Sales User"}]})
+		user.insert(ignore_permissions=True)
+		self.addCleanup(frappe.delete_doc, "User", email, force=True, ignore_permissions=True)
+		frappe.db.set_value("User", email, "user_type", "Website User")  # Frappe may turn a desk role holder into a System User on insert
+		self.assertEqual(frappe.db.get_value("User", email, "user_type"), "Website User")
+		self.assertIn(email, [p["user"] for p in admin._people()])
+		self.assertIn(email, [g["email"] for g in api.search_guests("web.agent.acc") if g["attendee_type"] == "Team"])
+		# a Website User without a CRM role (a portal customer) is not a team member
+		portal = "portal.acc@example.org"
+		if frappe.db.exists("User", portal):
+			frappe.delete_doc("User", portal, force=True, ignore_permissions=True)
+		frappe.get_doc({"doctype": "User", "email": portal, "first_name": "Portal", "user_type": "Website User", "send_welcome_email": 0}).insert(ignore_permissions=True)
+		self.addCleanup(frappe.delete_doc, "User", portal, force=True, ignore_permissions=True)
+		self.assertNotIn(portal, [p["user"] for p in admin._people()])
+		self.assertNotIn(portal, [g["email"] for g in api.search_guests("portal.acc") if g["attendee_type"] == "Team"])
+
+	def test_the_login_link_template_passes_the_variable_check(self):
+		from crm_addons import system_messages
+		from crm_addons.campaigns import personalization
+
+		self.assertEqual(personalization.unknown_variables(*system_messages.LOGIN["variable_map"].values()), [])

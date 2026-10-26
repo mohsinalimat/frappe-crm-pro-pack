@@ -18,20 +18,61 @@ MISSED_CALL = {
 
 LOGIN = {
 	"template_name": "crm_login_link", "category": "UTILITY", "language": "en",
-	"template": "Hi {{1}}, your CRM account is ready. Set your password and sign in here: {{2}}\n\nThe link works once and expires, so open it soon.",
+	"template": "Hi {{1}}, your CRM account has been created. Continue here: {{2}}\n\nThe link expires, so please open it soon.",
 	"sample_values": ["Asha", "https://crm.example.com/update-password?key=abc123"], "variable_map": {"1": "{{ first_name }}", "2": "{{ login_link }}"}, "buttons": [],
 }
 
 
 def login_template_status():
-	"""For the admin screen: {exists, name, state, ready}. The login-link template is created once from Team and access."""
+	"""For the admin screen: {exists, name, label, state, ready, linked}. The login link uses the template an admin linked in Team and access
+	(any approved WhatsApp template) or, when none is linked, the ready-made ``crm_login_link`` created from there."""
 	if not frappe.db.exists("DocType", "WhatsApp Templates"):
-		return {"available": False, "exists": False, "state": "", "ready": False}
-	name = frappe.db.get_value("WhatsApp Templates", {"template_name": LOGIN["template_name"]}, "name")
+		return {"available": False, "exists": False, "state": "", "ready": False, "linked": False}
+	linked = cstr(_settings().get("login_link_whatsapp_template")).strip()
+	name = linked if linked and frappe.db.exists("WhatsApp Templates", linked) else None
 	if not name:
-		return {"available": True, "exists": False, "state": "", "ready": False}
-	state = cstr(frappe.db.get_value("WhatsApp Templates", name, "status")).upper() or "NOT SYNCED"
-	return {"available": True, "exists": True, "name": name, "state": state, "ready": state == "APPROVED"}
+		name = frappe.db.get_value("WhatsApp Templates", {"template_name": LOGIN["template_name"]}, "name")
+	if not name:
+		return {"available": True, "exists": False, "state": "", "ready": False, "linked": False}
+	row = frappe.db.get_value("WhatsApp Templates", name, ["status", "template_name"], as_dict=True)
+	state = cstr(row.status).upper() or "NOT SYNCED"
+	return {"available": True, "exists": True, "name": name, "label": row.template_name, "state": state, "ready": state == "APPROVED", "linked": bool(linked and name == linked)}
+
+
+def link_login_template(name):
+	"""Use an existing approved WhatsApp template for the login link (an empty name goes back to the ready-made one). The template gets 1 or 2
+	variables: {{1}} the person's first name and {{2}} the link, or just {{1}} = the link when it has only one. It becomes a system template."""
+	from crm_addons.campaigns import personalization
+
+	name = cstr(name).strip()
+	if name:
+		if not frappe.db.exists("WhatsApp Templates", name):
+			frappe.throw(_("Template {0} was not found.").format(frappe.bold(name)))
+		row = frappe.db.get_value("WhatsApp Templates", name, ["status", "template"], as_dict=True)
+		if cstr(row.status).upper() != "APPROVED":
+			frappe.throw(_("Only a template that Meta has approved can be used. This one is {0}.").format(frappe.bold(cstr(row.status).lower() or _("not synced"))))
+		n = len(personalization.placeholders_in(row.template))
+		if n not in (1, 2):
+			frappe.throw(_("The login template needs 1 or 2 variables (the first name, then the link; or only the link). This one has {0}.").format(n))
+		if frappe.get_meta("WhatsApp Templates").has_field("crm_system"):
+			frappe.db.set_value("WhatsApp Templates", name, "crm_system", 1)  # a system template from now on: protected from deletion
+	frappe.db.set_single_value("CRM Addons Settings", "login_link_whatsapp_template", name)
+	frappe.clear_document_cache("CRM Addons Settings", "CRM Addons Settings")
+	return login_template_status()
+
+
+def approved_templates():
+	"""For the picker: every approved WhatsApp template with a preview and how many variables it has."""
+	from crm_addons.campaigns import personalization
+
+	if not frappe.db.exists("DocType", "WhatsApp Templates"):
+		return []
+	rows = frappe.get_all("WhatsApp Templates", filters={"status": "APPROVED"}, fields=["name", "template_name", "template", "category"], order_by="template_name asc", limit_page_length=500)
+	out = []
+	for r in rows:
+		n = len(personalization.placeholders_in(r.template))
+		out.append({"value": r.name, "label": r.template_name, "body": r.template, "category": r.category, "variables": n, "fits": n in (1, 2)})
+	return out
 
 
 def create_login_template():
@@ -54,7 +95,7 @@ def send_login_link(user, link):
 
 	st = login_template_status()
 	if not st["exists"]:
-		frappe.throw(_("The WhatsApp login template has not been created yet. Create it in Team and access."))
+		frappe.throw(_("No WhatsApp login template is set up yet. Create or choose one in Team and access."))
 	if not st["ready"]:
 		frappe.throw(_("The WhatsApp login template is {0}, not approved by Meta yet.").format(frappe.bold(st["state"].lower())))
 	number = frappe.db.get_value("User", user, "mobile_no")
@@ -63,7 +104,9 @@ def send_login_link(user, link):
 		frappe.throw(_("This person has no valid mobile number for WhatsApp."))
 	first = frappe.db.get_value("User", user, "first_name") or user
 	sender = WhatsAppSender()
-	step = frappe._dict(wa_template=st["name"], variable_map=frappe.as_json(LOGIN["variable_map"]))
+	count = len(personalization.placeholders_in(frappe.db.get_value("WhatsApp Templates", st["name"], "template")))
+	mapping = {"1": "{{ login_link }}"} if count == 1 else LOGIN["variable_map"]  # a one-variable template carries just the link
+	step = frappe._dict(wa_template=st["name"], variable_map=frappe.as_json(mapping))
 	try:
 		template = sender._template(step)
 		account = sender.account(step)

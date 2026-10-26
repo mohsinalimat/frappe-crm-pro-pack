@@ -57,6 +57,7 @@ DEMO_VARIABLES = {
 	"booking_link": "Booking: link to manage the booking",
 	"reschedule_link": "Booking: link to reschedule",
 	"cancel_link": "Booking: link to cancel",
+	"login_link": "Account: the link to set a password (used by the login-link message)",
 	# the first names of these (templates written before the rename keep working)
 	"demo_title": "Booking title (old name of booking_title)",
 	"demo_date": "Booking date (old name)",
