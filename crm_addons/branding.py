@@ -95,3 +95,24 @@ def save_branding(values):
 def reset_branding():
 	"""Back to the default look: every value this module owns is emptied."""
 	return save_branding({k: (0 if v[0] == "check" else "") for k, v in FIELDS.items()})
+
+
+IMAGE_EXT = ("png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "avif")
+
+
+def image_library(search="", limit=48):
+	"""Images already uploaded to the site (public ones, newest first) so one can be chosen again instead of uploaded twice."""
+	rows = frappe.get_all(
+		"File", filters={"is_folder": 0, "is_private": 0, "file_url": ["like", "/files/%"]},
+		fields=["name", "file_name", "file_url", "file_size", "creation"], order_by="creation desc", limit_page_length=500,
+	)
+	term = cstr(search).strip().lower()
+	out = []
+	for r in rows:
+		ext = cstr(r.file_url).rsplit(".", 1)[-1].lower()
+		if ext not in IMAGE_EXT or (term and term not in cstr(r.file_name).lower()):
+			continue
+		out.append({"name": r.name, "file_name": r.file_name, "file_url": r.file_url, "file_size": r.file_size})
+		if len(out) >= min(int(limit or 48), 100):
+			break
+	return out
