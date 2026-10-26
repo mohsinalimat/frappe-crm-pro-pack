@@ -168,11 +168,11 @@ textarea.cra-input { resize: vertical; }
 .cra-side-sep { flex: none; height: 0; margin: 4px 0; border-top: 1px solid var(--outline-gray-1, rgba(128, 128, 128, 0.25)); }
 [data-cra-side] { cursor: pointer; }
 
-/* same shapes as the Pro Pack pages: 6px controls, 4px tags, 8px panels */
+/* same shapes as the Suite Pro pages: 6px controls, 4px tags, 8px panels */
 .cra-chip, .cra-pill, .cra-badge { border-radius: 4px; }
 .cra-count { border-radius: 4px; }
 .cra-btn, .cra-input, .cra-tab, .cra-icon-btn { border-radius: 6px; }
 .cra-card, .cra-next, .cra-dialog { border-radius: 8px; }
 
-/* the CRM menu row of the Pro Pack page that is open (CRM's own selected look) */
-.cra-side-on a, a.cra-side-on { background-color: var(--surface-selected, #fff) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+/* the CRM menu row of the Suite Pro page that is open (CRM's own selected look) */
+.cra-side-on a, a.cra-side-on, button.cra-side-on { background-color: var(--surface-selected, #fff) !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }

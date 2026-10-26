@@ -107,7 +107,8 @@
 			function applyLink() { linkOpen.value = false; restore(); if (getSelection().toString()) document.execCommand('createLink', false, link.url); else document.execCommand('insertHTML', false, `<a href="${CM.escape(link.url)}">${CM.escape(link.text || link.url)}</a>`); changed(); track() }
 			function paste(e) { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain')); changed() }
 			const insertText = (t) => { restore(); document.execCommand('insertText', false, t); changed() }
-			return { ed, changed, cmd, setSize, setFont, pick, openLink, applyLink, link, linkOpen, paste, insertText, sizes, fonts }
+			const sizeOpts = sizes.map((x) => ({ value: x, label: String(x) }))
+			return { sizeOpts, ed, changed, cmd, setSize, setFont, pick, openLink, applyLink, link, linkOpen, paste, insertText, sizes, fonts }
 		},
 		template: `
 		<div class="mre">
@@ -116,8 +117,8 @@
 				<button type="button" class="btn ghost icon sm" title="Italic" aria-label="Italic" @mousedown.prevent @click="cmd('italic')"><Ico name="italic" /></button>
 				<button type="button" class="btn ghost icon sm" title="Underline" aria-label="Underline" @mousedown.prevent @click="cmd('underline')"><Ico name="underline" /></button>
 				<span class="re-sep"></span>
-				<select class="inp mre-sel" aria-label="Font" @change="pick($event, setFont)"><option value="">Font</option><option v-for="f in fonts" :key="f" :value="f">{{ f }}</option></select>
-				<select class="inp mre-sel sm" aria-label="Font size" @change="pick($event, (v) => setSize(+v))"><option value="">Size</option><option v-for="s in sizes" :key="s" :value="s">{{ s }}</option></select>
+				<div class="mre-dd" @mousedown.prevent><Dd :model-value="''" :options="fonts" placeholder="Font" size="sm" :width="190" aria-label="Font" @change="setFont" /></div>
+				<div class="mre-dd sm" @mousedown.prevent><Dd :model-value="''" :options="sizeOpts" placeholder="Size" size="sm" :width="90" aria-label="Font size" @change="(v) => setSize(+v)" /></div>
 				<label class="btn ghost icon sm mre-col" title="Text colour"><Ico name="palette" /><input type="color" aria-label="Text colour" @input="cmd('foreColor', $event.target.value)" /></label>
 				<span class="re-sep"></span>
 				<button type="button" class="btn ghost icon sm" title="Align left" aria-label="Align left" @mousedown.prevent @click="cmd('justifyLeft')"><Ico name="align-left" /></button>
@@ -226,7 +227,7 @@
 				const where = at || place(); const list = listFor(where.key)
 				if (!list) return
 				const b = CM.newBlock(type)
-				if (b.type === 'row' && where.key !== 'root') { CM.toast('A row cannot go inside another row. Put it below instead.', 'warn'); return }
+				if (b.type === 'row' && where.key !== 'root') { CM.toast('A row cannot go inside another row: give the row more columns, or put the new row below it.', 'warn'); return }
 				list.splice(where.i, 0, b); select(b.id)
 			}
 			function move(f, d) { const j = f.index + d; if (j < 0 || j >= f.list.length) return; const [b] = f.list.splice(f.index, 1); f.list.splice(j, 0, b) }
@@ -246,7 +247,7 @@
 				else if (data.startsWith('move:')) {
 					const f = CM.findBlock(blocks.value, data.slice(5)); const target = listFor(key)
 					if (!f || !target) return
-					if (f.block.type === 'row' && key !== 'root') { CM.toast('A row cannot go inside another row.', 'warn'); return }
+					if (f.block.type === 'row' && key !== 'root') { CM.toast('A row cannot go inside another row: give the row more columns, or put the new row below it.', 'warn'); return }
 					if (f.block.type === 'row' && key.startsWith(f.block.id + ':')) return // not into itself
 					const [b] = f.list.splice(f.index, 1); if (f.list === target && f.index < i) i--
 					target.splice(i, 0, b); select(b.id)
@@ -258,18 +259,27 @@
 			const schema = computed(() => (sel.value ? CM.BLOCKS[sel.value.type].schema || [] : []))
 			function setColsCount() { const p = sel.value.props; p.count = +p.count; if (sel.value.type === 'columns') while (p.cols.length < p.count) p.cols.push({ heading: 'Heading', text: 'Text' }) }
 			const addLink = () => sel.value.props.links.push({ network: 'Website', url: 'https://' })
-			const networks = ['Facebook', 'Instagram', 'LinkedIn', 'YouTube', 'X', 'WhatsApp', 'Website']
+			// a custom network's own icon: stored publicly (email apps must be able to load it)
+			async function uploadIcon(link, ev) { const file = ev.target.files && ev.target.files[0]; ev.target.value = ''; if (!file) return; try { const r = await CM.upload(file, { isPrivate: false }); link.icon = r.file_url } catch (err) { CM.toast(err.message, 'err') } }
+			const networks = CM.SOCIAL_NETWORKS
 			// a text block saved before the formatting toolbar existed: give the toolbar its plain text as paragraphs
 			watch(sel, (b) => { if (b && b.type === 'text' && !b.props.html && b.props.text) b.props.html = '<p>' + CM.escape(b.props.text).replace(/\r?\n/g, '<br>') + '</p>' })
 			const colRow = computed(() => (colSel.value ? CM.findBlock(blocks.value, colSel.value.row) : null))
 			const quick = ['heading', 'text', 'image', 'button']
+			/** A row none of whose visible columns holds a block: it can be removed in one click, selected or not. */
+			const rowEmpty = (b) => b.type === 'row' && rowCols(b).every((c) => !c.blocks.length)
 
 			// Clicking anywhere outside the builder (the subject, the toolbar, the page) deselects; so does Escape.
 			function outside(e) { if (root.value && !root.value.contains(e.target) && !(e.target.closest && e.target.closest('.overlay, .pop'))) clear() }
+			function keys(e) {
+				if (e.key !== 'Delete' || (e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"], .overlay, .pop'))) return
+				if (sel.value && found.value) { e.preventDefault(); del(found.value) }
+				else if (colRow.value && rowEmpty(colRow.value.block)) { e.preventDefault(); del(colRow.value) }
+			}
 			function esc(e) { if (e.key === 'Escape' && !(e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"], .overlay'))) clear() }
-			onMounted(() => { document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc) })
-			onBeforeUnmount(() => { document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', esc); const s = getSelection(); if (s && s.rangeCount && root.value && root.value.contains(s.anchorNode)) s.removeAllRanges() })
-			return { root, panel, selId, colSel, drag, blocks, sel, found, groups, html, rowCols, keyOf, select, selectCol, clear, add, move, dup, del, at, dragNew, dragMove, dragOver, overEnd, drop, endDrag, insertVar, schema, setColsCount, addLink, networks, colRow, quick, setCount, addInto, COLTYPES, CM, fonts: CM.FONTS }
+			onMounted(() => { document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc); document.addEventListener('keydown', keys) })
+			onBeforeUnmount(() => { document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', esc); document.removeEventListener('keydown', keys); const s = getSelection(); if (s && s.rangeCount && root.value && root.value.contains(s.anchorNode)) s.removeAllRanges() })
+			return { root, panel, selId, colSel, drag, blocks, sel, found, groups, html, rowCols, keyOf, select, selectCol, clear, add, move, dup, del, at, dragNew, dragMove, dragOver, overEnd, drop, endDrag, insertVar, schema, setColsCount, addLink, uploadIcon, rowEmpty, networks, colRow, quick, setCount, addInto, COLTYPES, CM, fonts: CM.FONTS }
 		},
 		template: `
 		<div ref="root" class="bld">
@@ -291,9 +301,10 @@
 										<BlockBox :b="c" :html="html[c.id]" :selected="c.id === selId" :first="k === 0" :last="k === col.blocks.length - 1" @select="select(c.id)" @move="move(at(c), $event)" @dup="dup(at(c))" @del="del(at(c))" @dragstart="dragMove($event, c)" @dragend="endDrag" @dragover="dragOver($event, keyOf(b.id, ci), k)" />
 									</template>
 									<div v-if="drag.key === keyOf(b.id, ci) && drag.i === col.blocks.length && drag.active" class="drop-line"></div>
-									<div class="col-empty" :class="{ big: !col.blocks.length }" @click.stop><template v-if="!col.blocks.length"><span class="col-hint">Column {{ ci + 1 }}: choose the content</span><div class="col-types"><button v-for="t in COLTYPES" :key="t" type="button" class="col-type" @click.stop="addInto(b, ci, t)"><Ico :name="CM.BLOCKS[t].icon" size="sm" />{{ CM.BLOCKS[t].label }}</button></div></template><button v-else type="button" class="col-more" @click.stop="selectCol(b, ci)"><Ico name="plus" size="sm" />Add content</button></div>
+									<div class="col-empty" :class="{ big: !col.blocks.length }" @click.stop="selectCol(b, ci)"><template v-if="!col.blocks.length"><span class="col-hint">Column {{ ci + 1 }}: choose the content</span><div class="col-types"><button v-for="t in COLTYPES" :key="t" type="button" class="col-type" @click.stop="addInto(b, ci, t)"><Ico :name="CM.BLOCKS[t].icon" size="sm" />{{ CM.BLOCKS[t].label }}</button></div></template><button v-else type="button" class="col-more" @click.stop="selectCol(b, ci)"><Ico name="plus" size="sm" />Add content</button></div>
 								</td>
 							</tr></tbody></table>
+							<button v-if="rowEmpty(b)" type="button" class="row-del" title="Delete this empty row" aria-label="Delete this empty row" @click.stop="del(at(b))"><Ico name="trash" size="sm" />Delete row</button>
 						</BlockBox>
 					</template>
 					<div v-if="drag.key === 'root' && drag.i === blocks.length && drag.active" class="drop-line"></div>
@@ -313,7 +324,7 @@
 									<div class="row wrap" style="gap:4px;margin-top:8px"><button v-for="t in COLTYPES" :key="t" type="button" class="col-type" @click="addInto(sel, ci, t)"><Ico :name="CM.BLOCKS[t].icon" size="sm" />{{ CM.BLOCKS[t].label }}</button></div></div></div>
 						</template>
 						<template v-else-if="f.type === 'cols'"><div v-for="(c, ci) in sel.props.cols.slice(0, +sel.props.count)" :key="ci" class="card pad" style="padding:12px;box-shadow:none"><div class="lbl" style="margin-bottom:6px">Column {{ ci + 1 }}</div><input class="inp" v-model="c.heading" aria-label="Column heading" placeholder="Heading" style="margin-bottom:8px" /><textarea class="inp" v-model="c.text" aria-label="Column text" rows="3"></textarea></div></template>
-						<template v-else-if="f.type === 'links'"><div class="col" style="gap:8px"><div class="lbl">Links</div><div v-for="(l, li) in sel.props.links" :key="li" class="row" style="gap:6px"><div style="width:118px"><Dd v-model="l.network" :options="networks" size="sm" /></div><input class="inp grow" style="height:32px" v-model="l.url" aria-label="Link address" placeholder="https://" /><Btn size="sm" variant="ghost" icon="x" aria-label="Remove link" @click="sel.props.links.splice(li, 1)" /></div><Btn size="sm" icon="plus" @click="addLink">Add link</Btn></div></template>
+						<template v-else-if="f.type === 'links'"><div class="col" style="gap:8px"><div class="lbl">Links</div><div v-for="(l, li) in sel.props.links" :key="li" class="col" style="gap:6px"><div class="row" style="gap:6px"><div style="width:132px"><Dd v-model="l.network" :options="networks" size="sm" searchable /></div><input class="inp grow" style="height:32px" v-model="l.url" aria-label="Link address" placeholder="https://" /><Btn size="sm" variant="ghost" icon="x" aria-label="Remove link" @click="sel.props.links.splice(li, 1)" /></div><div v-if="l.network === 'Custom'" class="row" style="gap:6px;padding-left:4px"><input class="inp" style="height:32px;width:110px" v-model="l.name" aria-label="Name (shown if the image is blocked)" placeholder="Name" /><input class="inp grow" style="height:32px" v-model="l.icon" aria-label="Icon image address" placeholder="Icon image address" /><label class="btn sm" style="cursor:pointer;margin:0">Upload<input type="file" accept="image/*" style="display:none" @change="uploadIcon(l, $event)" /></label></div></div><Btn size="sm" icon="plus" @click="addLink">Add link</Btn><div class="small muted">Not in the list? Choose Custom and add your own icon image.</div></div></template>
 						<Field v-else :label="f.label" :hint="f.hint">
 							<MiniRich v-if="f.type === 'rich'" :key="sel.id" v-model="sel.props[f.key]" />
 							<div v-else-if="f.type === 'text'" class="row" style="gap:6px"><input class="inp grow" :data-key="f.key" v-model="sel.props[f.key]" :placeholder="f.placeholder" /><VarMenu v-if="f.vars" label="" size="sm" @pick="(t) => insertVar(f.key, t)" /></div>
@@ -331,7 +342,8 @@
 					<div class="lbl" style="margin-bottom:2px">Selected column</div><b style="font-size:15px">Column {{ colSel.col + 1 }} of {{ colRow.block.props.count }}</b>
 					<p class="small muted" style="margin:6px 0 12px">Choose what goes in this column.</p>
 					<div class="row wrap" style="gap:6px"><button v-for="t in COLTYPES" :key="t" type="button" class="col-type" @click="add(t)"><Ico :name="CM.BLOCKS[t].icon" size="sm" />{{ CM.BLOCKS[t].label }}</button></div>
-					<div style="margin-top:14px"><Btn size="sm" @click="select(colRow.block.id)">Row settings</Btn></div>
+					<div class="row wrap" style="margin-top:14px;gap:8px"><Btn size="sm" @click="select(colRow.block.id)">Row settings</Btn><Btn size="sm" icon="trash" @click="del(colRow)">Delete the whole row</Btn></div>
+					<p class="small muted" style="margin:10px 0 0">Tip: press Delete to remove an empty row.</p>
 				</template>
 				<template v-else>
 					<div class="lbl" style="margin-bottom:2px">Email style</div><p class="small muted" style="margin:0 0 14px">Click a block to edit it. These settings apply to the whole email.</p>

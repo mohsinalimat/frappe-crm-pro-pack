@@ -11,6 +11,7 @@ providers are faked: no mail leaves the site and Meta is never called.
 import json
 import types
 import unittest
+import os
 from unittest.mock import MagicMock, patch
 
 import frappe
@@ -585,23 +586,17 @@ class TestApiAndPermissions(Campaigns):
 		with self.assertRaises(frappe.PermissionError):
 			api.duplicate_campaign(doc.name)
 
-	def test_the_campaigns_shortcut_follows_the_roles_chosen_in_setup(self):
+	def test_the_old_shortcut_role_list_is_ignored(self):
 		from crm_addons import api as root_api
-
-		def shown(user):
-			frappe.set_user(user)
-			return root_api.get_client_config()["show_campaigns_shortcut"]
 
 		sales = self.make_user("short.camp@example.org", "Sales User")
 		frappe.set_user("Administrator")
-		frappe.db.set_single_value("CRM Addons Settings", "campaign_shortcut_roles", "")
-		frappe.clear_document_cache("CRM Addons Settings", "CRM Addons Settings")
-		self.assertEqual(shown(sales.name), 1)  # nothing chosen: everyone
-		frappe.set_user("Administrator")
 		frappe.db.set_single_value("CRM Addons Settings", "campaign_shortcut_roles", "Sales Manager, Campaign Manager")
 		frappe.clear_document_cache("CRM Addons Settings", "CRM Addons Settings")
-		self.assertEqual(shown(sales.name), 0)
-		self.assertEqual(shown("Administrator"), 1)
+		self.addCleanup(frappe.db.set_single_value, "CRM Addons Settings", "campaign_shortcut_roles", "")
+		frappe.set_user(sales.name)
+		self.assertEqual(root_api.get_client_config()["show_campaigns_shortcut"], 1)  # who sees Campaigns now comes from Team and access
+		frappe.set_user("Administrator")
 
 	def test_campaign_manager_role_sees_every_campaign(self):
 		from crm_addons import install
@@ -1539,6 +1534,13 @@ class TestDiagnostics(UiApi):
 		super().setUp()
 		frappe.flags.crm_addons_debug_in_test = True  # the diagnostics stay silent in other tests
 		self.addCleanup(frappe.flags.pop, "crm_addons_debug_in_test", None)
+		# the diagnostics are off unless asked for (release default): ask for them here
+		was = frappe.conf.get("crm_addons_debug_log")
+		frappe.conf.crm_addons_debug_log = 1
+		self.addCleanup(lambda: frappe.conf.pop("crm_addons_debug_log", None) if was is None else frappe.conf.update({"crm_addons_debug_log": was}))
+		env = patch.dict(os.environ, {"CRM_ADDONS_DEBUG": "1"})
+		env.start()
+		self.addCleanup(env.stop)
 
 	def test_an_event_reaches_the_debug_log_and_a_manager_can_read_it(self):
 		debuglog.log("DIAGNOSTIC-TEST-MARKER", campaign="CAMP-1")

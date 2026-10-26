@@ -1,4 +1,4 @@
-# Admin guide - CRM Pro Pack
+# Admin guide - Frappe CRM Suite Pro
 
 This is a one-time job. After it, sales users schedule meetings without ever signing in to Google.
 
@@ -32,7 +32,7 @@ A separate OAuth client for each environment (production, staging, your laptop) 
 1. **Google Settings**: tick **Enable** and paste the Client ID and Client secret.
 2. **Google Calendar > New**:
    - **User**: the admin user who is authorizing
-   - **Calendar Name**: for example `CRM Pro Pack` (Google creates a calendar with this name)
+   - **Calendar Name**: for example `Frappe CRM Suite Pro` (Google creates a calendar with this name)
    - **Enable** and **Push to Google Calendar** ticked. Leave **Pull from Google Calendar** off,
      otherwise the whole personal calendar is imported.
    - Save, then click **Authorize Google Calendar Access** and sign in with the company account.
@@ -74,6 +74,28 @@ users see meetings they created or were invited to.
 enforced on the server. A lead counts as theirs when they own it or are assigned to it. System Managers, Sales Managers and
 Campaign Managers keep full access; Campaign results on the dashboard are company-wide for everyone. Only Sales Managers and
 System Managers can customize a dashboard.
+
+## Team and access (who sees what)
+
+Open **Team and access** from the CRM menu or the Dashboard header (System Managers only), or go to `/team-access`.
+
+**Add person** (top right) creates the login: email, name, role (Sales User or Sales Manager), a starting preset, and an optional invitation email with the link to set a password. If your site has no outgoing email account the person is still added; set the account up and use **Send password reset email** on their access page. Where they sit in the Sales Hierarchy is still set in CRM's own Settings.
+
+- **People** lists everyone with a Sales User, Sales Manager, System Manager or Campaign Manager role: their roles, who they report to (from CRM's **Sales Hierarchy**, in CRM's own
+  Settings under User Management) and their access. Click a person to give them a **preset** and change anything on top of it. Add and invite people, and the hierarchy itself, stay in CRM's Settings;
+  the person's panel can send a password reset email (Frappe's own reset, it needs an outgoing email account).
+- **Presets** are ready-made sets of access: Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer and Booking Host. Edit them, copy them, make your own. Changing a preset changes everyone using it.
+- Every part of Suite Pro is one line with a value:
+  - **Whose data** (Meetings, Follow-ups, Bookings, Sales Dashboard numbers, Campaigns, moving leads, assignment history): *No access / Own only / My team / Everyone*. **My team** is the person and everyone below them in the Sales Hierarchy.
+    Someone who is not in the hierarchy only sees themselves.
+  - **What they can do** (widgets, assignment rules, automations, email templates, WhatsApp templates, audiences): *None / View / Create and edit*.
+  - **Switches** (create and send campaigns, campaign reports, list clean-up, the demo report, the Bookings tab inside Meetings, the Campaigns tab of the Sales Dashboard).
+- **Nothing changes for people you do not configure.** Managers, the Campaign Manager role and Sales Users keep exactly what they had; System Managers always have everything (they cannot be limited, so nobody locks themselves out).
+  A person's value is: their own change, else their preset, else what their role gave them before.
+- It is checked on the server for every list, report, export and action. Hiding a menu entry is only the convenience on top.
+
+Examples: a manager who should see only their team's follow-ups: *Follow-ups: My team*. Someone who may only build templates: the **Template Designer** preset. A host who only takes demos: **Booking Host**
+(*Bookings: Own only* = the demos they host or are invited to). A Sales User who also runs campaigns: the **Campaign Executive** preset, or just switch on *Create and send campaigns*.
 
 ## Testing as a new sales user
 
@@ -234,6 +256,75 @@ others, and a history with Undo for 24 hours.
    (settings, CRM View Settings, WhatsApp Templates), adds the ready-made email templates and mirrors email templates with CRM's own
    *Email Template* list.
 2. The workers must be running for jobs of more than 300 leads (assignment, undo) and for campaign sending.
-3. Everyone hard-refreshes the CRM once (Ctrl/Cmd + Shift + R). From then on a release loads by itself: if Pro Pack has not started 8
-   seconds after the CRM loads, the page clears CRM's saved copy of itself and reloads once, then shows a *Pro Pack did not load* bar.
+3. Everyone hard-refreshes the CRM once (Ctrl/Cmd + Shift + R). From then on a release loads by itself: if Suite Pro has not started 8
+   seconds after the CRM loads, the page clears CRM's saved copy of itself and reloads once, then shows a *Suite Pro did not load* bar.
 
+## Demo booking: embedding
+
+Put this once on each of your websites (before `</body>`), using your CRM address:
+
+```html
+<script src="https://CRM-HOST/assets/crm_addons/book/embed.js" async></script>
+```
+
+Then any button or link with `data-crm-demo="your-demo-slug"` opens the booking pop-up:
+
+```html
+<button data-crm-demo="coding-junior-demo">Book a demo</button>
+<a data-crm-demo="coding-junior-demo" href="https://CRM-HOST/book/coding-junior-demo">Book a free demo class</a>
+<div data-crm-demo-inline="coding-junior-demo"></div>   <!-- the booking page inside the page -->
+```
+
+From your own code: `CRMDemo.open('coding-junior-demo', { prefill: { name, email, phone }, utm: { utm_source: 'x' } })`.
+Add each website's address (for example `https://codingjunior.com`) to the demo type's **Allowed origins**; other sites cannot show the page in a frame.
+The script remembers the visitor's campaign tags (utm_*, gclid, fbclid) and referrer for 30 days, so the lead shows what really brought them. A ready sample is in
+`public/book/demo-host.html`.
+
+
+## Demo booking (book a demo from your websites)
+
+A visitor on one of your websites clicks **Book a demo**, picks a day and time, fills in a short form and gets a confirmation. Frappe CRM Suite Pro creates (or finds) the Lead,
+creates one CRM Meeting with a Google Meet link, invites the hosts, remembers where the visitor came from (UTM tags) and sends email and WhatsApp messages.
+Only Sales Managers and System Managers set it up; a Sales User only sees the demos they take part in (**Meetings > Bookings**, or the *My demos* list).
+
+### 1. Create a demo type
+Open **Bookings** in the CRM menu (or `/demos`), then **Widgets > Create widget**. One demo type per website or product (for example *Coding Junior demo*, *Coding Pro demo*).
+
+| Tab | What to set |
+|---|---|
+| Details | Title, **slug** (the page address `/book/<slug>`; it cannot be changed later; `manage`, `embed` and `api` are taken), length, time zone of your availability, Google Meet or a fixed meeting link. The fixed link is also used when Google is not connected. |
+| Availability | Weekly hours (several time ranges per day are fine), days off or special hours on a date, minimum notice, how many days ahead, demos per day, buffer before and after, and how often a slot starts. |
+| Team | The **owners** (one or many; no round robin). With several owners there is **one meeting**, every owner is invited, the first owner is the organizer and the one who gets a new Lead. **CC** people (a user or just an email) are invited too. |
+| Form | Name, email and phone always exist. Add or hide the other questions, mark them required, and tie an answer to a Lead field. Allow guests, and the text of the WhatsApp consent box. |
+| Messages | The confirmation, reschedule and cancel messages and the reminders (24 hours, 1 hour, 30 minutes before, and at the start; edit the list freely). For each, switch Email and/or WhatsApp on and pick the template. They start switched off until you pick templates. |
+| Branding | Name, logo, accent colour, light/dark/auto, heading, button and success texts, footer, an optional address to go to after booking, and **Websites that may embed this page**. |
+
+Spam protection is on by default: the phone number must be valid (Indian numbers: 10 digits starting 6-9, with or without +91 or 0; other countries 8 to 15 digits, using *Default country code*
+from the setup page), disposable email addresses are refused, one upcoming demo per phone or email, 10 bookings per network address per hour, a hidden field for robots and a minimum fill time.
+There is no CAPTCHA and no OTP. Only a scrambled form of the visitor's IP address is stored.
+
+### 2. Put it on your website
+In the demo type open **Embed**: copy the script tag and give any button or link `data-crm-demo="<slug>"` (see *Demo booking: embedding* below), or link straight to `https://YOUR-CRM/book/<slug>`.
+List each website under **Websites that may embed this page** (one address per line, for example `https://www.codingjunior.com`); no other website can show the page in a frame.
+
+### 3. Templates and variables
+Messages use the same **email template library** as the Campaign Manager (an email template can be used in both) and **approved WhatsApp templates** from frappe_whatsapp.
+Variables for the demo: `{{ demo_title }}`, `{{ demo_date }}`, `{{ demo_time }}`, `{{ demo_datetime }}` (the visitor's own time zone, with its name), `{{ demo_duration }}`, `{{ meet_link }}`,
+`{{ host_name }}`, `{{ host_names }}`, `{{ booking_link }}`, `{{ reschedule_link }}`, `{{ cancel_link }}`, and every Lead variable (`{{ first_name }}` ...). For a WhatsApp template map the numbered variables the same way as a campaign step, for example
+`{"1": "{{ first_name }}", "2": "{{ demo_datetime }}", "3": "{{ meet_link }}"}`. Use **Send me a test** to see a message with sample data.
+
+### 4. What happens to a booking
+* Confirmation goes out at once; a reminder goes out at its time. A reminder is skipped when the demo is sooner than the reminder (booked 30 minutes ahead, no 24-hour reminder) and is re-planned when the visitor reschedules. Cancelling drops the reminders that were waiting and sends the cancel message.
+* WhatsApp is sent only to a visitor who ticked the consent box, and never to a number that replied STOP. These are transactional messages: the marketing unsubscribe list does not block the confirmation email.
+* If no outgoing Email Account is set up, or a template is not approved, the message row shows **Failed** with the reason (open the booking, **Messages**), and **Resend** puts it back in line. One failing message never stops the others.
+* The visitor can reschedule or cancel from the link in the message, until the demo starts. If your team cancels, moves or closes the meeting inside CRM, the booking follows (and the visitor is told).
+* Slots already taken by a host's other meetings (organizer or guest, any owner) are not offered; a booked slot disappears for everyone at once and two people can never get the same slot.
+* If Google is not connected the booking still works: the meeting shows *Not synced* and the visitor gets the demo type's fixed link.
+
+### 5. Where did the bookings come from (UTM report)
+**Bookings > Report** shows bookings made in a date range by source, medium, campaign, demo type and day, with how many were held, no-show or cancelled. A new Lead also gets
+*First UTM Source / Medium / Campaign* (an existing Lead keeps what it had). The booking itself keeps all tags, the landing page and the referrer.
+
+### Upgrading
+`bench --site your-site migrate`, then `bench restart` (new doctypes, a few fields on CRM Meeting and CRM Lead, the minute-by-minute message sender). No `bench build` is needed.
+If your nginx adds `X-Frame-Options: SAMEORIGIN` to every page, current browsers still allow the listed websites to frame `/book/...` because the page sends `frame-ancestors`; remove that nginx line for `/book` only if you must support very old browsers.

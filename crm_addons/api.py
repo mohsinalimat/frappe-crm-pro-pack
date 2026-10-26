@@ -38,6 +38,9 @@ LIST_FIELDS = [
 	"external_event_url",
 	"meeting_outcome",
 	"outcome_notes",
+	"is_demo",
+	"demo_type",
+	"demo_booking",
 ]
 
 
@@ -62,6 +65,33 @@ def _attendees_by_meeting(names):
 	return grouped
 
 
+def _demo_details(rows):
+	"""For booked demos: the demo type's title and the booking's campaign tags, in two queries however many rows there are."""
+	bookings = {str(r["demo_booking"]) for r in rows if r.get("demo_booking")}
+	if not bookings:
+		return {}
+	by_booking = {
+		b.name: b
+		for b in frappe.get_all(
+			"CRM Demo Booking", filters={"name": ["in", list(bookings)]}, fields=["name", "demo_type", "utm_source", "utm_medium", "utm_campaign"]
+		)
+	}
+	titles = dict(
+		frappe.get_all("CRM Demo Type", filters={"name": ["in", list({b.demo_type for b in by_booking.values()})]}, fields=["name", "title"], as_list=True)
+	)
+	out = {}
+	for r in rows:
+		b = by_booking.get(str(r.get("demo_booking") or ""))
+		if b:
+			out[str(r["name"])] = {
+				"demo_type_title": titles.get(b.demo_type) or b.demo_type,
+				"demo_utm_source": b.utm_source or "",
+				"demo_utm_medium": b.utm_medium or "",
+				"demo_utm_campaign": b.utm_campaign or "",
+			}
+	return out
+
+
 def _can_edit(row, user=None):
 	user = user or frappe.session.user
 	return is_manager(user) or user in (row.get("owner"), row.get("organizer"))
@@ -70,6 +100,7 @@ def _can_edit(row, user=None):
 def _decorate(rows):
 	"""Add guests, the Lead title and edit rights to raw meeting rows."""
 	guests = _attendees_by_meeting([r["name"] for r in rows])
+	demos = _demo_details(rows)
 	cache, out = {}, []
 	for row in rows:
 		key = (row["reference_doctype"], row["reference_docname"])
@@ -89,6 +120,7 @@ def _decorate(rows):
 				"reference_url": info["url"],
 				"attendees": guests.get(str(row["name"]), []),
 				"can_edit": _can_edit(row),
+				**demos.get(str(row["name"]), {}),
 			}
 		)
 	return out
@@ -120,6 +152,14 @@ def _check_reference(reference_doctype, reference_docname):
 
 
 @frappe.whitelist(methods=["GET", "POST"])
+def get_asset_version():
+	"""The version of the files the server has now. The CRM page asks every few minutes, to tell people when it is running old ones."""
+	from crm_addons.inject import asset_version
+
+	return asset_version()
+
+
+@frappe.whitelist(methods=["GET", "POST"])
 def get_csrf_token():
 	"""Lets the meetings page (a static file) send changes when it is opened on its own.
 	The token is only readable from the same origin, exactly like the one in Desk's HTML."""
@@ -148,6 +188,35 @@ def email_templates_stamp():
 	return _email_templates_stamp()
 
 
+def _can_assign():
+	from crm_addons.team_access import access
+
+	return any(access.level(f) != "none" for f in ("assignment_rules", "assignment_move", "assignment_history"))
+
+
+def _meetings_scope():
+	from crm_addons.team_access import access
+
+	return access.level("meetings")
+
+
+def _is_access_admin():
+	from crm_addons.team_access import access
+
+	return access.is_admin()
+
+
+def _my_access():
+	"""What the person's access settings allow, so the screens can hide what they cannot use (the server checks every call as well)."""
+	from crm_addons.team_access import access
+
+	try:
+		return access.my_access()
+	except Exception:
+		frappe.clear_messages()
+		return {}
+
+
 @frappe.whitelist()
 def get_client_config():
 	# settings.get(): a field added by a newer version is simply empty until `bench migrate` has run,
@@ -159,7 +228,7 @@ def get_client_config():
 	try:
 		views_changed = 1 if views.ensure_for_user() else 0
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: default views", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: default views", message=frappe.get_traceback())
 		views_changed = 0
 
 	try:
@@ -183,7 +252,11 @@ def get_client_config():
 		"show_follow_up_button": cint(settings.get("show_follow_up_button")),
 		"hide_deals_menu": cint(settings.get("hide_deals_menu")),
 		"can_manage_campaigns": 1 if is_campaign_manager() else 0,
-		"can_assign": 1 if frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles() else 0,  # the Assignment menu: System Managers only
+		"demos_enabled": 1,
+		"can_manage_access": 1 if _is_access_admin() else 0,
+		"meetings_scope": _meetings_scope(),
+		"access": _my_access(),
+		"can_assign": 1 if _can_assign() else 0,  # the Assignment menu: anyone whose access allows rules, moving leads or the history
 		"show_campaigns_shortcut": 1 if campaigns_shortcut_visible(settings) else 0,
 		"deals_enabled": 0 if cint(settings.get("hide_deals_menu")) else 1,  # dashboards leave deal numbers out for a team that does not use Deals
 		"hide_notes_menu": cint(settings.get("hide_notes_menu")),
@@ -207,7 +280,7 @@ def get_client_config():
 
 
 @frappe.whitelist()
-def list_meetings(start, end, scope="mine", reference_doctype=None, reference_name=None, status=None, limit=500):
+def list_meetings(start, end, scope="mine", reference_doctype=None, reference_name=None, status=None, limit=500, demos_only=0):
 	"""Meetings overlapping [start, end]. Sales users only ever get their own; for
 	managers ``scope="all"`` returns everybody's, ``"mine"`` just theirs."""
 	filters = [["starts_on", "<=", end], ["ends_on", ">=", start]]
@@ -217,6 +290,8 @@ def list_meetings(start, end, scope="mine", reference_doctype=None, reference_na
 		filters.append(["reference_docname", "=", reference_name])
 	if status:
 		filters.append(["status", "=", status])
+	if cint(demos_only):
+		filters.append(["is_demo", "=", 1])
 
 	rows = frappe.get_list(
 		"CRM Meeting",
@@ -225,7 +300,7 @@ def list_meetings(start, end, scope="mine", reference_doctype=None, reference_na
 		order_by="starts_on asc",
 		limit_page_length=min(cint(limit) or 500, 1000),
 	)
-	if scope == "mine" and is_manager():
+	if scope == "mine" and _meetings_scope() in ("team", "all"):
 		me = frappe.session.user
 		mine = set(
 			frappe.get_all(
@@ -287,6 +362,20 @@ EDITABLE = (
 )
 
 
+def apply_meeting_data(doc, data, notify):
+	"""Copy the editable fields and the complete guest list onto a meeting. Shared by save_meeting and the demo bookings."""
+	for field in EDITABLE:
+		if field in data:
+			doc.set(field, data[field])
+
+	if "attendees" in data:
+		doc.set("attendees", [])
+		for guest in data["attendees"] or []:
+			doc.append("attendees", {"email": guest.get("email"), "full_name": guest.get("full_name")})
+
+	doc.flags.notify_guests = notify != "none"
+
+
 @frappe.whitelist()
 def save_meeting(data, notify="all"):
 	"""Create or update a meeting. ``data.attendees`` is the complete guest list.
@@ -303,16 +392,7 @@ def save_meeting(data, notify="all"):
 		doc.reference_docname = data["reference_docname"]
 		doc.organizer = frappe.session.user
 
-	for field in EDITABLE:
-		if field in data:
-			doc.set(field, data[field])
-
-	if "attendees" in data:
-		doc.set("attendees", [])
-		for guest in data["attendees"] or []:
-			doc.append("attendees", {"email": guest.get("email"), "full_name": guest.get("full_name")})
-
-	doc.flags.notify_guests = notify != "none"
+	apply_meeting_data(doc, data, notify)
 	doc.save() if data.get("name") else doc.insert()
 	doc.reload()
 	return {"meeting": _serialize(doc), "sync": doc.flags.get("sync_result") or {}}

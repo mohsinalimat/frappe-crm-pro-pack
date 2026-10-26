@@ -14,10 +14,10 @@ What it does
 
 It never raises: every function here swallows its own errors, so it cannot be the cause of a problem.
 
-Switching it off / removing it
+Switching it on / off / removing it
 ------------------------------
-* Off:  ``bench --site <site> set-config crm_addons_debug_log 0``  (or set the environment variable
-  ``CRM_ADDONS_DEBUG=0``). No console copy: ``set-config crm_addons_debug_console 0``.
+* It is OFF unless you ask for it. On:  ``bench --site <site> set-config crm_addons_debug_log 1``  (or the environment variable
+  ``CRM_ADDONS_DEBUG=1``). Off:  ``bench --site <site> set-config crm_addons_debug_log 0``. No console copy: ``set-config crm_addons_debug_console 0``.
 * Removal: see docs/DEBUGGING.md (delete this file, ``public/debug.js`` and the few lines that mention it).
 """
 
@@ -59,14 +59,14 @@ def _off(value):
 
 
 def enabled():
-	if _off(os.environ.get("CRM_ADDONS_DEBUG", "1")):
+	if _off(os.environ.get("CRM_ADDONS_DEBUG", "0")):
 		return False
 	try:  # a test run must not fill the log you read to find a real freeze (the diagnostics' own tests switch it on)
 		if frappe.flags.in_test and not frappe.flags.get("crm_addons_debug_in_test"):
 			return False
 	except Exception:
 		pass
-	return not _off(_conf("crm_addons_debug_log", 1))
+	return not _off(_conf("crm_addons_debug_log", 0))
 
 
 # -- writing ---------------------------------------------------------------------------------------------------

@@ -47,7 +47,7 @@ NEXT_FOLLOWUP_FIELD = {
 	"no_copy": 1,
 	"print_hide": 1,
 	"report_hide": 0,
-	"description": "Set automatically by CRM Pro Pack.",
+	"description": "Set automatically by Frappe CRM Suite Pro.",
 }
 
 SCORE_FIELD = {
@@ -58,7 +58,7 @@ SCORE_FIELD = {
 	"no_copy": 1,
 	"print_hide": 1,
 	"report_hide": 0,
-	"description": "0-100, worked out by CRM Pro Pack from calls, outcomes, meetings and recent activity.",
+	"description": "0-100, worked out by Frappe CRM Suite Pro from calls, outcomes, meetings and recent activity.",
 }
 
 STALE_FIELD = {
@@ -80,7 +80,7 @@ NEXT_MEETING_FIELD = {
 	"no_copy": 1,
 	"print_hide": 1,
 	"report_hide": 0,
-	"description": "Set automatically by CRM Pro Pack.",
+	"description": "Set automatically by Frappe CRM Suite Pro.",
 }
 
 # Consent is the one thing a campaign must never lose, so this field is NOT removed on uninstall.
@@ -92,6 +92,13 @@ WA_OPT_IN_FIELD = {
 	"in_standard_filter": 1,
 	"description": "The lead agreed to receive WhatsApp messages. Meta requires this for marketing templates.",
 }
+
+# Demo booking: the first campaign a new Lead came from. Like the consent field above, it is data, so it is NOT removed on uninstall.
+DEMO_LEAD_FIELDS = [
+	{"fieldname": "crm_demo_first_utm_source", "fieldtype": "Data", "label": "First UTM Source", "read_only": 1, "no_copy": 1, "in_standard_filter": 1, "description": "Where the lead first came from, when it started with a demo booking."},
+	{"fieldname": "crm_demo_first_utm_medium", "fieldtype": "Data", "label": "First UTM Medium", "read_only": 1, "no_copy": 1},
+	{"fieldname": "crm_demo_first_utm_campaign", "fieldtype": "Data", "label": "First UTM Campaign", "read_only": 1, "no_copy": 1},
+]
 
 STARTER_EMAIL_TEMPLATES = [
 	(
@@ -105,9 +112,9 @@ STARTER_EMAIL_TEMPLATES = [
 # -- CRM scripts ----------------------------------------------------------------------
 # Loaded by CRM's own script engine, so no CRM source file is ever edited.
 
-LOADER = """// Managed by the CRM Pro Pack app. It is rewritten when the app updates - do not edit.
+LOADER = """// Managed by the Frappe CRM Suite Pro app. It is rewritten when the app updates - do not edit.
 function crmAddonsLoad() {
-	// the page's own Pro Pack script did not start (an old saved copy of the CRM page): start it from here
+	// the page's own Suite Pro script did not start (an old saved copy of the CRM page): start it from here
 	if (!window.__crmAddonsUI && !window.__craEnsuring) {
 		window.__craEnsuring = true
 		const a = document.createElement("script")
@@ -121,7 +128,7 @@ function crmAddonsLoad() {
 		const s = document.createElement("script")
 		s.src = "/assets/crm_addons/bridge.js?v=__VERSION__"
 		s.onload = () => resolve(window.crmAddons)
-		s.onerror = () => reject(new Error("CRM Pro Pack could not be loaded"))
+		s.onerror = () => reject(new Error("Frappe CRM Suite Pro could not be loaded"))
 		document.head.appendChild(s)
 	})
 }
@@ -299,9 +306,12 @@ def run_all():
 	ensure_workspace()
 	backfill_next_meetings()
 	ensure_campaign_setup()
+	ensure_demo_setup()
 	ensure_whatsapp_template_fields()
 	ensure_view_fields()
 	ensure_default_email_templates()
+	ensure_user_fields()
+	ensure_access_presets()
 	sync_email_templates()
 
 
@@ -312,12 +322,12 @@ def sync_email_templates():
 	try:
 		email_sync.backfill()
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: email template sync", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: email template sync", message=frappe.get_traceback())
 
 
 # -- Desk workspace --------------------------------------------------------------------------
 
-WORKSPACE = "CRM Pro Pack"
+WORKSPACE = "CRM Pro Pack"  # the stored name of the Desk workspace: kept so existing sites do not get a second one
 WORKSPACE_SHORTCUTS = [
 	# label, type, target (a doctype, or a URL)
 	("CRM Addons Settings", "DocType", "CRM Addons Settings"),
@@ -329,6 +339,8 @@ WORKSPACE_SHORTCUTS = [
 	("Campaigns", "DocType", "CRM Campaign"),
 	("Campaign Email Templates", "DocType", "CRM Campaign Email Template"),
 	("Campaign Opt-outs", "DocType", "CRM Campaign Opt Out"),
+	("Demo Types", "DocType", "CRM Demo Type"),
+	("Demo Bookings", "DocType", "CRM Demo Booking"),
 ]
 
 
@@ -340,7 +352,7 @@ def ensure_workspace():
 		return
 	try:
 		blocks = [
-			{"id": frappe.generate_hash(length=10), "type": "header", "data": {"text": '<span class="h4"><b>CRM Pro Pack</b></span>', "col": 12}}
+			{"id": frappe.generate_hash(length=10), "type": "header", "data": {"text": '<span class="h4"><b>Frappe CRM Suite Pro</b></span>', "col": 12}}
 		] + [
 			{"id": frappe.generate_hash(length=10), "type": "shortcut", "data": {"shortcut_name": label, "col": 3}}
 			for label, _type, _target in WORKSPACE_SHORTCUTS
@@ -362,7 +374,7 @@ def ensure_workspace():
 			}
 		).insert(ignore_permissions=True)
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: could not create the Desk workspace", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: could not create the Desk workspace", message=frappe.get_traceback())
 
 
 # -- settings ----------------------------------------------------------------------------
@@ -420,9 +432,28 @@ def ensure_campaign_setup():
 	frappe.db.set_default("crm_addons_campaign_templates_seeded", "1")
 
 
+def ensure_demo_setup():
+	"""Demo booking: the Lead's first-touch UTM fields and the indexes the booking queries rely on. Idempotent; seeds no demo type."""
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+	create_custom_fields({"CRM Lead": [dict(f) for f in DEMO_LEAD_FIELDS]}, ignore_validate=True)
+	if not frappe.db.exists("DocType", "CRM Demo Booking"):
+		return
+	try:
+		# email, phone and status already have single-column indexes (search_index in the doctype); this one serves the slot and list queries
+		frappe.db.add_index("CRM Demo Booking", ["demo_type", "starts_utc"])
+		frappe.db.add_index("CRM Demo Booking Message", ["status", "due_at"])
+	except Exception:
+		frappe.log_error(title="Frappe CRM Suite Pro: could not add the demo booking indexes", message=frappe.get_traceback())
+
+
 WA_TEMPLATE_FIELDS = [
 	{
-		"fieldname": "crm_variable_map", "fieldtype": "Long Text", "label": "Default variable mapping (CRM Pro Pack)", "read_only": 1,
+		"fieldname": "crm_system", "fieldtype": "Check", "label": "Ready-made by Frappe CRM Suite Pro", "read_only": 1, "no_copy": 1, "default": "0",
+		"description": "Created by the app for its own messages. Protected from deletion.", "insert_after": "crm_variable_map",
+	},
+	{
+		"fieldname": "crm_variable_map", "fieldtype": "Long Text", "label": "Default variable mapping (Frappe CRM Suite Pro)", "read_only": 1,
 		"description": "Which Lead field fills each {{n}} by default when a campaign uses this template.", "insert_after": "field_names",
 	}
 ]
@@ -434,7 +465,7 @@ def ensure_view_fields():
 
 	if frappe.db.exists("DocType", "CRM View Settings"):
 		create_custom_fields(
-			{"CRM View Settings": [{"fieldname": "crm_addons_sig", "fieldtype": "Data", "label": "CRM Pro Pack mark", "read_only": 1, "hidden": 1, "no_copy": 1}]}, ignore_validate=True
+			{"CRM View Settings": [{"fieldname": "crm_addons_sig", "fieldtype": "Data", "label": "Frappe CRM Suite Pro mark", "read_only": 1, "hidden": 1, "no_copy": 1}]}, ignore_validate=True
 		)
 
 
@@ -444,25 +475,91 @@ def ensure_whatsapp_template_fields():
 
 	if frappe.db.exists("DocType", "WhatsApp Templates"):
 		create_custom_fields({"WhatsApp Templates": WA_TEMPLATE_FIELDS}, ignore_validate=True)
+		# the ready-made booking templates already on the site are protected like new ones
+		from crm_addons.demos import defaults
+
+		names = [s["template_name"] for s in defaults.WHATSAPP.values()]
+		frappe.db.sql("update `tabWhatsApp Templates` set crm_system = 1 where template_name in %(n)s or actual_name in %(n)s", {"n": names})
 
 
 def ensure_default_email_templates():
 	"""Ready-made email templates (campaigns/default_templates.py), added once per release. The admin owns them after
 	that: edit, archive or delete them; a deleted one is not brought back until the next release adds more."""
 	from crm_addons.campaigns import default_templates as dt
+	from crm_addons.demos import defaults as booking_defaults
 
 	if not frappe.db.exists("DocType", "CRM Campaign Email Template") or frappe.db.get_default("crm_addons_default_email_templates") == dt.VERSION:
 		return
+	booking_names = set(booking_defaults.EMAIL.values())
 	for name, subject, category, description, builder_json, body_html in dt.default_templates():
+		old = next((o for o, n in dt.RENAMED.items() if n == name), None)
+		if old and frappe.db.exists("CRM Campaign Email Template", old) and not frappe.db.exists("CRM Campaign Email Template", name):
+			frappe.rename_doc("CRM Campaign Email Template", old, name, force=True)  # the booking rules that use it follow
+			doc = frappe.get_doc("CRM Campaign Email Template", name)
+			if (doc.modified - doc.creation).total_seconds() < 120:  # not edited since it was seeded: bring the new wording too
+				doc.update({"subject": subject, "description": description, "builder_json": builder_json, "body_html": body_html})
+				doc.save(ignore_permissions=True)
+			continue
 		if frappe.db.exists("CRM Campaign Email Template", name):
 			continue
 		frappe.get_doc(
 			{
 				"doctype": "CRM Campaign Email Template", "template_name": name, "subject": subject, "category": category, "description": description,
-				"editor_mode": "Visual Builder", "builder_json": builder_json, "body_html": body_html, "enabled": 1,
+				"editor_mode": "Visual Builder", "builder_json": builder_json, "body_html": body_html, "enabled": 1, "is_system": 1 if name in booking_names else 0,
 			}
 		).insert(ignore_permissions=True)
+	# The booking messages are System templates (the app's own service messages, not marketing). Sites that seeded them as "Transactional" or with the old
+	# "demo" wording get the new category, and the new wording when the text is still the ready-made one.
+	fresh = {n: (sub, desc, bj, bh) for n, sub, c, desc, bj, bh in dt.default_templates()}
+	for n in list(booking_names) + ["Counselling session reminder"]:
+		if n in fresh and frappe.db.exists("CRM Campaign Email Template", n):
+			doc = frappe.get_doc("CRM Campaign Email Template", n)
+			changed = False
+			if doc.category != "System":
+				doc.category, changed = "System", True
+			if any(m in (doc.body_html or "") for m in ("Join the demo", "Your demo ", "demo_title")) and n in booking_names:
+				doc.update({"subject": fresh[n][0], "description": fresh[n][1], "builder_json": fresh[n][2], "body_html": fresh[n][3]})
+				changed = True
+			if changed:
+				doc.flags.ignore_permissions = True
+				doc.save()
+	# the booking messages are protected from deletion (see campaigns/api.py): mark the ones already on the site too
+	booking = list(booking_names)
+	if booking and frappe.get_meta("CRM Campaign Email Template").has_field("is_system"):
+		frappe.db.sql("update `tabCRM Campaign Email Template` set is_system = 1 where name in %s", (booking,))
 	frappe.db.set_default("crm_addons_default_email_templates", dt.VERSION)
+
+
+USER_FIELDS = [
+	{"fieldname": "crm_designation", "fieldtype": "Data", "label": "Designation", "insert_after": "mobile_no", "description": "Shown next to the name in Team and access (Frappe CRM Suite Pro)."},
+	{"fieldname": "crm_company", "fieldtype": "Data", "label": "Company", "insert_after": "crm_designation"},
+]
+
+
+def ensure_user_fields():
+	"""Designation and company on the User, set from Team and access. They are data, so uninstalling does not remove them."""
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+	create_custom_fields({"User": [dict(f) for f in USER_FIELDS]}, ignore_validate=True)
+
+
+def ensure_access_presets():
+	"""The ready-made access presets (team_access/presets.py), added once per version. The admin owns them after that."""
+	import json
+
+	from crm_addons.team_access import presets
+
+	if not frappe.db.exists("DocType", "CRM Access Preset") or frappe.db.get_default("crm_addons_access_presets") == presets.VERSION:
+		return
+	# "Demo Host" is now "Booking Host": rename the ready-made one (people using it follow), unless the admin already made their own with the new name
+	if frappe.db.exists("CRM Access Preset", "Demo Host") and not frappe.db.exists("CRM Access Preset", "Booking Host"):
+		frappe.rename_doc("CRM Access Preset", "Demo Host", "Booking Host", force=True)
+		frappe.db.set_value("CRM Access Preset", "Booking Host", "preset_name", "Booking Host")
+	for name, description, grants in presets.PRESETS:
+		if frappe.db.exists("CRM Access Preset", name):
+			continue
+		frappe.get_doc({"doctype": "CRM Access Preset", "preset_name": name, "description": description, "is_system": 1, "grants": json.dumps(grants)}).insert(ignore_permissions=True)
+	frappe.db.set_default("crm_addons_access_presets", presets.VERSION)
 
 
 def backfill_next_meetings():

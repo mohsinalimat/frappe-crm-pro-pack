@@ -1,4 +1,4 @@
-/* CRM Pro Pack setup page: a guided front for the CRM Addons Settings record.
+/* Frappe CRM Suite Pro setup page: a guided front for the CRM Addons Settings record.
  * Left: the sections. Top of the first section: a live checklist that says what still needs doing and how.
  * Every option has a switch or field, a short label and an (i) button with the details. Changes are saved together. */
 ;(() => {
@@ -7,6 +7,7 @@
 
 	// ------------------------------------------------------------------ theme (same rules as the other pages)
 	const params = new URLSearchParams(location.search)
+	const embedded = params.get('embed') === '1' // opened inside the CRM (a page of it): no Back to CRM link
 	function readTheme() {
 		let t = params.get('theme')
 		try { const v = String(localStorage.getItem('theme') || '').replace(/"/g, ''); if (!t && (v === 'dark' || v === 'light')) t = v } catch (e) { /* storage blocked */ }
@@ -52,6 +53,7 @@
 		layout: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
 		send: '<path d="M14.5 21.7a.5.5 0 0 0 .9 0l6.5-19a.5.5 0 0 0-.6-.6l-19 6.5a.5.5 0 0 0 0 .9l7.9 3.2a2 2 0 0 1 1.1 1.1z"/><path d="m21.9 2.1-10.9 10.9"/>',
 		bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+		palette: '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
 		coin: '<circle cx="12" cy="12" r="9"/><path d="M14.8 9a3 3 0 0 0-2.8-1.5c-1.7 0-3 1-3 2.3 0 3 6 1.6 6 4.5 0 1.3-1.3 2.2-3 2.2a3.2 3.2 0 0 1-3-1.6M12 6v1.5M12 16.5V18"/>',
 		check: '<path d="M20 6 9 17l-5-5"/>', list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
 		alert: '<path d="m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3z"/><path d="M12 9v4M12 17h.01"/>',
@@ -99,9 +101,155 @@
 		template: `<button :id="id" type="button" role="switch" class="sw" :class="{ on: !!modelValue }" :aria-checked="!!modelValue" :aria-label="label" :disabled="disabled" @click="$emit('update:modelValue', modelValue ? 0 : 1)"><span class="sw-k"></span><span class="sw-t">{{ modelValue ? 'On' : 'Off' }}</span></button>`,
 	}
 
-	// ------------------------------------------------------------------ default views (Leads, Contacts, Organizations)
-	const ViewDefaults = {
+	// A dropdown that looks like the rest of the page (not the browser's own list). Searchable once the list is long.
+	// `action`: it acts as a menu ("Add a column..."): choosing emits the value and the button keeps showing the placeholder.
+	const Sel = {
 		components: { Ico },
+		props: { modelValue: [String, Number, Boolean], options: { type: Array, default: () => [] }, placeholder: { type: String, default: 'Select' }, searchable: { type: Boolean, default: undefined }, disabled: Boolean, action: Boolean, id: String, small: Boolean, ariaLabel: String },
+		emits: ['update:modelValue'],
+		setup(props, { emit }) {
+			const open = ref(false); const btn = ref(null); const pop = ref(null); const q = ref(''); const hi = ref(0); const style = ref({})
+			const list = computed(() => { const t = q.value.trim().toLowerCase(); return t ? props.options.filter((o) => (String(o.label) + ' ' + (o.sub || '')).toLowerCase().includes(t)) : props.options })
+			const canSearch = computed(() => (props.searchable === undefined ? props.options.length > 7 : props.searchable))
+			const current = computed(() => (props.action ? null : props.options.find((o) => o.value === props.modelValue)))
+			function place() {
+				const r = btn.value.getBoundingClientRect(); const vh = window.innerHeight, vw = window.innerWidth
+				const below = vh - r.bottom - 12, above = r.top - 12
+				const up = below < 220 && above > below
+				const room = Math.max(140, Math.min(340, up ? above : below))
+				const w = Math.max(r.width, 220)
+				style.value = { left: Math.max(8, Math.min(r.left, vw - w - 8)) + 'px', minWidth: w + 'px', maxHeight: room + 'px', ...(up ? { bottom: vh - r.top + 6 + 'px' } : { top: r.bottom + 6 + 'px' }) }
+			}
+			function show() {
+				if (props.disabled) return
+				q.value = ''; place(); hi.value = Math.max(0, props.options.findIndex((o) => o.value === props.modelValue)); open.value = true
+				nextTick(() => { const i = pop.value && pop.value.querySelector('input'); if (i) i.focus() })
+			}
+			const close = () => { open.value = false }
+			function choose(o) { if (o.disabled) return; emit('update:modelValue', o.value); close(); if (btn.value) btn.value.focus() }
+			const onDoc = (e) => { if (open.value && !(pop.value && pop.value.contains(e.target)) && !(btn.value && btn.value.contains(e.target))) close() }
+			function onKey(e) {
+				if (!open.value) { if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); show() } return }
+				if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); if (btn.value) btn.value.focus() }
+				else if (e.key === 'ArrowDown') { e.preventDefault(); hi.value = Math.min(hi.value + 1, list.value.length - 1) }
+				else if (e.key === 'ArrowUp') { e.preventDefault(); hi.value = Math.max(hi.value - 1, 0) }
+				else if (e.key === 'Enter') { e.preventDefault(); if (list.value[hi.value]) choose(list.value[hi.value]) }
+			}
+			watch(q, () => { hi.value = 0 })
+			onMounted(() => { document.addEventListener('mousedown', onDoc); window.addEventListener('resize', close) })
+			onBeforeUnmount(() => { document.removeEventListener('mousedown', onDoc); window.removeEventListener('resize', close) })
+			return { open, btn, pop, q, hi, style, list, canSearch, current, show, close, choose, onKey }
+		},
+		template: `<div class="sel" :class="{ small }">
+			<button :id="id" ref="btn" type="button" class="sel-btn" :class="{ open }" :disabled="disabled" :aria-label="ariaLabel || placeholder" aria-haspopup="listbox" :aria-expanded="open" @click="open ? close() : show()" @keydown="onKey">
+				<span class="sel-l" :class="{ ph: !current }">{{ current ? current.label : placeholder }}</span>
+				<svg class="ico chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+			</button>
+			<Teleport to="body"><div v-if="open" ref="pop" class="sel-pop" :style="style" role="listbox" @keydown="onKey">
+				<div v-if="canSearch" class="sel-search"><input v-model="q" placeholder="Search" aria-label="Search options" autocomplete="off" @keydown.stop="onKey" /></div>
+				<div v-if="!list.length" class="sel-none">No match</div>
+				<button v-for="(o, i) in list" :key="String(o.value) + i" type="button" class="sel-opt" :class="{ on: !action && o.value === modelValue, hi: i === hi, dis: o.disabled }" role="option" :aria-selected="o.value === modelValue" :disabled="o.disabled" @mouseenter="hi = i" @click="choose(o)">
+					<span class="grow"><span class="ell">{{ o.label }}</span><span v-if="o.sub" class="sel-sub">{{ o.sub }}</span></span>
+					<svg v-if="!action && o.value === modelValue" class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+				</button>
+			</div></Teleport>
+		</div>`,
+	}
+
+	// Drag a row to a new place. `onMove(ctx, from, to)` does the reordering; `ctx` says which list (an array or a key).
+	function makeDrag(onMove) {
+		const s = reactive({ from: -1, over: -1, ctx: null })
+		return {
+			s,
+			start: (ctx, i, e) => { s.from = i; s.ctx = ctx; if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)) } catch (x) { /* fine */ } } },
+			enter: (ctx, i) => { if (s.from >= 0 && s.ctx === ctx) s.over = i },
+			drop: (ctx, i) => { const f = s.from, c = s.ctx; s.from = -1; s.over = -1; s.ctx = null; if (f >= 0 && c === ctx && f !== i) onMove(ctx, f, i) },
+			end: () => { s.from = -1; s.over = -1; s.ctx = null },
+		}
+	}
+	const arrayMove = (list, from, to) => { list.splice(to, 0, list.splice(from, 1)[0]) }
+
+	// ------------------------------------------------------------------ default views (Leads, Contacts, Organizations)
+	// ------------------------------------------------------------------ branding (name, logos, login page, footer)
+	const Branding = {
+		components: { Ico },
+		setup() {
+			const loading = ref(true); const error = ref(''); const saving = ref(false); const msg = ref('')
+			const v = reactive({ name: '', logo: '', favicon: '', splash: '', title_prefix: '', copyright: '', address: '', powered: '', hide_signup: 0, footer_on_login: 0 })
+			let saved = ''
+			const dirty = computed(() => JSON.stringify(v) !== saved)
+			const fill = (r) => { Object.assign(v, r); saved = JSON.stringify(v) }
+			onMounted(async () => { try { fill(await call('crm_addons.setup_page.get_branding')) } catch (e) { error.value = e.message } finally { loading.value = false } })
+			const up = reactive({})
+			// choose an image that is already on the site (the upload would only make a duplicate)
+			const lib = reactive({ open: false, key: '', q: '', rows: [], busy: false })
+			let libTimer = null
+			async function loadLib() { lib.busy = true; try { lib.rows = (await call('crm_addons.setup_page.image_library', { search: lib.q })) || [] } catch (e) { msg.value = e.message } finally { lib.busy = false } }
+			function openLib(key) { lib.key = key; lib.q = ''; lib.open = true; loadLib() }
+			watch(() => lib.q, () => { clearTimeout(libTimer); libTimer = setTimeout(() => lib.open && loadLib(), 250) })
+			function useLib(row) { v[lib.key] = row.file_url; lib.open = false }
+			async function pick(key, e) {
+				const file = e.target.files && e.target.files[0]; e.target.value = ''
+				if (!file) return
+				if (!/^image\//.test(file.type)) { msg.value = 'Choose an image file.'; return }
+				if (file.size > 3 * 1048576) { msg.value = 'The image is over 3 MB.'; return }
+				up[key] = true; msg.value = ''
+				try {
+					const fd = new FormData(); fd.append('file', file, file.name); fd.append('is_private', '0'); fd.append('folder', 'Home')
+					const res = await fetch('/api/method/upload_file', { method: 'POST', credentials: 'same-origin', headers: { 'X-Frappe-CSRF-Token': await token(), Accept: 'application/json' }, body: fd })
+					const j = await res.json(); if (!res.ok || !j.message) throw new Error('The upload failed.')
+					v[key] = j.message.file_url
+				} catch (err) { msg.value = err.message } finally { up[key] = false }
+			}
+			async function save() {
+				saving.value = true; msg.value = ''
+				try { fill(await call('crm_addons.setup_page.save_branding', { values: JSON.stringify(v) })); msg.value = 'Saved. Open pages pick up the new look when they are refreshed.' } catch (e) { msg.value = e.message } finally { saving.value = false }
+			}
+			async function reset() {
+				if (!window.confirm('Go back to the default look? The name, logos, login image and footer you set here are cleared.')) return
+				saving.value = true; msg.value = ''
+				try { fill(await call('crm_addons.setup_page.reset_branding')); msg.value = 'Back to the default look.' } catch (e) { msg.value = e.message } finally { saving.value = false }
+			}
+			return { loading, error, saving, msg, v, dirty, up, pick, save, reset, lib, openLib, useLib }
+		},
+		template: `
+		<div class="br">
+			<div v-if="loading" class="muted">Loading</div><div v-else-if="error" class="note-box bad">{{ error }}</div>
+			<template v-else>
+				<h3 class="sub">Name and logos</h3>
+				<div class="br-grid">
+					<div class="br-f"><label>Product or company name</label><input class="inp wide" type="text" v-model="v.name" maxlength="140" placeholder="Shown in the CRM menu, the login page and the Desk" /></div>
+					<div class="br-f"><label>Browser tab title prefix</label><input class="inp wide" type="text" v-model="v.title_prefix" maxlength="140" placeholder="Optional" /></div>
+					<div class="br-f"><label>Logo</label><div class="br-up"><img v-if="v.logo" :src="v.logo" alt="" class="br-img" /><span v-else class="br-none">Default logo</span><label class="btn sm" :class="{ off: up.logo }">{{ up.logo ? 'Uploading...' : v.logo ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('logo', $event)" /></label><button type="button" class="btn sm" @click="openLib('logo')">Choose from library</button><button v-if="v.logo" type="button" class="menu-reset" @click="v.logo = ''">Use the default</button></div><span class="small muted">Used in the CRM menu, the login page and the Desk.</span></div>
+					<div class="br-f"><label>Favicon</label><div class="br-up"><img v-if="v.favicon" :src="v.favicon" alt="" class="br-img fav" /><span v-else class="br-none">Default icon</span><label class="btn sm" :class="{ off: up.favicon }">{{ up.favicon ? 'Uploading...' : v.favicon ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('favicon', $event)" /></label><button type="button" class="btn sm" @click="openLib('favicon')">Choose from library</button><button v-if="v.favicon" type="button" class="menu-reset" @click="v.favicon = ''">Use the default</button></div><span class="small muted">The small icon in the browser tab. Square, at least 64 px.</span></div>
+				</div>
+				<h3 class="sub">Login page</h3>
+				<div class="br-grid">
+					<div class="br-f"><label>Picture on the login page</label><div class="br-up"><img v-if="v.splash" :src="v.splash" alt="" class="br-img" /><span v-else class="br-none">Default</span><label class="btn sm" :class="{ off: up.splash }">{{ up.splash ? 'Uploading...' : v.splash ? 'Change' : 'Upload' }}<input type="file" accept="image/*" hidden @change="pick('splash', $event)" /></label><button type="button" class="btn sm" @click="openLib('splash')">Choose from library</button><button v-if="v.splash" type="button" class="menu-reset" @click="v.splash = ''">Use the default</button></div></div>
+					<div class="br-f"><label class="check"><input type="checkbox" :checked="!!v.footer_on_login" @change="v.footer_on_login = $event.target.checked ? 1 : 0" /><span>Show the footer on the login page</span></label><label class="check"><input type="checkbox" :checked="!!v.hide_signup" @change="v.hide_signup = $event.target.checked ? 1 : 0" /><span>Hide the sign-up link in the footer</span></label></div>
+				</div>
+				<h3 class="sub">Footer</h3>
+				<div class="br-grid">
+					<div class="br-f"><label>Copyright line</label><input class="inp wide" type="text" v-model="v.copyright" maxlength="140" placeholder="e.g. Acme Learning" /></div>
+					<div class="br-f"><label>"Powered by" text</label><textarea class="inp wide area" rows="2" v-model="v.powered" maxlength="500" placeholder="Leave empty for the default"></textarea></div>
+					<div class="br-f"><label>Company address</label><textarea class="inp wide area" rows="2" v-model="v.address" maxlength="500"></textarea></div>
+				</div>
+				<h3 class="sub">Preview</h3>
+				<div class="br-prev">
+					<div class="br-card"><div class="br-side"><img v-if="v.logo" :src="v.logo" alt="" class="br-pl" /><span v-else class="br-pl dflt"></span><b>{{ v.name || 'Frappe CRM' }}</b></div><div class="small muted">CRM menu</div></div>
+					<div class="br-card login"><img v-if="v.logo" :src="v.logo" alt="" class="br-pl big" /><span v-else class="br-pl big dflt"></span><b>Login to {{ v.name || 'Frappe CRM' }}</b><div class="br-fake"></div><div class="br-fake"></div><div class="small muted">{{ v.copyright || '' }}</div></div>
+				</div>
+				<div v-if="lib.open" class="br-ov" @mousedown.self="lib.open = false"><div class="br-lib" role="dialog" aria-label="Choose an image"><div class="row" style="gap:10px"><b class="grow">Choose an image from the library</b><button type="button" class="btn sm" @click="lib.open = false">Close</button></div>
+					<input class="inp wide" type="text" v-model="lib.q" placeholder="Search by file name" aria-label="Search images" />
+					<div v-if="lib.busy" class="muted small">Loading...</div><div v-else-if="!lib.rows.length" class="muted small">No images found. Upload one instead.</div>
+					<div class="br-libg"><button v-for="r in lib.rows" :key="r.name" type="button" class="br-tile" :title="r.file_name" @click="useLib(r)"><img :src="r.file_url" alt="" /><span class="ell">{{ r.file_name }}</span></button></div></div></div>
+				<div class="card pad vd-save"><button type="button" class="btn primary" :disabled="saving || !dirty" @click="save">{{ saving ? 'Saving...' : 'Save branding' }}</button><button type="button" class="btn" :disabled="saving" @click="reset">Reset to the default look</button><div v-if="msg" class="small">{{ msg }}</div></div>
+			</template>
+		</div>`,
+	}
+
+	const ViewDefaults = {
+		components: { Ico, Sel },
 		setup() {
 			const pages = ref([]); const loading = ref(true); const error = ref(''); const cfg = reactive({}); const saving = ref(false); const msg = ref(''); const overwrite = ref(false)
 			const OPS = [['=', 'is'], ['!=', 'is not'], ['like', 'contains'], ['in', 'is any of'], ['is', 'is set / not set']]
@@ -116,6 +264,13 @@
 			const drop = (list, f) => { const i = list.indexOf(f); if (i >= 0) list.splice(i, 1) }
 			const move = (list, i, d) => { const j = i + d; if (j < 0 || j >= list.length) return; list.splice(j, 0, list.splice(i, 1)[0]) }
 			const groupable = (p) => p.fields.filter((f) => ['Select', 'Link'].includes(f.fieldtype))
+			// option lists for the dropdowns; a field already chosen is greyed in the "add" lists
+			const fieldOpts = (p, taken) => p.fields.map((f) => ({ value: f.fieldname, label: f.label, sub: f.fieldname, disabled: !!(taken && taken.includes(f.fieldname)) }))
+			const sortField = (c) => (c.order_by || '').split(' ')[0]
+			const sortDir = (c) => (c.order_by || '').split(' ')[1] || 'desc'
+			const setSortField = (c, f) => { c.order_by = f ? f + ' ' + sortDir(c) : '' }
+			const setSortDir = (c, d) => { if (c.order_by) c.order_by = sortField(c) + ' ' + d }
+			const drag = makeDrag((list, f, t) => arrayMove(list, f, t))
 			function body() {
 				const out = {}
 				pages.value.forEach((p) => {
@@ -131,7 +286,7 @@
 				saving.value = true; msg.value = ''
 				try { const r = await call('crm_addons.views.save_view_config', { config: JSON.stringify(body()), apply: 1, overwrite: overwrite.value ? 1 : 0 }); msg.value = 'Saved. ' + r.people + ' people checked, ' + r.written + ' views written. People who changed their own view keep it' + (overwrite.value ? ' (not this time: yours replaced them)' : '') + '.' } catch (e) { msg.value = e.message } finally { saving.value = false }
 			}
-			return { pages, loading, error, cfg, saving, msg, overwrite, OPS, label, add, drop, move, groupable, save }
+			return { pages, loading, error, cfg, saving, msg, overwrite, OPS, label, add, drop, move, groupable, save, fieldOpts, sortField, sortDir, setSortField, setSortDir, drag, opOpts: OPS.map((o) => ({ value: o[0], label: o[1] })), setNotSet: [{ value: 'set', label: 'set' }, { value: 'not set', label: 'not set' }] }
 		},
 		template: `
 		<div class="vd">
@@ -139,21 +294,22 @@
 			<template v-else>
 				<article v-for="p in pages" :key="p.doctype" class="card pad vd-card">
 					<h3>{{ p.label }}</h3>
-					<div class="vd-r"><label>Opens as</label><div class="rolechips"><button type="button" class="rolechip" :class="{ on: cfg[p.doctype].default_view === 'list' }" @click="cfg[p.doctype].default_view = 'list'">List</button><button v-if="p.kanban" type="button" class="rolechip" :class="{ on: cfg[p.doctype].default_view === 'kanban' }" @click="cfg[p.doctype].default_view = 'kanban'">Kanban</button><span v-else class="muted small">CRM has no Kanban for this page</span></div></div>
-					<div class="vd-r"><label>List columns</label><div class="vd-col">
-						<div v-for="(f, i) in cfg[p.doctype].columns" :key="f" class="menurow"><span class="menu-n">{{ i + 1 }}</span><span class="menu-l">{{ label(p, f) }}</span><button type="button" class="menu-b" :disabled="!i" @click="move(cfg[p.doctype].columns, i, -1)">&uarr;</button><button type="button" class="menu-b" :disabled="i === cfg[p.doctype].columns.length - 1" @click="move(cfg[p.doctype].columns, i, 1)">&darr;</button><button type="button" class="menu-b" @click="drop(cfg[p.doctype].columns, f)">&times;</button></div>
-						<div class="row wrap" style="gap:8px"><select class="inp" @change="add(cfg[p.doctype].columns, $event.target.value); $event.target.value = ''"><option value="">Add a column...</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname" :disabled="cfg[p.doctype].columns.includes(f.fieldname)">{{ f.label }}</option></select><button type="button" class="menu-reset" @click="cfg[p.doctype].columns = p.current_columns.slice()">Start from CRM's columns</button><button v-if="cfg[p.doctype].columns.length" type="button" class="menu-reset" @click="cfg[p.doctype].columns = []">Use CRM's own</button></div></div></div>
-					<div class="vd-r"><label>Sort by</label><div class="row" style="gap:8px"><select class="inp" :value="(cfg[p.doctype].order_by || '').split(' ')[0]" @change="cfg[p.doctype].order_by = $event.target.value ? $event.target.value + ' ' + ((cfg[p.doctype].order_by || '').split(' ')[1] || 'desc') : ''"><option value="">CRM's own (last modified)</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname">{{ f.label }}</option></select><select class="inp sm" :value="(cfg[p.doctype].order_by || '').split(' ')[1] || 'desc'" :disabled="!cfg[p.doctype].order_by" @change="cfg[p.doctype].order_by = (cfg[p.doctype].order_by || '').split(' ')[0] + ' ' + $event.target.value"><option value="desc">Newest / biggest first</option><option value="asc">Oldest / smallest first</option></select></div></div>
+					<div class="vd-r"><label>Opens as</label><div class="rolechips"><button type="button" class="rolechip" :class="{ on: cfg[p.doctype].default_view === 'list' }" @click="cfg[p.doctype].default_view = 'list'">List</button><button v-if="p.kanban" type="button" class="rolechip" :class="{ on: cfg[p.doctype].default_view === 'kanban' }" @click="cfg[p.doctype].default_view = 'kanban'">Kanban</button></div></div>
+					<div class="vd-r"><label>List columns<span class="muted small"> drag to reorder</span></label><div class="vd-col">
+						<div v-for="(f, i) in cfg[p.doctype].columns" :key="f" class="menurow dnd" :class="{ dragging: drag.s.from === i && drag.s.ctx === cfg[p.doctype].columns, over: drag.s.over === i && drag.s.from !== i && drag.s.ctx === cfg[p.doctype].columns }" draggable="true" @dragstart="drag.start(cfg[p.doctype].columns, i, $event)" @dragenter.prevent="drag.enter(cfg[p.doctype].columns, i)" @dragover.prevent @drop.prevent="drag.drop(cfg[p.doctype].columns, i)" @dragend="drag.end()"><span class="grip" aria-hidden="true">&#8942;&#8942;</span><span class="menu-n">{{ i + 1 }}</span><span class="menu-l">{{ label(p, f) }}</span><button type="button" class="menu-b" :disabled="!i" :aria-label="'Move ' + label(p, f) + ' up'" @click="move(cfg[p.doctype].columns, i, -1)">&uarr;</button><button type="button" class="menu-b" :disabled="i === cfg[p.doctype].columns.length - 1" :aria-label="'Move ' + label(p, f) + ' down'" @click="move(cfg[p.doctype].columns, i, 1)">&darr;</button><button type="button" class="menu-b" :aria-label="'Remove ' + label(p, f)" @click="drop(cfg[p.doctype].columns, f)">&times;</button></div>
+						<div v-if="!cfg[p.doctype].columns.length" class="muted small">CRM's own columns</div>
+						<div class="row wrap" style="gap:8px"><Sel action placeholder="Add a column..." :options="fieldOpts(p, cfg[p.doctype].columns)" @update:model-value="(v) => add(cfg[p.doctype].columns, v)" /><button type="button" class="menu-reset" @click="cfg[p.doctype].columns = p.current_columns.slice()">Start from CRM's columns</button><button v-if="cfg[p.doctype].columns.length" type="button" class="menu-reset" @click="cfg[p.doctype].columns = []">Use CRM's own</button></div></div></div>
+					<div class="vd-r"><label>Sort by</label><div class="row wrap" style="gap:8px"><Sel :model-value="sortField(cfg[p.doctype])" :options="[{ value: '', label: 'CRM default (last modified)' }, ...fieldOpts(p)]" placeholder="CRM default (last modified)" @update:model-value="(v) => setSortField(cfg[p.doctype], v)" /><div class="rolechips"><button type="button" class="rolechip" :class="{ on: sortDir(cfg[p.doctype]) === 'desc' }" :disabled="!cfg[p.doctype].order_by" @click="setSortDir(cfg[p.doctype], 'desc')">Newest / biggest first</button><button type="button" class="rolechip" :class="{ on: sortDir(cfg[p.doctype]) === 'asc' }" :disabled="!cfg[p.doctype].order_by" @click="setSortDir(cfg[p.doctype], 'asc')">Oldest / smallest first</button></div></div></div>
 					<div class="vd-r"><label>Default filters</label><div class="vd-col">
-						<div v-for="(f, i) in cfg[p.doctype].filters" :key="i" class="countrow"><select class="inp" v-model="f[0]"><option value="">Field</option><option v-for="o in p.fields" :key="o.fieldname" :value="o.fieldname">{{ o.label }}</option></select><select class="inp sm" v-model="f[1]"><option v-for="o in OPS" :key="o[0]" :value="o[0]">{{ o[1] }}</option></select><select v-if="f[1] === 'is'" class="inp" v-model="f[2]"><option value="set">set</option><option value="not set">not set</option></select><input v-else class="inp" v-model="f[2]" placeholder="Value (comma-separated for any of)" /><button type="button" class="menu-b" @click="cfg[p.doctype].filters.splice(i, 1)">&times;</button></div>
+						<div v-for="(f, i) in cfg[p.doctype].filters" :key="i" class="countrow"><Sel v-model="f[0]" :options="fieldOpts(p)" placeholder="Field" /><Sel small v-model="f[1]" :options="opOpts" placeholder="is" /><Sel v-if="f[1] === 'is'" v-model="f[2]" :options="setNotSet" placeholder="set / not set" /><input v-else class="inp" v-model="f[2]" placeholder="Value (comma-separated for any of)" /><button type="button" class="menu-b" aria-label="Remove this filter" @click="cfg[p.doctype].filters.splice(i, 1)">&times;</button></div>
 						<button type="button" class="btn" @click="cfg[p.doctype].filters.push(['', '=', ''])">Add a filter</button></div></div>
-					<div class="vd-r"><label>Quick filters<span class="muted small"> (the boxes above the list)</span></label><div class="vd-col"><div class="rolechips"><span v-for="f in cfg[p.doctype].quick_filters" :key="f" class="rolechip on">{{ label(p, f) }}<button type="button" class="chip-x" @click="drop(cfg[p.doctype].quick_filters, f); cfg[p.doctype]._qf = true">&times;</button></span></div>
-						<select class="inp" @change="add(cfg[p.doctype].quick_filters, $event.target.value); cfg[p.doctype]._qf = true; $event.target.value = ''"><option value="">Add a quick filter...</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname" :disabled="cfg[p.doctype].quick_filters.includes(f.fieldname)">{{ f.label }}</option></select></div></div>
+					<div class="vd-r"><label>Quick filters<span class="muted small"> the boxes above the list</span></label><div class="vd-col"><div class="rolechips"><span v-for="f in cfg[p.doctype].quick_filters" :key="f" class="rolechip on">{{ label(p, f) }}<button type="button" class="chip-x" :aria-label="'Remove ' + label(p, f)" @click="drop(cfg[p.doctype].quick_filters, f)">&times;</button></span><span v-if="!cfg[p.doctype].quick_filters.length" class="muted small">CRM's own</span></div>
+						<Sel action placeholder="Add a quick filter..." :options="fieldOpts(p, cfg[p.doctype].quick_filters)" @update:model-value="(v) => { add(cfg[p.doctype].quick_filters, v); cfg[p.doctype]._qf = true }" /></div></div>
 					<template v-if="p.kanban"><h4>Kanban</h4>
-						<div class="vd-r"><label>Columns follow</label><select class="inp" v-model="cfg[p.doctype].kanban.column_field"><option :value="undefined">Status (CRM's own)</option><option v-for="f in groupable(p)" :key="f.fieldname" :value="f.fieldname">{{ f.label }}</option></select></div>
-						<div class="vd-r"><label>Card title</label><select class="inp" v-model="cfg[p.doctype].kanban.title_field"><option :value="undefined">Lead name (CRM's own)</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname">{{ f.label }}</option></select></div>
-						<div class="vd-r"><label>Card fields</label><div class="vd-col"><div class="rolechips"><span v-for="f in cfg[p.doctype].kanban.card_fields" :key="f" class="rolechip on">{{ label(p, f) }}<button type="button" class="chip-x" @click="drop(cfg[p.doctype].kanban.card_fields, f)">&times;</button></span><span v-if="!cfg[p.doctype].kanban.card_fields.length" class="muted small">CRM's own</span></div>
-							<select class="inp" @change="add(cfg[p.doctype].kanban.card_fields, $event.target.value); $event.target.value = ''"><option value="">Add a field to the cards...</option><option v-for="f in p.fields" :key="f.fieldname" :value="f.fieldname" :disabled="cfg[p.doctype].kanban.card_fields.includes(f.fieldname)">{{ f.label }}</option></select></div></div></template>
+						<div class="vd-r"><label>Columns follow</label><Sel v-model="cfg[p.doctype].kanban.column_field" :options="[{ value: '', label: 'Status (CRM default)' }, ...fieldOpts({ fields: groupable(p) })]" placeholder="Status (CRM default)" /></div>
+						<div class="vd-r"><label>Card title</label><Sel v-model="cfg[p.doctype].kanban.title_field" :options="[{ value: '', label: 'Lead name (CRM default)' }, ...fieldOpts(p)]" placeholder="Lead name (CRM default)" /></div>
+						<div class="vd-r"><label>Card fields</label><div class="vd-col"><div class="rolechips"><span v-for="f in cfg[p.doctype].kanban.card_fields" :key="f" class="rolechip on">{{ label(p, f) }}<button type="button" class="chip-x" :aria-label="'Remove ' + label(p, f)" @click="drop(cfg[p.doctype].kanban.card_fields, f)">&times;</button></span><span v-if="!cfg[p.doctype].kanban.card_fields.length" class="muted small">CRM's own</span></div>
+							<Sel action placeholder="Add a field to the cards..." :options="fieldOpts(p, cfg[p.doctype].kanban.card_fields)" @update:model-value="(v) => add(cfg[p.doctype].kanban.card_fields, v)" /></div></div></template>
 				</article>
 				<div class="card pad vd-save"><label class="check"><input type="checkbox" v-model="overwrite" /><span>Also replace the views people have changed themselves</span></label><button type="button" class="btn primary" :disabled="saving" @click="save">{{ saving ? 'Saving...' : 'Save and apply to everyone' }}</button><div v-if="msg" class="small" role="status">{{ msg }}</div></div>
 			</template>
@@ -162,7 +318,7 @@
 
 	// ------------------------------------------------------------------ the app
 	const App = {
-		components: { Ico, Info, Toggle, ViewDefaults },
+		components: { Ico, Info, Toggle, ViewDefaults, Branding, Sel },
 		setup() {
 			const loading = ref(true); const error = ref(''); const denied = ref(false)
 			const server = ref({}) // values as saved
@@ -177,8 +333,8 @@
 			const rolesOfDraft = (k) => String(draft[k] || '').split(',').map((r) => r.trim()).filter(Boolean)
 			const hasRole = (k, role) => rolesOfDraft(k).includes(role)
 			// the left menu: CRM's own entries and this app's, in the order saved (anything not saved yet goes at the end)
-			const MENU_ALL = [['notifications', 'Notifications'], ['dashboard', 'Dashboard'], ['leads', 'Leads'], ['deals', 'Deals'], ['contacts', 'Contacts'], ['organizations', 'Organizations'], ['notes', 'Notes'], ['tasks', 'Tasks'], ['call-logs', 'Call Logs'], ['sales-dashboard', 'Sales Dashboard'], ['followups', 'Follow-ups'], ['meetings', 'Meetings'], ['campaigns', 'Campaigns'], ['assignment', 'Assignment']]
-			const MENU_OURS = ['sales-dashboard', 'followups', 'meetings', 'campaigns', 'assignment']
+			const MENU_ALL = [['notifications', 'Notifications'], ['dashboard', 'Dashboard'], ['leads', 'Leads'], ['deals', 'Deals'], ['contacts', 'Contacts'], ['organizations', 'Organizations'], ['notes', 'Notes'], ['tasks', 'Tasks'], ['call-logs', 'Call Logs'], ['sales-dashboard', 'Sales Dashboard'], ['followups', 'Follow-ups'], ['meetings', 'Meetings'], ['campaigns', 'Campaigns'], ['assignment', 'Assignment'], ['demos', 'Bookings']]
+			const MENU_OURS = ['sales-dashboard', 'followups', 'meetings', 'campaigns', 'assignment', 'demos']
 			function menuItems(k) {
 				let saved = []; try { saved = JSON.parse(draft[k] || '[]') } catch (e) { saved = [] }
 				const known = saved.filter((x) => MENU_ALL.some((m) => m[0] === x.key))
@@ -189,14 +345,41 @@
 			function moveMenu(k, i, d) { const l = menuItems(k); const j = i + d; if (j < 0 || j >= l.length) return; ;[l[i], l[j]] = [l[j], l[i]]; setMenu(k, l) }
 			function toggleMenu(k, i) { const l = menuItems(k); l[i].hidden = l[i].hidden ? 0 : 1; setMenu(k, l) }
 			const resetMenu = (k) => { draft[k] = '' }
+			const menuDrag = makeDrag((k, f, t) => { const l = menuItems(k); arrayMove(l, f, t); setMenu(k, l) })
 			// "count leads by these fields" and "highlighted counts": JSON lists in the draft
+			// WhatsApp templates (with Meta's status) for the missed-call message
+			const waInfo = (name) => (choices.value.whatsapp_templates || []).find((t) => t.value === name)
+			const waStateText = (s) => ({ APPROVED: 'Approved by Meta', PENDING: 'Waiting for Meta', REJECTED: 'Rejected by Meta' }[s] || s.toLowerCase())
+			const waOptions = (current) => [{ value: '', label: 'No template (send the plain text)' }, ...(choices.value.whatsapp_templates || []).map((t) => ({ value: t.value, label: t.label, sub: t.state === 'APPROVED' ? t.category : waStateText(t.state), disabled: t.state !== 'APPROVED' && t.value !== current }))]
+			const meta = reactive({ busy: false, data: null })
+			async function loadMeta() { meta.busy = true; try { meta.data = await call('crm_addons.setup_page.get_meta_usage') } catch (e) { say(e.message, 'err') } finally { meta.busy = false } }
+			const creatingWa = ref(false)
+			async function createMissedTemplate(k) {
+				creatingWa.value = true
+				try {
+					const r = await call('crm_addons.setup_page.create_missed_call_template')
+					const g = await call('crm_addons.setup_page.get_setup'); choices.value = g.choices; status.value = g.status
+					draft[k] = r.name; say(r.message || 'Submitted to Meta.')
+				} catch (e) { say(e.message, 'err') } finally { creatingWa.value = false }
+			}
+			const selectOptions = (it) => [...(it.empty ? [{ value: '', label: it.empty }] : []), ...optionsOf(it)]
+			const leadFieldOptions = (taken) => (choices.value.lead_fields || []).map((o) => ({ value: o.value, label: o.label, sub: o.value, disabled: !!(taken && taken.includes(o.value)) }))
+			const COUNT_OPS = [{ value: '=', label: 'is' }, { value: '!=', label: 'is not' }, { value: 'like', label: 'contains' }]
 			const jlist = (k) => { try { const v = JSON.parse(draft[k] || '[]'); return Array.isArray(v) ? v : [] } catch (e) { return [] } }
 			const setJ = (k, v) => { draft[k] = v.length ? JSON.stringify(v) : '' }
 			const fieldLabel = (f) => ((choices.value.lead_fields || []).find((x) => x.value === f) || {}).label || f
 			const addField = (k, f) => { if (f && !jlist(k).includes(f)) setJ(k, [...jlist(k), f]) }
 			const dropField = (k, f) => setJ(k, jlist(k).filter((x) => x !== f))
 			const addCounter = (k) => setJ(k, [...jlist(k), { label: '', field: '', op: '=', value: '' }])
-			const setCounter = (k, i, key, val) => { const l = jlist(k); l[i] = { ...l[i], [key]: val }; setJ(k, l) }
+			// the values leads really have in a field, for the "highlighted counts" value list (asked once per field)
+			const fieldVals = reactive({}); const asked = new Set()
+			async function loadValues(f) { try { fieldVals[f] = (await call('crm_addons.setup_page.field_values', { fieldname: f })) || [] } catch (e) { fieldVals[f] = [] } }
+			function valueOpts(c) {
+				if (!c.field) return []
+				if (!asked.has(c.field)) { asked.add(c.field); loadValues(c.field) }
+				return (fieldVals[c.field] || []).map((v) => ({ value: v.value, label: v.value, sub: v.count + ' lead' + (v.count === 1 ? '' : 's') }))
+			}
+			const setCounter = (k, i, key, val) => { const l = jlist(k); l[i] = { ...l[i], [key]: val }; if (key === 'field') l[i].value = ''; setJ(k, l) }
 			const dropCounter = (k, i) => setJ(k, jlist(k).filter((_x, n) => n !== i))
 			function toggleRole(k, role) { const cur = rolesOfDraft(k); draft[k] = (cur.includes(role) ? cur.filter((r) => r !== role) : [...cur, role]).join(', ') }
 			function load(values) { server.value = values; Object.keys(draft).forEach((k) => delete draft[k]); Object.assign(draft, JSON.parse(JSON.stringify(values))) }
@@ -262,7 +445,7 @@
 
 			// ---- navigation and the checklist
 			function go(group, key) { q.value = ''; tab.value = group; nextTick(() => { const el = key && document.getElementById('f-' + key); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); try { el.focus({ preventScroll: true }) } catch (e) { /* fine */ } const row = el.closest('.row-i'); if (row) { row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 1800) } } }) }
-			function goToField(c) { const key = c.field || (c.key === 'google' ? 'google_calendar' : ''); if (key && itemMap[key]) go(itemMap[key].group, key) }
+			function goToField(c) { if (c.key === 'branding') { q.value = ''; tab.value = 'branding'; return } const key = c.field || (c.key === 'google' ? 'google_calendar' : ''); if (key && itemMap[key]) go(itemMap[key].group, key) }
 			async function recheck() { rechecking.value = true; try { const r = await call('crm_addons.setup_page.get_setup'); status.value = r.status; choices.value = r.choices } catch (e) { say(e.message, 'err') } finally { rechecking.value = false } }
 			async function testGoogle() {
 				test.busy = true; test.text = ''
@@ -271,15 +454,15 @@
 			async function copy(text) { try { await navigator.clipboard.writeText(text); say('Copied') } catch (e) { say('Select the text and copy it.', 'err') } }
 			const stateText = { ok: 'Ready', todo: 'Needs setup', optional: 'Optional' }
 			const urls = (c) => (c.steps || []).map((s) => { const m = /(https?:\/\/\S+)/.exec(s); return m ? m[1] : '' })
-			return { jlist, fieldLabel, addField, dropField, addCounter, setCounter, dropCounter, menuItems, moveMenu, toggleMenu, resetMenu, hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
+			return { embedded, meta, loadMeta, waInfo, waStateText, waOptions, creatingWa, createMissedTemplate, valueOpts, menuDrag, selectOptions, leadFieldOptions, COUNT_OPS, jlist, fieldLabel, addField, dropField, addCounter, setCounter, dropCounter, menuItems, moveMenu, toggleMenu, resetMenu, hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
 		},
 		template: `
 		<div class="shell">
 			<header class="top">
 				<div class="top-in">
-					<div class="grow"><h1>CRM Pro Pack setup</h1><p>Switch features on or off, set how they behave, and see what still needs connecting.</p></div>
+					<div class="grow"><h1>Frappe CRM Suite Pro setup</h1><p>Switch features on or off, set how they behave, and see what still needs connecting.</p></div>
 					<div class="search"><Ico name="search" :size="16" /><input v-model="q" type="search" placeholder="Find an option" aria-label="Find an option" /></div>
-					<a class="btn" href="/crm"><Ico name="home" :size="16" /> Back to CRM</a>
+					<a v-if="!embedded" class="btn" href="/crm"><Ico name="home" :size="16" /> Back to CRM</a>
 				</div>
 			</header>
 
@@ -312,7 +495,7 @@
 								<template v-if="c.state !== 'ok' && c.steps && c.steps.length"><b class="small">How to set it up</b><ol class="steps"><li v-for="(s, i) in c.steps" :key="i">{{ s }}</li></ol></template>
 								<div class="row wrap" style="gap:8px">
 									<a v-if="c.fix" class="btn primary" :href="c.fix.url" target="_blank" rel="noopener">{{ c.fix.label }} <Ico name="external" :size="14" /></a>
-									<button v-if="c.field || c.key === 'google'" class="btn" type="button" @click="goToField(c)">{{ c.key === 'google' ? 'Choose the calendar' : 'Go to the setting' }}</button>
+									<button v-if="c.field || c.key === 'google' || c.key === 'branding'" class="btn" type="button" @click="goToField(c)">{{ c.key === 'google' ? 'Choose the calendar' : c.key === 'branding' ? 'Open Branding' : 'Go to the setting' }}</button>
 									<button v-if="c.key === 'google'" class="btn" type="button" :disabled="test.busy" @click="testGoogle">{{ test.busy ? 'Testing...' : 'Test the connection' }}</button>
 								</div>
 								<div v-if="c.key === 'google' && test.text" class="note-box" :class="test.ok ? 'ok' : 'bad'">{{ test.text }}</div>
@@ -324,10 +507,10 @@
 					<section v-for="g in visible" :key="g.key" class="stack">
 						<div class="card pad">
 							<div class="row"><span class="g-i"><Ico :name="g.icon" :size="19" /></span><div class="grow"><h2>{{ g.title }}</h2><p class="muted">{{ g.desc }}</p></div></div>
-							<ViewDefaults v-if="g.custom === 'views'" />
+							<ViewDefaults v-if="g.custom === 'views'" /><Branding v-if="g.custom === 'branding'" />
 							<template v-for="(it, i) in g.shown" :key="(it.k || it.h) + i">
 								<h3 v-if="it.h" class="sub">{{ it.h }}</h3>
-								<div v-else class="row-i" :class="{ locked: !met(it), child: it.when, bad: problem(it) }">
+								<div v-else class="row-i" :class="{ locked: !met(it), child: it.when, bad: problem(it), wide: ['menu', 'fieldlist', 'counters', 'area', 'watemplate', 'metausage'].includes(it.t) }">
 									<div class="row-l">
 										<div class="lab"><label :for="'f-' + it.k">{{ it.label }}</label><Info :info="it.info" :label="it.label" /></div>
 										<div v-if="!met(it)" class="hint"><Ico name="lock" :size="12" /> {{ lockText(it) }}</div>
@@ -337,22 +520,39 @@
 										<Toggle v-if="it.t === 'switch'" :id="'f-' + it.k" v-model="draft[it.k]" :label="it.label" :disabled="!met(it)" />
 										<template v-else-if="it.t === 'num'"><input :id="'f-' + it.k" class="inp num" type="number" inputmode="numeric" :min="it.min" :max="it.max" step="1" v-model="draft[it.k]" :disabled="!met(it)" /><span class="unit">{{ it.unit }}</span></template>
 										<template v-else-if="it.t === 'money'"><input :id="'f-' + it.k" class="inp num" type="number" inputmode="decimal" min="0" step="any" :placeholder="it.placeholder" v-model="draft[it.k]" :disabled="!met(it)" /></template>
-										<select v-else-if="it.t === 'select'" :id="'f-' + it.k" class="inp" v-model="draft[it.k]" :disabled="!met(it)"><option v-if="it.empty" value="">{{ it.empty }}</option><option v-for="o in optionsOf(it)" :key="o.value" :value="o.value">{{ o.label }}</option></select>
+										<Sel v-else-if="it.t === 'select'" :id="'f-' + it.k" :model-value="draft[it.k]" :options="selectOptions(it)" :placeholder="it.empty || 'Select'" :disabled="!met(it)" :aria-label="it.label" @update:model-value="(v) => (draft[it.k] = v)" />
 										<div v-else-if="it.t === 'roles'" class="rolechips" role="group" :aria-label="it.label"><button v-for="o in optionsOf(it)" :key="o.value" type="button" class="rolechip" :class="{ on: hasRole(it.k, o.value) }" :aria-pressed="hasRole(it.k, o.value)" :disabled="!met(it)" @click="toggleRole(it.k, o.value)"><Ico v-if="hasRole(it.k, o.value)" name="check" :size="13" />{{ o.label }}</button></div>
 										<div v-else-if="it.t === 'menu'" class="menuedit">
-											<div v-for="(m, i) in menuItems(it.k)" :key="m.key" class="menurow" :class="{ off: m.hidden }"><span class="menu-n">{{ i + 1 }}</span><span class="menu-l">{{ m.label }}<em v-if="m.ours">Pro Pack</em></span>
+											<div v-for="(m, i) in menuItems(it.k)" :key="m.key" class="menurow dnd" :class="{ off: m.hidden, dragging: menuDrag.s.from === i && menuDrag.s.ctx === it.k, over: menuDrag.s.over === i && menuDrag.s.from !== i && menuDrag.s.ctx === it.k }" draggable="true" @dragstart="menuDrag.start(it.k, i, $event)" @dragenter.prevent="menuDrag.enter(it.k, i)" @dragover.prevent @drop.prevent="menuDrag.drop(it.k, i)" @dragend="menuDrag.end()"><span class="grip" aria-hidden="true">&#8942;&#8942;</span><span class="menu-n">{{ i + 1 }}</span><span class="menu-l">{{ m.label }}<em v-if="m.ours">Suite Pro</em></span>
 												<button type="button" class="menu-b" :disabled="i === 0" :aria-label="'Move ' + m.label + ' up'" @click="moveMenu(it.k, i, -1)">&uarr;</button><button type="button" class="menu-b" :disabled="i === menuItems(it.k).length - 1" :aria-label="'Move ' + m.label + ' down'" @click="moveMenu(it.k, i, 1)">&darr;</button>
 												<Toggle :model-value="!m.hidden" :label="'Show ' + m.label" @update:model-value="toggleMenu(it.k, i)" /></div>
 											<button type="button" class="menu-reset" @click="resetMenu(it.k)">Back to CRM's own order</button></div>
 										<div v-else-if="it.t === 'fieldlist'" class="fieldlist">
 											<div class="rolechips"><span v-for="f in jlist(it.k)" :key="f" class="rolechip on">{{ fieldLabel(f) }}<button type="button" class="chip-x" :aria-label="'Remove ' + fieldLabel(f)" @click="dropField(it.k, f)">&times;</button></span><span v-if="!jlist(it.k).length" class="muted small">Automatic</span></div>
-											<select class="inp" @change="addField(it.k, $event.target.value); $event.target.value = ''"><option value="">Add a field...</option><option v-for="o in (choices.lead_fields || [])" :key="o.value" :value="o.value" :disabled="jlist(it.k).includes(o.value)">{{ o.label }}</option></select></div>
+											<Sel action placeholder="Add a field..." :options="leadFieldOptions(jlist(it.k))" @update:model-value="(v) => addField(it.k, v)" /></div>
 										<div v-else-if="it.t === 'counters'" class="countedit">
 											<div v-for="(c, i) in jlist(it.k)" :key="i" class="countrow"><input class="inp" placeholder="Name, e.g. Schools" :value="c.label" @input="setCounter(it.k, i, 'label', $event.target.value)" />
-												<select class="inp" :value="c.field" @change="setCounter(it.k, i, 'field', $event.target.value)"><option value="">Field</option><option v-for="o in (choices.lead_fields || [])" :key="o.value" :value="o.value">{{ o.label }}</option></select>
-												<select class="inp sm" :value="c.op" @change="setCounter(it.k, i, 'op', $event.target.value)"><option value="=">is</option><option value="!=">is not</option><option value="like">contains</option></select>
-												<input class="inp" placeholder="Value, e.g. School" :value="c.value" @input="setCounter(it.k, i, 'value', $event.target.value)" /><button type="button" class="menu-b" aria-label="Remove" @click="dropCounter(it.k, i)">&times;</button></div>
+												<Sel :model-value="c.field" :options="leadFieldOptions()" placeholder="Field" @update:model-value="(v) => setCounter(it.k, i, 'field', v)" />
+												<Sel small :model-value="c.op || '='" :options="COUNT_OPS" placeholder="is" @update:model-value="(v) => setCounter(it.k, i, 'op', v)" />
+												<Sel v-if="c.op !== 'like' && valueOpts(c).length" searchable :model-value="c.value" :options="valueOpts(c)" placeholder="Pick a value" @update:model-value="(v) => setCounter(it.k, i, 'value', v)" /><input v-else class="inp" placeholder="Value, e.g. School" :value="c.value" @input="setCounter(it.k, i, 'value', $event.target.value)" /><button type="button" class="menu-b" aria-label="Remove" @click="dropCounter(it.k, i)">&times;</button></div>
 											<button type="button" class="btn" @click="addCounter(it.k)">Add a count</button></div>
+										<div v-else-if="it.t === 'metausage'" class="metabox">
+											<button type="button" class="btn" :disabled="meta.busy" @click="loadMeta">{{ meta.busy ? 'Asking Meta...' : meta.data ? 'Refresh' : 'Check with Meta' }}</button>
+											<template v-if="meta.data">
+												<div v-if="!meta.data.available" class="small err">{{ meta.data.reason }}</div>
+												<template v-else>
+													<dl class="metadl"><dt>Daily limit</dt><dd>{{ meta.data.limit_text || 'not available' }}</dd><dt>Quality rating</dt><dd>{{ meta.data.quality || 'not available' }}</dd>
+														<template v-if="meta.data.charges"><dt>Last {{ meta.data.charges.days }} days</dt><dd><span v-for="(v, k) in meta.data.charges.by_category" :key="k" class="metarow">{{ k.toLowerCase() }}: {{ v.messages }} messages, {{ v.cost.toFixed(2) }} {{ meta.data.charges.currency }}</span><span v-if="!Object.keys(meta.data.charges.by_category).length">nothing charged</span></dd></template>
+														<template v-else><dt>Charges</dt><dd>not available</dd></template></dl>
+													<div v-for="n in meta.data.notes" :key="n" class="small muted">{{ n }}</div>
+												</template>
+											</template></div>
+										<div v-else-if="it.t === 'watemplate'" class="watpl">
+											<Sel :id="'f-' + it.k" :model-value="draft[it.k]" :options="waOptions(draft[it.k])" placeholder="No template (send the plain text)" searchable :aria-label="it.label" @update:model-value="(v) => (draft[it.k] = v)" />
+											<div v-if="waInfo(draft[it.k])" class="wa-card"><div class="row" style="gap:8px"><span class="pill" :class="waInfo(draft[it.k]).state === 'APPROVED' ? 'ok' : waInfo(draft[it.k]).state === 'REJECTED' ? 'todo' : 'warn'">{{ waStateText(waInfo(draft[it.k]).state) }}</span><span class="small muted">{{ waInfo(draft[it.k]).category }}</span></div><div class="wa-body">{{ waInfo(draft[it.k]).body }}</div>
+												<div v-if="waInfo(draft[it.k]).state !== 'APPROVED'" class="small err">Not sent until Meta approves it. Check its status in Campaign Manager, WhatsApp templates (Sync from Meta).</div></div>
+											<div v-else-if="draft[it.k]" class="small err">This template no longer exists. Choose another.</div>
+											<div class="row wrap" style="gap:8px"><button type="button" class="btn" :disabled="creatingWa" @click="createMissedTemplate(it.k)">{{ creatingWa ? 'Sending to Meta...' : 'Create the ready-made template' }}</button><span class="small muted">Submits &ldquo;Hi (name), we just tried to call you...&rdquo; to Meta for review.</span></div></div>
 										<textarea v-else-if="it.t === 'area'" :id="'f-' + it.k" class="inp area" rows="3" v-model="draft[it.k]" :disabled="!met(it)"></textarea>
 										<input v-else :id="'f-' + it.k" class="inp" type="text" :placeholder="it.placeholder" v-model="draft[it.k]" :disabled="!met(it)" autocomplete="off" />
 									</div>
@@ -371,5 +571,5 @@
 		</div>`,
 	}
 	createApp(App).mount('#app')
-	document.title = 'Pro Pack Setup'
+	document.title = 'Suite Pro Setup'
 })()

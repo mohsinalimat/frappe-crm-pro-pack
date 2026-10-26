@@ -1,10 +1,10 @@
 from . import __version__ as app_version  # noqa: F401
 
 app_name = "crm_addons"
-app_title = "CRM Pro Pack"
+app_title = "Frappe CRM Suite Pro"
 app_publisher = "Siddharth Singh"
 app_description = (
-	"CRM Pro Pack for Frappe CRM: Google Meet and Google Calendar meetings, call follow-ups with "
+	"Frappe CRM Suite Pro for Frappe CRM: Google Meet and Google Calendar meetings, call follow-ups with "
 	"attempts and outcomes, lead scoring, stale-lead alerts, a role-aware Sales Dashboard with Excel "
 	"export, and reminders. Installs like any other Frappe app, with no changes to CRM's code."
 )
@@ -30,6 +30,9 @@ permission_query_conditions = {
 	"CRM Campaign": "crm_addons.campaigns.permissions.campaign_query_conditions",
 	"CRM Campaign Recipient": "crm_addons.campaigns.permissions.recipient_query_conditions",
 	"CRM Campaign Automation": "crm_addons.campaigns.permissions.automation_query_conditions",
+	# Demo booking: managers see all; a Sales User only the demos they take part in, and never the demo types
+	"CRM Demo Booking": "crm_addons.demos.permissions.booking_query_conditions",
+	"CRM Demo Type": "crm_addons.demos.permissions.demo_type_query_conditions",
 }
 has_permission = {
 	"CRM Meeting": "crm_addons.permissions.has_permission",
@@ -41,19 +44,27 @@ has_permission = {
 	"CRM Campaign": "crm_addons.campaigns.permissions.campaign_has_permission",
 	"CRM Campaign Recipient": "crm_addons.campaigns.permissions.recipient_has_permission",
 	"CRM Campaign Automation": "crm_addons.campaigns.permissions.automation_has_permission",
+	"CRM Demo Booking": "crm_addons.demos.permissions.booking_has_permission",
+	"CRM Demo Type": "crm_addons.demos.permissions.demo_type_has_permission",
 }
 
 # Campaign Manager: STOP replies opt a number out, and Meta's delivery/read callbacks (which the
 # frappe_whatsapp webhook writes onto the WhatsApp Message) update the campaign recipient in real time.
 # Replies (WhatsApp and email) run a campaign's lead-update rules; a new or re-statused Lead can start an automatic campaign.
 doc_events = {
+	# a person's contact number (their default number in CRM) is set by a System Manager, not by the person
+	"User": {"validate": "crm_addons.team_access.profile.guard_mobile_no"},
 	"WhatsApp Message": {
 		"after_insert": ["crm_addons.campaigns.optout.on_whatsapp_message", "crm_addons.campaigns.rules.on_whatsapp_message"],
 		"on_update": "crm_addons.campaigns.engine.on_whatsapp_message_update",
 	},
 	"Communication": {"after_insert": "crm_addons.campaigns.rules.on_communication"},
+	# a demo cancelled, moved or closed inside CRM is followed by its booking (and the visitor is told)
+	"CRM Meeting": {"on_update": "crm_addons.demos.booking.on_meeting_update"},
 	# A campaign email template and CRM's own Email Template (the one used when mailing a lead by hand) are kept in step.
-	"CRM Campaign Email Template": {"on_update": "crm_addons.campaigns.email_sync.push", "on_trash": "crm_addons.campaigns.email_sync.disable_twin"},
+	"CRM Campaign Email Template": {"on_update": "crm_addons.campaigns.email_sync.push", "on_trash": ["crm_addons.campaigns.protected.guard_delete", "crm_addons.campaigns.email_sync.disable_twin"]},
+	# the ready-made WhatsApp templates (bookings, login link) cannot be deleted outside the guided delete
+	"WhatsApp Templates": {"on_trash": "crm_addons.campaigns.protected.guard_delete"},
 	"Email Template": {"on_update": "crm_addons.campaigns.email_sync.pull"},
 	"CRM Lead": {
 		# the assignment rules first, so a campaign that starts on a new lead already sees its owner
@@ -63,7 +74,7 @@ doc_events = {
 }
 
 # CRM's page has no place for an app's script, so the tag is added to the response (see inject.py).
-after_request = ["crm_addons.inject.add_addon_script", "crm_addons.debuglog.after_request"]
+after_request = ["crm_addons.inject.add_addon_script", "crm_addons.debuglog.after_request", "crm_addons.demos.framing.add_frame_headers"]
 
 # TEMPORARY diagnostics (see docs/DEBUGGING.md): time every request to this app and watch for stalls.
 before_request = ["crm_addons.debuglog.before_request"]
@@ -75,6 +86,14 @@ website_redirects = [
 	{"source": "/campaigns", "target": "/assets/crm_addons/campaigns/index.html"},
 	{"source": "/assignment", "target": "/assets/crm_addons/campaigns/assignment.html"},
 	{"source": "/pro-pack-setup", "target": "/assets/crm_addons/setup/index.html"},
+	{"source": "/demos", "target": "/assets/crm_addons/demos/index.html"},
+	{"source": "/team-access", "target": "/assets/crm_addons/access/index.html"},
+]
+
+# Demo booking pages: one www page (www/book) serves both; the slug or the token arrives in frappe.form_dict.
+website_route_rules = [
+	{"from_route": "/book/manage/<token>", "to_route": "book"},
+	{"from_route": "/book/<slug>", "to_route": "book"},
 ]
 
 scheduler_events = {
@@ -86,7 +105,7 @@ scheduler_events = {
 			"crm_addons.campaigns.health.check",
 		],
 		# Campaign Manager: claims rate-limited batches and starts scheduled campaigns.
-		"* * * * *": ["crm_addons.campaigns.engine.dispatch"],
+		"* * * * *": ["crm_addons.campaigns.engine.dispatch", "crm_addons.demos.messaging.send_due"],
 	},
 	"hourly": ["crm_addons.utils.refresh_stale_next_meetings"],
 	"daily": ["crm_addons.stale.send_stale_alerts", "crm_addons.scoring.refresh_all"],

@@ -223,6 +223,9 @@ def get_overview(from_date=None, to_date=None):
 	from crm_addons.campaigns.api import _check_user
 
 	_check_user()
+	from crm_addons.team_access import access
+
+	access.require("campaign_reports", 1, _("You do not have access to the campaign reports."))
 	visible = frappe.get_list(
 		CAMPAIGN, fields=["name", "campaign_name", "status", "started_at", "modified", "creation"], limit_page_length=0, order_by="modified desc"
 	)

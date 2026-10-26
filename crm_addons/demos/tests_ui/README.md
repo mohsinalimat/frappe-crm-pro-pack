@@ -1,0 +1,1 @@
+UI regression for the public booking widget: see the header of book_ui.js. Run: BASE=http://127.0.0.1:8011 SLUG=<demo-slug> node book_ui.js (needs playwright; the demo type must allow origin http://localhost:4181).

@@ -33,7 +33,7 @@
 			const dateRange = CM.useRange('cm-list-range', 'any') // when the campaign was created
 			const view = ref(saved.view || 'list')
 			watch([view, () => q.sort], () => CM.store.set('cm-list-prefs', JSON.stringify({ view: view.value, sort: q.sort })))
-			const canManage = computed(() => !!(CM.shared.config && CM.shared.config.is_manager))
+			const canManage = computed(() => CM.can('campaign_create', 1))
 			const filtered = computed(() => !!(q.search || q.status || q.channel || dateRange.value.preset !== 'any'))
 			let seq = 0
 			let busy = 0 // requests still running: the automatic refresh waits for them instead of piling on

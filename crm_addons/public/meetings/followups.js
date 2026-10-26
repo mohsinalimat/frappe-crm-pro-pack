@@ -1,4 +1,4 @@
-/* CRM Pro Pack - Follow-ups workspace (Vue 3, no build step).
+/* Frappe CRM Suite Pro - Follow-ups workspace (Vue 3, no build step).
  * A full-screen page, built like the Sales Dashboard. Managers see everyone's follow-ups (and can
  * narrow to one person); a sales user only ever gets their own. The form for logging a follow-up is
  * the same one the Lead page uses (index.html?mode=followup), shown in a panel on top of this page.
@@ -154,7 +154,7 @@
 	// ------------------------------------------------------------------ dropdown with a floating list
 	const Pick = {
 		components: { Ico },
-		props: { modelValue: String, options: Array, placeholder: { type: String, default: 'Select' }, icon: String },
+		props: { modelValue: String, options: Array, placeholder: { type: String, default: 'Select' }, icon: String, searchable: { type: Boolean, default: undefined } },
 		emits: ['update:modelValue'],
 		setup(props, { emit }) {
 			const open = ref(false)
@@ -162,6 +162,11 @@
 			const pop = ref(null)
 			const hi = ref(-1)
 			const style = ref({})
+			// a long list (people) gets a search box: the list narrows as you type
+			const q = ref('')
+			const canSearch = computed(() => (props.searchable === undefined ? props.options.length > 7 : props.searchable))
+			const list = computed(() => { const t = q.value.trim().toLowerCase(); return t ? props.options.filter((o) => String(o.label).toLowerCase().includes(t)) : props.options })
+			watch(q, () => { hi.value = 0 })
 			const selected = computed(() => props.options.find((o) => o.value === props.modelValue))
 			function show() {
 				const r = btn.value.getBoundingClientRect()
@@ -170,21 +175,23 @@
 				const up = below < wanted && r.top - 12 > below
 				const room = Math.max(140, Math.min(340, up ? r.top - 12 : below))
 				style.value = { left: Math.max(8, Math.min(r.left, window.innerWidth - 248)) + 'px', minWidth: Math.max(r.width, 200) + 'px', maxHeight: room + 'px', ...(up ? { bottom: window.innerHeight - r.top + 6 + 'px' } : { top: r.bottom + 6 + 'px' }) }
+				q.value = ''
 				hi.value = Math.max(0, props.options.findIndex((o) => o.value === props.modelValue))
 				open.value = true
+				if (canSearch.value) nextTick(() => { const i = pop.value && pop.value.querySelector('.pick-search input'); if (i) i.focus() })
 			}
 			const choose = (o) => { emit('update:modelValue', o.value); open.value = false }
 			const onDoc = (e) => { if (open.value && !(pop.value && pop.value.contains(e.target)) && !btn.value.contains(e.target)) open.value = false }
 			function onKey(e) {
 				if (!open.value) { if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); show() } return }
 				if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); open.value = false }
-				else if (e.key === 'ArrowDown') { e.preventDefault(); hi.value = Math.min(hi.value + 1, props.options.length - 1) }
+				else if (e.key === 'ArrowDown') { e.preventDefault(); hi.value = Math.min(hi.value + 1, list.value.length - 1) }
 				else if (e.key === 'ArrowUp') { e.preventDefault(); hi.value = Math.max(hi.value - 1, 0) }
-				else if (e.key === 'Enter') { e.preventDefault(); if (props.options[hi.value]) choose(props.options[hi.value]) }
+				else if (e.key === 'Enter') { e.preventDefault(); if (list.value[hi.value]) choose(list.value[hi.value]) }
 			}
 			onMounted(() => document.addEventListener('mousedown', onDoc))
 			onBeforeUnmount(() => document.removeEventListener('mousedown', onDoc))
-			return { open, btn, pop, hi, style, selected, show, choose, onKey }
+			return { open, btn, pop, hi, style, selected, show, choose, onKey, q, canSearch, list }
 		},
 		template: `
 <div class="pick">
@@ -193,8 +200,10 @@
 		<span class="pick-label" :class="{ ph: !selected }">{{ selected ? selected.label : placeholder }}</span>
 		<svg class="ico chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
 	</button>
-	<div class="pick-pop" ref="pop" v-if="open" :style="style" role="listbox">
-		<button v-for="(o, i) in options" :key="o.value" type="button" class="pick-opt" :class="{ on: o.value === modelValue, hi: i === hi }" role="option" :aria-selected="o.value === modelValue" @mousedown.prevent="choose(o)" @mouseenter="hi = i">
+	<div class="pick-pop" ref="pop" v-if="open" :style="style" role="listbox" @keydown="onKey">
+		<div v-if="canSearch" class="pick-search"><input v-model="q" placeholder="Search" aria-label="Search options" autocomplete="off" @keydown.stop="onKey" /></div>
+		<div v-if="!list.length" class="pick-none">No match</div>
+		<button v-for="(o, i) in list" :key="o.value" type="button" class="pick-opt" :class="{ on: o.value === modelValue, hi: i === hi }" role="option" :aria-selected="o.value === modelValue" @mousedown.prevent="choose(o)" @mouseenter="hi = i">
 			<span class="pick-label">{{ o.label }}</span>
 			<svg v-if="o.value === modelValue" class="ico tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
 		</button>
@@ -418,7 +427,8 @@
 			const isManager = computed(() => !!(data.value && data.value.scope.is_manager))
 			const scopeModel = computed({ get: () => scope.value || (data.value ? data.value.scope.value : 'all'), set: (v) => { scope.value = v } })
 			const everyone = computed(() => isManager.value && scopeModel.value === 'all')
-			const scopeOptions = [{ value: 'all', label: 'Everyone' }, { value: 'mine', label: 'My follow-ups' }]
+			const everyoneLabel = computed(() => (data.value && data.value.scope && data.value.scope.label) || 'Everyone')
+			const scopeOptions = computed(() => [{ value: 'all', label: everyoneLabel.value }, { value: 'mine', label: 'My follow-ups' }])
 			const ownerOptions = computed(() => {
 				const list = data.value ? data.value.owners.map((o) => ({ value: o.name, label: `${o.full_name} · ${o.open}` })) : []
 				if (owner.value && !list.some((o) => o.value === owner.value)) list.push({ value: owner.value, label: knownOwners[owner.value] || owner.value })
@@ -587,7 +597,7 @@
 
 			return {
 				EMBED, TABS, data, items, loading, more, fatal, toasts, form, frame, busy, selected, tab, scope, scopeModel, owner, outcome, search, view, range, updatedAt, searchBox,
-				isManager, everyone, scopeOptions, ownerOptions, outcomeOptions, subtitle, filtered, clearFilters, cards, pickCard, rate, due, statusColor, outcomeTone,
+				isManager, everyone, everyoneLabel, scopeOptions, ownerOptions, outcomeOptions, subtitle, filtered, clearFilters, cards, pickCard, rate, due, statusColor, outcomeTone,
 				rows, dayCount, canSelect, selectedNames, allSelected, toggleAll, toggle, markDone, reschedule, bulk, logFor, closeForm, openLead, closeSelf, openFull, emptyText,
 				hasMore, load, loadMore, num, plural,
 			}

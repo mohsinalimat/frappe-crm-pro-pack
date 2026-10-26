@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="{{ lang | e }}" data-theme="{{ theme | e }}" style="--ac: {{ accent | e }}">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<meta name="robots" content="{{ robots | e }}">
+	<meta name="referrer" content="strict-origin-when-cross-origin">
+	<meta name="color-scheme" content="light dark">
+	<title>{{ title | e }}</title>
+	<link rel="stylesheet" href="/assets/crm_addons/book/book.css?v={{ version | e }}">
+	<script>
+		// First paint: pick the theme before anything renders, so there is no flash (the widget refines it later).
+		(function () {
+			var d = document.documentElement, q = new URLSearchParams(location.search), t = (q.get('theme') || d.getAttribute('data-theme') || 'auto').toLowerCase()
+			if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+			d.setAttribute('data-theme', t)
+			if (q.get('embed') === '1') d.className += ' bk-embed'
+		})()
+	</script>
+</head>
+<body>
+	<div id="app"></div>
+	<noscript><p style="font:15px system-ui;padding:24px">This page needs JavaScript to show the available times.</p></noscript>
+	<script>window.CRM_BOOK = {{ {"mode": mode, "value": value, "version": version, "theme": theme, "accent": accent, "brand": brand, "csrf": csrf} | tojson }};</script>
+	<script src="/assets/crm_addons/meetings/vendor/vue.global.prod.js?v={{ version | e }}"></script>
+	<script src="/assets/crm_addons/book/book.js?v={{ version | e }}"></script>
+</body>
+</html>

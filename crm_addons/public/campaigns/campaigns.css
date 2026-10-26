@@ -1,4 +1,4 @@
-/* CRM Pro Pack - Campaign Manager. Design system (tokens, shell, components).
+/* Frappe CRM Suite Pro - Campaign Manager. Design system (tokens, shell, components).
  * Light / dark follow CRM's own theme through html[data-theme]; there is no toggle on this page. */
 :root {
 	--bg: #eff1f6; --surface: #ffffff; --bg-soft: #f6f7fb; --bg-hover: #eceef6; --input: #eef0f6; --input-hover: #e4e7f1;
@@ -300,12 +300,23 @@ html.embed .te-bar { padding-right: 96px; }
 .app.solo { display: block; } .app.solo .main { height: 100%; }
 .solo-back { position: fixed; top: 14px; right: 18px; z-index: 5; }
 
-/* a Pro Pack page shown inside the CRM: no pop-up controls */
+/* a Suite Pro page shown inside the CRM: no pop-up controls */
 html.inline .embed-ctl button[aria-label="Close"] { display: none; } html.inline .embed-ctl { padding: 2px; } html.inline .pg-head, html.inline .te-bar, html.inline .wz-top-in > .row:first-child { padding-right: 52px; }
 
-/* Pro Pack pages shown inside the CRM share one header: a 56px bar, title and a short line beneath, actions on the right */
+/* Suite Pro pages shown inside the CRM share one header: a 56px bar, title and a short line beneath, actions on the right */
 html.inline .pg-head { position: sticky; top: 0; z-index: 6; align-items: center; min-height: 56px; margin: -28px -32px 6px; padding: 8px 52px 8px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
 html.inline .pg-head h1 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.25; letter-spacing: -0.01em; }
 html.inline .pg-head p { margin: 1px 0 0; max-width: 70ch; font-size: 12.5px; line-height: 1.3; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.inline .pg-head .grow { min-width: 0; }
 @media (max-width: 900px) { html.inline .pg-head { margin: -18px -16px 6px; padding-left: 16px; } }
+
+/* template purpose tags: Default and Utility are service messages, so they are coloured; Marketing stays quiet */
+.ptag { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: var(--r-tag); font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+.ptag.system { background: var(--accent-soft); color: var(--accent-text); }
+.card.p-system { box-shadow: inset 3px 0 0 var(--accent); }
+.tbl tr.p-system td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+.pf-mail { margin-left: 8px; }
+
+.mre-dd { width: 128px; } .mre-dd.sm { width: 72px; } .mre-dd .dd-btn { height: 28px; }

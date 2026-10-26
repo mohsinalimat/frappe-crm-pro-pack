@@ -43,6 +43,29 @@ COMPUTED = {
 }
 
 
+# Filled in by the demo-booking messages (crm_addons/demos/messaging.py). In a normal campaign they are empty, so a template can be
+# written once and used in both places. Listed as "computed" so the template editor offers them with the others.
+DEMO_VARIABLES = {
+	"booking_title": "Booking: name of the booking page",
+	"booking_date": "Booking: date, in the visitor's time zone",
+	"booking_time": "Booking: start time, in the visitor's time zone",
+	"booking_datetime": "Booking: date and time with the time zone name",
+	"booking_duration": "Booking: length (for example 30 minutes)",
+	"meet_link": "Booking: meeting link",
+	"host_name": "Booking: the first host's name",
+	"host_names": "Booking: all hosts' names",
+	"booking_link": "Booking: link to manage the booking",
+	"reschedule_link": "Booking: link to reschedule",
+	"cancel_link": "Booking: link to cancel",
+	# the first names of these (templates written before the rename keep working)
+	"demo_title": "Booking title (old name of booking_title)",
+	"demo_date": "Booking date (old name)",
+	"demo_time": "Booking time (old name)",
+	"demo_datetime": "Booking date and time (old name)",
+	"demo_duration": "Booking length (old name)",
+}
+
+
 def lead_fields():
 	"""Real fields of the CRM Lead on this site: [{fieldname, label, fieldtype, options}]."""
 	meta = frappe.get_meta(LEAD)
@@ -57,6 +80,7 @@ def lead_fields():
 def available_variables():
 	out = [{"name": f["fieldname"], "label": f["label"], "kind": "field"} for f in lead_fields()]
 	out += [{"name": k, "label": v, "kind": "computed"} for k, v in COMPUTED.items()]
+	out += [{"name": k, "label": v, "kind": "computed"} for k, v in DEMO_VARIABLES.items() if k not in COMPUTED]
 	return out
 
 
@@ -83,6 +107,8 @@ def build_context(lead, campaign):
 	context["sender_name"] = _full_name(campaign.get("campaign_owner") or campaign.get("owner"))
 	context["today"] = frappe.utils.formatdate(nowdate())
 	context["lead_url"] = get_url_to_form(LEAD, row.get("name")) if row.get("name") else ""
+	for key in DEMO_VARIABLES:
+		context.setdefault(key, "")
 	return context
 
 
@@ -102,6 +128,12 @@ def sample_context(campaign_owner=None):
 	context["lead_url"] = frappe.utils.get_url() + "/crm/leads/CRM-LEAD-0001"
 	context["owner_name"] = context["owner_name"] or "Siddharth Singh"
 	context["sender_name"] = context["sender_name"] or "Siddharth Singh"
+	base = frappe.utils.get_url()
+	context.update(
+		demo_title="Intro session", demo_date="Tuesday, 3 November 2026", demo_time="4:30 PM IST", demo_datetime="Tue, 3 Nov 2026, 4:30 PM IST",
+		demo_duration="30 minutes", booking_title="Intro session", booking_date="Tuesday, 3 November 2026", booking_time="4:30 PM IST", booking_datetime="Tue, 3 Nov 2026, 4:30 PM IST", booking_duration="30 minutes", meet_link="https://meet.google.com/abc-defg-hij", host_name=context["owner_name"], host_names=context["owner_name"],
+		booking_link=f"{base}/book/manage/sample", reschedule_link=f"{base}/book/manage/sample?action=reschedule", cancel_link=f"{base}/book/manage/sample?action=cancel",
+	)
 	return context
 
 

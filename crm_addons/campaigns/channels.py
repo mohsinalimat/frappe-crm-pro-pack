@@ -62,6 +62,85 @@ def classify(error):
 	return any(token in text for token in _SAFE_TO_RETRY)
 
 
+def queue_email(to, subject, html, mailed, ref_doctype, ref_name, sender_email, attachments=None, unsubscribe=True):
+	"""One email through Frappe's mail queue, with a Communication on the record. Used by the campaigns and, with
+	``unsubscribe=False``, by the transactional demo-booking messages. ``html`` is what the record keeps, ``mailed`` what is sent.
+	Returns ``(communication, queue)``; ``queue`` is empty when Frappe dropped the address."""
+	comm = frappe.get_doc(
+		{
+			"doctype": "Communication",
+			"communication_type": "Communication",
+			"communication_medium": "Email",
+			"sent_or_received": "Sent",
+			"subject": subject,
+			"content": html,
+			"recipients": to,
+			"sender": sender_email or frappe.db.get_value("Email Account", {"default_outgoing": 1}, "email_id"),
+			"reference_doctype": ref_doctype,
+			"reference_name": ref_name,
+		}
+	).insert(ignore_permissions=True)
+	extra = (
+		{"unsubscribe_method": optout.UNSUBSCRIBE_METHOD, "unsubscribe_message": _("Unsubscribe"), "add_unsubscribe_link": 1}
+		if unsubscribe
+		else {}
+	)
+	try:
+		queue = frappe.sendmail(
+			recipients=[to],
+			subject=subject,
+			message=mailed,
+			reference_doctype=ref_doctype,
+			reference_name=ref_name,
+			communication=comm.name,
+			attachments=attachments or None,
+			reply_to=sender_email,
+			email_read_tracker_url="/api/method/frappe.core.doctype.communication.email.mark_email_as_seen",
+			delayed=True,
+			**extra,
+		)
+	except frappe.OutgoingEmailError as exc:
+		# a setup problem, not a bad address: say so plainly instead of logging an "unexpected" error per lead
+		raise ChannelError(cstr(email_account_problem() or exc)) from exc
+	return comm, queue
+
+
+def send_whatsapp_template(template, account, to, params, ref_doctype, ref_name, marker, attach=None):
+	"""One WhatsApp template message through frappe_whatsapp. Returns the saved WhatsApp Message (with Meta's message id).
+	``marker`` goes into ``bulk_message_reference`` so a delivery callback can find the sender again."""
+	doc = frappe.new_doc("WhatsApp Message")
+	doc.update(
+		{
+			"type": "Outgoing",
+			"to": to,
+			"message_type": "Template",
+			"use_template": 1,
+			"template": template,
+			"message": "Template message",
+			"content_type": "text",
+			"reference_doctype": ref_doctype,
+			"reference_name": ref_name,
+			"whatsapp_account": account,
+			"bulk_message_reference": marker,
+			"status": "Queued",
+			"body_param": json.dumps(params) if params else None,
+		}
+	)
+	if attach:
+		doc.attach = attach
+	try:
+		# frappe_whatsapp sends to Meta in before_insert and sets no timeout, so one unresponsive request would
+		# hold this worker until its job limit. Give the call a time limit; a timeout is reported, not retried
+		# (Meta may have accepted the message), see ``classify``.
+		with guard.http_timeout(connect=10, read=30):
+			doc.insert(ignore_permissions=True)
+	except Exception as exc:
+		raise ChannelError(cstr(exc), retryable=classify(exc)) from exc
+	if not doc.message_id:
+		raise ChannelError(_("Meta did not return a message id."))
+	return doc
+
+
 class Sender:
 	channel = ""
 
@@ -150,39 +229,10 @@ class EmailSender(Sender):
 		attachments = [{"fid": f.name} for f in files]
 		# the copy kept on the lead keeps the real links; the copy that is mailed carries tracked ones
 		mailed = tracking.rewrite_links(html, recipient.name) if tracking.enabled_for(campaign) else html
-		comm = frappe.get_doc(
-			{
-				"doctype": "Communication",
-				"communication_type": "Communication",
-				"communication_medium": "Email",
-				"sent_or_received": "Sent",
-				"subject": subject,
-				"content": html,
-				"recipients": recipient.email,
-				"sender": owner_email or frappe.db.get_value("Email Account", {"default_outgoing": 1}, "email_id"),
-				"reference_doctype": recipient.recipient_type,
-				"reference_name": recipient.recipient_id,
-			}
-		).insert(ignore_permissions=True)
-		try:
-			queue = frappe.sendmail(
-				recipients=[recipient.email],
-				subject=subject,
-				message=mailed,
-				reference_doctype=recipient.recipient_type,
-				reference_name=recipient.recipient_id,
-				communication=comm.name,
-				attachments=attachments or None,
-				reply_to=owner_email,
-				unsubscribe_method=optout.UNSUBSCRIBE_METHOD,
-				unsubscribe_message=_("Unsubscribe"),
-				add_unsubscribe_link=1,
-				email_read_tracker_url="/api/method/frappe.core.doctype.communication.email.mark_email_as_seen",
-				delayed=True,
-			)
-		except frappe.OutgoingEmailError as exc:
-			# a setup problem, not a bad address: say so plainly instead of logging an "unexpected" error per lead
-			raise ChannelError(cstr(email_account_problem() or exc)) from exc
+		comm, queue = queue_email(
+			recipient.email, subject, html, mailed, recipient.recipient_type, recipient.recipient_id, owner_email,
+			attachments=attachments, unsubscribe=True,
+		)
 		if not queue:
 			# Frappe dropped every recipient, which is what it does for someone who unsubscribed in Frappe.
 			raise Skip(_("Frappe's mail system has this address unsubscribed"))
@@ -298,36 +348,10 @@ class WhatsAppSender(Sender):
 		params, missing = personalization.render_whatsapp_params(step, personalization.build_context(lead, campaign))
 		if missing:
 			raise Skip(_("Template variable(s) {0} are empty for this lead").format(", ".join(missing)))
-		doc = frappe.new_doc("WhatsApp Message")
-		doc.update(
-			{
-				"type": "Outgoing",
-				"to": recipient.whatsapp_number,
-				"message_type": "Template",
-				"use_template": 1,
-				"template": tpl.name,
-				"message": "Template message",
-				"content_type": "text",
-				"reference_doctype": recipient.recipient_type,
-				"reference_name": recipient.recipient_id,
-				"whatsapp_account": account,
-				"bulk_message_reference": WA_MARKER + recipient.name,
-				"status": "Queued",
-				"body_param": json.dumps(params) if params else None,
-			}
+		doc = send_whatsapp_template(
+			tpl.name, account, recipient.whatsapp_number, params, recipient.recipient_type, recipient.recipient_id,
+			WA_MARKER + recipient.name, attach=step.get("wa_attach"),
 		)
-		if step.get("wa_attach"):
-			doc.attach = step.wa_attach
-		try:
-			# frappe_whatsapp sends to Meta in before_insert and sets no timeout, so one unresponsive request would
-			# hold this worker until its job limit. Give the call a time limit; a timeout is reported, not retried
-			# (Meta may have accepted the message), see ``classify``.
-			with guard.http_timeout(connect=10, read=30):
-				doc.insert(ignore_permissions=True)
-		except Exception as exc:
-			raise ChannelError(cstr(exc), retryable=classify(exc)) from exc
-		if not doc.message_id:
-			raise ChannelError(_("Meta did not return a message id."))
 		return {
 			"provider_message_id": doc.message_id,
 			"linked_doctype": "WhatsApp Message",

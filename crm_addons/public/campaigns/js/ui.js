@@ -11,6 +11,59 @@
 		computed: { path() { return CM.ICONS[this.name] || '' } },
 		template: `<svg class="ico" :class="size" viewBox="0 0 24 24" aria-hidden="true" v-html="path"></svg>`,
 	}
+	/** The app's own templates (bookings, login links, password reset ...): editable, but protected from deletion. */
+	C.PurposeTag = {
+		props: { purpose: String, title: String },
+		template: `<span class="ptag system" :title="title || 'A system template: the app\\'s own messages (bookings, logins) use it. You can edit it; only a System Manager can delete it.'"><Ico name="shield" size="sm" />System</span>`,
+	}
+	/** Cards or list, remembered per browser under ``store``. */
+	C.LayoutSwitch = {
+		props: { modelValue: String },
+		emits: ['update:modelValue'],
+		template: `<div class="seg" role="group" aria-label="Layout"><button type="button" :class="{ on: modelValue !== 'list' }" :aria-pressed="modelValue !== 'list'" title="Cards" aria-label="Cards" @click="$emit('update:modelValue', 'cards')"><Ico name="grid" /></button><button type="button" :class="{ on: modelValue === 'list' }" :aria-pressed="modelValue === 'list'" title="List" aria-label="List" @click="$emit('update:modelValue', 'list')"><Ico name="list" /></button></div>`,
+	}
+	CM.useLayout = (key, fallback = 'cards') => {
+		const v = ref((() => { try { const x = localStorage.getItem(key); return x === 'list' || x === 'cards' ? x : fallback } catch (e) { return fallback } })())
+		watch(v, (x) => { try { localStorage.setItem(key, x) } catch (e) { /* not saved */ } })
+		return v
+	}
+	/** Delete dialog for a ready-made (protected) template: what it is for, what uses it, and which template takes its place. */
+	C.ProtectedDelete = {
+		props: { kind: String, template: Object },
+		emits: ['close', 'deleted'],
+		setup(props, { emit }) {
+			const info = ref(null); const error = ref(''); const busy = ref(false); const replacement = ref('')
+			onMounted(async () => { try { info.value = await CM.api('template_delete_info', { kind: props.kind, name: props.template.name }) } catch (e) { error.value = e.message } })
+			const options = computed(() => ((info.value && info.value.replacements) || []).map((r) => ({ value: r.name, label: r.template_name, sub: r.category })))
+			async function remove() {
+				busy.value = true; error.value = ''
+				try {
+					await CM.api(props.kind === 'email' ? 'delete_email_template' : 'delete_whatsapp_template', { name: props.template.name, replacement: replacement.value || null })
+					CM.toast('Template deleted'); emit('deleted')
+				} catch (e) { error.value = e.message } finally { busy.value = false }
+			}
+			return { info, error, busy, replacement, options, remove }
+		},
+		template: `
+		<Modal size="md" :title="'Delete ' + template.template_name + '?'" @close="$emit('close')">
+			<div class="col" style="gap:12px">
+				<Skel v-if="!info && !error" h="120" r="10" />
+				<div v-if="error" class="alert err"><Ico name="alert" /><div class="grow">{{ error }}</div></div>
+				<template v-if="info">
+					<div class="alert warn"><Ico name="shield" /><div class="grow"><b>This is a ready-made template.</b> The app's own messages (booking confirmations, reminders, login links) depend on it. Deleting it stops those messages unless another template takes its place.</div></div>
+					<div v-if="!info.can_delete" class="alert err"><Ico name="alert" /><div class="grow">Only a System Manager can delete it. Ask one to do it, or edit this template instead.</div></div>
+					<template v-else>
+						<div v-if="info.in_use" class="col" style="gap:8px">
+							<div class="small">It is used by <template v-if="info.usage.bookings.length"><b>{{ info.usage.bookings.length }} booking widget{{ info.usage.bookings.length === 1 ? '' : 's' }}</b> ({{ info.usage.bookings.slice(0, 4).join(', ') }}<template v-if="info.usage.bookings.length > 4"> and more</template>)</template><template v-if="info.usage.bookings.length && info.usage.campaigns.length"> and </template><template v-if="info.usage.campaigns.length"><b>{{ info.usage.campaigns.length }} campaign{{ info.usage.campaigns.length === 1 ? '' : 's' }}</b></template>.</div>
+							<Field label="Use this template instead" required hint="Everything that used the deleted template is switched to this one."><Dd v-model="replacement" :options="options" searchable placeholder="Choose a template" aria-label="Replacement template" /></Field>
+						</div>
+						<p v-else class="small muted" style="margin:0">Nothing uses it right now.</p>
+					</template>
+				</template>
+			</div>
+			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="danger" icon="trash" :loading="busy" :disabled="!info || !info.can_delete || (info.in_use && !replacement)" @click="remove">Delete template</Btn></template>
+		</Modal>`,
+	}
 	C.Btn = {
 		props: { variant: String, size: String, icon: String, loading: Boolean, disabled: Boolean, type: { type: String, default: 'button' } },
 		template: `<button class="btn" :class="[variant, size]" :type="type" :disabled="disabled || loading"><span v-if="loading" class="spin"></span><Ico v-else-if="icon" :name="icon" /><slot /></button>`,

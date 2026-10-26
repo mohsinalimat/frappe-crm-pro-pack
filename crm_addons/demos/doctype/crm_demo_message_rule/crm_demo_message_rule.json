@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "creation": "2026-10-26 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "event",
+  "minutes_before",
+  "send_email",
+  "email_template",
+  "send_whatsapp",
+  "wa_template",
+  "wa_account",
+  "wa_variables"
+ ],
+ "fields": [
+  {
+   "fieldname": "event",
+   "fieldtype": "Select",
+   "label": "Event",
+   "options": "Confirmed\nRescheduled\nCancelled\nReminder",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "minutes_before",
+   "fieldtype": "Int",
+   "label": "Minutes before",
+   "in_list_view": 1,
+   "description": "Reminders only. 0 = at the start time."
+  },
+  {
+   "fieldname": "send_email",
+   "fieldtype": "Check",
+   "label": "Email",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "email_template",
+   "fieldtype": "Link",
+   "label": "Email template",
+   "options": "CRM Campaign Email Template"
+  },
+  {
+   "fieldname": "send_whatsapp",
+   "fieldtype": "Check",
+   "label": "WhatsApp",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "wa_template",
+   "fieldtype": "Data",
+   "label": "WhatsApp template"
+  },
+  {
+   "fieldname": "wa_account",
+   "fieldtype": "Data",
+   "label": "WhatsApp account"
+  },
+  {
+   "fieldname": "wa_variables",
+   "fieldtype": "Small Text",
+   "label": "WhatsApp variables",
+   "description": "JSON such as {\"1\": \"{{ first_name }}\", \"2\": \"{{ demo_time }}\"}"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-26 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Demos",
+ "name": "CRM Demo Message Rule",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

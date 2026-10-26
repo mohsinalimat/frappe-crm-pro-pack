@@ -1,4 +1,4 @@
-/* CRM Pro Pack - Campaign Manager: screen styles (list, templates, editors, audience, wizard, reports). */
+/* Frappe CRM Suite Pro - Campaign Manager: screen styles (list, templates, editors, audience, wizard, reports). */
 .tool { gap: 10px; } .grid { display: grid; gap: 18px; } .grid.two-one { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 960px) { .grid.two-one, .grid.two { grid-template-columns: minmax(0, 1fr); } }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-soft); } .legend i, .key i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 3px; }
@@ -384,3 +384,8 @@ html.embed .ae-bar { padding-right: 76px; }
 .asg-panel-b { padding: 18px; } .asg-panel-f { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); background: var(--bg-soft); border-radius: 0 0 14px 14px; }
 .nowrap { white-space: nowrap; } .asg-hist td { vertical-align: middle; }
 .ccard.asg-off { opacity: .65; }
+
+.row-del { position: absolute; top: 6px; right: 6px; z-index: 4; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface, #fff); color: var(--text-soft, #4b5563); font-size: 12px; cursor: pointer; } .row-del:hover { color: #b42318; border-color: #b42318; }
+.blk:has(> .row-del) .col-hint { display: block; margin-top: 22px; }
+
+fieldset.ro { border: 0; margin: 0; padding: 0; min-width: 0; }

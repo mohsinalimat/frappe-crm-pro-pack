@@ -24,6 +24,7 @@ from frappe.desk.form.assign_to import _add as add_assignment
 from frappe.desk.form.assign_to import set_status as set_assignment_status
 from frappe.utils import cint, cstr, now_datetime
 
+from crm_addons.team_access import access
 from crm_addons.campaigns import audience
 
 RULE = "CRM Assignment Rule"
@@ -36,10 +37,44 @@ SCOPES = ("unassigned", "all")
 CRM_ROLES = ("Sales User", "Sales Manager", "System Manager")
 
 
-def _admin():
-	# not frappe.only_for(): that one lets everybody through while tests run
-	if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
-		frappe.throw(_("Only a System Manager can assign leads."), frappe.PermissionError)
+def _denied():
+	frappe.throw(_("You do not have access to this part of lead assignment."), frappe.PermissionError)
+
+
+def _rules(minimum="view"):
+	"""The assignment rules: view to look, manage to create, change, switch and run them. Set on the Team and access page (System Managers always can)."""
+	if not access.allows("assignment_rules", minimum):
+		_denied()
+
+
+def _move():
+	if access.level("assignment_move") == access.R.NONE:
+		_denied()
+
+
+def _history():
+	if access.level("assignment_history") == access.R.NONE:
+		_denied()
+
+
+def _any():
+	if not any(access.level(f) != access.R.NONE for f in ("assignment_rules", "assignment_move", "assignment_history")):
+		_denied()
+
+
+def _my_leads(names):
+	"""``names`` limited to the leads the person may move: theirs, their team's, or any (per their access settings)."""
+	users = access.scope_users("assignment_move")
+	if users is None:
+		return names
+	return [n for n in names if n in set(_owned_by(sorted(users), "all"))] if users else []
+
+
+def _own_sources(users):
+	"""Moving leads away from these people: only people inside the person's own / team / everyone scope."""
+	allowed = access.scope_users("assignment_move")
+	if allowed is not None and not set(users) <= allowed:
+		frappe.throw(_("You can only move leads of people in your own scope."), frappe.PermissionError)
 
 
 def _json(value, default):
@@ -302,7 +337,7 @@ def on_lead_insert(doc, method=None):
 			auto_assign(doc.name)
 			doc.lead_owner = frappe.db.get_value(LEAD, doc.name, "lead_owner")
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: lead assignment rule failed", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: lead assignment rule failed", message=frappe.get_traceback())
 	finally:
 		frappe.flags.in_assignment = False
 
@@ -423,7 +458,7 @@ def _undo_row(name):
 @frappe.whitelist()
 def list_people():
 	"""People that can be given leads, with their present workload (what "least workload" looks at)."""
-	_admin()
+	_any()
 	names = frappe.get_all("Has Role", filters={"role": ["in", list(CRM_ROLES)], "parenttype": "User"}, pluck="parent")
 	users = frappe.get_all("User", filters={"name": ["in", list(set(names) - {"Administrator", "Guest"})], "enabled": 1}, fields=["name", "full_name"], order_by="full_name asc")
 	load = workload([u.name for u in users])
@@ -442,7 +477,7 @@ def _rule_row(r, others):
 
 @frappe.whitelist()
 def list_rules():
-	_admin()
+	_rules()
 	rules = frappe.get_all(RULE, fields=["*"], order_by="priority asc, creation asc")
 	live = [r for r in rules if cint(r.enabled)]
 	return [_rule_row(r, live) for r in rules]
@@ -469,7 +504,7 @@ def _doc_from(data, name=None):
 def save_rule(data, name=None, confirm=0):
 	"""Create or change a rule. When another enabled rule can match the same leads and the administrator has not yet agreed
 	to share with it, nothing is saved: the clashes come back to be confirmed (``confirm=1`` saves and remembers the choice)."""
-	_admin()
+	_rules("manage")
 	doc = _doc_from(data, name)
 	validate_rule(doc)
 	if cint(doc.enabled):
@@ -484,7 +519,7 @@ def save_rule(data, name=None, confirm=0):
 
 @frappe.whitelist()
 def set_enabled(name, enabled, confirm=0):
-	_admin()
+	_rules("manage")
 	doc = frappe.get_doc(RULE, name)
 	if cint(enabled):
 		doc.enabled = 1
@@ -501,7 +536,7 @@ def set_enabled(name, enabled, confirm=0):
 
 @frappe.whitelist()
 def delete_rule(name):
-	_admin()
+	_rules("manage")
 	frappe.delete_doc(RULE, name, ignore_permissions=True)
 	return {"deleted": True}
 
@@ -509,7 +544,7 @@ def delete_rule(name):
 @frappe.whitelist()
 def preview_rule(name, scope="unassigned"):
 	"""How many leads the rule would assign now, who they would go to, and which of them other rules also claim."""
-	_admin()
+	_rules()
 	scope = scope if scope in SCOPES else "unassigned"
 	rule = frappe.get_doc(RULE, name)
 	names = match_names(*rule_filters(rule), _scope_filters(scope))
@@ -527,7 +562,7 @@ def preview_rule(name, scope="unassigned"):
 @frappe.whitelist()
 def run_rule(name, scope="unassigned", confirm=0):
 	"""Assign the existing leads a rule matches. Leads other rules also match go to those rules' people too, which needs a yes."""
-	_admin()
+	_rules("manage")
 	scope = scope if scope in SCOPES else "unassigned"
 	rule = frappe.get_doc(RULE, name)
 	pre = preview_rule(name, scope)
@@ -552,17 +587,17 @@ def _manual_args(data):
 
 @frappe.whitelist()
 def preview_manual(data):
-	_admin()
+	_move()
 	conditions, mode, people, _dist, scope = _manual_args(data)
-	names = _targets(conditions, mode, scope)
+	names = _my_leads(_targets(conditions, mode, scope))
 	return {"count": len(names), "sample": _sample(names), "people": people}
 
 
 @frappe.whitelist()
 def assign_manual(data):
-	_admin()
+	_move()
 	conditions, mode, people, dist, scope = _manual_args(data)
-	names = _targets(conditions, mode, scope)
+	names = _my_leads(_targets(conditions, mode, scope))
 	if not names:
 		return {"queued": False, "assigned": 0, "skipped": 0}
 	return _stage("manual", {"names": names, "people": people, "distribution": dist})
@@ -584,10 +619,11 @@ def _owned_by(users, scope):
 
 @frappe.whitelist()
 def preview_transfer(from_users, scope="open"):
-	_admin()
+	_move()
 	users = _clean_users(from_users)
 	if not users:
 		frappe.throw(_("Choose who to move the leads from."))
+	_own_sources(users)
 	scope = "all" if scope == "all" else "open"
 	per = {u: len(_owned_by([u], scope)) for u in users}
 	names = _owned_by(users, scope)
@@ -597,11 +633,12 @@ def preview_transfer(from_users, scope="open"):
 @frappe.whitelist()
 def transfer(from_users, to_users, distribution, scope="open"):
 	"""Move every lead that is owned by, or assigned to, the ``from_users`` onto the ``to_users``."""
-	_admin()
+	_move()
 	src = _clean_users(from_users)
 	dest = _enabled_users(_clean_users(to_users))
 	if not src or not dest:
 		frappe.throw(_("Choose who to move the leads from and who to move them to."))
+	_own_sources(src)
 	if set(src) & set(dest):
 		frappe.throw(_("The same person cannot be both the source and the destination."))
 	if distribution not in MODES:
@@ -614,17 +651,21 @@ def transfer(from_users, to_users, distribution, scope="open"):
 
 @frappe.whitelist()
 def list_log(limit=200, lead=None):
-	_admin()
+	_history()
 	filters = {"lead": lead} if lead else {}
+	users = access.scope_users("assignment_history")
+	if users is not None:
+		filters["by_user"] = ["in", sorted(users) or [""]]
 	return frappe.get_all(LOG, filters=filters, fields=["name", "lead", "lead_name", "source", "rule", "from_users", "to_users", "distribution", "by_user", "note", "creation", "batch", "undone"], order_by="creation desc", limit_page_length=min(cint(limit) or 200, 1000))
 
 
 @frappe.whitelist()
 def list_history(limit=60):
 	"""What was assigned, newest first: one line per run (a rule run, an assign-now, a move) or per new lead, with whether it can still be undone."""
-	_admin()
+	_history()
+	users = access.scope_users("assignment_history")
 	rows = frappe.get_all(
-		LOG, filters={"source": ["!=", "Batch"]}, order_by="creation desc", limit_page_length=3000,
+		LOG, filters={"source": ["!=", "Batch"], **({"by_user": ["in", sorted(users) or [""]]} if users is not None else {})}, order_by="creation desc", limit_page_length=3000,
 		fields=["name", "lead", "lead_name", "source", "rule", "from_users", "to_users", "by_user", "creation", "batch", "undone"],
 	)
 	groups, order = {}, []
@@ -652,13 +693,17 @@ def list_history(limit=60):
 def undo(batch=None, entry=None):
 	"""Take back a run (``batch``) or a single assignment (``entry``) made in the last UNDO_HOURS hours. Leads somebody has
 	changed since are left alone and counted as skipped."""
-	_admin()
+	_move()
+	_history()
 	if batch:
 		names = frappe.get_all(LOG, filters={"batch": batch, "source": ["!=", "Batch"], "undone": 0}, pluck="name")
 	elif entry:
 		names = [entry]
 	else:
 		frappe.throw(_("Choose what to undo."))
+	users = access.scope_users("assignment_history")
+	if users is not None:  # only what was done by people in the history scope
+		names = [n for n in names if frappe.db.get_value(LOG, n, "by_user") in users]
 	if not names:
 		return {"queued": False, "assigned": 0, "skipped": 0}
 	return _stage("undo", {"logs": names})

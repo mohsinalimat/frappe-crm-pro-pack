@@ -1,0 +1,398 @@
+{
+ "actions": [],
+ "autoname": "field:slug",
+ "creation": "2026-10-26 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "slug",
+  "enabled",
+  "cb_basics",
+  "duration_minutes",
+  "slot_interval_minutes",
+  "timezone",
+  "sb_basics2",
+  "description",
+  "provider",
+  "manual_link",
+  "location_note",
+  "sb_rules",
+  "buffer_before_minutes",
+  "buffer_after_minutes",
+  "min_notice_hours",
+  "cb_rules",
+  "max_days_ahead",
+  "max_per_day",
+  "sb_team",
+  "owners",
+  "cc",
+  "owner_notify",
+  "sb_availability",
+  "hours",
+  "overrides",
+  "sb_form",
+  "fields",
+  "allow_guests",
+  "consent_text",
+  "consent_default",
+  "sb_lead",
+  "lead_source",
+  "lead_status",
+  "assign_lead_to_owner",
+  "sb_messages",
+  "messages",
+  "sb_brand",
+  "brand_name",
+  "logo",
+  "accent_color",
+  "theme",
+  "cb_brand",
+  "heading",
+  "button_text",
+  "success_title",
+  "success_text",
+  "footer_text",
+  "redirect_url",
+  "allowed_origins",
+  "sb_spam",
+  "max_active_per_contact",
+  "max_per_ip_per_hour"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Slug",
+   "reqd": 1,
+   "unique": 1,
+   "set_only_once": 1,
+   "in_list_view": 1,
+   "description": "Lower case letters, numbers and dashes. The booking page is /book/<slug>."
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cb_basics",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "duration_minutes",
+   "fieldtype": "Int",
+   "label": "Duration (minutes)",
+   "default": "30",
+   "reqd": 1
+  },
+  {
+   "fieldname": "slot_interval_minutes",
+   "fieldtype": "Int",
+   "label": "Slot interval (minutes)",
+   "description": "How often a slot starts. Empty = the duration."
+  },
+  {
+   "fieldname": "timezone",
+   "fieldtype": "Data",
+   "label": "Availability time zone",
+   "description": "IANA name such as Asia/Kolkata. Empty = the site time zone."
+  },
+  {
+   "fieldname": "sb_basics2",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Select",
+   "label": "Meeting link",
+   "options": "Google Meet\nManual Link",
+   "default": "Google Meet"
+  },
+  {
+   "fieldname": "manual_link",
+   "fieldtype": "Data",
+   "label": "Manual meeting link",
+   "description": "Used for a Manual Link, and as the fallback when Google Meet cannot be created."
+  },
+  {
+   "fieldname": "location_note",
+   "fieldtype": "Data",
+   "label": "Location note"
+  },
+  {
+   "fieldname": "sb_rules",
+   "fieldtype": "Section Break",
+   "label": "Rules"
+  },
+  {
+   "fieldname": "buffer_before_minutes",
+   "fieldtype": "Int",
+   "label": "Buffer before (minutes)"
+  },
+  {
+   "fieldname": "buffer_after_minutes",
+   "fieldtype": "Int",
+   "label": "Buffer after (minutes)"
+  },
+  {
+   "fieldname": "min_notice_hours",
+   "fieldtype": "Int",
+   "label": "Minimum notice (hours)",
+   "default": "4"
+  },
+  {
+   "fieldname": "cb_rules",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "max_days_ahead",
+   "fieldtype": "Int",
+   "label": "How many days ahead",
+   "default": "30"
+  },
+  {
+   "fieldname": "max_per_day",
+   "fieldtype": "Int",
+   "label": "Maximum demos per day",
+   "description": "0 = no limit."
+  },
+  {
+   "fieldname": "sb_team",
+   "fieldtype": "Section Break",
+   "label": "Team"
+  },
+  {
+   "fieldname": "owners",
+   "fieldtype": "Table",
+   "label": "Owners",
+   "options": "CRM Demo Owner",
+   "description": "Every owner is invited to the one meeting; the first one is the organizer."
+  },
+  {
+   "fieldname": "cc",
+   "fieldtype": "Table",
+   "label": "CC",
+   "options": "CRM Demo CC"
+  },
+  {
+   "fieldname": "owner_notify",
+   "fieldtype": "Check",
+   "label": "Notify the owners in CRM",
+   "default": "1"
+  },
+  {
+   "fieldname": "sb_availability",
+   "fieldtype": "Section Break",
+   "label": "Availability"
+  },
+  {
+   "fieldname": "hours",
+   "fieldtype": "Table",
+   "label": "Weekly hours",
+   "options": "CRM Demo Hours"
+  },
+  {
+   "fieldname": "overrides",
+   "fieldtype": "Table",
+   "label": "Date overrides",
+   "options": "CRM Demo Date Override"
+  },
+  {
+   "fieldname": "sb_form",
+   "fieldtype": "Section Break",
+   "label": "Booking form"
+  },
+  {
+   "fieldname": "fields",
+   "fieldtype": "Table",
+   "label": "Form fields",
+   "options": "CRM Demo Field"
+  },
+  {
+   "fieldname": "allow_guests",
+   "fieldtype": "Check",
+   "label": "Let the visitor add guests"
+  },
+  {
+   "fieldname": "consent_text",
+   "fieldtype": "Small Text",
+   "label": "WhatsApp consent text"
+  },
+  {
+   "fieldname": "consent_default",
+   "fieldtype": "Check",
+   "label": "Consent ticked by default"
+  },
+  {
+   "fieldname": "sb_lead",
+   "fieldtype": "Section Break",
+   "label": "Lead"
+  },
+  {
+   "fieldname": "lead_source",
+   "fieldtype": "Link",
+   "label": "Lead source",
+   "options": "CRM Lead Source"
+  },
+  {
+   "fieldname": "lead_status",
+   "fieldtype": "Link",
+   "label": "Lead status",
+   "options": "CRM Lead Status"
+  },
+  {
+   "fieldname": "assign_lead_to_owner",
+   "fieldtype": "Check",
+   "label": "Give a new Lead to the first owner",
+   "default": "1"
+  },
+  {
+   "fieldname": "sb_messages",
+   "fieldtype": "Section Break",
+   "label": "Messages"
+  },
+  {
+   "fieldname": "messages",
+   "fieldtype": "Table",
+   "label": "Message rules",
+   "options": "CRM Demo Message Rule"
+  },
+  {
+   "fieldname": "sb_brand",
+   "fieldtype": "Section Break",
+   "label": "Branding"
+  },
+  {
+   "fieldname": "brand_name",
+   "fieldtype": "Data",
+   "label": "Brand name"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
+  },
+  {
+   "fieldname": "accent_color",
+   "fieldtype": "Data",
+   "label": "Accent colour",
+   "description": "Such as #2563eb"
+  },
+  {
+   "fieldname": "theme",
+   "fieldtype": "Select",
+   "label": "Theme",
+   "options": "Auto\nLight\nDark",
+   "default": "Auto"
+  },
+  {
+   "fieldname": "cb_brand",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "heading",
+   "fieldtype": "Data",
+   "label": "Heading"
+  },
+  {
+   "fieldname": "button_text",
+   "fieldtype": "Data",
+   "label": "Button text"
+  },
+  {
+   "fieldname": "success_title",
+   "fieldtype": "Data",
+   "label": "Success title"
+  },
+  {
+   "fieldname": "success_text",
+   "fieldtype": "Small Text",
+   "label": "Success text"
+  },
+  {
+   "fieldname": "footer_text",
+   "fieldtype": "Data",
+   "label": "Footer text"
+  },
+  {
+   "fieldname": "redirect_url",
+   "fieldtype": "Data",
+   "label": "Redirect after booking"
+  },
+  {
+   "fieldname": "allowed_origins",
+   "fieldtype": "Small Text",
+   "label": "Websites that may embed this page",
+   "description": "One origin per line, for example https://www.example.com"
+  },
+  {
+   "fieldname": "sb_spam",
+   "fieldtype": "Section Break",
+   "label": "Anti-spam"
+  },
+  {
+   "fieldname": "max_active_per_contact",
+   "fieldtype": "Int",
+   "label": "Upcoming demos per phone / email",
+   "default": "1"
+  },
+  {
+   "fieldname": "max_per_ip_per_hour",
+   "fieldtype": "Int",
+   "label": "Bookings per IP per hour",
+   "default": "10"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-26 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Demos",
+ "name": "CRM Demo Type",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "title,slug",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

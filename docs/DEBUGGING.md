@@ -1,9 +1,11 @@
 # Finding out what freezes the app (temporary diagnostics)
 
-CRM Pro Pack writes a diagnostic log while you use it, so a freeze or a crash leaves evidence. It is **temporary**:
+Frappe CRM Suite Pro writes a diagnostic log while you use it, so a freeze or a crash leaves evidence. It is **temporary**:
 switch it off or remove it when the problem is solved (see the end).
 
 ## What to do
+
+It is **off by default**. Switch it on first: `bench --site your-site.com set-config crm_addons_debug_log 1`, then `clear-cache`.
 
 1. Restart the bench so the new hooks load: `bench --site your-site.com clear-cache`, then stop and start `bench start`.
 2. Hard-refresh the CRM page (Ctrl/Cmd + Shift + R).

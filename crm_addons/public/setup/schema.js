@@ -6,6 +6,11 @@
  */
 window.SETUP_SCHEMA = [
 	{
+		key: 'branding', title: 'Branding', icon: 'palette', custom: 'branding',
+		desc: 'The name, logo and favicon people see in the CRM, on the login page, in the Desk and in the footer. Leave a field empty to keep the default look.',
+		items: [],
+	},
+	{
 		key: 'meetings', title: 'Meetings', icon: 'calendar',
 		desc: 'How meetings are created, and who is told about them.',
 		items: [
@@ -56,8 +61,10 @@ window.SETUP_SCHEMA = [
 				info: { what: 'Works out a 0 to 100 score from calls, outcomes, meetings and recent activity, and shows it as the Lead Score column and on the Lead page.', note: 'Scores refresh every night and whenever a follow-up is saved.' } },
 			{ k: 'stale_lead_days', t: 'num', label: 'Warn about leads with no activity', unit: 'days', min: 0, max: 365,
 				info: { what: 'An open lead with no comment, email, call, task, note, follow-up or meeting for this long alerts its owner, once. 0 turns it off.', eg: '7 means a week of silence.' } },
-			{ k: 'missed_call_whatsapp_text', t: 'area', label: 'Message to offer after a missed call',
-				info: { what: 'Offered as a ready-to-send WhatsApp message when a call is logged as Did Not Pick or Did Not Connect. The agent can edit it before sending.', note: 'Needs WhatsApp set up (see the checklist).' } },
+			{ k: 'missed_call_whatsapp_template', t: 'watemplate', label: 'WhatsApp template for a missed call',
+				info: { what: 'The approved WhatsApp template sent when a call is logged as Did Not Pick or Did Not Connect. WhatsApp only delivers templates that Meta approved to people who have not written to you recently.', note: 'Use the ready-made one: it is sent to Meta for review and can be used once approved. Leave it empty to send the plain text below instead.' } },
+			{ k: 'missed_call_whatsapp_text', t: 'area', label: 'Plain text if no template is chosen',
+				info: { what: 'Sent as a plain WhatsApp message when no template is chosen above. WhatsApp only delivers it within 24 hours of the lead\'s last message.', note: 'Needs WhatsApp set up (see the checklist).' } },
 		],
 	},
 	{
@@ -119,8 +126,8 @@ window.SETUP_SCHEMA = [
 		items: [
 			{ k: 'campaigns_enabled', t: 'switch', label: 'Use the Campaign Manager',
 				info: { what: 'Shows the Campaigns buttons and the Campaign Manager page. Off hides them. Campaigns you already made are kept.' } },
-			{ k: 'campaign_shortcut_roles', t: 'roles', choices: 'roles', label: 'Who sees the Campaigns shortcuts', when: 'campaigns_enabled',
-				info: { what: 'Choose the roles that see the Campaigns button and menu link in CRM. Nothing chosen: everyone sees them.', note: 'Only hides the shortcuts. What a person can do in the Campaign Manager is set by their role (Sales User can only look; Sales Manager and Campaign Manager can create).' } },
+			{ k: 'meta_usage', t: 'metausage', label: 'What Meta says about your WhatsApp number', when: 'campaigns_enabled',
+				info: { what: 'Your daily messaging limit and quality rating, and what Meta charged for messages recently, read from the WhatsApp account connected here. Anything Meta does not give is shown as not available.', note: 'Needs the business account id and a token that is allowed to read analytics. Nothing is saved from this card.' } },
 			{ h: 'Sending speed' },
 			{ k: 'campaign_batch_size', t: 'num', label: 'Messages per batch', unit: 'messages', min: 1, max: 5000, when: 'campaigns_enabled',
 				info: { what: 'How many messages are handed to the background workers in one go, per campaign. Every minute the scheduler hands over another batch.', eg: '100 with a limit of 300 a minute means up to 100 each minute.' } },
