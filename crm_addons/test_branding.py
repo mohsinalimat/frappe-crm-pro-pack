@@ -26,6 +26,10 @@ class TestBranding(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			branding.save_branding({"logo": "javascript:alert(1)"})
 		with self.assertRaises(frappe.ValidationError):
+			branding.save_branding({"logo": "/files/a\"onerror=\"x.png"})
+		out = branding.save_branding({"logo": "/files/My logo (1) \u00e9.png"})  # spaces, brackets and accents are fine in a file name
+		self.assertEqual(out["logo"], "/files/My logo (1) \u00e9.png")
+		with self.assertRaises(frappe.ValidationError):
 			branding.save_branding({"name": "x" * 200})
 
 	def test_text_is_stripped_of_markup_and_reset_gives_the_default_look(self):
