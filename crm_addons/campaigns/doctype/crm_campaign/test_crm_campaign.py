@@ -11,6 +11,7 @@ providers are faked: no mail leaves the site and Meta is never called.
 import json
 import types
 import unittest
+import os
 from unittest.mock import MagicMock, patch
 
 import frappe
@@ -1533,6 +1534,13 @@ class TestDiagnostics(UiApi):
 		super().setUp()
 		frappe.flags.crm_addons_debug_in_test = True  # the diagnostics stay silent in other tests
 		self.addCleanup(frappe.flags.pop, "crm_addons_debug_in_test", None)
+		# the diagnostics are off unless asked for (release default): ask for them here
+		was = frappe.conf.get("crm_addons_debug_log")
+		frappe.conf.crm_addons_debug_log = 1
+		self.addCleanup(lambda: frappe.conf.pop("crm_addons_debug_log", None) if was is None else frappe.conf.update({"crm_addons_debug_log": was}))
+		env = patch.dict(os.environ, {"CRM_ADDONS_DEBUG": "1"})
+		env.start()
+		self.addCleanup(env.stop)
 
 	def test_an_event_reaches_the_debug_log_and_a_manager_can_read_it(self):
 		debuglog.log("DIAGNOSTIC-TEST-MARKER", campaign="CAMP-1")
