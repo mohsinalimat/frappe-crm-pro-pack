@@ -42,13 +42,13 @@
 .hx-list { display: flex; flex-direction: column; gap: 6px; overflow: auto; min-height: 80px; }
 .hx-chip { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: grab; } .hx-chip:hover { border-color: var(--accent); }
 
-/* hierarchy: larger */
-.hx-big { font-size: 17px; } .hx-name { font-size: 16.5px; } .hx-tree, .hx-side { font-size: 15px; }
-.hx-grid { grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; } .hx-tree { padding: 20px; }
-.hx-card { gap: 14px; padding: 12px 16px; border-radius: 14px; } .hx-chip { gap: 12px; padding: 10px 12px; border-radius: 12px; }
-.hx-ul { padding-left: 38px; } .hx-ul > .hx-li { padding-top: 12px; } .hx-ul > .hx-li::before { left: -20px; } .hx-ul > .hx-li:last-child::before { height: 46px; }
-.hx-ul > .hx-li::after { left: -20px; top: 46px; width: 20px; }
-.hx-tog { width: 28px; height: 28px; } .hx-grip { font-size: 17px; }
-.hx-tree .badge, .hx-side .badge { font-size: 12.5px; height: 24px; padding: 0 9px; }
-.hx-side .hx-list { gap: 10px; }
-@media (max-width: 1000px) { .hx-grid { grid-template-columns: 1fr; } }
+/* hierarchy: compact */
+.hx-big { font-size: 14px; } .hx-name { font-size: 13.5px; line-height: 1.25; } .hx-tree, .hx-side { font-size: 13px; }
+.hx-grid { grid-template-columns: minmax(0, 1fr) 240px; gap: 12px; } .hx-tree { padding: 10px; }
+.hx-card { gap: 8px; padding: 5px 8px; border-radius: 9px; } .hx-chip { gap: 6px; padding: 4px 6px; border-radius: 8px; }
+.hx-ul { padding-left: 20px; } .hx-ul > .hx-li { padding-top: 5px; } .hx-ul > .hx-li::before { left: -10px; } .hx-ul > .hx-li:last-child::before { height: 24px; }
+.hx-ul > .hx-li::after { left: -10px; top: 24px; width: 10px; }
+.hx-tog { width: 20px; height: 20px; } .hx-grip { font-size: 12px; }
+.hx-card .btn.sm { height: 24px; padding: 0 6px; }
+.hx-side { gap: 8px; } .hx-side .hx-list { gap: 4px; }
+@media (max-width: 800px) { .hx-grid { grid-template-columns: 1fr; } }

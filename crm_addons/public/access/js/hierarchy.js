@@ -24,11 +24,11 @@
 			<div class="hx-card" :class="{ over, inactive: !node.enabled, drag: dragUser === node.user }" draggable="true" @dragstart="dragUser = node.user; $event.dataTransfer.effectAllowed = 'move'; $event.dataTransfer.setData('text/plain', node.user)" @dragend="dragUser = ''; over = false" @dragover="onOver" @dragleave="over = false" @drop="onDrop">
 				<button v-if="children.length" type="button" class="hx-tog" :aria-expanded="open" :aria-label="(open ? 'Collapse ' : 'Expand ') + node.full_name" @click="open = !open"><Ico :name="open ? 'chevron-down' : 'chevron-right'" size="sm" /></button><span v-else class="hx-tog sp"></span>
 				<span class="hx-grip" aria-hidden="true">&#8942;&#8942;</span>
-				<Pic :name="node.full_name" :image="node.image" :size="48" />
+				<Pic :name="node.full_name" :image="node.image" :size="32" />
 				<div class="grow" style="min-width:0"><b class="ellipsis hx-name" style="display:block">{{ node.full_name }}<span v-if="!node.enabled" class="badge sm nodot" style="margin-left:6px">Inactive</span></b>
-					<div class="row wrap" style="gap:4px"><span v-for="r in node.roles" :key="r" class="badge nodot" :class="ROLE_TONE[r]">{{ r }}</span><span v-if="node.designation" class="muted">{{ node.designation }}</span><span class="muted">{{ node.below ? node.below + ' below' : '' }}</span></div></div>
-				<Btn variant="ghost" icon="plus" title="Add a new person under them" :aria-label="'Add a person under ' + node.full_name" @click.stop="ctx.add(node.user)" />
-				<Btn variant="ghost" icon="x" :disabled="node.below > 0" :title="node.below > 0 ? 'Move their team first' : 'Take out of the hierarchy'" :aria-label="'Take ' + node.full_name + ' out of the hierarchy'" @click.stop="ctx.remove(node)" />
+					<div class="row wrap" style="gap:4px"><span v-for="r in node.roles" :key="r" class="badge sm nodot" :class="ROLE_TONE[r]">{{ r }}</span><span v-if="node.designation" class="small muted">{{ node.designation }}</span><span class="small faint">{{ node.below ? node.below + ' below' : '' }}</span></div></div>
+				<Btn size="sm" variant="ghost" icon="plus" title="Add a new person under them" :aria-label="'Add a person under ' + node.full_name" @click.stop="ctx.add(node.user)" />
+				<Btn size="sm" variant="ghost" icon="x" :disabled="node.below > 0" :title="node.below > 0 ? 'Move their team first' : 'Take out of the hierarchy'" :aria-label="'Take ' + node.full_name + ' out of the hierarchy'" @click.stop="ctx.remove(node)" />
 			</div>
 			<ul v-if="children.length && open" class="hx-ul"><HxNode v-for="c in children" :key="c.user" :node="c" :kids="kids" :ctx="ctx" /></ul>
 		</li>`,
@@ -81,8 +81,8 @@
 				<div class="hx-grid">
 					<div class="hx-tree card pad">
 						<div class="hx-card hx-root" :class="{ over: rootOver }" @dragover="overRoot" @dragleave="rootOver = false" @drop="dropRoot">
-							<span class="hx-tog sp"></span><Pic :name="h.root.full_name" :image="h.root.image" :size="52" />
-							<div class="grow" style="min-width:0"><b class="hx-name">{{ h.root.full_name }}</b><div class="row wrap" style="gap:4px"><span class="badge nodot green">System Manager</span></div></div>
+							<span class="hx-tog sp"></span><Pic :name="h.root.full_name" :image="h.root.image" :size="36" />
+							<div class="grow" style="min-width:0"><b class="hx-name">{{ h.root.full_name }}</b><div class="row wrap" style="gap:4px"><span class="badge sm nodot green">System Manager</span></div></div>
 						</div>
 						<ul class="hx-ul top"><HxNode v-for="n in tops" :key="n.user" :node="n" :kids="kids" :ctx="ctx" /></ul>
 						<div v-if="!tops.length" class="muted" style="padding:14px 6px 4px">Nobody is in the hierarchy yet.</div>
@@ -92,8 +92,8 @@
 						<Inp v-model="q" icon="search" placeholder="Search users" clearable aria-label="Search users" />
 						<div class="hx-list">
 							<div v-for="p in loose" :key="p.user" class="hx-chip" :class="{ drag: dragUser === p.user }" draggable="true" @dragstart="dragUser = p.user; $event.dataTransfer.effectAllowed = 'move'; $event.dataTransfer.setData('text/plain', p.user)" @dragend="dragUser = ''">
-								<span class="hx-grip" aria-hidden="true">&#8942;&#8942;</span><Pic :name="p.full_name" :image="p.image" :size="40" />
-								<div class="grow" style="min-width:0"><b class="ellipsis hx-name" style="display:block">{{ p.full_name }}</b><div class="row wrap" style="gap:4px"><span v-for="r in p.roles" :key="r" class="badge nodot" :class="ROLE_TONE[r]">{{ r }}</span></div></div>
+								<span class="hx-grip" aria-hidden="true">&#8942;&#8942;</span><Pic :name="p.full_name" :image="p.image" :size="26" />
+								<div class="grow" style="min-width:0"><b class="ellipsis hx-name" style="display:block">{{ p.full_name }}</b><div class="row wrap" style="gap:4px"><span v-for="r in p.roles" :key="r" class="badge sm nodot" :class="ROLE_TONE[r]">{{ r }}</span></div></div>
 							</div>
 							<div v-if="!loose.length" class="muted">{{ q ? 'No user matches.' : 'Everyone is in the hierarchy.' }}</div>
 						</div>
