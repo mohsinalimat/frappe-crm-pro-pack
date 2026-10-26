@@ -152,10 +152,11 @@
 	}
 
 	V.AddPerson = {
+		props: { leader: String },
 		emits: ['close', 'added'],
 		setup(props, { emit }) {
 			const lastCompany = (AX.data.people.map((p) => p.company).filter(Boolean)[0]) || ''
-			const f = reactive({ email: '', first_name: '', last_name: '', mobile_no: '', designation: '', company: lastCompany, image: '', role: 'Sales User', preset: '', reports_to: '', invite: true, whatsapp: false })
+			const f = reactive({ email: '', first_name: '', last_name: '', mobile_no: '', designation: '', company: lastCompany, image: '', role: 'Sales User', preset: '', reports_to: props.leader || '', invite: true, whatsapp: false })
 			const busy = ref(false); const err = ref('')
 			const SHOWN = ['Sales Executive', 'Sales Manager', 'Campaign Executive']
 			const presetOptions = computed(() => [{ value: '', label: 'No preset (what their role gives them)' }, ...AX.data.presets.filter((p) => SHOWN.includes(p.name)).map((p) => ({ value: p.name, label: p.preset_name, sub: p.description }))])
