@@ -979,6 +979,7 @@
 				<p class="bk-muted">Are you sure? This frees your time and we will let the team know.</p>\
 				<div class="bk-actions"><button type="button" class="bk-btn ghost" :disabled="busy" @click="mode = \'view\'">Keep my booking</button><button type="button" class="bk-btn danger" :disabled="busy" @click="doCancel"><span v-if="busy" class="bk-spin" aria-hidden="true"></span>{{ busy ? "Cancelling..." : "Yes, cancel booking" }}</button></div>\
 			</template>\
+			<p v-else-if="done === \'rescheduled\'" class="bk-banner ok" role="status"><Ico n="check" :size="18"/><span>Thank you! Your new time is confirmed and we have sent you the details. See you then.</span></p>\
 			<template v-else-if="active">\
 				<p v-if="!data.canChange" class="bk-banner warn"><Ico n="alert" :size="18"/><span>It is too close to the start time to change this booking online. Please contact us if you need help.</span></p>\
 				<div class="bk-actions"><button type="button" class="bk-btn danger ghost" :disabled="!data.canChange" @click="mode = \'cancel\'">Cancel booking</button><button type="button" class="bk-btn primary" :disabled="!data.canChange" @click="startReschedule">Reschedule</button></div>\
