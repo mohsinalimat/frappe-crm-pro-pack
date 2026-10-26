@@ -52,6 +52,8 @@ has_permission = {
 # frappe_whatsapp webhook writes onto the WhatsApp Message) update the campaign recipient in real time.
 # Replies (WhatsApp and email) run a campaign's lead-update rules; a new or re-statused Lead can start an automatic campaign.
 doc_events = {
+	# a person's contact number (their default number in CRM) is set by a System Manager, not by the person
+	"User": {"validate": "crm_addons.team_access.profile.guard_mobile_no"},
 	"WhatsApp Message": {
 		"after_insert": ["crm_addons.campaigns.optout.on_whatsapp_message", "crm_addons.campaigns.rules.on_whatsapp_message"],
 		"on_update": "crm_addons.campaigns.engine.on_whatsapp_message_update",

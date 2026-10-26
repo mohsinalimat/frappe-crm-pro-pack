@@ -16,3 +16,6 @@
 @media (max-width: 720px) { .ax-row { flex-direction: column; align-items: stretch; gap: 8px; } .ax-ctl { justify-content: space-between; } }
 
 .ax-grid [aria-disabled="true"] { pointer-events: none; opacity: .65; }
+.ax-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } @media (max-width: 640px) { .ax-two { grid-template-columns: 1fr; } }
+.ax-head { flex-wrap: wrap; } .ax-head-actions { flex-wrap: wrap; }
+.ax-tbl tr.inactive td { opacity: .55; }
