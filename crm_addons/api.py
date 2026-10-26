@@ -180,6 +180,12 @@ def email_templates_stamp():
 	return _email_templates_stamp()
 
 
+def _can_assign():
+	from crm_addons.team_access import access
+
+	return any(access.level(f) != "none" for f in ("assignment_rules", "assignment_move", "assignment_history"))
+
+
 def _meetings_scope():
 	from crm_addons.team_access import access
 
@@ -242,7 +248,7 @@ def get_client_config():
 		"can_manage_access": 1 if _is_access_admin() else 0,
 		"meetings_scope": _meetings_scope(),
 		"access": _my_access(),
-		"can_assign": 1 if frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles() else 0,  # the Assignment menu: System Managers only
+		"can_assign": 1 if _can_assign() else 0,  # the Assignment menu: anyone whose access allows rules, moving leads or the history
 		"show_campaigns_shortcut": 1 if campaigns_shortcut_visible(settings) else 0,
 		"deals_enabled": 0 if cint(settings.get("hide_deals_menu")) else 1,  # dashboards leave deal numbers out for a team that does not use Deals
 		"hide_notes_menu": cint(settings.get("hide_notes_menu")),

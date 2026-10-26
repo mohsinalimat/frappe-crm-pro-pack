@@ -278,3 +278,76 @@ class TestDemoAccess(HierarchyMixin, DemoCase):
 		self.configure(self.u["mid"], {"demo_report": 1, "demos": "team"})
 		self.as_(self.u["mid"])
 		self.assertEqual(admin.demo_report()["totals"]["booked"], 1)  # only the team's demo
+
+
+class TestAssignmentAccess(Enforcement):
+	def lead_for(self, user, name):
+		return frappe.get_doc({"doctype": "CRM Lead", "first_name": name, "lead_owner": user, "job_title": "AccessTest"}).insert(ignore_permissions=True).name
+
+	def as_(self, user):
+		frappe.set_user(user)
+		self.addCleanup(frappe.set_user, "Administrator")
+
+	def test_nothing_by_default_except_for_system_managers(self):
+		from crm_addons import assignment as asg
+
+		for who in (self.u["mid"], self.person("sm.enf@example.org", "Sales Manager")):
+			self.as_(who)
+			for fn in (asg.list_rules, asg.list_people, asg.list_history):
+				with self.assertRaises(frappe.PermissionError, msg=fn.__name__):
+					fn()
+			frappe.set_user("Administrator")
+		self.assertIsInstance(asg.list_rules(), list)  # a System Manager (here Administrator) always can
+
+	def test_rules_can_be_viewed_without_being_changed(self):
+		from crm_addons import assignment as asg
+
+		self.configure(self.u["mid"], {"assignment_rules": "view"})
+		self.as_(self.u["mid"])
+		self.assertIsInstance(asg.list_rules(), list)
+		with self.assertRaises(frappe.PermissionError):
+			asg.save_rule({"rule_name": "X", "conditions": [["job_title", "=", "x"]], "assignees": [self.u["rep1"]], "distribution": "Round robin", "match_mode": "All conditions", "enabled": 0}, confirm=1)
+		with self.assertRaises(frappe.PermissionError):
+			asg.delete_rule("X")
+		with self.assertRaises(frappe.PermissionError):
+			asg.transfer([self.u["rep1"]], [self.u["rep2"]], "Round robin")  # moving is a different permission
+
+	def test_moving_leads_stays_inside_the_scope(self):
+		from crm_addons import assignment as asg
+
+		mine = self.lead_for(self.u["mid"], "MineLead")
+		team = self.lead_for(self.u["rep1"], "TeamLead")
+		other = self.lead_for(self.u["other"], "OtherLead")
+		self.configure(self.u["mid"], {"assignment_move": "team"})
+		self.as_(self.u["mid"])
+		self.assertEqual(asg.preview_transfer([self.u["rep1"]])["count"], 1)  # a person of their team
+		with self.assertRaises(frappe.PermissionError):
+			asg.preview_transfer([self.u["other"]])  # not in the team
+		out = asg.transfer([self.u["rep1"]], [self.u["rep2"]], "Round robin")
+		self.assertEqual(out["assigned"], 1)
+		self.assertEqual(frappe.db.get_value("CRM Lead", team, "lead_owner"), self.u["rep2"])
+		self.assertEqual(frappe.db.get_value("CRM Lead", other, "lead_owner"), self.u["other"])
+		# "assign now" by conditions only reaches the leads inside the scope
+		pre = asg.preview_manual({"conditions": [["job_title", "=", "AccessTest"]], "assignees": [self.u["rep2"]], "distribution": "Round robin", "scope": "all"})
+		self.assertEqual({s["name"] for s in pre["sample"]}, {mine, team})
+
+	def test_own_means_only_myself(self):
+		from crm_addons import assignment as asg
+
+		self.configure(self.u["rep1"], {"assignment_move": "own"})
+		self.as_(self.u["rep1"])
+		with self.assertRaises(frappe.PermissionError):
+			asg.preview_transfer([self.u["rep2"]])
+		self.assertEqual(asg.preview_transfer([self.u["rep1"]])["count"], 0)
+
+	def test_history_is_limited_to_runs_by_people_in_the_scope(self):
+		from crm_addons import assignment as asg
+
+		for who in (self.u["rep1"], self.u["other"]):
+			frappe.get_doc({"doctype": "CRM Assignment Log", "lead": "-", "lead_name": f"by {who}", "source": "Manual", "by_user": who, "to_users": who}).insert(ignore_permissions=True)
+		self.configure(self.u["mid"], {"assignment_history": "team"})
+		self.as_(self.u["mid"])
+		seen = {g["by_user"] for g in asg.list_history()["groups"]}
+		self.assertIn(self.u["rep1"], seen)
+		self.assertNotIn(self.u["other"], seen)
+		self.assertTrue(all(r["by_user"] in {self.u["mid"], self.u["rep1"], self.u["rep2"]} for r in asg.list_log()))

@@ -35,6 +35,7 @@ from crm_addons.campaigns.common import (
 	settings,
 	whatsapp_installed,
 )
+from crm_addons.team_access import access
 from crm_addons.utils import is_campaign_manager, system_timezone
 
 SALES_ROLES = {"System Manager", "Sales Manager", "Sales User", "Campaign Manager"}
@@ -94,7 +95,8 @@ def get_config():
 		"rule_events": list(rules.EVENTS),
 		"rule_actions": list(rules.ACTIONS),
 		"can_configure": frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles(),
-		"can_assign": frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles(),
+		"can_assign": any(access.level(f) != "none" for f in ("assignment_rules", "assignment_move", "assignment_history")),
+		"access": access.my_access(),
 		"types": ["Marketing", "Follow-up", "Announcement", "Reminder", "Other"],
 		"timezone": DEFAULT_TIMEZONE,
 		"now": now_datetime().strftime("%Y-%m-%d %H:%M:%S"),  # the site's wall clock: date pickers use its "today"
