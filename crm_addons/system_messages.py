@@ -16,6 +16,64 @@ MISSED_CALL = {
 }
 
 
+LOGIN = {
+	"template_name": "crm_login_link", "category": "UTILITY", "language": "en",
+	"template": "Hi {{1}}, your CRM account is ready. Set your password and sign in here: {{2}}\n\nThe link works once and expires, so open it soon.",
+	"sample_values": ["Asha", "https://crm.example.com/update-password?key=abc123"], "variable_map": {"1": "{{ first_name }}", "2": "{{ login_link }}"}, "buttons": [],
+}
+
+
+def login_template_status():
+	"""For the admin screen: {exists, name, state, ready}. The login-link template is created once from Team and access."""
+	if not frappe.db.exists("DocType", "WhatsApp Templates"):
+		return {"available": False, "exists": False, "state": "", "ready": False}
+	name = frappe.db.get_value("WhatsApp Templates", {"template_name": LOGIN["template_name"]}, "name")
+	if not name:
+		return {"available": True, "exists": False, "state": "", "ready": False}
+	state = cstr(frappe.db.get_value("WhatsApp Templates", name, "status")).upper() or "NOT SYNCED"
+	return {"available": True, "exists": True, "name": name, "state": state, "ready": state == "APPROVED"}
+
+
+def create_login_template():
+	from crm_addons.campaigns import api as campaign_api
+
+	st = login_template_status()
+	if st["exists"]:
+		return {"name": st["name"], "status": st["state"], "message": _("This template already exists.")}
+	out = campaign_api.create_whatsapp_template(frappe.parse_json(frappe.as_json(LOGIN)))
+	if frappe.get_meta("WhatsApp Templates").has_field("crm_system"):
+		frappe.db.set_value("WhatsApp Templates", out["name"], "crm_system", 1)
+	return out
+
+
+def send_login_link(user, link):
+	"""WhatsApp the new person their set-password link (never a password). Raises with a plain reason when it cannot be sent."""
+	from crm_addons.campaigns import personalization
+	from crm_addons.campaigns.channels import ChannelError, WhatsAppSender, send_whatsapp_template
+	from crm_addons.campaigns.common import normalize_whatsapp
+
+	st = login_template_status()
+	if not st["exists"]:
+		frappe.throw(_("The WhatsApp login template has not been created yet. Create it in Team and access."))
+	if not st["ready"]:
+		frappe.throw(_("The WhatsApp login template is {0}, not approved by Meta yet.").format(frappe.bold(st["state"].lower())))
+	number = frappe.db.get_value("User", user, "mobile_no")
+	to = normalize_whatsapp(number, _settings().get("default_country_code")) if number else None
+	if not to:
+		frappe.throw(_("This person has no valid mobile number for WhatsApp."))
+	first = frappe.db.get_value("User", user, "first_name") or user
+	sender = WhatsAppSender()
+	step = frappe._dict(wa_template=st["name"], variable_map=frappe.as_json(LOGIN["variable_map"]))
+	try:
+		template = sender._template(step)
+		account = sender.account(step)
+		params, _missing = personalization.render_whatsapp_params(step, {"first_name": first, "login_link": link})
+		doc = send_whatsapp_template(template.name, account, to, params, None, None, "crm-addons-login-link")
+	except ChannelError as exc:
+		frappe.throw(cstr(exc))
+	return {"message": doc.name, "to": to}
+
+
 def _settings():
 	from crm_addons.utils import get_settings
 
