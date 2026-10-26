@@ -370,3 +370,9 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
   (CRM writes localStorage constantly) or switching back to the tab started an endless loop. The theme is now only written when it
   changes and the page never observes itself.
 - The Campaign Manager now shows the reason on screen (and a Reload button) if it cannot start, instead of a blank page.
+
+## Unreleased - menu support for older CRM versions
+- The left-menu shortcuts and the "page inside the CRM" layout now also work with CRM versions that draw their side menu as plain buttons
+  (for example CRM 1.74), not only as links. Before, such a CRM showed no shortcuts and opened every Pro Pack screen as a pop-up, because the
+  add-on could not find where CRM's menu ends. The menu is found by its own page labels (Dashboard, Leads, ...) when there are no links.
+- Clicking one of CRM's own menu rows while a Pro Pack page is open no longer sends CRM back to the previous address.
