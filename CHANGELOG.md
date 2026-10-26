@@ -376,3 +376,13 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
   (for example CRM 1.74), not only as links. Before, such a CRM showed no shortcuts and opened every Pro Pack screen as a pop-up, because the
   add-on could not find where CRM's menu ends. The menu is found by its own page labels (Dashboard, Leads, ...) when there are no links.
 - Clicking one of CRM's own menu rows while a Pro Pack page is open no longer sends CRM back to the previous address.
+
+## Unreleased - visual email builder
+- **Social links now show real icons** (round, brand coloured) instead of text pills. 12 networks: Facebook, Instagram, LinkedIn, YouTube, X, WhatsApp,
+  Telegram, TikTok, Pinterest, Threads, Website, Email. Icon size (small / medium / large) and style (brand colours, dark, light) are options of the block.
+  The icons are PNG images served by your own site (`public/campaigns/social/`, drawn from the MIT-licensed Bootstrap Icons; `make_icons.js` regenerates
+  them), because Gmail and Outlook do not show SVG or icon fonts. They load for recipients when the site is reachable from the internet; with images blocked,
+  the network's name shows instead. Templates saved before this change keep their text links until the block is opened and the template saved again.
+- **Several images side by side:** the palette has ready-made rows (**2 images**, **3 images**, **4 images**, **Image + text**) that insert a Row with its
+  columns already holding blocks. A Row still takes 1 to 6 columns and any blocks in each column; a row cannot be placed inside another row (the toast now
+  says what to do instead).

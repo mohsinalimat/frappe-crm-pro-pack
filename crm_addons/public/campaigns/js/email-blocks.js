@@ -39,6 +39,12 @@
 	const ROW_MAX = 6
 	const rowProps = (count) => ({ count, divider: false, dividerColor: '#e3e6eb', valign: 'top', cols: Array.from({ length: ROW_MAX }, () => ({ blocks: [] })) })
 	CM.ROW_MAX = ROW_MAX
+	/** Network name -> file name of its icon (public/campaigns/social/<key>-<look>.png). */
+	CM.SOCIAL_KEYS = { Facebook: 'facebook', Instagram: 'instagram', LinkedIn: 'linkedin', YouTube: 'youtube', X: 'x', Twitter: 'x', WhatsApp: 'whatsapp', Telegram: 'telegram', TikTok: 'tiktok', Pinterest: 'pinterest', Threads: 'threads', Website: 'website', Email: 'email' }
+	CM.SOCIAL_NETWORKS = ['Facebook', 'Instagram', 'LinkedIn', 'YouTube', 'X', 'WhatsApp', 'Telegram', 'TikTok', 'Pinterest', 'Threads', 'Website', 'Email']
+	// ready-made rows for the palette: a row with its columns already holding blocks (an image in each, or an image and its text)
+	const imageCol = () => ({ blocks: [{ id: CM.uid(), type: 'image', props: { src: '', alt: '', link: '', width: 100, align: 'center', radius: 8 } }] })
+	const imageRow = (n) => { const p = rowProps(n); for (let i = 0; i < n; i++) p.cols[i] = imageCol(); return p }
 
 	/** Block catalogue: label, icon, defaults, property schema and renderer (returns one <tr>). */
 	const T = (CM.BLOCKS = {
@@ -116,6 +122,13 @@
 				return `<tr><td style="padding:8px 22px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="cm-row" style="table-layout:fixed"><tr>${cells}</tr></table><style>@media only screen and (max-width:480px){.cm-col{display:block!important;width:100%!important;border-left:0!important}}</style></td></tr>`
 			},
 		},
+		images2: { label: '2 images', icon: 'image', group: 'Layout', as: 'row', make: () => imageRow(2) },
+		images3: { label: '3 images', icon: 'image', group: 'Layout', as: 'row', make: () => imageRow(3) },
+		images4: { label: '4 images', icon: 'image', group: 'Layout', as: 'row', make: () => imageRow(4) },
+		imagetext: {
+			label: 'Image + text', icon: 'columns', group: 'Layout', as: 'row',
+			make: () => { const p = rowProps(2); p.valign = 'middle'; p.cols[0] = imageCol(); p.cols[1] = { blocks: [{ id: CM.uid(), type: 'heading', props: { ...T.heading.make(), text: 'A short heading', level: 'h3' } }, { id: CM.uid(), type: 'text', props: { ...T.text.make(), html: '<p>Describe the picture in a sentence or two.</p>' } }] }; return p },
+		},
 		banner: {
 			label: 'Banner', icon: 'banner', group: 'Content',
 			make: () => ({ title: 'Admissions are open', subtitle: 'Reserve your seat for the next batch.', bg: '#2563eb', color: '#ffffff', button: 'Apply now', url: 'https://', align: 'center' }),
@@ -124,11 +137,17 @@
 		},
 		social: {
 			label: 'Social links', icon: 'share', group: 'Layout',
-			make: () => ({ align: 'center', links: [{ network: 'Instagram', url: 'https://instagram.com/' }, { network: 'LinkedIn', url: 'https://linkedin.com/' }, { network: 'YouTube', url: 'https://youtube.com/' }] }),
-			schema: [{ key: 'align', label: 'Alignment', type: 'select', options: ALIGN }, { key: 'links', type: 'links' }],
+			make: () => ({ align: 'center', size: 36, look: 'color', links: [{ network: 'Instagram', url: 'https://instagram.com/' }, { network: 'LinkedIn', url: 'https://linkedin.com/' }, { network: 'YouTube', url: 'https://youtube.com/' }] }),
+			schema: [{ key: 'align', label: 'Alignment', type: 'select', options: ALIGN }, { key: 'size', label: 'Icon size', type: 'select', options: [{ value: 28, label: 'Small' }, { value: 36, label: 'Medium' }, { value: 44, label: 'Large' }] }, { key: 'look', label: 'Icon style', type: 'select', options: [{ value: 'color', label: 'Brand colours' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light (for dark backgrounds)' }] }, { key: 'links', type: 'links' }],
+			// Real images, because email apps (Gmail, Outlook) do not draw SVG or icon fonts. They are served by this site, so recipients see them
+			// as long as the site is reachable from the internet; the alt text (the network's name) shows if a mail app blocks images.
 			html: (p, s) => {
-				const col = { Facebook: '#1877f2', Instagram: '#d6249f', LinkedIn: '#0a66c2', YouTube: '#e11d1d', X: '#14161a', WhatsApp: '#128c4a', Website: '#475569' }
-				return `<tr><td align="${p.align}" style="padding:10px 32px;text-align:${p.align}">${p.links.filter((l) => l.network).map((l) => `<a href="${url(l.url)}" target="_blank" style="display:inline-block;margin:3px 4px;padding:6px 12px;border-radius:99px;background-color:${col[l.network] || '#475569'};color:#ffffff;font-family:${FONTS[s.font]};font-size:12.5px;font-weight:700;text-decoration:none">${esc(l.network)}</a>`).join('')}</td></tr>`
+				const size = +p.size || 36; const look = p.look === 'dark' || p.look === 'light' ? p.look : 'color'
+				const cells = (p.links || []).filter((l) => l.network).map((l) => {
+					const key = CM.SOCIAL_KEYS[l.network] || 'website'
+					return `<td style="padding:0 5px"><a href="${url(l.url)}" target="_blank" style="text-decoration:none"><img src="${esc(absolute(`/assets/crm_addons/campaigns/social/${key}-${look}.png`))}" width="${size}" height="${size}" alt="${esc(l.network)}" style="display:block;width:${size}px;height:${size}px;border:0;border-radius:50%;font-family:${FONTS[s.font]};font-size:11px;color:#475569"></a></td>`
+				}).join('')
+				return `<tr><td align="${p.align}" style="padding:10px 32px;text-align:${p.align}"><table role="presentation" cellpadding="0" cellspacing="0" align="${p.align}" style="display:inline-table;border-collapse:collapse"><tr>${cells}</tr></table></td></tr>`
 			},
 		},
 		footer: {

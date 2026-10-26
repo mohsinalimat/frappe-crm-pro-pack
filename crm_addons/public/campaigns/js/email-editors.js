@@ -226,7 +226,7 @@
 				const where = at || place(); const list = listFor(where.key)
 				if (!list) return
 				const b = CM.newBlock(type)
-				if (b.type === 'row' && where.key !== 'root') { CM.toast('A row cannot go inside another row. Put it below instead.', 'warn'); return }
+				if (b.type === 'row' && where.key !== 'root') { CM.toast('A row cannot go inside another row: give the row more columns, or put the new row below it.', 'warn'); return }
 				list.splice(where.i, 0, b); select(b.id)
 			}
 			function move(f, d) { const j = f.index + d; if (j < 0 || j >= f.list.length) return; const [b] = f.list.splice(f.index, 1); f.list.splice(j, 0, b) }
@@ -246,7 +246,7 @@
 				else if (data.startsWith('move:')) {
 					const f = CM.findBlock(blocks.value, data.slice(5)); const target = listFor(key)
 					if (!f || !target) return
-					if (f.block.type === 'row' && key !== 'root') { CM.toast('A row cannot go inside another row.', 'warn'); return }
+					if (f.block.type === 'row' && key !== 'root') { CM.toast('A row cannot go inside another row: give the row more columns, or put the new row below it.', 'warn'); return }
 					if (f.block.type === 'row' && key.startsWith(f.block.id + ':')) return // not into itself
 					const [b] = f.list.splice(f.index, 1); if (f.list === target && f.index < i) i--
 					target.splice(i, 0, b); select(b.id)
@@ -258,7 +258,7 @@
 			const schema = computed(() => (sel.value ? CM.BLOCKS[sel.value.type].schema || [] : []))
 			function setColsCount() { const p = sel.value.props; p.count = +p.count; if (sel.value.type === 'columns') while (p.cols.length < p.count) p.cols.push({ heading: 'Heading', text: 'Text' }) }
 			const addLink = () => sel.value.props.links.push({ network: 'Website', url: 'https://' })
-			const networks = ['Facebook', 'Instagram', 'LinkedIn', 'YouTube', 'X', 'WhatsApp', 'Website']
+			const networks = CM.SOCIAL_NETWORKS
 			// a text block saved before the formatting toolbar existed: give the toolbar its plain text as paragraphs
 			watch(sel, (b) => { if (b && b.type === 'text' && !b.props.html && b.props.text) b.props.html = '<p>' + CM.escape(b.props.text).replace(/\r?\n/g, '<br>') + '</p>' })
 			const colRow = computed(() => (colSel.value ? CM.findBlock(blocks.value, colSel.value.row) : null))
