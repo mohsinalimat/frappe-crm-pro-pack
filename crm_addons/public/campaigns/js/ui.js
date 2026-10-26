@@ -23,8 +23,8 @@
 		emits: ['update:modelValue'],
 		template: `<div class="seg" role="group" aria-label="Layout"><button type="button" :class="{ on: modelValue !== 'list' }" :aria-pressed="modelValue !== 'list'" title="Cards" aria-label="Cards" @click="$emit('update:modelValue', 'cards')"><Ico name="grid" /></button><button type="button" :class="{ on: modelValue === 'list' }" :aria-pressed="modelValue === 'list'" title="List" aria-label="List" @click="$emit('update:modelValue', 'list')"><Ico name="list" /></button></div>`,
 	}
-	CM.useLayout = (key) => {
-		const v = ref((() => { try { return localStorage.getItem(key) === 'list' ? 'list' : 'cards' } catch (e) { return 'cards' } })())
+	CM.useLayout = (key, fallback = 'cards') => {
+		const v = ref((() => { try { const x = localStorage.getItem(key); return x === 'list' || x === 'cards' ? x : fallback } catch (e) { return fallback } })())
 		watch(v, (x) => { try { localStorage.setItem(key, x) } catch (e) { /* not saved */ } })
 		return v
 	}
