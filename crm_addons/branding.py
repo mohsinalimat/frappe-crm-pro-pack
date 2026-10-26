@@ -28,7 +28,8 @@ FIELDS = {
 	"hide_signup": ("check", [(WEB, "hide_footer_signup")]),
 	"footer_on_login": ("check", [(WEB, "show_footer_on_login")]),
 }
-_IMAGE = re.compile(r"^(/files/|/private/files/|/assets/|https://|http://)[^\s<>\"']{1,480}$")
+# an uploaded file's address can hold spaces, brackets and non-English letters ("My logo (1).png"); only markup-breaking characters are refused
+_IMAGE = re.compile(r"^(/files/|/private/files/|/assets/|https://|http://)[^<>\"'\x00-\x1f]{1,480}$")
 
 
 def _has(doctype, fieldname):
