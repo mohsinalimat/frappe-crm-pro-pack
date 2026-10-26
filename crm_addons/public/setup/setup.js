@@ -267,6 +267,19 @@
 			const resetMenu = (k) => { draft[k] = '' }
 			const menuDrag = makeDrag((k, f, t) => { const l = menuItems(k); arrayMove(l, f, t); setMenu(k, l) })
 			// "count leads by these fields" and "highlighted counts": JSON lists in the draft
+			// WhatsApp templates (with Meta's status) for the missed-call message
+			const waInfo = (name) => (choices.value.whatsapp_templates || []).find((t) => t.value === name)
+			const waStateText = (s) => ({ APPROVED: 'Approved by Meta', PENDING: 'Waiting for Meta', REJECTED: 'Rejected by Meta' }[s] || s.toLowerCase())
+			const waOptions = (current) => [{ value: '', label: 'No template (send the plain text)' }, ...(choices.value.whatsapp_templates || []).map((t) => ({ value: t.value, label: t.label, sub: t.state === 'APPROVED' ? t.category : waStateText(t.state), disabled: t.state !== 'APPROVED' && t.value !== current }))]
+			const creatingWa = ref(false)
+			async function createMissedTemplate(k) {
+				creatingWa.value = true
+				try {
+					const r = await call('crm_addons.setup_page.create_missed_call_template')
+					const g = await call('crm_addons.setup_page.get_setup'); choices.value = g.choices; status.value = g.status
+					draft[k] = r.name; say(r.message || 'Submitted to Meta.')
+				} catch (e) { say(e.message, 'err') } finally { creatingWa.value = false }
+			}
 			const selectOptions = (it) => [...(it.empty ? [{ value: '', label: it.empty }] : []), ...optionsOf(it)]
 			const leadFieldOptions = (taken) => (choices.value.lead_fields || []).map((o) => ({ value: o.value, label: o.label, sub: o.value, disabled: !!(taken && taken.includes(o.value)) }))
 			const COUNT_OPS = [{ value: '=', label: 'is' }, { value: '!=', label: 'is not' }, { value: 'like', label: 'contains' }]
@@ -359,7 +372,7 @@
 			async function copy(text) { try { await navigator.clipboard.writeText(text); say('Copied') } catch (e) { say('Select the text and copy it.', 'err') } }
 			const stateText = { ok: 'Ready', todo: 'Needs setup', optional: 'Optional' }
 			const urls = (c) => (c.steps || []).map((s) => { const m = /(https?:\/\/\S+)/.exec(s); return m ? m[1] : '' })
-			return { valueOpts, menuDrag, selectOptions, leadFieldOptions, COUNT_OPS, jlist, fieldLabel, addField, dropField, addCounter, setCounter, dropCounter, menuItems, moveMenu, toggleMenu, resetMenu, hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
+			return { waInfo, waStateText, waOptions, creatingWa, createMissedTemplate, valueOpts, menuDrag, selectOptions, leadFieldOptions, COUNT_OPS, jlist, fieldLabel, addField, dropField, addCounter, setCounter, dropCounter, menuItems, moveMenu, toggleMenu, resetMenu, hasRole, toggleRole, loading, error, denied, draft, server, choices, status, tab, q, groups, visible, noResults, term, saving, toast, open, test, rechecking, dirtyKeys, problems, problem, met, lockText, optionsOf, init, save, discard, go, goToField, recheck, testGoogle, copy, stateText, urls, SCHEMA, parentLabel, itemMap }
 		},
 		template: `
 		<div class="shell">
@@ -441,7 +454,13 @@
 												<Sel small :model-value="c.op || '='" :options="COUNT_OPS" placeholder="is" @update:model-value="(v) => setCounter(it.k, i, 'op', v)" />
 												<Sel v-if="c.op !== 'like' && valueOpts(c).length" searchable :model-value="c.value" :options="valueOpts(c)" placeholder="Pick a value" @update:model-value="(v) => setCounter(it.k, i, 'value', v)" /><input v-else class="inp" placeholder="Value, e.g. School" :value="c.value" @input="setCounter(it.k, i, 'value', $event.target.value)" /><button type="button" class="menu-b" aria-label="Remove" @click="dropCounter(it.k, i)">&times;</button></div>
 											<button type="button" class="btn" @click="addCounter(it.k)">Add a count</button></div>
-										<textarea v-else-if="it.t === 'area'" :id="'f-' + it.k" class="inp area" rows="3" v-model="draft[it.k]" :disabled="!met(it)"></textarea>
+										<div v-else-if="it.t === 'watemplate'" class="watpl">
+											<Sel :id="'f-' + it.k" :model-value="draft[it.k]" :options="waOptions(draft[it.k])" placeholder="No template (send the plain text)" searchable :aria-label="it.label" @update:model-value="(v) => (draft[it.k] = v)" />
+											<div v-if="waInfo(draft[it.k])" class="wa-card"><div class="row" style="gap:8px"><span class="pill" :class="waInfo(draft[it.k]).state === 'APPROVED' ? 'ok' : waInfo(draft[it.k]).state === 'REJECTED' ? 'todo' : 'warn'">{{ waStateText(waInfo(draft[it.k]).state) }}</span><span class="small muted">{{ waInfo(draft[it.k]).category }}</span></div><div class="wa-body">{{ waInfo(draft[it.k]).body }}</div>
+												<div v-if="waInfo(draft[it.k]).state !== 'APPROVED'" class="small err">Not sent until Meta approves it. Check its status in Campaign Manager, WhatsApp templates (Sync from Meta).</div></div>
+											<div v-else-if="draft[it.k]" class="small err">This template no longer exists. Choose another.</div>
+											<div class="row wrap" style="gap:8px"><button type="button" class="btn" :disabled="creatingWa" @click="createMissedTemplate(it.k)">{{ creatingWa ? 'Sending to Meta...' : 'Create the ready-made template' }}</button><span class="small muted">Submits "Hi {{1}}, we just tried to call you..." to Meta for review.</span></div></div>
+										<textarea v-else-if="it.t === 'area' :id="'f-' + it.k" class="inp area" rows="3" v-model="draft[it.k]" :disabled="!met(it)"></textarea>
 										<input v-else :id="'f-' + it.k" class="inp" type="text" :placeholder="it.placeholder" v-model="draft[it.k]" :disabled="!met(it)" autocomplete="off" />
 									</div>
 								</div>

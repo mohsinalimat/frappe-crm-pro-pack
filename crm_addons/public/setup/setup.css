@@ -196,3 +196,7 @@ h1, h2, h3 { font-stretch: 90%; }
 .row-i.wide { grid-template-columns: minmax(0, 1fr); } .row-i.wide .row-c { justify-content: flex-start; }
 .row-i.wide .menuedit, .row-i.wide .fieldlist, .row-i.wide .countedit { width: 100%; }
 .countrow { grid-template-columns: 1.2fr 1.2fr 120px 1.2fr 30px; }
+
+.watpl { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; max-width: 460px; }
+.wa-card { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); display: flex; flex-direction: column; gap: 6px; }
+.wa-body { white-space: pre-wrap; padding: 8px 10px; border-radius: 8px 8px 8px 2px; background: var(--green-soft); color: var(--text); font-size: 13px; }
