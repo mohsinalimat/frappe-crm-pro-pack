@@ -46,6 +46,14 @@ def _crm_roles():
 	return sorted(enabled - {"Administrator", "Guest", "All"})
 
 
+def _whatsapp_templates():
+	"""Every WhatsApp template with its Meta status, so the page can say which ones may be sent."""
+	if not frappe.db.exists("DocType", "WhatsApp Templates"):
+		return []
+	rows = frappe.get_all("WhatsApp Templates", fields=["name", "template_name", "template", "status", "category"], order_by="template_name asc", limit_page_length=500)
+	return [{"value": r.name, "label": r.template_name, "body": r.template, "state": (r.status or "NOT SYNCED").upper(), "category": r.category} for r in rows]
+
+
 def _choices():
 	"""Lists the page needs for its drop-downs."""
 	statuses = frappe.get_all("CRM Lead Status", pluck="name", order_by="position asc") if frappe.db.exists("DocType", "CRM Lead Status") else []
@@ -55,6 +63,7 @@ def _choices():
 		"google_calendars": [{"value": c.name, "label": c.name + ("" if c.enable and c.push_to_google_calendar else " (not ready)")} for c in calendars],
 		"providers": ["Google Meet", "Manual Link"],
 		"roles": _crm_roles(),
+		"whatsapp_templates": _whatsapp_templates(),
 		"lead_fields": [
 			{"value": f.fieldname, "label": f.label}
 			for f in frappe.get_meta("CRM Lead").fields
@@ -207,3 +216,12 @@ def field_values(fieldname):
 		f"select `{fieldname}`, count(*) c from `tabCRM Lead` where ifnull(`{fieldname}`, '') != '' group by `{fieldname}` order by c desc limit 100"
 	)
 	return [{"value": str(v), "label": str(v), "count": c} for v, c in rows]
+
+
+@frappe.whitelist()
+def create_missed_call_template():
+	"""Submit the ready-made missed-call WhatsApp template to Meta (it stays Pending until Meta approves it)."""
+	_only_admins()
+	from crm_addons import system_messages
+
+	return system_messages.create_missed_call_template()

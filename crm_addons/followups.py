@@ -349,6 +349,7 @@ def get_config():
 		"templates": templates,
 		"whatsapp": _whatsapp_ready(),
 		"missed_call_text": get_settings().missed_call_whatsapp_text or "",
+		"missed_call_template": _missed_call_template(),
 		"outcomes": [o for o in (meta.get_field("outcome").options or "").split("\n") if o],
 		"missed_outcomes": list(MISSED),
 		"escalate_after": cint(get_settings().escalate_after_attempts),
@@ -763,12 +764,24 @@ def _phone_for(reference_doctype, reference_docname):
 	return (row.get("mobile_no") or row.get("phone") or "").strip()
 
 
+def _missed_call_template():
+	from crm_addons import system_messages
+
+	info = system_messages.template_info()
+	return {k: info[k] for k in ("label", "body", "state", "ready")} if info else None
+
+
 @frappe.whitelist()
 def send_missed_call_whatsapp(reference_doctype, reference_name, message):
-	"""Send a WhatsApp message to the Lead through CRM's own WhatsApp integration."""
+	"""Send a WhatsApp message to the Lead: the approved template chosen in setup when there is one, otherwise the text as a plain
+	message through CRM's own WhatsApp integration."""
 	_check_reference(reference_doctype, reference_name)
 	if not _whatsapp_ready():
 		frappe.throw(_("WhatsApp is not set up in CRM."))
+	from crm_addons import system_messages
+
+	if system_messages.template_info():
+		return system_messages.send_missed_call_template(reference_doctype, reference_name)
 	message = (message or "").strip()
 	if not message:
 		frappe.throw(_("Write the WhatsApp message first."))

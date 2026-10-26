@@ -31,6 +31,7 @@
   "lead_scoring_enabled",
   "stale_lead_days",
   "column_break_insights",
+  "missed_call_whatsapp_template",
   "missed_call_whatsapp_text",
   "ui_section",
   "show_record_buttons",
@@ -235,6 +236,12 @@
   {
    "fieldname": "column_break_insights",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "missed_call_whatsapp_template",
+   "fieldtype": "Data",
+   "label": "WhatsApp template for a missed call",
+   "description": "An approved WhatsApp template sent after a missed call. Without one, the text below is sent as a plain message, which WhatsApp only delivers within 24 hours of the lead's last message."
   },
   {
    "fieldname": "missed_call_whatsapp_text",

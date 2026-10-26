@@ -56,8 +56,10 @@ window.SETUP_SCHEMA = [
 				info: { what: 'Works out a 0 to 100 score from calls, outcomes, meetings and recent activity, and shows it as the Lead Score column and on the Lead page.', note: 'Scores refresh every night and whenever a follow-up is saved.' } },
 			{ k: 'stale_lead_days', t: 'num', label: 'Warn about leads with no activity', unit: 'days', min: 0, max: 365,
 				info: { what: 'An open lead with no comment, email, call, task, note, follow-up or meeting for this long alerts its owner, once. 0 turns it off.', eg: '7 means a week of silence.' } },
-			{ k: 'missed_call_whatsapp_text', t: 'area', label: 'Message to offer after a missed call',
-				info: { what: 'Offered as a ready-to-send WhatsApp message when a call is logged as Did Not Pick or Did Not Connect. The agent can edit it before sending.', note: 'Needs WhatsApp set up (see the checklist).' } },
+			{ k: 'missed_call_whatsapp_template', t: 'watemplate', label: 'WhatsApp template for a missed call',
+				info: { what: 'The approved WhatsApp template sent when a call is logged as Did Not Pick or Did Not Connect. WhatsApp only delivers templates that Meta approved to people who have not written to you recently.', note: 'Use the ready-made one: it is sent to Meta for review and can be used once approved. Leave it empty to send the plain text below instead.' } },
+			{ k: 'missed_call_whatsapp_text', t: 'area', label: 'Plain text if no template is chosen',
+				info: { what: 'Sent as a plain WhatsApp message when no template is chosen above. WhatsApp only delivers it within 24 hours of the lead\'s last message.', note: 'Needs WhatsApp set up (see the checklist).' } },
 		],
 	},
 	{

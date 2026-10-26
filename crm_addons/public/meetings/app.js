@@ -629,7 +629,7 @@
 				}
 				emit('saved', { message, warn, statusChanged: !!statusChanged.value })
 			}
-			return { d, f, isNew, error, saving, formEl, outcomeOptions, statusOptions, attempt, missed, offerWhatsApp, statusChanged, quicks, setNext, applyTemplate, nextLabel, save, close: () => emit('close') }
+			return { tpl: d.config.missed_call_template || null, d, f, isNew, error, saving, formEl, outcomeOptions, statusOptions, attempt, missed, offerWhatsApp, statusChanged, quicks, setNext, applyTemplate, nextLabel, save, close: () => emit('close') }
 		},
 		template: `
 <div class="overlay-embedded" @mousedown.self="close">
@@ -670,7 +670,10 @@
 
 		<div class="field" v-if="offerWhatsApp">
 			<label class="check"><input type="checkbox" v-model="f.whatsapp" /> Send a WhatsApp message now</label>
-			<textarea class="control" v-if="f.whatsapp" v-model="f.waText" style="margin-top:8px" placeholder="Message"></textarea>
+			<template v-if="f.whatsapp && tpl">
+				<div class="wa-tpl" style="margin-top:8px"><div class="sub">Sent as the approved WhatsApp template <b>{{ tpl.label }}</b>{{ tpl.ready ? '' : ' (not approved by Meta yet, so it cannot be sent)' }}:</div><div class="wa-tpl-body">{{ tpl.body }}</div></div>
+			</template>
+			<textarea class="control" v-else-if="f.whatsapp" v-model="f.waText" style="margin-top:8px" placeholder="Message"></textarea>
 		</div>
 		<div class="err" v-if="error">{{ error }}</div>
 	</div>
