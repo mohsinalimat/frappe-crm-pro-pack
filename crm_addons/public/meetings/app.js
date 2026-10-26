@@ -97,6 +97,7 @@
 	const ICONS = {
 		calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
 		'calendar-check': '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/>',
+		'chevron-down': '<path d="m6 9 6 6 6-6"/>',
 		'chevron-left': '<path d="m15 18-6-6 6-6"/>',
 		'chevron-right': '<path d="m9 18 6-6-6-6"/>',
 		external: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
@@ -717,6 +718,9 @@
 			const fatal = ref('')
 			const view = ref(params.get('view') || 'agenda')
 			const cursor = ref(sod(new Date()))
+			// the agenda shows this many days from the cursor (a day, a week, a month): picked from the menu next to Today
+			const span = ref(7)
+			const spanOpen = ref(false)
 			const scope = ref('mine')
 			// what the person's access settings allow: other people's meetings (their team's or everyone's), and the Bookings view
 			const seesOthers = computed(() => !!config.value && ['team', 'all'].includes(config.value.meetings_scope || (config.value.is_manager ? 'all' : 'own')))
@@ -745,7 +749,7 @@
 				if (view.value === 'month') { const s = startOfWeek(new Date(c.getFullYear(), c.getMonth(), 1)); return [s, addDays(s, 42)] }
 				if (view.value === 'week') { const s = startOfWeek(c); return [s, addDays(s, 7)] }
 				if (view.value === 'day') return [c, addDays(c, 1)]
-				return [c, addDays(c, 45)]
+				return [c, addDays(c, span.value)]
 			})
 			const label = computed(() => {
 				const c = cursor.value
@@ -753,7 +757,10 @@
 				if (view.value === 'day') return fmtDay(c)
 				const [s, e] = range.value, last = addDays(e, -1)
 				if (view.value === 'week') return `${s.toLocaleDateString([], { day: 'numeric', month: 'short' })} – ${last.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}`
-				return sameDay(c, sod(new Date())) ? 'Upcoming' : `From ${fmtDay(c, { day: 'numeric', month: 'short', year: 'numeric' })}`
+				const t = sod(new Date())
+				if (span.value === 1) return sameDay(c, t) ? 'Today' : sameDay(c, addDays(t, 1)) ? 'Tomorrow' : fmtDay(c)
+				if (sameDay(c, t)) return `Next ${span.value} days`
+				return `${s.toLocaleDateString([], { day: 'numeric', month: 'short' })} – ${last.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}`
 			})
 
 			// the demo type's title and where the visitor came from (UTM) come with the booking, not the meeting: joined here by meeting
@@ -784,16 +791,26 @@
 					fatal.value = ''
 				} catch (err) { if (my === seq) fatal.value = err.message } finally { if (my === seq) loading.value = false }
 			}
-			watch([view, cursor, scope, demosOnly], () => load())
+			watch([view, cursor, scope, demosOnly, span], () => load())
 
 			function step(dir) {
 				const c = cursor.value
 				if (view.value === 'month') cursor.value = new Date(c.getFullYear(), c.getMonth() + dir, 1)
 				else if (view.value === 'week') cursor.value = addDays(c, 7 * dir)
 				else if (view.value === 'day') cursor.value = addDays(c, dir)
-				else cursor.value = addDays(c, 30 * dir)
+				else cursor.value = addDays(c, dir)  // the agenda moves one day at a time, whatever it shows
 			}
 			const today = () => (cursor.value = sod(new Date()))
+			const SPAN_MENU = [['today', 'Today'], ['tomorrow', 'Tomorrow'], ['7', 'Next 7 days'], ['30', 'Next 30 days']]
+			function pickSpan(k) {
+				const t = sod(new Date())
+				if (k === 'today') { span.value = 1; cursor.value = t } else if (k === 'tomorrow') { span.value = 1; cursor.value = addDays(t, 1) } else { span.value = Number(k); cursor.value = t }
+				spanOpen.value = false
+			}
+			const spanKey = computed(() => { const t = sod(new Date()); if (span.value === 1) return sameDay(cursor.value, t) ? 'today' : sameDay(cursor.value, addDays(t, 1)) ? 'tomorrow' : ''; return sameDay(cursor.value, t) ? String(span.value) : '' })
+			function closeSpan(e) { if (spanOpen.value && !(e.target.closest && e.target.closest('.spanbox'))) spanOpen.value = false }
+			onMounted(() => document.addEventListener('mousedown', closeSpan))
+			onBeforeUnmount(() => document.removeEventListener('mousedown', closeSpan))
 			function go(d, v) { cursor.value = sod(d); view.value = v }
 			const goHome = () => { view.value = 'agenda'; cursor.value = sod(new Date()); selected.value = null }
 			const dateValue = computed(() => dateInput(cursor.value))
@@ -942,7 +959,7 @@
 			onBeforeUnmount(() => { document.removeEventListener('keydown', onKey); clearInterval(timer); clearInterval(clock) })
 
 			return {
-				config, fatal, view, cursor, scope, demosOnly, isDemo, demoSource, meetings, loading, selected, editor, toasts, stage, label, agenda, monthCells, columns, days, nowTop,
+				config, fatal, view, cursor, span, spanOpen, SPAN_MENU, pickSpan, spanKey, scope, demosOnly, isDemo, demoSource, meetings, loading, selected, editor, toasts, stage, label, agenda, monthCells, columns, days, nowTop,
 				step, today, go, goHome, dateValue, jump, openPicker, pickMeeting, newMeeting, editMeeting, onSaved, onChanged, closeEditor, closeSelf, openFull, slotClick, toast, load, editorOnly,
 				dowNames: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
 				hours: Array.from({ length: 24 }, (_, h) => h), clockLabel, fmtTime, fmtDay, fromSql, whenText, shortRange, statusClass, sameDay, sod, EMBED, HOUR, refName, seesOthers, othersLabel, demosTab,
@@ -954,7 +971,9 @@
 	<div class="toolbar" v-if="config">
 		<button class="brand" @click="goHome" title="Upcoming meetings"><span class="brand-ico"><ico name="calendar-check" size="lg" /></span><h1>Meetings</h1></button>
 		<div class="nav">
-			<button class="btn" @click="today"><ico name="calendar" /> Today</button>
+			<div class="spanbox" v-if="view === 'agenda'"><button class="btn" @click="today" title="Back to today"><ico name="calendar" /> Today</button><button class="btn spanbtn" :aria-expanded="spanOpen" aria-label="Choose what the agenda shows" @click="spanOpen = !spanOpen"><ico name="chevron-down" /></button>
+				<div class="spanmenu" v-if="spanOpen" role="menu"><button v-for="o in SPAN_MENU" :key="o[0]" role="menuitem" :class="{ on: spanKey === o[0] }" @click="pickSpan(o[0])">{{ o[1] }}<ico v-if="spanKey === o[0]" name="check" /></button></div></div>
+			<button class="btn" v-else @click="today"><ico name="calendar" /> Today</button>
 			<div class="navgroup"><button class="btn" @click="step(-1)" aria-label="Previous"><ico name="chevron-left" /></button><button class="btn" @click="step(1)" aria-label="Next"><ico name="chevron-right" /></button></div>
 		</div>
 		<label class="range-picker" title="Jump to a date"><span>{{ label }}</span><ico name="calendar" /><input type="date" :value="dateValue" @change="jump" @click="openPicker" aria-label="Jump to a date" /></label>
