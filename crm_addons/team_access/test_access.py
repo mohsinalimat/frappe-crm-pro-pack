@@ -259,6 +259,45 @@ class TestAdminApi(AccessCase):
 					fn(*args)
 			frappe.set_user("Administrator")
 
+	def test_add_person_creates_a_crm_user_with_role_and_preset(self):
+		from crm_addons.team_access import admin
+
+		email = "added.acc@example.org"
+		if frappe.db.exists("User", email):
+			frappe.delete_doc("User", email, force=True, ignore_permissions=True)
+		self.addCleanup(lambda: frappe.db.exists("User", email) and frappe.delete_doc("User", email, force=True, ignore_permissions=True))
+		with patch("frappe.core.doctype.user.user.User.send_welcome_mail_to_user") as mail:
+			out = admin.add_person(email, "Added", "Person", "Sales User", "Sales Executive", 1)
+		self.assertTrue(out["created"] and out["invited"])
+		mail.assert_called_once()
+		self.assertIn("Sales User", frappe.get_roles(email))
+		self.assertEqual(frappe.db.get_value("CRM User Access", email, "preset"), "Sales Executive")
+		self.assertIn(email, [p["user"] for p in admin.get_overview()["people"]])
+		# again: the existing account is kept, a role is added, nothing is created
+		out = admin.add_person(email, "Added", "", "Sales Manager", None, 0)
+		self.assertFalse(out["created"])
+		self.assertIn("Sales Manager", frappe.get_roles(email))
+		for bad in (("not-an-email", "A", "", "Sales User"), (email, "A", "", "System Manager")):
+			with self.assertRaises(frappe.ValidationError):
+				admin.add_person(*bad)
+		rep = self.person("addcheck.rep@example.org", "Sales User")
+		self.as_user(rep)
+		with self.assertRaises(frappe.PermissionError):
+			admin.add_person("x@example.org", "X")
+
+	def test_add_person_still_works_when_the_invitation_cannot_be_sent(self):
+		from crm_addons.team_access import admin
+
+		email = "noinvite.acc@example.org"
+		if frappe.db.exists("User", email):
+			frappe.delete_doc("User", email, force=True, ignore_permissions=True)
+		self.addCleanup(lambda: frappe.db.exists("User", email) and frappe.delete_doc("User", email, force=True, ignore_permissions=True))
+		with patch("frappe.core.doctype.user.user.User.send_welcome_mail_to_user", side_effect=Exception("no outgoing email account")):
+			out = admin.add_person(email, "No", "Invite")
+		self.assertTrue(out["created"] and not out["invited"])
+		self.assertIn("outgoing", out["invite_problem"])
+		self.assertTrue(frappe.db.exists("User", email))
+
 	def test_the_overview_lists_people_presets_and_the_registry(self):
 		from crm_addons.team_access import admin
 

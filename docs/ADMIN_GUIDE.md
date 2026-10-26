@@ -79,6 +79,8 @@ System Managers can customize a dashboard.
 
 Open **Team and access** from the CRM menu or the Dashboard header (System Managers only), or go to `/team-access`.
 
+**Add person** (top right) creates the login: email, name, role (Sales User or Sales Manager), a starting preset, and an optional invitation email with the link to set a password. If your site has no outgoing email account the person is still added; set the account up and use **Send password reset email** on their access page. Where they sit in the Sales Hierarchy is still set in CRM's own Settings.
+
 - **People** lists everyone with a Sales User, Sales Manager, System Manager or Campaign Manager role: their roles, who they report to (from CRM's **Sales Hierarchy**, in CRM's own
   Settings under User Management) and their access. Click a person to give them a **preset** and change anything on top of it. Add and invite people, and the hierarchy itself, stay in CRM's Settings;
   the person's panel can send a password reset email (Frappe's own reset, it needs an outgoing email account).
