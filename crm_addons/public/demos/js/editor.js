@@ -74,6 +74,8 @@
 					taken.value = (list || []).filter((r) => r.name !== serverName.value).map((r) => r.slug)
 					DM.typesCache = list || []
 					doc.value = isNew ? DM.newDoc() : DM.fromServer(d)
+					// a new demo type starts with the ready-made messages (before the baseline, so it is not an "unsaved change" or a draft)
+					if (isNew) { await DM.loadDefaults(); doc.value.messages.forEach(DM.applyDefault) }
 					baseline = snap(); loadKey.value++
 					const saved = CM.store.json(draftKey, null)
 					draft.value = saved && saved.doc && JSON.stringify(saved.doc) !== baseline ? saved : null

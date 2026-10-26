@@ -47,7 +47,7 @@ class CRMDemoType(Document):
 				self.append("messages", {"event": event})
 			for minutes in DEFAULT_REMINDERS:
 				self.append("messages", {"event": "Reminder", "minutes_before": minutes})
-		self.use_default_messages()  # also for rules the admin screen sent empty: only empty rules are filled
+			self.use_default_messages()  # only when the rules were not sent by the caller: what a caller sends is kept as it is
 		if not self.consent_text:
 			self.consent_text = _("Send me updates about this demo on WhatsApp.")
 
