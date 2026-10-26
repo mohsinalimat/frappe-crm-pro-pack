@@ -6,14 +6,15 @@
 	const V = AX.views
 	const NAV = [
 		{ key: 'people', label: 'People', icon: 'users', path: '/people' },
+		{ key: 'hierarchy', label: 'Hierarchy', icon: 'users', path: '/hierarchy' },
 		{ key: 'presets', label: 'Presets', icon: 'shield', path: '/presets' },
 	]
 
 	const App = {
 		setup() {
 			const r = CM.route
-			const active = computed(() => (r.parts[0] === 'presets' ? 'presets' : 'people'))
-			const view = computed(() => (active.value === 'presets' ? 'Presets' : 'People'))
+			const active = computed(() => (r.parts[0] === 'presets' ? 'presets' : r.parts[0] === 'hierarchy' ? 'hierarchy' : 'people'))
+			const view = computed(() => (active.value === 'presets' ? 'Presets' : active.value === 'hierarchy' ? 'Hierarchy' : 'People'))
 			onMounted(() => { AX.load(); CM.loadShared() })
 			let saved = false; try { saved = localStorage.getItem('ax_rail_collapsed') === '1' } catch (e) { /* storage blocked */ }
 			const collapsed = ref(saved)

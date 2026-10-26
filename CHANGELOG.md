@@ -6,6 +6,7 @@ All notable changes to CRM Pro Pack (the `crm_addons` Frappe app).
 
 ### Added
 
+- **Hierarchy in Team and access**: the Sales Hierarchy as a tree where a System Manager changes who reports to whom, adds people who are not in it yet, takes people out (not while others report to them), and switches CRM's own hierarchy setting. Loops are refused.
 - **Settings in the CRM menu** (System Managers only), below Team and access: opens the setup page inside the CRM.
 - **Branding in Setup**: name, logo, favicon, login page picture, footer and tab title in one place, written to CRM's brand settings, Website Settings and Navbar Settings together; empty means the default look, with a preview and a reset. Also shown as an optional item in the setup checklist.
 

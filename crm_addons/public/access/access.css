@@ -19,3 +19,8 @@
 .ax-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } @media (max-width: 640px) { .ax-two { grid-template-columns: 1fr; } }
 .ax-head { flex-wrap: wrap; } .ax-head-actions { flex-wrap: wrap; }
 .ax-tbl tr.inactive td { opacity: .55; }
+
+.hx-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); } .hx-row:first-child { border-top: 0; }
+.hx-row.inactive { opacity: .6; } .hx-dd { width: 240px; max-width: 40%; flex: none; }
+.hx-elbow { width: 14px; height: 14px; margin-left: -18px; border-left: 2px solid var(--border-strong); border-bottom: 2px solid var(--border-strong); border-bottom-left-radius: 6px; flex: none; margin-top: -8px; }
+@media (max-width: 700px) { .hx-row { flex-wrap: wrap; } .hx-dd { width: 100%; max-width: none; } }
