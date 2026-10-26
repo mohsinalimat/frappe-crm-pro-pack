@@ -216,6 +216,53 @@
 		document.head.appendChild(js)
 	}
 
+	// After a deploy, someone who already has the CRM open is still running the old files. Ask the server for its version every
+	// few minutes and when the tab is shown again. A different version: reload on our own when nothing is being edited, otherwise
+	// show a small bar with a Refresh button (never reload under someone who is typing).
+	var VERSION_CHECK_MS = 5 * 60 * 1000
+	var lastVersionCheck = 0
+	function busyEditing() {
+		var el = document.activeElement
+		if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || (el && el.isContentEditable)) return true
+		return !!document.querySelector('[role="dialog"], .cra-overlay, .overlay, dialog[open]')
+	}
+	function showUpdateBar() {
+		if (document.getElementById('cra-update')) return
+		var b = document.createElement('div')
+		b.id = 'cra-update'
+		b.setAttribute('role', 'status')
+		b.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2147483000;display:flex;gap:12px;align-items:center;padding:10px 14px;border-radius:10px;background:#1f2937;color:#fff;font:13px/1.3 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)'
+		b.appendChild(document.createTextNode('Pro Pack was updated. Refresh to use the new version.'))
+		var r = document.createElement('button')
+		r.textContent = 'Refresh'
+		r.style.cssText = 'border:0;border-radius:6px;padding:6px 12px;background:#fff;color:#111;font-weight:600;cursor:pointer'
+		r.onclick = function () { location.reload() }
+		var x = document.createElement('button')
+		x.textContent = 'Later'
+		x.style.cssText = 'border:0;background:transparent;color:#cbd5e1;cursor:pointer'
+		x.onclick = function () { b.remove() }
+		b.appendChild(r); b.appendChild(x); document.body.appendChild(b)
+	}
+	function checkVersion(force) {
+		var now = Date.now()
+		if (!force && now - lastVersionCheck < 60 * 1000) return
+		lastVersionCheck = now
+		fetch('/api/method/crm_addons.api.get_asset_version', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+			.then(function (r) { return r.ok ? r.json() : null })
+			.then(function (j) {
+				var v = j && j.message
+				if (!v || !VER) return
+				if (v === VER) { try { sessionStorage.removeItem('cra_auto_reload') } catch (e) { /* fine */ } return }
+				if (!busyEditing() && document.visibilityState === 'visible') {
+					try { var n = Number(sessionStorage.getItem('cra_auto_reload') || 0); if (n >= 2) { showUpdateBar(); return } sessionStorage.setItem('cra_auto_reload', String(n + 1)) } catch (e) { /* storage blocked */ }
+					location.reload()
+				} else showUpdateBar()
+			})
+			.catch(function () { /* offline: try again later */ })
+	}
+	setInterval(function () { checkVersion(false) }, VERSION_CHECK_MS)
+	document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkVersion(false) })
+
 	// CRM's "Email Templates" picker (on a Lead's email box) keeps its own saved copy of the list and only looks again when
 	// told to. When a Lead template was added or changed (for example in the Campaign Manager, which mirrors its templates
 	// there), tell it: now for a picker that is open, and through CRM's own "missed broadcast" note for one opened later.
