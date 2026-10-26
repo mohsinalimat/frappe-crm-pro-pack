@@ -26,6 +26,7 @@ from frappe import _
 from frappe.utils import add_to_date, cint, cstr, now_datetime
 
 from crm_addons import debuglog
+from crm_addons.team_access import access
 from crm_addons.campaigns.common import CAMPAIGN, DEFAULT_TIMEZONE, LEAD, MIGRATE_HINT, RECIPIENT, automation_ready
 
 AUTOMATION = "CRM Campaign Automation"
@@ -333,14 +334,15 @@ def _check_user():
 	from crm_addons.campaigns.api import _check_user as check
 
 	check()
+	if not access.allows("automations", "view"):
+		frappe.throw(_("You do not have access to automations."), frappe.PermissionError)
 	if not automation_ready():
 		frappe.throw(_(MIGRATE_HINT).format(site=frappe.local.site))
 
 
 def _require_manager():
-	from crm_addons.campaigns.api import _require_manager as require
-
-	require(_("create or edit automations"))
+	if not access.allows("automations", "manage"):
+		frappe.throw(_("You do not have access to create or edit automations."), frappe.PermissionError)
 
 
 def trigger_text(a):
@@ -404,7 +406,13 @@ def _get(name, ptype="read"):
 	if not frappe.db.exists(AUTOMATION, name):
 		frappe.throw(_("Automation {0} was not found.").format(name), frappe.DoesNotExistError)
 	doc = frappe.get_doc(AUTOMATION, name)
-	doc.check_permission(ptype)
+	if ptype in ("read", None):
+		doc.check_permission(ptype or "read")
+	else:  # changing one: the access check was made by the caller; here it only has to be inside the person's campaign scope
+		from crm_addons.campaigns.permissions import automation_has_permission
+
+		if not automation_has_permission(doc, ptype):
+			frappe.throw(_("You do not have access to this automation."), frappe.PermissionError)
 	return doc
 
 
@@ -444,8 +452,7 @@ def save_automation(data, name=None):
 		doc.set("steps", [])
 		for step in data["steps"] or []:
 			doc.append("steps", {k: step.get(k) for k in STEP_FIELDS if k in step})
-	doc.flags.ignore_permissions = False
-	doc.save()
+	doc.save(ignore_permissions=True)  # "Automations: create and edit" was checked above
 	return get_automation(doc.name)
 
 
@@ -454,7 +461,7 @@ def set_enabled(name, enabled):
 	_require_manager()
 	doc = _get(name, "write")
 	doc.enabled = 1 if cint(enabled) else 0
-	doc.save()
+	doc.save(ignore_permissions=True)
 	return _summary(doc)
 
 
@@ -462,7 +469,7 @@ def set_enabled(name, enabled):
 def delete_automation(name):
 	_require_manager()
 	doc = _get(name, "delete")
-	frappe.delete_doc(AUTOMATION, doc.name)
+	frappe.delete_doc(AUTOMATION, doc.name, ignore_permissions=True)
 	return True
 
 
@@ -480,7 +487,7 @@ def duplicate_automation(name):
 		doc.append("actions", {"action": a.action, "value": a.value})
 	for s in src.steps:
 		doc.append("steps", {k: s.get(k) for k in STEP_FIELDS})
-	doc.insert()
+	doc.insert(ignore_permissions=True)
 	return get_automation(doc.name)
 
 

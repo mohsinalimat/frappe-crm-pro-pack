@@ -68,15 +68,21 @@ def _rollback():
 
 
 def is_manager(user=None):
-	from crm_addons.utils import is_campaign_manager
+	"""May this person look at campaigns that are not theirs (their team's or everyone's)?"""
+	from crm_addons.team_access import access
 
-	return is_campaign_manager(user)
+	return access.level("campaigns", user) in (access.R.TEAM, access.R.ALL)
 
 
 def can_act(campaign, user=None):
-	"""Managers can act on any campaign; everyone else only on their own."""
+	"""The owner (or whoever runs the campaign) can act on it. Someone with the "Create and send campaigns" switch can act on any campaign
+	they may see (their team's, or everyone's, per their Campaigns access)."""
+	from crm_addons.team_access import access
+
 	user = user or frappe.session.user
-	return is_manager(user) or user in (campaign.owner, campaign.get("campaign_owner"))
+	if user in (campaign.owner, campaign.get("campaign_owner")):
+		return True
+	return access.allows("campaign_create", 1, user) and access.can_see_user("campaigns", campaign.owner, user)
 
 
 def allowed_actions(campaign, user=None):
@@ -106,7 +112,14 @@ def _campaign(name, ptype="read"):
 	if not frappe.db.exists(CAMPAIGN, name):
 		frappe.throw(_("Campaign {0} was not found.").format(name), frappe.DoesNotExistError)
 	doc = frappe.get_doc(CAMPAIGN, name)
-	doc.check_permission(ptype)
+	if ptype in ("write", "delete", "submit", "cancel"):
+		# changing a campaign: the "Create and send campaigns" switch, and it has to be one the person may act on (the doctype itself is read-only for Sales Users)
+		from crm_addons.team_access import access
+
+		if not (access.allows("campaign_create", 1) and can_act(doc)):
+			frappe.throw(_("You do not have access to change this campaign."), frappe.PermissionError)
+	else:
+		doc.check_permission(ptype)
 	return doc
 
 

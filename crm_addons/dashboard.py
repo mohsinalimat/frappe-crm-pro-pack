@@ -596,7 +596,10 @@ def get_nurturing(from_date=None, to_date=None, user=None, top_limit=10):
 	A reply is a message from the lead (WhatsApp or email) within 14 days after a send.
 	"""
 	frappe.only_for(NURTURE_ROLES)
+	from crm_addons.team_access import access
 	from crm_addons.utils import get_settings, is_campaign_manager, is_manager
+
+	access.require("dashboard_campaigns_tab", 1, _("The Campaigns tab of the Sales Dashboard is switched off for you."))
 
 	start, end = _nurture_period(from_date, to_date)
 	who = _nurture_who(user)

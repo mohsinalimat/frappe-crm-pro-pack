@@ -11,9 +11,9 @@
 		{ key: 'html', icon: 'code', title: 'HTML editor', text: 'Paste or write your own HTML with a live preview, formatting and validation.' },
 		{ key: 'rich', icon: 'edit', title: 'Rich text', text: 'Write like a document: bold, links, lists, headings and images.' },
 	]
-	const SAMPLE = { first_name: 'Siddharth', last_name: 'Singh', lead_name: 'Siddharth Singh', email: 'siddharth.singh@example.com', organization: 'Acme Learning', sender_name: 'Siddharth Singh', owner_name: 'Siddharth Singh', mobile_no: '+91 98765 43210', today: new Date().toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }) }
+	const SAMPLE = { booking_title: 'Intro session', booking_date: 'Tue, 3 Nov', booking_time: '4:30 PM IST', booking_datetime: 'Tue, 3 Nov 2026, 4:30 PM IST', booking_duration: '30 minutes', demo_title: 'Intro session', demo_date: 'Tue, 3 Nov', demo_time: '4:30 PM IST', demo_datetime: 'Tue, 3 Nov 2026, 4:30 PM IST', demo_duration: '30 minutes', host_name: 'Aayushi', host_names: 'Aayushi and Rahul', meet_link: 'https://meet.google.com/abc-defg-hij', booking_link: '#', reschedule_link: '#', cancel_link: '#', first_name: 'Siddharth', last_name: 'Singh', lead_name: 'Siddharth Singh', email: 'siddharth.singh@example.com', organization: 'Acme Learning', sender_name: 'Siddharth Singh', owner_name: 'Siddharth Singh', mobile_no: '+91 98765 43210', today: new Date().toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }) }
 	CM.sampleFill = (s) => String(s || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k) => SAMPLE[k] ?? '')
-	const isManager = () => !!(CM.shared.config && CM.shared.config.is_manager)
+	const isManager = () => CM.can('email_templates', 'edit')
 	const favs = ref(CM.store.json('cm-fav-email', []))
 	watch(favs, (v) => CM.store.set('cm-fav-email', JSON.stringify(v)), { deep: true })
 	const toggleFav = (n) => { const i = favs.value.indexOf(n); i >= 0 ? favs.value.splice(i, 1) : favs.value.push(n) }
@@ -184,16 +184,18 @@
 	V.EmailTemplates = {
 		setup() {
 			const items = ref([]); const loading = ref(true); const error = ref('')
-			const q = reactive({ search: '', category: '', fav: false, archived: false })
+			const q = reactive({ search: '', category: '', fav: false, archived: false, purpose: '' })
+			const layout = CM.useLayout('crm_email_templates_layout')
 			const createOpen = ref(false); const startOpen = ref(false); const preview = ref(null)
 			async function load() { loading.value = true; error.value = ''; try { items.value = await CM.api('list_email_templates', {}) } catch (e) { error.value = e.message } finally { loading.value = false } }
 			onMounted(() => { CM.loadShared(); load() })
 			const shown = computed(() => {
 				const term = q.search.trim().toLowerCase()
 				return items.value
-					.filter((i) => (q.archived ? !i.enabled : !!i.enabled) && (!q.category || i.category === q.category) && (!q.fav || favs.value.includes(i.name)) && (!term || `${i.template_name} ${i.subject} ${i.description || ''}`.toLowerCase().includes(term)))
+					.filter((i) => (q.archived ? !i.enabled : !!i.enabled) && (!q.category || i.category === q.category) && (!q.purpose || i.purpose === q.purpose) && (!q.fav || favs.value.includes(i.name)) && (!term || `${i.template_name} ${i.subject} ${i.description || ''}`.toLowerCase().includes(term)))
 					.sort((a, b) => favs.value.includes(b.name) - favs.value.includes(a.name))
 			})
+			const purposeCount = (p) => items.value.filter((i) => !!i.enabled === !q.archived && (!p || i.purpose === p)).length
 			const archivedCount = computed(() => items.value.filter((i) => !i.enabled).length)
 			const cats = computed(() => (CM.shared.config ? CM.shared.config.email_categories : []))
 			const create = (mode) => { createOpen.value = false; CM.go('/templates/email/new?mode=' + mode) }
@@ -203,7 +205,10 @@
 				if (on && !(await CM.confirm({ title: 'Archive "' + t.template_name + '"?', message: 'Archived templates cannot be chosen for new campaigns. Campaigns already using it keep working. You can restore it any time.', confirmText: 'Archive' }))) return
 				try { await CM.api('save_email_template', { data: { enabled: on ? 0 : 1 }, name: t.name }); CM.toast(on ? 'Template archived' : 'Template restored'); load() } catch (e) { CM.toast(e.message, 'err') }
 			}
+			const protectedDel = ref(null)
+			const lockedForMe = (t) => !!t.is_system && !(CM.shared.config && CM.shared.config.is_admin)
 			async function remove(t) {
+				if (t.is_system) { protectedDel.value = t; return }
 				const ok = await CM.confirm({ title: 'Delete "' + t.template_name + '"?', message: t.used_in ? `This template is used by ${t.used_in} campaign(s) and cannot be deleted. Archive it instead.` : 'This permanently deletes the template.', confirmText: t.used_in ? 'Archive instead' : 'Delete template', danger: !t.used_in })
 				if (!ok) return
 				if (t.used_in) return archiveNow(t)
@@ -212,33 +217,43 @@
 			async function archiveNow(t) { try { await CM.api('save_email_template', { data: { enabled: 0 }, name: t.name }); CM.toast('Template archived'); load() } catch (e) { CM.toast(e.message, 'err') } }
 			function menu(t) {
 				if (!isManager()) return [{ label: 'Preview', icon: 'eye', run: () => (preview.value = t) }]
-				return [{ label: 'Edit', icon: 'edit', run: () => CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) }, { label: 'Preview', icon: 'eye', run: () => (preview.value = t) }, { label: 'Duplicate', icon: 'copy', run: () => duplicate(t) }, { sep: true }, t.enabled ? { label: 'Archive', icon: 'bookmark', run: () => archive(t, true) } : { label: 'Restore', icon: 'refresh', run: () => archive(t, false) }, { label: 'Delete', icon: 'trash', danger: true, run: () => remove(t) }]
+				return [{ label: 'Edit', icon: 'edit', run: () => CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) }, { label: 'Preview', icon: 'eye', run: () => (preview.value = t) }, { label: 'Duplicate', icon: 'copy', run: () => duplicate(t) }, { sep: true }, t.enabled ? { label: 'Archive', icon: 'bookmark', disabled: lockedForMe(t), run: () => archive(t, true) } : { label: 'Restore', icon: 'refresh', run: () => archive(t, false) }, { label: 'Delete', icon: 'trash', danger: true, disabled: lockedForMe(t), title: lockedForMe(t) ? 'Ready-made template: only a System Manager can delete it' : '', run: () => remove(t) }]
 			}
-			return { items, loading, error, q, shown, load, createOpen, startOpen, preview, cats, create, startFrom, menu, favs, toggleFav, isManager, archivedCount, CM, MODE_INFO, open: (t) => (isManager() ? CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) : (preview.value = t)) }
+			return { protectedDel, layout, purposeCount, items, loading, error, q, shown, load, createOpen, startOpen, preview, cats, create, startFrom, menu, favs, toggleFav, isManager, archivedCount, CM, MODE_INFO, open: (t) => (isManager() ? CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) : (preview.value = t)) }
 		},
 		template: `
 		<div class="page">
 			<div class="pg-head"><div class="grow"><h1>Email templates</h1><p>Reusable emails for campaigns and follow-ups. Build once, personalise with variables, use everywhere.</p></div><div class="actions"><Btn v-if="isManager()" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn></div></div>
 			<div class="row wrap tool">
 				<div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search templates" clearable aria-label="Search templates" /></div>
+				<div class="chips"><button v-for="p in ['', 'System']" :key="p" type="button" class="fchip" :class="{ on: q.purpose === p }" :aria-pressed="q.purpose === p" @click="q.purpose = p">{{ p || 'All' }} <span class="n">{{ purposeCount(p) }}</span></button></div>
 				<div style="width:190px"><Dd v-model="q.category" :options="cats" placeholder="All categories" allow-empty="All categories" size="sm" /></div>
 				<button type="button" class="fchip" :class="{ on: q.fav }" @click="q.fav = !q.fav"><Ico name="star" size="sm" />Favourites</button>
 				<button type="button" class="fchip" :class="{ on: q.archived }" @click="q.archived = !q.archived"><Ico name="bookmark" size="sm" />Archived <span class="n">{{ archivedCount }}</span></button>
+				<div class="grow"></div><LayoutSwitch v-model="layout" />
 			</div>
 			<div v-if="loading" class="tgrid"><div v-for="n in 6" :key="n" class="card"><Skel h="190" r="12" /><div class="tcard-b"><Skel w="60%" h="14" /><Skel w="90%" h="12" /></div></div></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<Empty v-else-if="!shown.length" icon="mail" :title="items.length ? 'No templates match' : 'No email templates yet'" :text="items.length ? 'Try a different search or filter.' : (isManager() ? 'Create your first template with the visual builder, or paste your own HTML.' : 'Templates your team creates will show up here.')"><Btn v-if="isManager() && !items.length" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn></Empty>
+ 			<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
+				<thead><tr><th>Template</th><th>Group</th><th>Category</th><th>Built with</th><th class="num">Used in</th><th></th></tr></thead>
+				<tbody><tr v-for="t in shown" :key="t.name" class="click" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
+					<td><b class="ellipsis" style="display:block;max-width:300px">{{ t.template_name }}</b><div class="small muted ellipsis" style="max-width:300px">{{ t.subject }}</div></td>
+					<td><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-else class="faint">-</span></td><td>{{ t.purpose ? '-' : (t.category || '-') }}</td><td class="nowrap">{{ t.editor_mode }}</td><td class="num">{{ t.used_in }}</td>
+					<td class="num" @click.stop><Menu :items="menu(t)" :label="'Actions for ' + t.template_name" /></td>
+				</tr></tbody></table></div></div>
 			<div v-else class="tgrid">
-				<article v-for="t in shown" :key="t.name" class="tcard card hover" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
+				<article v-for="t in shown" :key="t.name" class="tcard card hover" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
 					<div class="tcard-th"><Thumb :html="CM.sampleFill(t.body_html)" /><button type="button" class="star" :class="{ on: favs.includes(t.name) }" :aria-pressed="favs.includes(t.name)" :aria-label="favs.includes(t.name) ? 'Remove from favourites' : 'Add to favourites'" @click.stop="toggleFav(t.name)"><Ico name="star" /></button><span v-if="!t.enabled" class="badge neutral nodot arch">Archived</span></div>
 					<div class="tcard-b"><div class="row"><b class="grow ellipsis">{{ t.template_name }}</b><Menu :items="menu(t)" /></div><span class="small muted ellipsis">{{ t.subject }}</span>
-						<div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><span v-if="t.category" class="tchip">{{ t.category }}</span><span class="tchip"><Ico :name="t.editor_mode === 'Visual Builder' ? 'layers' : t.editor_mode === 'Rich Text' ? 'edit' : 'code'" size="sm" style="margin-right:4px" />{{ t.editor_mode }}</span></div><div class="tiny faint" style="margin-top:2px">{{ t.used_in ? 'Used in ' + t.used_in + ' campaign' + (t.used_in > 1 ? 's' : '') : 'Not used yet' }} - updated {{ CM.ago(t.modified) }}</div></div></div>
+						<div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-if="t.category && !t.purpose" class="tchip">{{ t.category }}</span><span class="tchip"><Ico :name="t.editor_mode === 'Visual Builder' ? 'layers' : t.editor_mode === 'Rich Text' ? 'edit' : 'code'" size="sm" style="margin-right:4px" />{{ t.editor_mode }}</span></div><div class="tiny faint" style="margin-top:2px">{{ t.used_in ? 'Used in ' + t.used_in + ' campaign' + (t.used_in > 1 ? 's' : '') : 'Not used yet' }} - updated {{ CM.ago(t.modified) }}</div></div></div>
 				</article>
 			</div>
 			<Modal v-if="createOpen" size="lg" title="How would you like to create your email?" subtitle="You can always change the content later." @close="createOpen = false">
 				<div class="mode-grid"><button v-for="m in MODE_INFO" :key="m.key" type="button" class="mode card hover" @click="create(m.key)"><span class="art"><Ico :name="m.icon" size="xl" /></span><b>{{ m.title }}</b><span class="muted small">{{ m.text }}</span><span v-if="m.tag" class="badge blue nodot">{{ m.tag }}</span></button>
 					<button type="button" class="mode card hover" @click="createOpen = false; startOpen = true"><span class="art"><Ico name="copy" size="xl" /></span><b>Start from a template</b><span class="muted small">Copy one of your existing templates and change it.</span></button></div>
 			</Modal>
+ 			<ProtectedDelete v-if="protectedDel" kind="email" :template="protectedDel" @close="protectedDel = null" @deleted="protectedDel = null; load()" />
 			<TemplatePicker v-if="startOpen" title="Start from a template" subtitle="A copy is created. The original is not changed." :only-active="false" @pick="startFrom" @close="startOpen = false" />
 			<PreviewModal v-if="preview" :subject="preview.subject" :html="preview.body_html" :title="preview.template_name" @close="preview = null" />
 		</div>`,

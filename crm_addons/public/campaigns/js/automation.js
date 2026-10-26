@@ -43,7 +43,7 @@
 				if (!(await CM.confirm({ title: 'Delete "' + r.automation_name + '"?', message: r.runs ? 'It stops now. Messages it already sent stay in the Campaign Manager reports, and notes and follow-ups it made stay on the leads.' : 'It has not run for any lead yet.', confirmText: 'Delete automation', danger: true }))) return
 				try { await CM.auto('delete_automation', { name: r.name }); CM.toast('Automation deleted'); load() } catch (e) { CM.toast(e.message, 'err') }
 			}
-			const canManage = computed(() => !!(CM.shared.config && CM.shared.config.is_manager))
+			const canManage = computed(() => CM.can('automations', 'manage'))
 			const menu = (r) => !canManage.value ? [r.campaign && { label: 'Messages and results', icon: 'chart', run: () => CM.go('/c/' + encodeURIComponent(r.campaign)) }].filter(Boolean) : [{ label: 'Edit', icon: 'edit', run: () => CM.go('/automations/edit/' + encodeURIComponent(r.name)) }, r.campaign && { label: 'Messages and results', icon: 'chart', run: () => CM.go('/c/' + encodeURIComponent(r.campaign)) }, { label: 'Duplicate', icon: 'copy', run: () => dup(r) }, { sep: true }, { label: 'Delete', icon: 'trash', danger: true, run: () => del(r) }].filter(Boolean)
 			const PRESETS = [
 				{ key: 'welcome', icon: 'users', title: 'Welcome every new lead', text: 'When a lead is created, send them a first email.' },

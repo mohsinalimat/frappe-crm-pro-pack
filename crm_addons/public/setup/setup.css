@@ -1,4 +1,4 @@
-/* CRM Pro Pack setup page. Light / dark follow CRM's theme (html[data-theme]). */
+/* Frappe CRM Suite Pro setup page. Light / dark follow CRM's theme (html[data-theme]). */
 :root {
 	--bg: #f6f7f9; --surface: #fff; --bg-soft: #f9fafb; --hover: #f1f2f5; --input: #f3f4f6; --border: #e7e9ee; --border-strong: #d3d7de;
 	--text: #14161a; --soft: #4b5563; --faint: #8b93a1; --primary: #14161a; --primary-text: #fff;
@@ -173,3 +173,49 @@ h1, h2, h3 { font-stretch: 90%; }
 .vd-r { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--border, #e3e6eb); } .vd-r > label { font-weight: 600; font-size: 13.5px; }
 .vd-save { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; } .check { display: flex; gap: 8px; align-items: center; }
 @media (max-width: 800px) { .vd-r { grid-template-columns: minmax(0, 1fr); } }
+
+/* dropdown that matches the page, instead of the browser's own list */
+.sel { position: relative; display: inline-block; min-width: 190px; max-width: 320px; } .sel.small { min-width: 110px; }
+.sel-btn { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 10px 0 12px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface); text-align: left; }
+.sel-btn:hover:not(:disabled) { border-color: var(--accent); } .sel-btn.open { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.sel-btn:disabled { background: var(--input); cursor: not-allowed; opacity: .7; }
+.sel-l { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .sel-l.ph { color: var(--faint); } .sel .chev { color: var(--faint); }
+.sel-pop { position: fixed; z-index: 2147483000; overflow-y: auto; padding: 6px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); box-shadow: var(--pop); }
+.sel-search { position: sticky; top: -6px; z-index: 1; padding: 0 0 6px; background: var(--surface); }
+.sel-search input { width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); outline: 0; } .sel-search input:focus { border-color: var(--accent); }
+.sel-opt { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 6px 10px; border: 0; border-radius: 7px; background: transparent; text-align: left; }
+.sel-opt.hi { background: var(--hover); } .sel-opt.on { font-weight: 600; color: var(--accent); } .sel-opt.dis { opacity: .4; cursor: default; }
+.sel-opt .ell { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .sel-sub { display: block; font-size: 11.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-none { padding: 10px; color: var(--faint); font-size: 13px; }
+/* rows that can be dragged */
+.dnd { cursor: grab; } .dnd.dragging { opacity: .4; } .dnd.over { box-shadow: 0 -2px 0 var(--accent); }
+.grip { color: var(--faint); letter-spacing: -2px; font-size: 14px; line-height: 1; user-select: none; }
+.countrow .sel { min-width: 0; max-width: none; } .countrow .sel.small { min-width: 0; }
+
+/* wide options (lists, menus, counts): the control goes under the label, full width */
+.row-i.wide { grid-template-columns: minmax(0, 1fr); } .row-i.wide .row-c { justify-content: flex-start; }
+.row-i.wide .menuedit, .row-i.wide .fieldlist, .row-i.wide .countedit { width: 100%; }
+.countrow { grid-template-columns: 1.2fr 1.2fr 120px 1.2fr 30px; }
+
+.watpl { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; max-width: 460px; }
+.wa-card { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); display: flex; flex-direction: column; gap: 6px; }
+.wa-body { white-space: pre-wrap; padding: 8px 10px; border-radius: 8px 8px 8px 2px; background: var(--green-soft); color: var(--text); font-size: 13px; }
+
+.metabox { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; } .metadl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; text-align: left; } .metadl dt { color: var(--soft); } .metadl dd { margin: 0; } .metarow { display: block; }
+
+.br-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; padding: 8px 0 4px; } @media (max-width: 760px) { .br-grid { grid-template-columns: 1fr; } }
+.br-f { display: flex; flex-direction: column; gap: 6px; min-width: 0; } .br-f > label:first-child { font-weight: 600; }
+.inp.wide { width: 100%; } textarea.inp.wide { width: 100%; }
+.br-up { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; } .br-img { max-height: 44px; max-width: 160px; border: 1px solid var(--border); border-radius: 8px; padding: 4px; background: #fff; } .br-img.fav { max-height: 32px; }
+.br-none { color: var(--faint); font-size: 13px; } .btn.sm { height: 30px; padding: 0 10px; } .btn.off { opacity: .6; pointer-events: none; }
+.br-prev { display: flex; gap: 16px; flex-wrap: wrap; } .br-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-soft); min-width: 220px; }
+.br-card .br-side { display: flex; align-items: center; gap: 10px; } .br-pl { width: 28px; height: 28px; object-fit: contain; border-radius: 6px; } .br-pl.big { width: 44px; height: 44px; } .br-pl.dflt { background: var(--accent-soft); display: inline-block; }
+.br-card.login { align-items: center; text-align: center; min-width: 260px; } .br-fake { width: 200px; height: 28px; border-radius: 8px; background: var(--input); border: 1px solid var(--border); }
+
+input.inp.wide[type="text"], textarea.inp.wide { width: 100%; } .br-card { align-self: flex-start; }
+
+.br-ov { position: fixed; inset: 0; z-index: 2147483000; background: rgba(0,0,0,.45); display: grid; place-items: center; padding: 16px; }
+.br-lib { width: min(720px, 100%); max-height: 80vh; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--pop); }
+.br-libg { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.br-tile { display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); text-align: center; } .br-tile:hover { border-color: var(--accent); }
+.br-tile img { width: 100%; height: 72px; object-fit: contain; background: #fff; border-radius: 6px; } .br-tile .ell { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }

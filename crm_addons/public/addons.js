@@ -1,4 +1,4 @@
-/* CRM Pro Pack UI. Loaded into the Frappe CRM page by the app (see inject.py), so CRM's own
+/* Frappe CRM Suite Pro UI. Loaded into the Frappe CRM page by the app (see inject.py), so CRM's own
  * source is never edited.
  *
  *   - a "Sales Dashboard" button on CRM's own Dashboard page
@@ -30,11 +30,15 @@
 		'phone-call':
 			'<path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
 		chart: '<path d="M3 3v18h18"/><path d="M8 17v-6M13 17V7M18 17v-3"/>',
+		settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+		'shield-check': '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
+		'calendar-check': '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/>',
 		send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>',
 		plus: '<path d="M12 5v14M5 12h14"/>',
 		x: '<path d="M18 6 6 18M6 6l12 12"/>',
 		check: '<path d="M20 6 9 17l-5-5"/>',
 		clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+		gmeet: '<path fill="#fff" stroke="none" d="M6 9.5h9.5v5H6z"/><path fill="#ea4335" stroke="none" d="M6 6v3.5H2z"/><path fill="#2684fc" stroke="none" d="M2 9.5h4v5H2z"/><path fill="#0066da" stroke="none" d="M2 14.5h4V18H4a2 2 0 0 1-2-2z"/><path fill="#ffba00" stroke="none" d="M6 6h7.5a2 2 0 0 1 2 2v1.5H6z"/><path fill="#00ac47" stroke="none" d="M6 14.5h9.5V16a2 2 0 0 1-2 2H6z"/><path fill="#00832d" stroke="none" d="m15.5 10.8 5.1-3.6a.6.6 0 0 1 .9.5v8.6a.6.6 0 0 1-.9.5l-5.1-3.6z"/>',
 		video: '<path d="m22 8-6 4 6 4V8z"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
 		users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
 		edit: '<path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
@@ -197,7 +201,7 @@
 	}
 
 	// The CRM is a PWA: its service worker can keep serving the page it saved earlier, with the script tag of an older
-	// Pro Pack release in it. When the server says the files are newer than the ones running, load the new ones under
+	// Suite Pro release in it. When the server says the files are newer than the ones running, load the new ones under
 	// their new version (a URL the browser has never seen), and ask the service worker to look for an update.
 	function updateIfStale(serverVer) {
 		serverVer = String(serverVer || '')
@@ -212,6 +216,53 @@
 		js.src = '/assets/crm_addons/addons.js?v=' + encodeURIComponent(serverVer)
 		document.head.appendChild(js)
 	}
+
+	// After a deploy, someone who already has the CRM open is still running the old files. Ask the server for its version every
+	// few minutes and when the tab is shown again. A different version: reload on our own when nothing is being edited, otherwise
+	// show a small bar with a Refresh button (never reload under someone who is typing).
+	var VERSION_CHECK_MS = 5 * 60 * 1000
+	var lastVersionCheck = 0
+	function busyEditing() {
+		var el = document.activeElement
+		if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || (el && el.isContentEditable)) return true
+		return !!document.querySelector('[role="dialog"], .cra-overlay, .overlay, dialog[open]')
+	}
+	function showUpdateBar() {
+		if (document.getElementById('cra-update')) return
+		var b = document.createElement('div')
+		b.id = 'cra-update'
+		b.setAttribute('role', 'status')
+		b.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2147483000;display:flex;gap:12px;align-items:center;padding:10px 14px;border-radius:10px;background:#1f2937;color:#fff;font:13px/1.3 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)'
+		b.appendChild(document.createTextNode('Suite Pro was updated. Refresh to use the new version.'))
+		var r = document.createElement('button')
+		r.textContent = 'Refresh'
+		r.style.cssText = 'border:0;border-radius:6px;padding:6px 12px;background:#fff;color:#111;font-weight:600;cursor:pointer'
+		r.onclick = function () { location.reload() }
+		var x = document.createElement('button')
+		x.textContent = 'Later'
+		x.style.cssText = 'border:0;background:transparent;color:#cbd5e1;cursor:pointer'
+		x.onclick = function () { b.remove() }
+		b.appendChild(r); b.appendChild(x); document.body.appendChild(b)
+	}
+	function checkVersion(force) {
+		var now = Date.now()
+		if (!force && now - lastVersionCheck < 60 * 1000) return
+		lastVersionCheck = now
+		fetch('/api/method/crm_addons.api.get_asset_version', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+			.then(function (r) { return r.ok ? r.json() : null })
+			.then(function (j) {
+				var v = j && j.message
+				if (!v || !VER) return
+				if (v === VER) { try { sessionStorage.removeItem('cra_auto_reload') } catch (e) { /* fine */ } return }
+				if (!busyEditing() && document.visibilityState === 'visible') {
+					try { var n = Number(sessionStorage.getItem('cra_auto_reload') || 0); if (n >= 2) { showUpdateBar(); return } sessionStorage.setItem('cra_auto_reload', String(n + 1)) } catch (e) { /* storage blocked */ }
+					location.reload()
+				} else showUpdateBar()
+			})
+			.catch(function () { /* offline: try again later */ })
+	}
+	setInterval(function () { checkVersion(false) }, VERSION_CHECK_MS)
+	document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkVersion(false) })
 
 	// CRM's "Email Templates" picker (on a Lead's email box) keeps its own saved copy of the list and only looks again when
 	// told to. When a Lead template was added or changed (for example in the Campaign Manager, which mirrors its templates
@@ -575,7 +626,7 @@
 					var tone = m.status === 'Cancelled' ? 'red' : m.status === 'Completed' ? 'green' : 'blue'
 					var buttons = []
 					if (m.google_meet_link && m.status === 'Scheduled') {
-						buttons.push(h('a', { class: 'cra-btn', href: m.google_meet_link, target: '_blank', rel: 'noopener' }, [svg('video'), h('span', { text: 'Join' })]))
+						buttons.push(h('a', { class: 'cra-btn', href: m.google_meet_link, target: '_blank', rel: 'noopener' }, [svg(m.provider === 'Google Meet' || /meet\.google\.com/.test(m.google_meet_link) ? 'gmeet' : 'video'), h('span', { text: 'Join' })]))
 					}
 					if (m.can_edit && m.status !== 'Cancelled' && (!m.meeting_outcome || m.meeting_outcome === 'Rescheduled')) {
 						buttons.push(h('button', { type: 'button', class: 'cra-btn', onclick: function () { openOutcomeForm(m, function () { renderMeetings(panel, r) }) } }, [svg('check'), h('span', { text: 'Record outcome' })]))
@@ -628,6 +679,24 @@
 	function openAssignment() {
 		return bridge()
 			.then(function (b) { b.openAssignment() })
+			.catch(function (err) { toast(err.message, true) })
+	}
+
+	function openAccess(hash) {
+		return bridge()
+			.then(function (b) { b.openAccess(typeof hash === 'string' ? hash : '') })
+			.catch(function (err) { toast(err.message, true) })
+	}
+
+	function openSettings(hash) {
+		return bridge()
+			.then(function (b) { b.openSettings(typeof hash === 'string' ? hash : '') })
+			.catch(function (err) { toast(err.message, true) })
+	}
+
+	function openDemos(hash) {
+		return bridge()
+			.then(function (b) { b.openDemos(typeof hash === 'string' ? hash : '') })
 			.catch(function (err) { toast(err.message, true) })
 	}
 
@@ -720,6 +789,13 @@
 	// The same shortcuts are offered in the Dashboard header and in CRM's side menu.
 	// Order: the Sales Dashboard first (it also holds the Lead Nurturing view, so that has no link of its own), then
 	// Follow-ups, Meetings and the Campaign Manager.
+	// anything in the Campaign Manager that the person's access settings allow (the shortcut is pointless otherwise)
+	function hasCampaignAccess(c) {
+		var a = c.access
+		if (!a) return true
+		return ['campaigns', 'automations', 'email_templates', 'whatsapp_templates', 'audiences'].some(function (k) { return a[k] !== undefined && a[k] !== 'none' }) || !!Number(a.campaign_reports) || !!Number(a.list_cleanup) || !!Number(a.campaign_create)
+	}
+
 	function shortcuts(c) {
 		var list = [{ key: 'dashboard', label: 'Sales Dashboard', icon: 'chart-column', title: 'Sales Dashboard (sales, calls, meetings and lead nurturing)', run: function () { openDashboard() } }]
 		if (c.follow_ups_enabled) list.push({ key: 'followups', label: 'Follow-ups', icon: 'phone-call', title: 'Follow-ups', run: function () { openQueue('CRM Lead') } })
@@ -727,9 +803,14 @@
 			key: 'meetings', label: 'Meetings', icon: 'calendar', title: 'Meetings',
 			run: function () { bridge().then(function (b) { b.openCalendar({ reference_doctype: 'CRM Lead', view: 'agenda' }) }).catch(function (err) { toast(err.message, true) }) },
 		})
-		if (c.campaigns_enabled && c.show_campaigns_shortcut) list.push({ key: 'campaigns', label: 'Campaigns', icon: 'send', title: 'Campaign Manager', run: function () { openCampaigns() } })
+		if (c.campaigns_enabled && c.show_campaigns_shortcut && hasCampaignAccess(c)) list.push({ key: 'campaigns', label: 'Campaigns', icon: 'send', title: 'Campaign Manager', run: function () { openCampaigns() } })
 		// lead assignment: System Managers only (the server checks as well)
 		if (c.can_assign) list.push({ key: 'assignment', label: 'Assignment', icon: 'users', title: 'Lead assignment rules, assigning and moving leads', run: function () { openAssignment() } })
+		// Bookings: everyone whose access allows bookings, widgets or the report (the server checks as well); hidden when the server says the feature is off
+		if (c.demos_enabled !== 0 && ((c.access || {}).demos !== 'none' || ((c.access || {}).demo_widgets || 'none') !== 'none' || Number((c.access || {}).demo_report))) list.push({ key: 'demos', label: 'Bookings', icon: 'calendar-check', title: 'Bookings: website bookings, widgets and the report', run: function () { openDemos() } })
+		// who sees what (presets and per-person changes): System Managers only (the server checks as well)
+		if (c.can_manage_access) list.push({ key: 'access', label: 'Team and access', icon: 'shield-check', title: 'Who sees what: presets and changes per person', run: function () { openAccess() } })
+		if (c.can_manage_access) list.push({ key: 'settings', label: 'Settings', icon: 'settings', title: 'Setup, branding and everything else you can switch on or off', run: function () { openSettings() } })
 		return list
 	}
 
@@ -832,7 +913,7 @@
 			if (radius) seg.style.setProperty('--cra-seg-r', radius)
 		}
 		var more = h('div', { class: 'cra-more' })
-		var trigger = headerButton(proto, { key: 'more', label: 'Pro Pack', icon: 'ellipsis', title: 'Meetings, Follow-ups, Campaigns and dashboards', run: function () {} }, true)
+		var trigger = headerButton(proto, { key: 'more', label: 'Suite Pro', icon: 'ellipsis', title: 'Meetings, Follow-ups, Campaigns and dashboards', run: function () {} }, true)
 		trigger.setAttribute('aria-haspopup', 'menu')
 		var pop = h('div', { class: 'cra-pop', role: 'menu', hidden: true }, list.map(function (s) {
 			return h('button', { type: 'button', class: 'cra-pop-item', role: 'menuitem', 'data-cra-shortcut': s.key, onclick: function (e) { e.stopPropagation(); closeMore(); s.run() } },
@@ -879,6 +960,25 @@
 		return !el.hasAttribute('data-cra-hidden') && getComputedStyle(el).display !== 'none'
 	}
 
+	// Older CRM versions (for example 1.74) draw the menu as plain buttons, not as links: their rows are found by their labels.
+	var MENU_LABELS = { 'Dashboard': 'dashboard', 'Leads': 'leads', 'Deals': 'deals', 'Contacts': 'contacts', 'Organizations': 'organizations', 'Notes': 'notes', 'Tasks': 'tasks', 'Call Logs': 'call-logs' }
+	function labelKey(text) {
+		text = (text || '').trim()
+		for (var k in MENU_LABELS) if (text === k || text === translated(k)) return MENU_LABELS[k]
+		return ''
+	}
+	/** The native menu list of a CRM that draws it as buttons: a nav whose own children are buttons named like the CRM pages. */
+	function buttonNav() {
+		var navs = document.querySelectorAll('nav')
+		for (var i = 0; i < navs.length; i++) {
+			var nav = navs[i]
+			if (nav.closest('[data-cra]')) continue
+			var named = Array.prototype.filter.call(nav.children, function (r) { return r.tagName === 'BUTTON' && !r.hasAttribute('data-cra') && labelKey(r.textContent) }).length
+			if (named >= 2) return nav
+		}
+		return null
+	}
+
 	/** The first menu list (CRM's "All Views" section) with its native rows, the row to copy, and the last visible row. */
 	function sideNative() {
 		var links = document.querySelectorAll('nav a[href^="/crm/"], aside a[href^="/crm/"]')
@@ -890,6 +990,7 @@
 			nav = a.closest('nav')
 			break
 		}
+		if (!nav) nav = buttonNav()
 		if (!nav) return null
 		var rows = Array.prototype.filter.call(nav.children, function (r) {
 			return !r.hasAttribute('data-cra') && visible(r) && (r.matches('a[href], button') || !!r.querySelector('a[href], button'))
@@ -897,8 +998,8 @@
 		if (!rows.length) return null
 		var proto = rows[0]
 		for (var j = 0; j < rows.length; j++) {
-			var link = rows[j].matches('a') ? rows[j] : rows[j].querySelector('a')
-			if (link && link.getAttribute('aria-current') !== 'page' && !/router-link-(exact-)?active/.test(String(link.className)) && getComputedStyle(link).backgroundColor === 'rgba(0, 0, 0, 0)') { proto = rows[j]; break }
+			var link = rows[j].matches('a, button') ? rows[j] : (rows[j].querySelector('a') || rows[j].querySelector('button'))
+			if (link && link.getAttribute('aria-current') !== 'page' && !/router-link-(exact-)?active|bg-surface-selected/.test(String(link.className)) && getComputedStyle(link).backgroundColor === 'rgba(0, 0, 0, 0)') { proto = rows[j]; break }
 		}
 		return { nav: nav, proto: proto, last: rows[rows.length - 1] }
 	}
@@ -1234,7 +1335,7 @@
 	}
 
 	var syncCount = 0
-	// A reload (or a link) on /crm/pro-pack-<name> shows that Pro Pack page again, as soon as CRM has drawn its menu.
+	// A reload (or a link) on /crm/pro-pack-<name> shows that Suite Pro page again, as soon as CRM has drawn its menu.
 	var pageTries = 0
 	function openPageFromUrl() {
 		var m = /^\/crm\/pro-pack-([a-z-]+)\/?$/.exec(location.pathname)
@@ -1250,7 +1351,7 @@
 		timer = null
 		openPageFromUrl()
 		if (/^\/crm(\/|$)/.test(location.pathname)) {
-			config().then(function (c) { hideCrmParts(c); ensureSidebar(c); applyMenuLayout(c) }).catch(function () { /* not signed in: nothing to hide */ })
+			config().then(function (c) { hideCrmParts(c); ensureSidebar(c); applyMenuLayout(c)}).catch(function () { /* not signed in: nothing to hide */ })
 		}
 		var r = route()
 		if (!r) {

@@ -1,4 +1,4 @@
-# Copyright (c) 2026, CRM Pro Pack and contributors
+# Copyright (c) 2026, Frappe CRM Suite Pro and contributors
 # License: MIT
 
 import unittest

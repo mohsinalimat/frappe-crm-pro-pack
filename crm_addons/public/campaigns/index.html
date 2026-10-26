@@ -46,7 +46,7 @@
 		(function () {
 			var v = new URLSearchParams(location.search).get('v') || Date.now()
 			var css = ['campaigns.css', 'views.css']
-			var js = ['../debug.js', '../meetings/vendor/vue.global.prod.js', 'js/core.js', 'js/ui.js', 'js/daterange.js', 'js/email-blocks.js', 'js/email-editors.js', 'js/email-views.js', 'js/audience.js', 'js/whatsapp.js', 'js/calendar.js', 'js/list.js', 'js/hygiene.js', 'js/detail.js', 'js/wizard-steps.js', 'js/wizard.js', 'js/automation.js', 'js/app.js']
+			var js = ['../debug.js', '../meetings/vendor/vue.global.prod.js', 'js/core.js', 'js/ui.js', 'js/daterange.js', 'social/networks.js', 'js/email-blocks.js', 'js/email-editors.js', 'js/email-views.js', 'js/audience.js', 'js/whatsapp.js', 'js/calendar.js', 'js/list.js', 'js/hygiene.js', 'js/detail.js', 'js/wizard-steps.js', 'js/wizard.js', 'js/automation.js', 'js/app.js']
 			css.forEach(function (f) { document.write('<link rel="stylesheet" href="' + f + '?v=' + v + '">') })
 			js.forEach(function (f) { document.write('<script src="' + f + '?v=' + v + '"><\/script>') })
 		})()

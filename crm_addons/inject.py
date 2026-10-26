@@ -14,14 +14,14 @@ from crm_addons import __version__, debuglog
 MARKER = b"crm_addons/addons.js"
 
 
-# If Pro Pack has not started 8 seconds after the CRM page loaded (an old copy of the page, a script that did not download),
+# If Suite Pro has not started 8 seconds after the CRM page loaded (an old copy of the page, a script that did not download),
 # clear the browser's saved copy of the CRM (its service worker and caches) and reload once. If it still is not there, say so
 # with a Reload button instead of leaving the buttons missing for no visible reason. addons.js clears the "tried once" mark.
 WATCHDOG = (
 	"(function(){function banner(){if(document.getElementById('cra-missing'))return;var b=document.createElement('div');b.id='cra-missing';"
 	"b.setAttribute('role','alert');b.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2147483000;display:flex;gap:12px;"
 	"align-items:center;padding:10px 14px;border-radius:10px;background:#1f2937;color:#fff;font:13px/1.3 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)';"
-	"b.textContent='CRM Pro Pack did not load.';var r=document.createElement('button');r.textContent='Reload';"
+	"b.textContent='Frappe CRM Suite Pro did not load.';var r=document.createElement('button');r.textContent='Reload';"
 	"r.style.cssText='border:0;border-radius:6px;padding:6px 12px;background:#fff;color:#111;font-weight:600;cursor:pointer';"
 	"r.onclick=function(){try{sessionStorage.removeItem('cra_rc')}catch(e){}location.reload()};b.appendChild(r);document.body.appendChild(b)}"
 	"function recover(){var tried=false;try{tried=!!sessionStorage.getItem('cra_rc');sessionStorage.setItem('cra_rc','1')}catch(e){}"

@@ -11,6 +11,7 @@ from frappe.utils import add_days, cint, escape_html, get_datetime, getdate, now
 
 from crm_addons import debuglog, notifications, scoring
 from crm_addons.api import _check_reference
+from crm_addons.team_access import access
 from crm_addons.utils import (
 	REFERENCE_DOCTYPES,
 	get_reference_info,
@@ -251,9 +252,15 @@ def _dt(value):
 	return get_datetime(value).strftime("%Y-%m-%d %H:%M:%S") if value else None
 
 
+def _sees_others(user=None):
+	"""May the person look at other people's follow-ups (their team's or everyone's)? Set on the Team and access page."""
+	return access.level("followups", user) in (access.R.TEAM, access.R.ALL)
+
+
 def _can_edit(row, user=None):
 	user = user or frappe.session.user
-	return is_manager(user) or user in (row.get("owner"), row.get("assigned_to"))
+	users = access.scope_users("followups", user)
+	return users is None or bool({row.get("owner"), row.get("assigned_to")} & users)
 
 
 def _decorate(rows):
@@ -342,11 +349,13 @@ def get_config():
 		"templates": templates,
 		"whatsapp": _whatsapp_ready(),
 		"missed_call_text": get_settings().missed_call_whatsapp_text or "",
+		"missed_call_template": _missed_call_template(),
 		"outcomes": [o for o in (meta.get_field("outcome").options or "").split("\n") if o],
 		"missed_outcomes": list(MISSED),
 		"escalate_after": cint(get_settings().escalate_after_attempts),
 		"user": frappe.session.user,
 		"is_manager": is_manager(),
+		"sees_others": _sees_others(),
 	}
 
 
@@ -436,7 +445,7 @@ def delete_follow_up(name):
 def get_queue(scope="mine", reference_doctype=None):
 	"""Open follow-ups that have a next date: overdue, due today and coming up."""
 	filters = [["next_closed", "=", 0], ["next_follow_up_on", "is", "set"]]
-	if scope != "all" or not is_manager():
+	if scope != "all" or not _sees_others():
 		filters.append(["assigned_to", "=", frappe.session.user])
 	if reference_doctype in REFERENCE_DOCTYPES:
 		filters.append(["reference_doctype", "=", reference_doctype])
@@ -475,7 +484,7 @@ def _workspace_filters(scope, owner, reference_doctype, search, outcome):
 	"""Filters shared by every number on the page. Managers pick the scope and one owner; everyone
 	else only ever gets the follow-ups assigned to them (the permission query still applies on top)."""
 	filters = [["next_follow_up_on", "is", "set"]]
-	manager = is_manager()
+	manager = _sees_others()
 	if manager and scope == "all":
 		if owner:
 			filters.append(["assigned_to", "=", owner])
@@ -510,7 +519,7 @@ def _worked_filters(scope, owner, reference_doctype, search, outcome):
 	tabs: a sales user only ever gets their own; managers see everyone's or one person's."""
 	filters, any_of = _workspace_filters(scope, owner, reference_doctype, search, outcome)
 	out = [f for f in filters if f[0] not in ("next_follow_up_on", "assigned_to")]
-	if is_manager() and scope == "all":
+	if _sees_others() and scope == "all":
 		if owner:
 			out.append(["owner", "=", owner])
 	else:
@@ -557,7 +566,7 @@ def get_workspace(
 	the open tabs are not limited and "Done" looks at the last 30 days. Overdue, today and upcoming are
 	open follow-ups; done ones are those that were completed or followed by a newer follow-up.
 	"""
-	manager = is_manager()
+	manager = _sees_others()
 	scope = scope or ("all" if manager else "mine")
 	tab = tab if tab in TABS else "overdue"
 	page, page_length = max(cint(page), 1), min(max(cint(page_length), 1), PAGE_MAX)
@@ -622,7 +631,7 @@ def get_workspace(
 		"connect": {"calls": calls, "connected": connected, "rate": round(connected / calls * 100, 1) if calls else None},
 		"window": {"from": str(window[0].date()) if window else None, "to": str(add_days(window[1], -1).date()) if window else None},
 		"done_window": {"from": str(done_window[0].date()), "to": str(add_days(done_window[1], -1).date()), "default": not window},
-		"scope": {"value": "all" if manager and scope == "all" else "mine", "is_manager": manager, "user": frappe.session.user, "owner": owner if manager and scope == "all" else None},
+		"scope": {"value": "all" if manager and scope == "all" else "mine", "is_manager": manager, "label": "My team" if access.level("followups") == access.R.TEAM else "Everyone", "user": frappe.session.user, "owner": owner if manager and scope == "all" else None},
 		"owners": owners,
 		"outcomes": [o for o in (frappe.get_meta(DOCTYPE).get_field("outcome").options or "").split("\n") if o],
 		"enabled": _enabled(),
@@ -647,7 +656,8 @@ def _add_lead_details(items, tab):
 	# calls made today on these leads (a sales user's own; a manager looking at everyone gets everyone's)
 	today_calls = {}
 	if names:
-		mine = "" if is_manager() else " and owner = %(me)s"
+		users = access.scope_users("followups")
+		mine = "" if users is None else (" and " + access.sql_in("owner", users))
 		for r in frappe.db.sql(
 			f"""select reference_docname as lead, count(*) as n, max(followed_up_on) as last from `tabCRM Follow Up`
 			where reference_doctype = 'CRM Lead' and reference_docname in %(names)s and mode = 'Call'
@@ -754,12 +764,24 @@ def _phone_for(reference_doctype, reference_docname):
 	return (row.get("mobile_no") or row.get("phone") or "").strip()
 
 
+def _missed_call_template():
+	from crm_addons import system_messages
+
+	info = system_messages.template_info()
+	return {k: info[k] for k in ("label", "body", "state", "ready")} if info else None
+
+
 @frappe.whitelist()
 def send_missed_call_whatsapp(reference_doctype, reference_name, message):
-	"""Send a WhatsApp message to the Lead through CRM's own WhatsApp integration."""
+	"""Send a WhatsApp message to the Lead: the approved template chosen in setup when there is one, otherwise the text as a plain
+	message through CRM's own WhatsApp integration."""
 	_check_reference(reference_doctype, reference_name)
 	if not _whatsapp_ready():
 		frappe.throw(_("WhatsApp is not set up in CRM."))
+	from crm_addons import system_messages
+
+	if system_messages.template_info():
+		return system_messages.send_missed_call_template(reference_doctype, reference_name)
 	message = (message or "").strip()
 	if not message:
 		frappe.throw(_("Write the WhatsApp message first."))

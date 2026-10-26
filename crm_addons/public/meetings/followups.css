@@ -1,4 +1,4 @@
-/* CRM Pro Pack - Follow-ups workspace. Builds on app.css (colours, buttons, dropdowns) and dashboard.css
+/* Frappe CRM Suite Pro - Follow-ups workspace. Builds on app.css (colours, buttons, dropdowns) and dashboard.css
  * (top bar, KPI cards, panels). Follows the CRM's light / dark theme; there is no switch here. */
 .fu { min-height: 100%; }
 
@@ -135,3 +135,11 @@ table.by-day .remark { width: 30%; }
 /* the tabs already carry the counts, so the page opens on the list; connect rate is one quiet line beside them */
 .fu-rate { white-space: nowrap; padding-left: 12px; } .fu-rate b { color: var(--dash-ink, inherit); font-weight: 650; } .fu-rate span { color: var(--dash-faint, inherit); }
 .fu-panel { margin-top: 0; }
+
+/* search box inside the dropdown lists (people, long lists) */
+.pick-search { position: sticky; top: -6px; z-index: 1; padding: 2px 0 6px; background: var(--surface, var(--bg)); }
+.pick-search input { width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--input, var(--bg)); color: var(--text); font: inherit; outline: none; }
+.pick-search input:focus { border-color: var(--accent, var(--text)); }
+.pick-none { padding: 10px; color: var(--text-faint); font-size: 13px; }
+
+.wa-tpl-body { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--bg-soft, rgba(127,127,127,.1)); white-space: pre-wrap; font-size: 13px; }

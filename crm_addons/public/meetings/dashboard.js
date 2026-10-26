@@ -1,8 +1,8 @@
-/* CRM Pro Pack - Sales Dashboard (Vue 3, no build step, charts drawn as SVG).
+/* Frappe CRM Suite Pro - Sales Dashboard (Vue 3, no build step, charts drawn as SVG).
  * A full-screen page of its own. What it shows follows the roles: managers see everyone (and can
  * look at one person), sales users only their own numbers. */
 (() => {
-	const { createApp, ref, reactive, computed, watch, onMounted, onBeforeUnmount, onErrorCaptured } = Vue
+	const { createApp, ref, reactive, computed, watch, onMounted, onBeforeUnmount, onErrorCaptured, nextTick } = Vue
 
 	// ------------------------------------------------------------------ environment
 	const params = new URLSearchParams(location.search)
@@ -134,7 +134,7 @@
 	// ------------------------------------------------------------------ dropdown with a floating list (people filter)
 	const Pick = {
 		components: { Ico },
-		props: { modelValue: String, options: Array, placeholder: { type: String, default: 'Select' }, icon: String },
+		props: { modelValue: String, options: Array, placeholder: { type: String, default: 'Select' }, icon: String, searchable: { type: Boolean, default: undefined } },
 		emits: ['update:modelValue'],
 		setup(props, { emit }) {
 			const open = ref(false)
@@ -142,6 +142,11 @@
 			const pop = ref(null)
 			const hi = ref(-1)
 			const style = ref({})
+			// a long list (people) gets a search box: the list narrows as you type
+			const q = ref('')
+			const canSearch = computed(() => (props.searchable === undefined ? props.options.length > 7 : props.searchable))
+			const list = computed(() => { const t = q.value.trim().toLowerCase(); return t ? props.options.filter((o) => String(o.label).toLowerCase().includes(t)) : props.options })
+			watch(q, () => { hi.value = 0 })
 			const selected = computed(() => props.options.find((o) => o.value === props.modelValue))
 			function show() {
 				const r = btn.value.getBoundingClientRect()
@@ -150,21 +155,23 @@
 				const up = below < wanted && r.top - 12 > below
 				const room = Math.max(140, Math.min(340, up ? r.top - 12 : below))
 				style.value = { left: Math.min(r.left, window.innerWidth - 240) + 'px', minWidth: Math.max(r.width, 200) + 'px', maxHeight: room + 'px', ...(up ? { bottom: window.innerHeight - r.top + 6 + 'px' } : { top: r.bottom + 6 + 'px' }) }
+				q.value = ''
 				hi.value = Math.max(0, props.options.findIndex((o) => o.value === props.modelValue))
 				open.value = true
+				if (canSearch.value) nextTick(() => { const i = pop.value && pop.value.querySelector('.pick-search input'); if (i) i.focus() })
 			}
 			const choose = (o) => { emit('update:modelValue', o.value); open.value = false }
 			const onDoc = (e) => { if (open.value && !(pop.value && pop.value.contains(e.target)) && !btn.value.contains(e.target)) open.value = false }
 			function onKey(e) {
 				if (!open.value) { if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); show() } return }
 				if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); open.value = false }
-				else if (e.key === 'ArrowDown') { e.preventDefault(); hi.value = Math.min(hi.value + 1, props.options.length - 1) }
+				else if (e.key === 'ArrowDown') { e.preventDefault(); hi.value = Math.min(hi.value + 1, list.value.length - 1) }
 				else if (e.key === 'ArrowUp') { e.preventDefault(); hi.value = Math.max(hi.value - 1, 0) }
-				else if (e.key === 'Enter') { e.preventDefault(); if (props.options[hi.value]) choose(props.options[hi.value]) }
+				else if (e.key === 'Enter') { e.preventDefault(); if (list.value[hi.value]) choose(list.value[hi.value]) }
 			}
 			onMounted(() => document.addEventListener('mousedown', onDoc))
 			onBeforeUnmount(() => document.removeEventListener('mousedown', onDoc))
-			return { open, btn, pop, hi, style, selected, show, choose, onKey }
+			return { open, btn, pop, hi, style, selected, show, choose, onKey, q, canSearch, list }
 		},
 		template: `
 <div class="pick">
@@ -173,8 +180,10 @@
 		<span class="pick-label" :class="{ ph: !selected }">{{ selected ? selected.label : placeholder }}</span>
 		<svg class="ico chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
 	</button>
-	<div class="pick-pop" ref="pop" v-if="open" :style="style" role="listbox">
-		<button v-for="(o, i) in options" :key="o.value" type="button" class="pick-opt" :class="{ on: o.value === modelValue, hi: i === hi }" role="option" :aria-selected="o.value === modelValue" @mousedown.prevent="choose(o)" @mouseenter="hi = i">
+	<div class="pick-pop" ref="pop" v-if="open" :style="style" role="listbox" @keydown="onKey">
+		<div v-if="canSearch" class="pick-search"><input v-model="q" placeholder="Search" aria-label="Search options" autocomplete="off" @keydown.stop="onKey" /></div>
+		<div v-if="!list.length" class="pick-none">No match</div>
+		<button v-for="(o, i) in list" :key="o.value" type="button" class="pick-opt" :class="{ on: o.value === modelValue, hi: i === hi }" role="option" :aria-selected="o.value === modelValue" @mousedown.prevent="choose(o)" @mouseenter="hi = i">
 			<span class="pick-label">{{ o.label }}</span>
 			<svg v-if="o.value === modelValue" class="ico tick" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
 		</button>
@@ -343,7 +352,7 @@
 			const updatedAt = ref('')
 			// Lead Nurturing: campaign numbers, fetched only when that tab is opened
 			const config = ref(null)
-			const nurturingOn = computed(() => !!(config.value && config.value.campaigns_enabled))
+			const nurturingOn = computed(() => !!(config.value && config.value.campaigns_enabled && !(config.value.access && config.value.access.dashboard_campaigns_tab === 0)))
 			const deals = computed(() => !config.value || config.value.deals_enabled !== 0) // off when the Deals menu is hidden in the settings
 			const view = ref(location.hash === '#nurturing' ? 'nurturing' : 'sales')
 			const nur = ref(null)
@@ -421,8 +430,9 @@
 			const scope = computed(() => (data.value ? data.value.scope : null))
 			const isManager = computed(() => !!(scope.value && scope.value.is_manager))
 			const everyone = computed(() => isManager.value && !scope.value.user)
-			const userOptions = computed(() => [{ value: '', label: 'Everyone' }, ...(scope.value ? scope.value.users.map((u) => ({ value: u.name, label: u.full_name })) : [])])
-			const subtitle = computed(() => (!scope.value ? '' : scope.value.user ? (isManager.value ? scope.value.user_name : 'Your numbers') : 'Whole team'))
+			const teamLabel = computed(() => (scope.value && scope.value.label) || 'Everyone')
+			const userOptions = computed(() => [{ value: '', label: teamLabel.value }, ...(scope.value ? scope.value.users.map((u) => ({ value: u.name, label: u.full_name })) : [])])
+			const subtitle = computed(() => (!scope.value ? '' : scope.value.user ? (isManager.value ? scope.value.user_name : 'Your numbers') : (scope.value.label === 'My team' ? 'My team' : 'Whole team')))
 			const exportItems = computed(() => (view.value === 'sales'
 				? [{ key: 'xlsx', label: 'Excel workbook (.xlsx)', hint: 'Every section on its own sheet, plus the call log' }, { key: 'csv', label: 'Call log (.csv)', hint: 'Every call in this period' }]
 				: [{ key: 'xlsx', label: 'Excel workbook (.xlsx)', hint: 'Summary, by day, channels and every campaign' }, { key: 'csv', label: 'Campaigns (.csv)', hint: 'One row per campaign in this period' }]))
@@ -722,7 +732,7 @@
 				editing, dragOver, lay, titleOf, shownWidgets, shownCards, toggleKpi, toggleWidget, moveKpi, moveWidget, setWidth, isFirst, isLast, dragStart, dropOn, resetLayout, WIDTHS, deals,
 				EMBED, openFull, data, loading, fatal, range, user, userOptions, subtitle, updatedAt, exportItems, exportFile, metric, split, splitOptions, scope, isManager, everyone, cards,
 				dayLabels, seriesData, chartTotal, outcomeItems, outcomeTotal, pct, funnel, hourLabels, hourSeries, bestHour, attemptLabels, attemptSeries, statusRows, statusMax, statusTotal, assignedRows, assignedMax, bdOf, bdMax, sourceRows, sourceMax,
-				bandItems, meetingItems, meetingTotal, view, setView, nurturingOn, nur, nurLoading, nurError, refresh, funnelChannel, nurCards, nurDayLabels, nurSeries, nurTotalSent, nurFunnel, chanRows, chanMax, statusDonut, nurturedItems, campaignUrl, pct1, nurNoCampaigns, nurQuiet, nurRateTone, NUR, loadNurturing, showTeam, people, maxCalls, columns, sort, sortBy, rateTone, mixRows, mixMax, load, open, close, fmtWhen, outcomeTone, num, OUTCOME_COLORS,
+				teamLabel, bandItems, meetingItems, meetingTotal, view, setView, nurturingOn, nur, nurLoading, nurError, refresh, funnelChannel, nurCards, nurDayLabels, nurSeries, nurTotalSent, nurFunnel, chanRows, chanMax, statusDonut, nurturedItems, campaignUrl, pct1, nurNoCampaigns, nurQuiet, nurRateTone, NUR, loadNurturing, showTeam, people, maxCalls, columns, sort, sortBy, rateTone, mixRows, mixMax, load, open, close, fmtWhen, outcomeTone, num, OUTCOME_COLORS,
 			}
 		},
 		template: `
@@ -736,7 +746,7 @@
 		</div>
 		<div class="dash-controls">
 			<range-picker v-model="range" />
-			<div class="user-pick" v-if="isManager"><pick v-model="user" :options="userOptions" placeholder="Everyone" icon="user" /></div>
+			<div class="user-pick" v-if="isManager"><pick v-model="user" :options="userOptions" :placeholder="teamLabel" icon="user" /></div>
 		</div>
 		<span class="spacer"></span>
 		<span class="sub updated" v-if="updatedAt">Updated {{ updatedAt }}</span>

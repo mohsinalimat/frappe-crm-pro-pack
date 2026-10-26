@@ -1,6 +1,6 @@
 # Campaign Manager
 
-Email and WhatsApp campaigns inside CRM Pro Pack. One campaign can use both channels, one audience, one
+Email and WhatsApp campaigns inside Frappe CRM Suite Pro. One campaign can use both channels, one audience, one
 schedule and one analytics page. It is built **on top of** the infrastructure the site already has:
 
 - **Email** goes through Frappe's own mail system (`frappe.sendmail`, Email Queue, Email Account) and is logged
@@ -183,7 +183,7 @@ README.md, CHANGELOG.md
 
 - **Email template builder:** one *Row* block with 1 to 6 columns, each holding any blocks (text, image, button, heading, divider, spacer, social links, custom HTML); text blocks have a formatting toolbar (bold, italic, underline, font, size, colour, alignment, links, lists); *Change type* switches between Visual builder, HTML and Rich text keeping the content (with a warning when formatting is lost); the HTML editor has an *Image* button (upload, files on the site or a web address); one block or column is selected at a time and a click outside or Esc deselects.
 - **Ready-made templates:** eight Visual Builder templates (welcome, follow-up after a call, missed call, admissions promotion, event invitation, newsletter, announcement, session reminder), added once per release.
-- **One template list with CRM:** a campaign email template is mirrored into CRM's *Email Template* list (used when mailing a lead by hand) and back; HTML, styles, tables and images are copied untouched; `{{ first_name }}`, `{{ organization }}` and the other lead fields work in both, and `{{ owner_name }}`, `{{ sender_name }}`, `{{ today }}`, `{{ lead_url }}` are translated (see `campaigns/email_sync.py`). CRM's picker keeps its own saved list; Pro Pack tells it to reload when a template changes.
+- **One template list with CRM:** a campaign email template is mirrored into CRM's *Email Template* list (used when mailing a lead by hand) and back; HTML, styles, tables and images are copied untouched; `{{ first_name }}`, `{{ organization }}` and the other lead fields work in both, and `{{ owner_name }}`, `{{ sender_name }}`, `{{ today }}`, `{{ lead_url }}` are translated (see `campaigns/email_sync.py`). CRM's picker keeps its own saved list; Suite Pro tells it to reload when a template changes.
 - **Attachments:** all three editors allow files; the limit is 30 MB per email (`campaign_max_attachment_mb`, never more than Frappe's *Max File Size*), shown and enforced from one server function.
 - **WhatsApp Create template:** saved through frappe_whatsapp's own *WhatsApp Templates* document, which submits it to Meta. Name, category, language, header (text / image / document), body with `{{1}}` variables, footer, buttons; a WhatsApp formatting bar (bold, italic, strikethrough, monospace, lists, quote, emoji); each variable can be tied to a lead field and the mapping and header file are kept with the template (`crm_variable_map`), so a campaign step starts with them filled in; the name is checked live (lower case, numbers and underscores, new for that language).
 - **Assignment** is its own page, not part of the Campaign Manager: see [ASSIGNMENT.md](ASSIGNMENT.md).
@@ -275,7 +275,7 @@ filters on the creation day.
 
 | Where | What |
 |---|---|
-| `https://<site>/campaigns` (new tab) | The Campaign Manager. Also: **Campaigns** button on the Leads list header and Kanban, the *CRM Pro Pack* workspace in Desk. A small *Settings* link opens *CRM Addons Settings* in a new tab. |
+| `https://<site>/campaigns` (new tab) | The Campaign Manager. Also: **Campaigns** button on the Leads list header and Kanban, the *Frappe CRM Suite Pro* workspace in Desk. A small *Settings* link opens *CRM Addons Settings* in a new tab. |
 | **Campaigns** | Grid / list toggle, search, status chips, channel (Email, WhatsApp, Multi-channel) and created-date range filters, sorting. Each card or row shows name, channel badge, status, audience, schedule, sent / delivered / opened / failed with a progress bar, creator and last update. Skeleton, empty, error and "no match" states; delete and duplicate from the row menu. |
 | **Create campaign** | Five steps with a progress bar and a live **summary panel** (audience size and per-channel eligibility, channels, schedule, warnings): **Details** → **Audience** → **Channel and content** → **Preview and test** → **Schedule and review**. The draft is saved on every step change, with *Save draft*, and every 30 seconds while there are unsaved changes; leaving asks first. Advanced options (follow-up journey steps with day and condition, stop on reply, WhatsApp consent) are folded away. Launch has a second confirmation that states the number of messages; a success screen offers the next actions. |
 | **Audience** | Three cards: *Filter CRM leads* (rows of field, operator, value with friendly operators per field type; "Save as segment"), *Saved segment* (cards with live counts) and *Pick leads manually* (search and add). Always shows the matching count, how many can receive Email and WhatsApp, why the rest cannot (missing or invalid address, opted out, not opted in, duplicates) and a sample table with the reason per lead. |
@@ -380,7 +380,7 @@ After pulling the branch and running `bench migrate` + `bench build` + `bench re
 5. **Watch it:** the campaign page refreshes by itself; recipients go Queued → Sent. Check the email arrives and appears on the Lead's timeline. Click the unsubscribe link in it and check the address lands in *Campaign Opt-outs*.
 6. **WhatsApp:** repeat with WhatsApp only (an approved template, your own number). Reply STOP and check the number is opted out.
 7. **Journey:** day 0 email + a day-1 WhatsApp "only if not read"; use only your own leads.
-8. **Menus:** the left menu shows the *CRM Pro Pack* group; the Dashboard header shows the four buttons.
+8. **Menus:** the left menu shows the *Frappe CRM Suite Pro* group; the Dashboard header shows the four buttons.
 
 If something fails, the red message in the page is the server's own error; send it with the steps. Server errors also appear in
 *Error Log* in Desk and in `bench --site <site> console` output of the worker.

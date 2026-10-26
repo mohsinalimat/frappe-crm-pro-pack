@@ -7,50 +7,58 @@
 
 import frappe
 
+from crm_addons.team_access import access
 from crm_addons.utils import is_manager
 
 
 def get_permission_query_conditions(user=None):
 	user = user or frappe.session.user
-	if is_manager(user):
+	users = access.scope_users("meetings", user)
+	if users is None:
 		return ""
-
-	me = frappe.db.escape(user)
+	if not users:
+		return "1 = 0"
+	who = ", ".join(frappe.db.escape(u) for u in sorted(users))
 	return (
-		"(`tabCRM Meeting`.owner = {me} or `tabCRM Meeting`.organizer = {me} or exists ("
+		f"(`tabCRM Meeting`.owner in ({who}) or `tabCRM Meeting`.organizer in ({who}) or exists ("
 		"select 1 from `tabCRM Meeting Attendee` a where a.parent = `tabCRM Meeting`.name "
-		"and a.parenttype = 'CRM Meeting' and a.user = {me}))"
-	).format(me=me)
+		f"and a.parenttype = 'CRM Meeting' and a.user in ({who})))"
+	)
 
 
 def has_permission(doc, ptype=None, user=None, debug=False):
 	user = user or frappe.session.user
-	if is_manager(user) or ptype == "create":
+	if ptype == "create":
 		return True
-
+	users = access.scope_users("meetings", user)
 	is_author = user in (doc.owner, doc.get("organizer"))
+	visible = users is None or bool({doc.owner, doc.get("organizer")} & users) or any(row.user in users for row in (doc.get("attendees") or []) if row.get("user"))
 	if ptype in ("write", "delete", "cancel", "submit", "amend"):
-		return is_author
+		# the author, or a manager who can see this meeting
+		return is_author or (is_manager(user) and visible)
+	return is_author or visible
 
-	return is_author or any(row.user == user for row in (doc.get("attendees") or []))
 
-
-# -- follow-ups: managers see all; everyone else only what they logged or own ---------------------
+# -- follow-ups: what the person's access settings allow (own / their team's / everyone's) ------------------------
 
 
 def get_follow_up_query_conditions(user=None):
 	user = user or frappe.session.user
-	if is_manager(user):
+	users = access.scope_users("followups", user)
+	if users is None:
 		return ""
-	me = frappe.db.escape(user)
-	return f"(`tabCRM Follow Up`.owner = {me} or `tabCRM Follow Up`.assigned_to = {me})"
+	if not users:
+		return "1 = 0"
+	who = ", ".join(frappe.db.escape(u) for u in sorted(users))
+	return f"(`tabCRM Follow Up`.owner in ({who}) or `tabCRM Follow Up`.assigned_to in ({who}))"
 
 
 def has_follow_up_permission(doc, ptype=None, user=None, debug=False):
 	user = user or frappe.session.user
-	if is_manager(user) or ptype == "create":
+	if ptype == "create":
 		return True
-	return user in (doc.owner, doc.get("assigned_to"))
+	users = access.scope_users("followups", user)
+	return users is None or bool({doc.owner, doc.get("assigned_to")} & users)
 
 
 # -- a Sales User sees only their own data -------------------------------------------------------------------------
@@ -59,7 +67,7 @@ def has_follow_up_permission(doc, ptype=None, user=None, debug=False):
 # adds these conditions to every list and report (the UI hiding things is not what protects the data):
 #
 # * CRM Lead: CRM's own condition (crm.permissions.org_hierarchy) already limits a Sales User to the leads they own or
-#   are assigned. Older CRM releases have none, so Pro Pack adds the same rule - but only when CRM has not.
+#   are assigned. Older CRM releases have none, so Suite Pro adds the same rule - but only when CRM has not.
 # * CRM Call Log, FCRM Note, CRM Task: what the user created, was assigned or took part in, plus whatever is attached
 #   to a lead they own or are assigned (so the lead's own timeline stays complete after it is reassigned).
 

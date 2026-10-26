@@ -2,7 +2,7 @@
  * the leads you already have to people, move one person's leads to others - each a short form that reads like a sentence.
  * The server does all the work and all the checking; this only asks and shows. */
 (() => {
-	const { ref, reactive, computed, watch, onMounted, onBeforeUnmount } = Vue
+	const { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } = Vue
 	const CM = window.CM
 	const C = CM.components
 	const V = CM.views
@@ -44,7 +44,10 @@
 			const outside = (e) => { if (open.value && root.value && !root.value.contains(e.target)) open.value = false }
 			onMounted(() => { loadPeople(); document.addEventListener('mousedown', outside) })
 			onBeforeUnmount(() => document.removeEventListener('mousedown', outside))
-			return { open, q, free, add, remove, root, nameOf }
+			const searchBox = ref(null)
+			watch(open, (v) => { if (v) nextTick(() => { const i = root.value && root.value.querySelector('.pf-pop input'); if (i) i.focus() }) })
+			const emptyText = computed(() => (!state.people.length ? 'Loading...' : q.value.trim() ? 'No one matches "' + q.value.trim() + '".' : 'No one else to add.'))
+			return { open, q, free, add, remove, root, nameOf, emptyText, searchBox }
 		},
 		template: `
 		<div ref="root" class="pf">
@@ -53,7 +56,7 @@
 				<button type="button" class="pf-add" :aria-expanded="open" @click="open = !open"><Ico name="plus" size="sm" />{{ modelValue.length ? 'Add another' : placeholder }}</button>
 			</div>
 			<div v-if="open" class="pf-pop"><Inp v-model="q" icon="search" placeholder="Search people" clearable aria-label="Search people" autofocus />
-				<div class="pf-list"><button v-for="p in free" :key="p.name" type="button" class="pf-row" @click="add(p.name)"><span class="pf-av">{{ (p.full_name || p.name)[0] }}</span><span class="grow ellipsis">{{ p.full_name }}<span class="small muted" v-if="p.name !== p.full_name"> {{ p.name }}</span></span><span class="small muted">{{ p.load }} to do</span></button><div v-if="!free.length" class="small muted" style="padding:8px">{{ state.people.length ? 'No one else to add.' : 'Loading' }}</div></div></div>
+				<div class="pf-list"><button v-for="p in free" :key="p.name" type="button" class="pf-row" @click="add(p.name)"><span class="pf-av">{{ (p.full_name || p.name)[0] }}</span><span class="grow ellipsis">{{ p.full_name }}<span class="small muted pf-mail" v-if="p.name !== p.full_name">{{ p.name }}</span></span><span class="small muted">{{ p.load }} to do</span></button><div v-if="!free.length" class="small muted" style="padding:8px">{{ emptyText }}</div></div></div>
 		</div>`,
 	}
 
@@ -240,6 +243,9 @@
 	const back = `<Btn variant="ghost" icon="arrow-left" @click="CM.go('/rules')">Rules</Btn>`
 	const head = (title, text, actions) => `<div class="pg-head"><div class="grow"><h1>${title}</h1><p>${text}</p></div>${actions || ''}</div>`
 
+	// "Assignment rules" can be View only (Team and access): then nothing on the rules screens changes anything
+	CM.canManageRules = () => !(CM.shared.config && CM.shared.config.access) || CM.shared.config.access.assignment_rules === 'manage'
+
 	V.AsgRules = {
 		setup() {
 			const rules = ref([]); const loading = ref(true); const error = ref(''); const q = reactive({ search: '', state: '' })
@@ -261,25 +267,25 @@
 				if (!(await CM.confirm({ title: 'Delete "' + r.name + '"?', message: 'Leads already assigned stay with their people. New leads will no longer follow this rule.', confirmText: 'Delete rule', danger: true }))) return
 				try { await CM.apiA('delete_rule', { name: r.name }); CM.toast('Rule deleted'); load() } catch (e) { CM.toast(e.message, 'err') }
 			}
-			const menu = (r) => [{ label: 'Give existing leads to them', icon: 'users', run: () => CM.go('/rules/run/' + encodeURIComponent(r.name)) }, { label: 'Edit', icon: 'edit', run: () => CM.go('/rules/edit/' + encodeURIComponent(r.name)) }, { label: r.enabled ? 'Switch off' : 'Switch on', icon: 'refresh', run: () => toggle(r) }, { sep: true }, { label: 'Delete', icon: 'trash', danger: true, run: () => remove(r) }]
+			const menu = (r) => CM.canManageRules() ? [{ label: 'Give existing leads to them', icon: 'users', run: () => CM.go('/rules/run/' + encodeURIComponent(r.name)) }, { label: 'Edit', icon: 'edit', run: () => CM.go('/rules/edit/' + encodeURIComponent(r.name)) }, { label: r.enabled ? 'Switch off' : 'Switch on', icon: 'refresh', run: () => toggle(r) }, { sep: true }, { label: 'Delete', icon: 'trash', danger: true, run: () => remove(r) }] : [{ label: 'View', icon: 'eye', run: () => CM.go('/rules/edit/' + encodeURIComponent(r.name)) }]
 			const when = (r) => r.conditions.map((c) => asText(c)).join(r.match_mode === 'Any condition' ? ' or ' : ' and ')
 			return { rules, loading, error, load, q, shown, count, toggle, menu, when, join, nameOf, HOW_TEXT, CM, plural, go: CM.go }
 		},
 		template: `
 		<div class="page">
-			<div class="pg-head"><div class="grow"><h1>Rules</h1><p>Leads that come in are given to the right people automatically. Every rule a new lead matches applies.</p></div><div class="actions"><Btn variant="primary" icon="plus" @click="go('/rules/new')">Create rule</Btn></div></div>
+			<div class="pg-head"><div class="grow"><h1>Rules</h1><p>Leads that come in are given to the right people automatically. Every rule a new lead matches applies.</p></div><div class="actions"><Btn v-if="CM.canManageRules()" variant="primary" icon="plus" @click="go('/rules/new')">Create rule</Btn></div></div>
 			<div class="row wrap tool"><div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search rules" clearable aria-label="Search rules" /></div></div>
 			<div class="chips" role="group" aria-label="State"><button v-for="s in [['', 'All'], ['on', 'On'], ['off', 'Off']]" :key="s[0]" type="button" class="fchip" :class="{ on: q.state === s[0] }" @click="q.state = s[0]">{{ s[1] }} <span class="n">{{ count(s[0]) }}</span></button></div>
 			<div v-if="loading" class="cgrid"><div v-for="n in 4" :key="n" class="card pad col" style="gap:12px"><Skel w="60%" h="18" /><Skel w="40%" h="14" /><Skel h="40" /></div></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
-			<Empty v-else-if="!rules.length" icon="users" title="Create your first rule" text="A rule says: leads like this go to these people. For example, every lead with State = Gujarat goes to Siddharth and Aayushi."><Btn variant="primary" icon="plus" @click="go('/rules/new')">Create rule</Btn></Empty>
+			<Empty v-else-if="!rules.length" icon="users" title="Create your first rule" text="A rule says: leads like this go to these people. For example, every lead with State = Gujarat goes to Siddharth and Aayushi."><Btn v-if="CM.canManageRules()" variant="primary" icon="plus" @click="go('/rules/new')">Create rule</Btn></Empty>
 			<Empty v-else-if="!shown.length" icon="search" title="No rules match" text="Try a different search or filter."><Btn @click="q.search = ''; q.state = ''">Clear filters</Btn></Empty>
 			<div v-else class="cgrid">
 				<article v-for="r in shown" :key="r.name" class="ccard card hover" tabindex="0" @click="go('/rules/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/rules/edit/' + encodeURIComponent(r.name))" :class="{ 'asg-off': !r.enabled }">
 					<div class="row" style="align-items:flex-start"><div class="grow" style="min-width:0"><div class="ccard-t" :title="r.name">{{ r.name }}</div><div class="small faint">{{ r.match_mode === 'Any condition' ? 'Any of' : 'All of' }}: {{ when(r) }}</div></div><span class="badge nodot" :class="r.enabled ? 'green' : 'neutral'">{{ r.enabled ? 'On' : 'Off' }}</span><span @click.stop><Menu :items="menu(r)" /></span></div>
 					<div class="row wrap" style="gap:6px"><span v-for="(u, i) in r.assignees" :key="u" class="tchip">{{ nameOf(u) }}</span><span class="badge blue nodot" v-if="r.assignees.length > 1">{{ HOW_TEXT[r.distribution] }}</span></div>
 					<div v-if="r.overlaps.length" class="small rule-overlap"><Ico name="alert" size="sm" /> Also matches {{ r.overlaps.join(', ') }}</div>
-					<div class="ccard-f"><span>{{ plural(r.assigned_count, 'lead') }} assigned</span><span @click.stop><button type="button" class="sw" :class="{ on: r.enabled }" role="switch" :aria-checked="!!r.enabled" :aria-label="(r.enabled ? 'Turn off ' : 'Turn on ') + r.name" @click="toggle(r)"><span class="sw-k"></span></button></span></div>
+					<div class="ccard-f"><span>{{ plural(r.assigned_count, 'lead') }} assigned</span><span @click.stop><button type="button" class="sw" :class="{ on: r.enabled }" role="switch" :aria-checked="!!r.enabled" :aria-label="(r.enabled ? 'Turn off ' : 'Turn on ') + r.name" :disabled="!CM.canManageRules()" @click="toggle(r)"><span class="sw-k"></span></button></span></div>
 				</article>
 			</div>
 		</div>`,
@@ -296,7 +302,8 @@
 		template: `
 		<div class="page"><div class="row">${back}</div>
 			<div v-if="loading" class="card pad col"><Skel h="200" /></div><ErrorState v-else-if="error" :message="error" />
-			<RuleEditor v-else :key="rule ? rule.name : 'new'" :rule="rule" @close="CM.go('/rules')" @saved="saved" /></div>`,
+			<template v-else><div v-if="!CM.canManageRules()" class="alert info" style="margin-bottom:12px"><Ico name="info" /><div class="grow"><b>View only.</b> You can look at this rule but not change it.</div></div>
+			<fieldset :disabled="!CM.canManageRules()" class="ro"><RuleEditor :key="rule ? rule.name : 'new'" :rule="rule" @close="CM.go('/rules')" @saved="saved" /></fieldset></template></div>`,
 	}
 
 	V.AsgRun = {

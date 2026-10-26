@@ -1,4 +1,4 @@
-"""Backend of the Pro Pack setup page (``/pro-pack-setup``).
+"""Backend of the Suite Pro setup page (``/pro-pack-setup``).
 
 The page is a friendlier front for the *CRM Addons Settings* record: it reads and writes the same fields (so the desk form
 keeps working), and it adds a live setup checklist that says what still needs to be done and how. System Managers only.
@@ -46,6 +46,14 @@ def _crm_roles():
 	return sorted(enabled - {"Administrator", "Guest", "All"})
 
 
+def _whatsapp_templates():
+	"""Every WhatsApp template with its Meta status, so the page can say which ones may be sent."""
+	if not frappe.db.exists("DocType", "WhatsApp Templates"):
+		return []
+	rows = frappe.get_all("WhatsApp Templates", fields=["name", "template_name", "template", "status", "category"], order_by="template_name asc", limit_page_length=500)
+	return [{"value": r.name, "label": r.template_name, "body": r.template, "state": (r.status or "NOT SYNCED").upper(), "category": r.category} for r in rows]
+
+
 def _choices():
 	"""Lists the page needs for its drop-downs."""
 	statuses = frappe.get_all("CRM Lead Status", pluck="name", order_by="position asc") if frappe.db.exists("DocType", "CRM Lead Status") else []
@@ -55,6 +63,7 @@ def _choices():
 		"google_calendars": [{"value": c.name, "label": c.name + ("" if c.enable and c.push_to_google_calendar else " (not ready)")} for c in calendars],
 		"providers": ["Google Meet", "Manual Link"],
 		"roles": _crm_roles(),
+		"whatsapp_templates": _whatsapp_templates(),
 		"lead_fields": [
 			{"value": f.fieldname, "label": f.label}
 			for f in frappe.get_meta("CRM Lead").fields
@@ -84,6 +93,19 @@ def _status():
 
 	settings = frappe.get_doc(SETTINGS)
 	checks = []
+
+	from crm_addons import branding
+
+	brand = branding.get_branding()
+	named = bool(brand["name"] or brand["logo"])
+	checks.append(
+		{
+			"key": "branding", "label": _("Branding"), "state": "ok" if named else "optional",
+			"message": _("Name, logo and favicon are set.") if named else _("Still the default look. Set your own name, logo and favicon."),
+			"why": _("People see this in the CRM menu, on the login page and in the browser tab."),
+			"steps": [_("Open Branding in the list on the left.")],
+		}
+	)
 
 	google = GoogleMeetProvider().status()
 	checks.append(
@@ -194,3 +216,68 @@ def save_setup(values):
 	doc.save()
 	frappe.clear_document_cache(SETTINGS, SETTINGS)
 	return {"values": _values(), "status": _status()}
+
+
+@frappe.whitelist()
+def field_values(fieldname):
+	"""The values leads actually have in a field (most used first), so a highlighted count can be picked from a list instead of typed."""
+	_only_admins()
+	allowed = {f["value"] for f in _choices().get("lead_fields", [])}
+	if fieldname not in allowed:
+		return []
+	rows = frappe.db.sql(
+		f"select `{fieldname}`, count(*) c from `tabCRM Lead` where ifnull(`{fieldname}`, '') != '' group by `{fieldname}` order by c desc limit 100"
+	)
+	return [{"value": str(v), "label": str(v), "count": c} for v, c in rows]
+
+
+@frappe.whitelist()
+def get_meta_usage():
+	"""The connected WhatsApp number's daily limit, quality and recent charges, as Meta reports them (or why they are not available)."""
+	_only_admins()
+	from crm_addons import meta_usage
+
+	return meta_usage.get_usage()
+
+
+@frappe.whitelist()
+def create_missed_call_template():
+	"""Submit the ready-made missed-call WhatsApp template to Meta (it stays Pending until Meta approves it)."""
+	_only_admins()
+	from crm_addons import system_messages
+
+	return system_messages.create_missed_call_template()
+
+
+@frappe.whitelist()
+def get_branding():
+	"""The name, logos, login page and footer as stored now (empty = the default look)."""
+	_only_admins()
+	from crm_addons import branding
+
+	return branding.get_branding()
+
+
+@frappe.whitelist()
+def save_branding(values):
+	_only_admins()
+	from crm_addons import branding
+
+	return branding.save_branding(values)
+
+
+@frappe.whitelist()
+def reset_branding():
+	_only_admins()
+	from crm_addons import branding
+
+	return branding.reset_branding()
+
+
+@frappe.whitelist()
+def image_library(search="", limit=48):
+	"""Images already on the site, to choose from instead of uploading again."""
+	_only_admins()
+	from crm_addons import branding
+
+	return branding.image_library(search, limit)
