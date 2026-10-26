@@ -176,6 +176,23 @@
 		DM.lookups.statuses = (CM.shared.config && CM.shared.config.lead_statuses) || await get('CRM Lead Status')
 	}
 	/** Template library caches (the same lists the campaign wizard uses). */
+	// the ready-made messages (server: demos/defaults.py): email template names and the Utility WhatsApp definitions with their state on this site
+	DM.defaults = reactive({ rows: [], loaded: false, loading: false, error: '' })
+	DM.loadDefaults = async (force) => {
+		if (DM.defaults.loading || (DM.defaults.loaded && !force)) return
+		DM.defaults.loading = true; DM.defaults.error = ''
+		try { DM.defaults.rows = await DM.api('default_messages', {}); DM.defaults.loaded = true } catch (e) { DM.defaults.error = e.message } finally { DM.defaults.loading = false }
+	}
+	DM.defaultFor = (rule) => DM.defaults.rows.find((d) => d.event === rule.event && Number(d.minutes_before) === (rule.event === 'Reminder' ? Number(rule.minutes_before) || 0 : 0))
+	/** Fill what is empty in a rule from its ready-made message; never replaces a choice. Returns what it changed. */
+	DM.applyDefault = (rule) => {
+		const d = DM.defaultFor(rule); const done = []
+		if (!d) return done
+		if (!rule.email_template && d.email_exists) { rule.email_template = d.email_template; rule.send_email = true; done.push('email') }
+		const w = d.whatsapp
+		if (!rule.wa_template && w.approved && w.name) { rule.wa_template = w.name; rule.wa_account = w.whatsapp_account || ''; rule.wa_variables = JSON.stringify(w.variable_map); rule.send_whatsapp = true; done.push('WhatsApp') }
+		return done
+	}
 	DM.waTemplates = reactive({ rows: [], loaded: false, loading: false, error: '', installed: true })
 	DM.loadWa = async (force) => {
 		if (DM.waTemplates.loading || (DM.waTemplates.loaded && !force)) return
