@@ -134,15 +134,16 @@
 					CM.toast(all.length + ' booking' + (all.length === 1 ? '' : 's') + ' exported')
 				} catch (e) { CM.toast(DM.friendly(e), 'err') } finally { exporting.value = false }
 			}
+			const layout = CM.useLayout('crm_bookings_layout', 'list')
 			const chips = [['', 'All'], ...DM.STATUSES.map((s) => [s, s])]
-			return { rows, total, loading, busy, error, page, SIZE, q, status, demoType, owner, range, typeOpts, ownerOpts, typeTitle, view, closeDrawer, open, load, filtered, clear, menu, exportCsv, exporting, chips, leadUrl, meetLink, meetIcon, DM, CM }
+			return { layout, rows, total, loading, busy, error, page, SIZE, q, status, demoType, owner, range, typeOpts, ownerOpts, typeTitle, view, closeDrawer, open, load, filtered, clear, menu, exportCsv, exporting, chips, leadUrl, meetLink, meetIcon, DM, CM }
 		},
 		template: `
 		<div class="page wide">
 			<div class="pg-head"><div class="grow"><h1>Bookings</h1><p>Everyone who booked, where they came from, and how it went.</p></div><div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
 			<div class="row wrap tools">
 				<div class="chips" role="group" aria-label="Status"><button v-for="c in chips" :key="c[0]" type="button" class="fchip" :class="{ on: status === c[0] }" :aria-pressed="status === c[0]" @click="status = c[0]">{{ c[1] }}</button></div>
-				<div class="grow"></div>
+				<div class="grow"></div><LayoutSwitch v-model="layout" />
 				<div style="width:200px"><Dd v-model="demoType" :options="typeOpts" allow-empty="All widgets" placeholder="All widgets" aria-label="Widget" size="sm" /></div>
 				<div style="width:180px"><Dd v-model="owner" :options="ownerOpts" allow-empty="All hosts" placeholder="All hosts" aria-label="Host" size="sm" /></div>
 				<div style="width:min(260px,100%)"><Inp v-model="q" icon="search" placeholder="Search name, email or phone" clearable aria-label="Search bookings" /></div>
@@ -150,6 +151,16 @@
 			<template v-if="loading"><div class="card"><div v-for="n in 6" :key="n" style="padding:14px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div></template>
 			<ErrorState v-else-if="error" :message="error" @retry="load()" />
 			<Empty v-else-if="!rows.length" icon="calendar" :title="filtered ? 'No bookings match' : 'No bookings yet'" :text="filtered ? 'Change the filters or the date range.' : 'When a visitor books a demo through one of your pages, it shows up here.'"><Btn v-if="filtered" @click="clear">Clear filters</Btn><Btn v-else variant="primary" @click="CM.go('/types')">Go to widgets</Btn></Empty>
+			<div v-else-if="layout === 'cards'" :class="{ busy }">
+				<div class="dgrid">
+					<article v-for="b in rows" :key="b.name" class="card dcard click" tabindex="0" @click="view(b)" @keydown.enter="view(b)">
+						<div class="dcard-h"><div class="dcard-t" style="cursor:pointer"><b class="ellipsis">{{ DM.who(b) }}</b><span class="small muted ellipsis">{{ b.email }}</span></div><StatusBadge :value="b.status" /><span @click.stop><Menu :items="menu(b)" :label="'Actions for ' + DM.who(b)" /></span></div>
+						<dl class="dcard-d"><div><dt>When</dt><dd>{{ DM.when(b) }}</dd></div><div><dt>Widget</dt><dd class="ellipsis" :title="typeTitle(b)">{{ typeTitle(b) }}</dd></div></dl>
+						<div class="dcard-f"><span class="grow small muted ellipsis" :title="[b.utm_source, b.utm_medium, b.utm_campaign].filter(Boolean).join(' / ')">{{ [b.utm_source, b.utm_medium].filter(Boolean).join(' / ') || 'No source' }}</span><a v-if="meetLink(b)" class="btn ghost icon sm" :href="meetLink(b)" target="_blank" rel="noopener" title="Meeting link" aria-label="Meeting link" @click.stop><Ico :name="meetIcon(b)" /></a></div>
+					</article>
+				</div>
+				<div class="card" style="margin-top:12px"><Pager v-model:page="page" :size="SIZE" :total="total" /></div>
+			</div>
 			<div v-else class="card" :class="{ busy }" style="overflow:hidden">
 				<div class="table-wrap"><table class="tbl bk-tbl">
 					<thead><tr><th>Visitor</th><th>Widget</th><th>When</th><th>Status</th><th>Source</th><th>Medium</th><th>Campaign</th><th></th></tr></thead>
