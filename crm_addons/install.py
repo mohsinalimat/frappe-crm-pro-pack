@@ -310,6 +310,7 @@ def run_all():
 	ensure_whatsapp_template_fields()
 	ensure_view_fields()
 	ensure_default_email_templates()
+	ensure_access_presets()
 	sync_email_templates()
 
 
@@ -488,6 +489,21 @@ def ensure_default_email_templates():
 			}
 		).insert(ignore_permissions=True)
 	frappe.db.set_default("crm_addons_default_email_templates", dt.VERSION)
+
+
+def ensure_access_presets():
+	"""The ready-made access presets (team_access/presets.py), added once per version. The admin owns them after that."""
+	import json
+
+	from crm_addons.team_access import presets
+
+	if not frappe.db.exists("DocType", "CRM Access Preset") or frappe.db.get_default("crm_addons_access_presets") == presets.VERSION:
+		return
+	for name, description, grants in presets.PRESETS:
+		if frappe.db.exists("CRM Access Preset", name):
+			continue
+		frappe.get_doc({"doctype": "CRM Access Preset", "preset_name": name, "description": description, "is_system": 1, "grants": json.dumps(grants)}).insert(ignore_permissions=True)
+	frappe.db.set_default("crm_addons_access_presets", presets.VERSION)
 
 
 def backfill_next_meetings():
