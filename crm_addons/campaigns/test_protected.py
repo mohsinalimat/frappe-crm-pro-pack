@@ -21,7 +21,7 @@ class TestProtectedTemplates(AccessCase):
 			frappe.flags.crm_template_delete_ok = True
 			frappe.delete_doc("CRM Campaign Email Template", name, force=True, ignore_permissions=True)
 			frappe.flags.crm_template_delete_ok = False
-		doc = frappe.get_doc({"doctype": "CRM Campaign Email Template", "template_name": name, "subject": "s", "body_html": "<p>x</p>", "enabled": 1, "category": "Transactional" if system else "Other", "is_system": system})
+		doc = frappe.get_doc({"doctype": "CRM Campaign Email Template", "template_name": name, "subject": "s", "body_html": "<p>x</p>", "enabled": 1, "category": "Utility" if system else "Other", "is_system": system})
 		doc.insert(ignore_permissions=True)
 
 		def cleanup():

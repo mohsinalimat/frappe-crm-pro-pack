@@ -87,8 +87,8 @@
 	// ------------------------------------------------------------------ demo variables (for the message editors and previews)
 	DM.VARIABLES = [
 		{ name: 'first_name', label: 'Visitor first name' }, { name: 'lead_name', label: 'Visitor full name' }, { name: 'email', label: 'Visitor email' }, { name: 'mobile_no', label: 'Visitor phone' },
-		{ name: 'organization', label: 'School or company' }, { name: 'demo_title', label: 'Demo title' }, { name: 'demo_date', label: 'Demo date' }, { name: 'demo_time', label: 'Demo time' },
-		{ name: 'demo_datetime', label: 'Date and time (with time zone)' }, { name: 'demo_duration', label: 'Duration' }, { name: 'meet_link', label: 'Meeting link' },
+		{ name: 'organization', label: 'School or company' }, { name: 'booking_title', label: 'Booking title' }, { name: 'booking_date', label: 'Booking date' }, { name: 'booking_time', label: 'Booking time' },
+		{ name: 'booking_datetime', label: 'Date and time (with time zone)' }, { name: 'booking_duration', label: 'Duration' }, { name: 'meet_link', label: 'Meeting link' },
 		{ name: 'host_name', label: 'Host name' }, { name: 'host_names', label: 'All host names' }, { name: 'booking_link', label: 'Booking page link' },
 		{ name: 'reschedule_link', label: 'Reschedule link' }, { name: 'cancel_link', label: 'Cancel link' },
 	]
@@ -98,7 +98,7 @@
 		DM.vars.loaded = true
 		try { const r = await DM.api('get_demo_variables'); const list = Array.isArray(r) ? r : r && (r.variables || r.rows); if (list && list.length) DM.vars.list = list.map((v) => (typeof v === 'string' ? { name: v, label: v } : { name: v.name || v.key, label: v.label || v.name })) } catch (e) { /* the built-in list stays */ }
 	}
-	DM.SAMPLE = { first_name: 'Aarav', lead_name: 'Aarav Mehta', last_name: 'Mehta', email: 'aarav@example.com', mobile_no: '+91 98765 43210', organization: 'Greenfield School', demo_title: 'Product demo', demo_date: 'Tuesday, 12 March', demo_time: '4:00 pm', demo_datetime: 'Tuesday, 12 March, 4:00 pm IST', demo_duration: '30 minutes', meet_link: 'https://meet.google.com/abc-defg-hij', host_name: 'Riya Sharma', host_names: 'Riya Sharma, Kabir Rao', booking_link: location.origin + '/book/manage/abc123', reschedule_link: location.origin + '/book/manage/abc123?r=1', cancel_link: location.origin + '/book/manage/abc123?c=1', owner_name: 'Riya Sharma' }
+	DM.SAMPLE = { booking_title: 'Intro session', booking_date: 'Tuesday, 3 November 2026', booking_time: '4:30 PM IST', booking_datetime: 'Tue, 3 Nov 2026, 4:30 PM IST', booking_duration: '30 minutes', first_name: 'Aarav', lead_name: 'Aarav Mehta', last_name: 'Mehta', email: 'aarav@example.com', mobile_no: '+91 98765 43210', organization: 'Greenfield School', demo_title: 'Product demo', demo_date: 'Tuesday, 12 March', demo_time: '4:00 pm', demo_datetime: 'Tuesday, 12 March, 4:00 pm IST', demo_duration: '30 minutes', meet_link: 'https://meet.google.com/abc-defg-hij', host_name: 'Riya Sharma', host_names: 'Riya Sharma, Kabir Rao', booking_link: location.origin + '/book/manage/abc123', reschedule_link: location.origin + '/book/manage/abc123?r=1', cancel_link: location.origin + '/book/manage/abc123?c=1', owner_name: 'Riya Sharma' }
 	DM.fill = (s) => String(s || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k) => (k in DM.SAMPLE ? DM.SAMPLE[k] : CM.sampleFill(m)))
 
 	// ------------------------------------------------------------------ the doc: defaults, from / to the server

@@ -9,7 +9,7 @@ import json
 import zlib
 from html import escape
 
-VERSION = "1.6.0"  # bump to seed templates added in a later release
+VERSION = "1.7.0"  # bump to seed templates added in a later release
 ARIAL = "Arial, Helvetica, sans-serif"
 BLUE, INK, GREY = "#2563eb", "#14161a", "#3b4252"
 SETTINGS = {"bg": "#f4f5f7", "contentBg": "#ffffff", "width": 600, "font": "Arial"}
@@ -238,7 +238,7 @@ def _templates():
 			],
 		),
 		(
-			"Counselling session reminder", "Your session is coming up, {{ first_name }}", "Transactional",
+			"Counselling session reminder", "Your session is coming up, {{ first_name }}", "Utility",
 			"A reminder for a booked call or meeting.",
 			[
 				heading("Your session is coming up", "h1"),
@@ -250,74 +250,74 @@ def _templates():
 		),
 		# ---- booking messages (names in demos/defaults.py; they use the demo_* variables) ------------------
 		(
-			"Booking confirmed", "Your {{ demo_title }} is confirmed: {{ demo_date }}", "Transactional",
+			"Booking confirmed", "Your {{ booking_title }} is confirmed: {{ booking_date }}", "Utility",
 			"Sent right after someone books a time.",
 			[
 				heading("You are booked, {{ first_name }}", "h1"),
-				text(hi + "<p>Your <b>{{ demo_title }}</b> is confirmed.</p><p><b>When:</b> {{ demo_datetime }}<br><b>With:</b> {{ host_names }}<br><b>Length:</b> {{ demo_duration }} minutes</p>"),
+				text(hi + "<p>Your <b>{{ booking_title }}</b> is confirmed.</p><p><b>When:</b> {{ booking_datetime }}<br><b>With:</b> {{ host_names }}<br><b>Length:</b> {{ booking_duration }} minutes</p>"),
 				button("Join the meeting", "{{ meet_link }}"),
 				text('<p>Need another time? <a href="{{ reschedule_link }}">Reschedule</a> or <a href="{{ cancel_link }}">cancel</a>.</p>'),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Booking rescheduled", "Your {{ demo_title }} has a new time: {{ demo_date }}", "Transactional",
+			"Booking rescheduled", "Your {{ booking_title }} has a new time: {{ booking_date }}", "Utility",
 			"Sent when the visitor picks a new time.",
 			[
 				heading("Your booking has a new time", "h1"),
-				text(hi + "<p>Your <b>{{ demo_title }}</b> now takes place on:</p><p><b>{{ demo_datetime }}</b><br>With {{ host_names }}</p>"),
+				text(hi + "<p>Your <b>{{ booking_title }}</b> now takes place on:</p><p><b>{{ booking_datetime }}</b><br>With {{ host_names }}</p>"),
 				button("Join the meeting", "{{ meet_link }}"),
 				text('<p>Plans changed again? <a href="{{ reschedule_link }}">Pick another time</a> or <a href="{{ cancel_link }}">cancel</a>.</p>'),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Booking cancelled", "Your {{ demo_title }} on {{ demo_date }} was cancelled", "Transactional",
+			"Booking cancelled", "Your {{ booking_title }} on {{ booking_date }} was cancelled", "Utility",
 			"Sent when the visitor or a host cancels a booking.",
 			[
 				heading("Your booking was cancelled", "h1"),
-				text(hi + "<p>Your <b>{{ demo_title }}</b> on {{ demo_datetime }} has been cancelled.</p><p>Pick a new time whenever it suits you.</p>"),
+				text(hi + "<p>Your <b>{{ booking_title }}</b> on {{ booking_datetime }} has been cancelled.</p><p>Pick a new time whenever it suits you.</p>"),
 				button("Book a new time", "{{ booking_link }}"),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Booking reminder (24 hours)", "Tomorrow: {{ demo_title }} at {{ demo_time }}", "Transactional",
+			"Booking reminder (24 hours)", "Tomorrow: {{ booking_title }} at {{ booking_time }}", "Utility",
 			"A reminder the day before a meeting.",
 			[
 				heading("Your meeting is tomorrow", "h1"),
-				text(hi + "<p>A quick reminder about your <b>{{ demo_title }}</b>:</p><p><b>{{ demo_datetime }}</b><br>With {{ host_names }}</p>"),
+				text(hi + "<p>A quick reminder about your <b>{{ booking_title }}</b>:</p><p><b>{{ booking_datetime }}</b><br>With {{ host_names }}</p>"),
 				button("Join the meeting", "{{ meet_link }}"),
 				text('<p>Cannot make it? <a href="{{ reschedule_link }}">Reschedule</a> or <a href="{{ cancel_link }}">cancel</a>.</p>'),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Booking reminder (1 hour)", "Starting in 1 hour: {{ demo_title }}", "Transactional",
+			"Booking reminder (1 hour)", "Starting in 1 hour: {{ booking_title }}", "Utility",
 			"A reminder an hour before a meeting.",
 			[
 				heading("Your meeting starts in 1 hour", "h1"),
-				text(hi + "<p>Your <b>{{ demo_title }}</b> starts at <b>{{ demo_time }}</b>.</p>"),
+				text(hi + "<p>Your <b>{{ booking_title }}</b> starts at <b>{{ booking_time }}</b>.</p>"),
 				button("Join the meeting", "{{ meet_link }}"),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Booking reminder (30 minutes)", "Starting in 30 minutes: {{ demo_title }}", "Transactional",
+			"Booking reminder (30 minutes)", "Starting in 30 minutes: {{ booking_title }}", "Utility",
 			"A reminder half an hour before a meeting.",
 			[
 				heading("Your meeting starts in 30 minutes", "h1"),
-				text(hi + "<p>Your <b>{{ demo_title }}</b> starts at <b>{{ demo_time }}</b>. Open the link a minute early to check your sound and video.</p>"),
+				text(hi + "<p>Your <b>{{ booking_title }}</b> starts at <b>{{ booking_time }}</b>. Open the link a minute early to check your sound and video.</p>"),
 				button("Join the meeting", "{{ meet_link }}"),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Booking starting now", "{{ demo_title }} is starting now", "Transactional",
+			"Booking starting now", "{{ booking_title }} is starting now", "Utility",
 			"Sent at the start time of a meeting.",
 			[
 				heading("Your meeting is starting", "h1"),
-				text(hi + "<p>Your <b>{{ demo_title }}</b> with {{ host_names }} is starting now.</p>"),
+				text(hi + "<p>Your <b>{{ booking_title }}</b> with {{ host_names }} is starting now.</p>"),
 				button("Join now", "{{ meet_link }}"),
 				footer("Your company name, Street address, City"),
 			],

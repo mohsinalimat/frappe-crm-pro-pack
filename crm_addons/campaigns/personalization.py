@@ -46,17 +46,23 @@ COMPUTED = {
 # Filled in by the demo-booking messages (crm_addons/demos/messaging.py). In a normal campaign they are empty, so a template can be
 # written once and used in both places. Listed as "computed" so the template editor offers them with the others.
 DEMO_VARIABLES = {
-	"demo_title": "Booking: name of the booking page",
-	"demo_date": "Demo: date, in the visitor's time zone",
-	"demo_time": "Demo: start time, in the visitor's time zone",
-	"demo_datetime": "Demo: date and time with the time zone name",
-	"demo_duration": "Demo: length (for example 30 minutes)",
-	"meet_link": "Demo: meeting link",
-	"host_name": "Demo: the first host's name",
-	"host_names": "Demo: all hosts' names",
-	"booking_link": "Demo: link to manage the booking",
-	"reschedule_link": "Demo: link to reschedule",
-	"cancel_link": "Demo: link to cancel",
+	"booking_title": "Booking: name of the booking page",
+	"booking_date": "Booking: date, in the visitor's time zone",
+	"booking_time": "Booking: start time, in the visitor's time zone",
+	"booking_datetime": "Booking: date and time with the time zone name",
+	"booking_duration": "Booking: length (for example 30 minutes)",
+	"meet_link": "Booking: meeting link",
+	"host_name": "Booking: the first host's name",
+	"host_names": "Booking: all hosts' names",
+	"booking_link": "Booking: link to manage the booking",
+	"reschedule_link": "Booking: link to reschedule",
+	"cancel_link": "Booking: link to cancel",
+	# the first names of these (templates written before the rename keep working)
+	"demo_title": "Booking title (old name of booking_title)",
+	"demo_date": "Booking date (old name)",
+	"demo_time": "Booking time (old name)",
+	"demo_datetime": "Booking date and time (old name)",
+	"demo_duration": "Booking length (old name)",
 }
 
 
@@ -125,7 +131,7 @@ def sample_context(campaign_owner=None):
 	base = frappe.utils.get_url()
 	context.update(
 		demo_title="Intro session", demo_date="Tuesday, 3 November 2026", demo_time="4:30 PM IST", demo_datetime="Tue, 3 Nov 2026, 4:30 PM IST",
-		demo_duration="30 minutes", meet_link="https://meet.google.com/abc-defg-hij", host_name=context["owner_name"], host_names=context["owner_name"],
+		demo_duration="30 minutes", booking_title="Intro session", booking_date="Tuesday, 3 November 2026", booking_time="4:30 PM IST", booking_datetime="Tue, 3 Nov 2026, 4:30 PM IST", booking_duration="30 minutes", meet_link="https://meet.google.com/abc-defg-hij", host_name=context["owner_name"], host_names=context["owner_name"],
 		booking_link=f"{base}/book/manage/sample", reschedule_link=f"{base}/book/manage/sample?action=reschedule", cancel_link=f"{base}/book/manage/sample?action=cancel",
 	)
 	return context

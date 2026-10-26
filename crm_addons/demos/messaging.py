@@ -68,11 +68,11 @@ def demo_context(booking, demo=None):
 	meeting_link = frappe.db.get_value("CRM Meeting", booking.meeting, "google_meet_link") if booking.get("meeting") else ""
 	token = booking.get("token")
 	context.update(
-		demo_title=demo.title,
-		demo_date=f"{local:%A}, {local.day} {local:%B %Y}",
-		demo_time=f"{hour} {zone_name}",
-		demo_datetime=f"{local:%a}, {local.day} {local:%b %Y}, {hour} {zone_name}",
-		demo_duration=_("{0} minutes").format(common.minutes(demo.duration_minutes, 30)),
+		booking_title=demo.title,
+		booking_date=f"{local:%A}, {local.day} {local:%B %Y}",
+		booking_time=f"{hour} {zone_name}",
+		booking_datetime=f"{local:%a}, {local.day} {local:%b %Y}, {hour} {zone_name}",
+		booking_duration=_("{0} minutes").format(common.minutes(demo.duration_minutes, 30)),
 		meet_link=meeting_link or demo.get("manual_link") or "",
 		host_name=hosts[0] if hosts else "",
 		host_names=_list_names(hosts),
@@ -80,6 +80,8 @@ def demo_context(booking, demo=None):
 		reschedule_link=common.manage_url(token, "reschedule") if token else "",
 		cancel_link=common.manage_url(token, "cancel") if token else "",
 	)
+	# the first names of these, so a template written before the rename keeps working
+	context.update(demo_title=context["booking_title"], demo_date=context["booking_date"], demo_time=context["booking_time"], demo_datetime=context["booking_datetime"], demo_duration=context["booking_duration"])
 	return context
 
 
@@ -262,7 +264,7 @@ def send_test(demo, rule, channel, user):
 	"""A rule's message filled in with sample data, sent to the manager asking (their own email / mobile). Returns a sentence for the screen."""
 	context = personalization.sample_context(user)
 	hosts = [common.full_name(u) for u in common.owners_of(demo, enabled_only=False)]
-	context.update(demo_title=demo.title, host_name=hosts[0] if hosts else context["host_name"], host_names=_list_names(hosts) or context["host_names"])
+	context.update(booking_title=demo.title, demo_title=demo.title, host_name=hosts[0] if hosts else context["host_name"], host_names=_list_names(hosts) or context["host_names"])
 	if demo.get("manual_link"):
 		context["meet_link"] = demo.manual_link
 	try:

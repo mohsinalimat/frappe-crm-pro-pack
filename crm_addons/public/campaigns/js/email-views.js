@@ -11,7 +11,7 @@
 		{ key: 'html', icon: 'code', title: 'HTML editor', text: 'Paste or write your own HTML with a live preview, formatting and validation.' },
 		{ key: 'rich', icon: 'edit', title: 'Rich text', text: 'Write like a document: bold, links, lists, headings and images.' },
 	]
-	const SAMPLE = { demo_title: 'Intro session', demo_date: 'Tue, 3 Nov', demo_time: '4:30 PM IST', demo_datetime: 'Tue, 3 Nov 2026, 4:30 PM IST', demo_duration: '30 minutes', host_name: 'Aayushi', host_names: 'Aayushi and Rahul', meet_link: 'https://meet.google.com/abc-defg-hij', booking_link: '#', reschedule_link: '#', cancel_link: '#', first_name: 'Siddharth', last_name: 'Singh', lead_name: 'Siddharth Singh', email: 'siddharth.singh@example.com', organization: 'Acme Learning', sender_name: 'Siddharth Singh', owner_name: 'Siddharth Singh', mobile_no: '+91 98765 43210', today: new Date().toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }) }
+	const SAMPLE = { booking_title: 'Intro session', booking_date: 'Tue, 3 Nov', booking_time: '4:30 PM IST', booking_datetime: 'Tue, 3 Nov 2026, 4:30 PM IST', booking_duration: '30 minutes', demo_title: 'Intro session', demo_date: 'Tue, 3 Nov', demo_time: '4:30 PM IST', demo_datetime: 'Tue, 3 Nov 2026, 4:30 PM IST', demo_duration: '30 minutes', host_name: 'Aayushi', host_names: 'Aayushi and Rahul', meet_link: 'https://meet.google.com/abc-defg-hij', booking_link: '#', reschedule_link: '#', cancel_link: '#', first_name: 'Siddharth', last_name: 'Singh', lead_name: 'Siddharth Singh', email: 'siddharth.singh@example.com', organization: 'Acme Learning', sender_name: 'Siddharth Singh', owner_name: 'Siddharth Singh', mobile_no: '+91 98765 43210', today: new Date().toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }) }
 	CM.sampleFill = (s) => String(s || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k) => SAMPLE[k] ?? '')
 	const isManager = () => CM.can('email_templates', 'edit')
 	const favs = ref(CM.store.json('cm-fav-email', []))
@@ -206,6 +206,7 @@
 				try { await CM.api('save_email_template', { data: { enabled: on ? 0 : 1 }, name: t.name }); CM.toast(on ? 'Template archived' : 'Template restored'); load() } catch (e) { CM.toast(e.message, 'err') }
 			}
 			const protectedDel = ref(null)
+			const lockedForMe = (t) => !!t.is_system && !(CM.shared.config && CM.shared.config.is_admin)
 			async function remove(t) {
 				if (t.is_system) { protectedDel.value = t; return }
 				const ok = await CM.confirm({ title: 'Delete "' + t.template_name + '"?', message: t.used_in ? `This template is used by ${t.used_in} campaign(s) and cannot be deleted. Archive it instead.` : 'This permanently deletes the template.', confirmText: t.used_in ? 'Archive instead' : 'Delete template', danger: !t.used_in })
@@ -216,7 +217,7 @@
 			async function archiveNow(t) { try { await CM.api('save_email_template', { data: { enabled: 0 }, name: t.name }); CM.toast('Template archived'); load() } catch (e) { CM.toast(e.message, 'err') } }
 			function menu(t) {
 				if (!isManager()) return [{ label: 'Preview', icon: 'eye', run: () => (preview.value = t) }]
-				return [{ label: 'Edit', icon: 'edit', run: () => CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) }, { label: 'Preview', icon: 'eye', run: () => (preview.value = t) }, { label: 'Duplicate', icon: 'copy', run: () => duplicate(t) }, { sep: true }, t.enabled ? { label: 'Archive', icon: 'bookmark', run: () => archive(t, true) } : { label: 'Restore', icon: 'refresh', run: () => archive(t, false) }, { label: 'Delete', icon: 'trash', danger: true, run: () => remove(t) }]
+				return [{ label: 'Edit', icon: 'edit', run: () => CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) }, { label: 'Preview', icon: 'eye', run: () => (preview.value = t) }, { label: 'Duplicate', icon: 'copy', run: () => duplicate(t) }, { sep: true }, t.enabled ? { label: 'Archive', icon: 'bookmark', disabled: lockedForMe(t), run: () => archive(t, true) } : { label: 'Restore', icon: 'refresh', run: () => archive(t, false) }, { label: 'Delete', icon: 'trash', danger: true, disabled: lockedForMe(t), title: lockedForMe(t) ? 'Ready-made template: only a System Manager can delete it' : '', run: () => remove(t) }]
 			}
 			return { protectedDel, layout, purposeCount, items, loading, error, q, shown, load, createOpen, startOpen, preview, cats, create, startFrom, menu, favs, toggleFav, isManager, archivedCount, CM, MODE_INFO, open: (t) => (isManager() ? CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) : (preview.value = t)) }
 		},
