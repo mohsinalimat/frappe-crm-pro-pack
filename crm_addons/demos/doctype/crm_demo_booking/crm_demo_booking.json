@@ -1,0 +1,324 @@
+{
+ "actions": [],
+ "autoname": "format:DBK-{#####}",
+ "creation": "2026-10-26 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "demo_type",
+  "status",
+  "cb1",
+  "starts_on",
+  "ends_on",
+  "starts_utc",
+  "visitor_timezone",
+  "sb_who",
+  "name_",
+  "email",
+  "phone",
+  "cb2",
+  "organization",
+  "whatsapp_consent",
+  "guests",
+  "answers",
+  "sb_links",
+  "lead",
+  "meeting",
+  "cb3",
+  "token",
+  "slot_key",
+  "rescheduled_from",
+  "cancel_reason",
+  "sb_utm",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "cb4",
+  "utm_term",
+  "utm_content",
+  "gclid",
+  "fbclid",
+  "landing_url",
+  "referrer",
+  "first_touch",
+  "ip_hash",
+  "user_agent",
+  "sb_messages",
+  "messages"
+ ],
+ "fields": [
+  {
+   "fieldname": "demo_type",
+   "fieldtype": "Link",
+   "label": "Demo type",
+   "options": "CRM Demo Type",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Confirmed\nRescheduled\nCancelled\nCompleted\nNo Show",
+   "default": "Confirmed",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "starts_on",
+   "fieldtype": "Datetime",
+   "label": "Starts on (site time)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "ends_on",
+   "fieldtype": "Datetime",
+   "label": "Ends on (site time)"
+  },
+  {
+   "fieldname": "starts_utc",
+   "fieldtype": "Datetime",
+   "label": "Starts (UTC)",
+   "search_index": 1
+  },
+  {
+   "fieldname": "visitor_timezone",
+   "fieldtype": "Data",
+   "label": "Visitor time zone"
+  },
+  {
+   "fieldname": "sb_who",
+   "fieldtype": "Section Break",
+   "label": "Visitor"
+  },
+  {
+   "fieldname": "name_",
+   "fieldtype": "Data",
+   "label": "Name",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email",
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone",
+   "search_index": 1
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "organization",
+   "fieldtype": "Data",
+   "label": "School / company"
+  },
+  {
+   "fieldname": "whatsapp_consent",
+   "fieldtype": "Check",
+   "label": "WhatsApp consent"
+  },
+  {
+   "fieldname": "guests",
+   "fieldtype": "Small Text",
+   "label": "Guests"
+  },
+  {
+   "fieldname": "answers",
+   "fieldtype": "Long Text",
+   "label": "Answers (JSON)"
+  },
+  {
+   "fieldname": "sb_links",
+   "fieldtype": "Section Break",
+   "label": "Links"
+  },
+  {
+   "fieldname": "lead",
+   "fieldtype": "Link",
+   "label": "Lead",
+   "options": "CRM Lead",
+   "search_index": 1
+  },
+  {
+   "fieldname": "meeting",
+   "fieldtype": "Link",
+   "label": "Meeting",
+   "options": "CRM Meeting"
+  },
+  {
+   "fieldname": "cb3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "token",
+   "fieldtype": "Data",
+   "label": "Token",
+   "unique": 1,
+   "read_only": 1,
+   "length": 64
+  },
+  {
+   "fieldname": "slot_key",
+   "fieldtype": "Data",
+   "label": "Slot key",
+   "unique": 1,
+   "read_only": 1,
+   "hidden": 1,
+   "length": 64
+  },
+  {
+   "fieldname": "rescheduled_from",
+   "fieldtype": "Datetime",
+   "label": "Rescheduled from (UTC)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancel_reason",
+   "fieldtype": "Small Text",
+   "label": "Cancel reason"
+  },
+  {
+   "fieldname": "sb_utm",
+   "fieldtype": "Section Break",
+   "label": "Attribution"
+  },
+  {
+   "fieldname": "utm_source",
+   "fieldtype": "Data",
+   "label": "UTM source",
+   "search_index": 1
+  },
+  {
+   "fieldname": "utm_medium",
+   "fieldtype": "Data",
+   "label": "UTM medium"
+  },
+  {
+   "fieldname": "utm_campaign",
+   "fieldtype": "Data",
+   "label": "UTM campaign"
+  },
+  {
+   "fieldname": "cb4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "utm_term",
+   "fieldtype": "Data",
+   "label": "UTM term"
+  },
+  {
+   "fieldname": "utm_content",
+   "fieldtype": "Data",
+   "label": "UTM content"
+  },
+  {
+   "fieldname": "gclid",
+   "fieldtype": "Data",
+   "label": "gclid"
+  },
+  {
+   "fieldname": "fbclid",
+   "fieldtype": "Data",
+   "label": "fbclid"
+  },
+  {
+   "fieldname": "landing_url",
+   "fieldtype": "Small Text",
+   "label": "Landing page"
+  },
+  {
+   "fieldname": "referrer",
+   "fieldtype": "Small Text",
+   "label": "Referrer"
+  },
+  {
+   "fieldname": "first_touch",
+   "fieldtype": "Long Text",
+   "label": "First touch (JSON)"
+  },
+  {
+   "fieldname": "ip_hash",
+   "fieldtype": "Data",
+   "label": "IP (hashed)",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "user_agent",
+   "fieldtype": "Data",
+   "label": "User agent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_messages",
+   "fieldtype": "Section Break",
+   "label": "Messages"
+  },
+  {
+   "fieldname": "messages",
+   "fieldtype": "Table",
+   "label": "Messages",
+   "options": "CRM Demo Booking Message",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-26 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Demos",
+ "name": "CRM Demo Booking",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Sales User",
+   "read": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "name_,email,phone",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "name_",
+ "track_changes": 0
+}

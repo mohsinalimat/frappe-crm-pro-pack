@@ -177,8 +177,8 @@
 			const rolesOfDraft = (k) => String(draft[k] || '').split(',').map((r) => r.trim()).filter(Boolean)
 			const hasRole = (k, role) => rolesOfDraft(k).includes(role)
 			// the left menu: CRM's own entries and this app's, in the order saved (anything not saved yet goes at the end)
-			const MENU_ALL = [['notifications', 'Notifications'], ['dashboard', 'Dashboard'], ['leads', 'Leads'], ['deals', 'Deals'], ['contacts', 'Contacts'], ['organizations', 'Organizations'], ['notes', 'Notes'], ['tasks', 'Tasks'], ['call-logs', 'Call Logs'], ['sales-dashboard', 'Sales Dashboard'], ['followups', 'Follow-ups'], ['meetings', 'Meetings'], ['campaigns', 'Campaigns'], ['assignment', 'Assignment']]
-			const MENU_OURS = ['sales-dashboard', 'followups', 'meetings', 'campaigns', 'assignment']
+			const MENU_ALL = [['notifications', 'Notifications'], ['dashboard', 'Dashboard'], ['leads', 'Leads'], ['deals', 'Deals'], ['contacts', 'Contacts'], ['organizations', 'Organizations'], ['notes', 'Notes'], ['tasks', 'Tasks'], ['call-logs', 'Call Logs'], ['sales-dashboard', 'Sales Dashboard'], ['followups', 'Follow-ups'], ['meetings', 'Meetings'], ['campaigns', 'Campaigns'], ['assignment', 'Assignment'], ['demos', 'Demos']]
+			const MENU_OURS = ['sales-dashboard', 'followups', 'meetings', 'campaigns', 'assignment', 'demos']
 			function menuItems(k) {
 				let saved = []; try { saved = JSON.parse(draft[k] || '[]') } catch (e) { saved = [] }
 				const known = saved.filter((x) => MENU_ALL.some((m) => m[0] === x.key))

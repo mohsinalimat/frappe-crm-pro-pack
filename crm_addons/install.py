@@ -93,6 +93,13 @@ WA_OPT_IN_FIELD = {
 	"description": "The lead agreed to receive WhatsApp messages. Meta requires this for marketing templates.",
 }
 
+# Demo booking: the first campaign a new Lead came from. Like the consent field above, it is data, so it is NOT removed on uninstall.
+DEMO_LEAD_FIELDS = [
+	{"fieldname": "crm_demo_first_utm_source", "fieldtype": "Data", "label": "First UTM Source", "read_only": 1, "no_copy": 1, "in_standard_filter": 1, "description": "Where the lead first came from, when it started with a demo booking."},
+	{"fieldname": "crm_demo_first_utm_medium", "fieldtype": "Data", "label": "First UTM Medium", "read_only": 1, "no_copy": 1},
+	{"fieldname": "crm_demo_first_utm_campaign", "fieldtype": "Data", "label": "First UTM Campaign", "read_only": 1, "no_copy": 1},
+]
+
 STARTER_EMAIL_TEMPLATES = [
 	(
 		"Follow-up (starter)",
@@ -299,6 +306,7 @@ def run_all():
 	ensure_workspace()
 	backfill_next_meetings()
 	ensure_campaign_setup()
+	ensure_demo_setup()
 	ensure_whatsapp_template_fields()
 	ensure_view_fields()
 	ensure_default_email_templates()
@@ -329,6 +337,8 @@ WORKSPACE_SHORTCUTS = [
 	("Campaigns", "DocType", "CRM Campaign"),
 	("Campaign Email Templates", "DocType", "CRM Campaign Email Template"),
 	("Campaign Opt-outs", "DocType", "CRM Campaign Opt Out"),
+	("Demo Types", "DocType", "CRM Demo Type"),
+	("Demo Bookings", "DocType", "CRM Demo Booking"),
 ]
 
 
@@ -418,6 +428,21 @@ def ensure_campaign_setup():
 				{"doctype": "CRM Campaign Email Template", "template_name": title, "subject": subject, "body_html": body, "enabled": 1}
 			).insert(ignore_permissions=True)
 	frappe.db.set_default("crm_addons_campaign_templates_seeded", "1")
+
+
+def ensure_demo_setup():
+	"""Demo booking: the Lead's first-touch UTM fields and the indexes the booking queries rely on. Idempotent; seeds no demo type."""
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+	create_custom_fields({"CRM Lead": [dict(f) for f in DEMO_LEAD_FIELDS]}, ignore_validate=True)
+	if not frappe.db.exists("DocType", "CRM Demo Booking"):
+		return
+	try:
+		# email, phone and status already have single-column indexes (search_index in the doctype); this one serves the slot and list queries
+		frappe.db.add_index("CRM Demo Booking", ["demo_type", "starts_utc"])
+		frappe.db.add_index("CRM Demo Booking Message", ["status", "due_at"])
+	except Exception:
+		frappe.log_error(title="CRM Pro Pack: could not add the demo booking indexes", message=frappe.get_traceback())
 
 
 WA_TEMPLATE_FIELDS = [

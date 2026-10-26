@@ -1,0 +1,80 @@
+/* Demo booking admin: application shell (left rail, router, access check) and mount. */
+(() => {
+	const { createApp, computed, watch, nextTick, onMounted, onBeforeUnmount, ref } = Vue
+	const CM = window.CM
+	const DM = window.DM
+	const V = DM.views
+
+	const NAV = [
+		{ key: 'types', label: 'Demo types', icon: 'calendar', path: '/types' },
+		{ key: 'bookings', label: 'Bookings', icon: 'users', path: '/bookings' },
+		{ key: 'report', label: 'Report', icon: 'chart', path: '/report' },
+	]
+
+	const App = {
+		setup() {
+			const r = CM.route
+			const view = computed(() => {
+				const p = r.parts
+				switch (p[0]) {
+					case 'types':
+						if (p[1]) return { comp: 'DemoEditor', key: 'ed' + p[1], props: { name: p[1], tab: p[2] || 'details' } }
+						return { comp: 'DemoTypes', key: 'types' }
+					case 'bookings': return { comp: 'Bookings', key: 'bk' }
+					case 'report': return { comp: 'Report', key: 'rep' }
+					default: return { comp: 'DemoTypes', key: 'types' }
+				}
+			})
+			const active = computed(() => (r.parts[0] === 'bookings' ? 'bookings' : r.parts[0] === 'report' ? 'report' : 'types'))
+			onMounted(() => { DM.loadSession(); CM.loadShared() })
+			let saved = false; try { saved = localStorage.getItem('dm_rail_collapsed') === '1' } catch (e) { /* storage blocked */ }
+			const collapsed = ref(saved)
+			const toggleRail = () => { collapsed.value = !collapsed.value; try { localStorage.setItem('dm_rail_collapsed', collapsed.value ? '1' : '0') } catch (e) { /* not remembered */ } }
+			const canConfigure = computed(() => !!(CM.shared.config && CM.shared.config.can_configure))
+			watch(() => view.value.key, () => nextTick(() => CM.scrollTop()))
+			function onEsc(e) {
+				if (e.key !== 'Escape' || e.defaultPrevented || CM.overlayOpen()) return
+				const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) { t.blur(); return }
+				CM.requestClose()
+			}
+			if (CM.embed) { onMounted(() => { window.addEventListener('keydown', onEsc); try { window.focus() } catch (e) { /* the host page focuses the frame too */ } }); onBeforeUnmount(() => window.removeEventListener('keydown', onEsc)) }
+			function nav(e, path) { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return; e.preventDefault(); DM.leave(path) }
+			return { view, active, NAV, collapsed, toggleRail, canConfigure, s: DM.session, shared: CM.shared, nav, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
+		},
+		template: `
+		<div class="app" :class="{ 'rail-collapsed': collapsed }">
+			<nav class="rail" :class="{ collapsed }" aria-label="Demo booking">
+				<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg></span><div class="brand-txt"><b>Demo booking</b><span>CRM Pro Pack</span></div></div>
+				<template v-if="s.is_manager">
+				<a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null" @click="nav($event, n.path)"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span></a>
+				</template>
+				<div class="rail-foot">
+					<a v-if="canConfigure" class="nav" href="/pro-pack-setup" target="_blank" rel="noopener" :title="collapsed ? 'Settings' : null" aria-label="Settings"><Ico name="settings" /><span class="nav-l">Settings</span><Ico name="external" size="sm" class="nav-x" style="margin-left:auto" /></a>
+					<a v-if="!embedded" class="nav" href="/crm" :title="collapsed ? 'Back to CRM' : null" aria-label="Back to CRM"><Ico name="arrow-left" /><span class="nav-l">Back to CRM</span></a>
+					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
+				</div>
+			</nav>
+			<main class="main">
+				<div v-if="!s.ready" class="page"><Skel h="40" r="10" /><Skel h="220" r="12" /></div>
+				<div v-else-if="s.error" class="page"><ErrorState :message="s.error" @retry="location.reload()" /></div>
+				<div v-else-if="!s.is_manager" class="page"><Empty icon="shield" title="Demo booking is for managers" text="Only managers can create demo types, see all bookings and open the report. Your own demos are on the Meetings screen, under Demos."><a class="btn primary" href="/crm" v-if="!embedded">Back to CRM</a></Empty></div>
+				<template v-else>
+					<div v-if="shared.error" class="page" style="padding-bottom:0"><div class="alert err"><Ico name="alert" /><div class="grow">{{ shared.error }}</div></div></div>
+					<component :is="view.comp" :key="view.key" v-bind="view.props || {}" />
+				</template>
+			</main>
+			<div v-if="embedded" class="embed-ctl" role="toolbar" aria-label="Pop-up"><button type="button" class="btn ghost icon" title="Open in a new tab" aria-label="Open in a new tab" @click="newTab"><Ico name="external" /></button><button type="button" class="btn ghost icon" title="Close (Esc)" aria-label="Close" @click="close"><Ico name="x" /></button></div>
+			<Toasts /><ConfirmHost />
+		</div>`,
+	}
+
+	const app = createApp(App)
+	Object.entries(CM.components).forEach(([k, v]) => app.component(k, v))
+	Object.entries(V).forEach(([k, v]) => app.component(k, v))
+	app.config.globalProperties.$wa = (n) => '{{' + n + '}}'
+	app.config.globalProperties.$tok = (n) => '{{ ' + n + ' }}'
+	app.config.globalProperties.location = window.location
+	app.config.errorHandler = (err, inst, info) => { console.error('[demos]', err, info); CM.toast('Something went wrong on this page. ' + (err && err.message ? err.message : ''), 'err') }
+	document.title = 'Demo booking'
+	app.mount('#app')
+})()

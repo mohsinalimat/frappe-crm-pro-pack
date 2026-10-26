@@ -2,6 +2,32 @@
 
 All notable changes to CRM Pro Pack (the `crm_addons` Frappe app).
 
+## Unreleased
+
+### Added
+
+- **Demo booking: the backend** (module *Demos*, `crm_addons/demos/`; design and API in [docs/DEMO_BOOKING.md](docs/DEMO_BOOKING.md), admin steps in the Admin guide).
+  Demo types (owners, weekly hours, date overrides, notice, horizon, buffers, per-day cap, form fields, message rules, branding, allowed websites), bookings with UTM
+  attribution, a slot engine that is correct across time zones and daylight saving and blocks on every owner's CRM Meetings, one CRM Meeting per booking through the same
+  code as *Schedule meeting* (Google Meet and Calendar, owners and CC invited, the first owner organizes), Lead matching by email then phone (new Lead gets source,
+  status, owner and first-touch UTMs), reschedule and cancel by token, and **no double booking under concurrency** (per-owner lock plus a unique slot key).
+- **Booking messages**: confirmation, reschedule, cancel and reminders (default 24 h, 1 h, 30 min and at the start) by email and WhatsApp, built from the campaign template
+  library with new variables (`demo_title`, `demo_date`, `demo_time`, `demo_datetime`, `demo_duration`, `meet_link`, `host_name`, `host_names`, `booking_link`, `reschedule_link`,
+  `cancel_link`), in the visitor's time zone. Sent every minute by the scheduler, exactly once, a failure is recorded on its own row; WhatsApp needs consent and honours STOP.
+- **Spam protection** without CAPTCHA or OTP: phone and email validation (India 10 digits by default), disposable email domains, one upcoming demo per contact, per-IP limit
+  (only a hash of the IP is stored), honeypot and a minimum fill time (signed token).
+- **Manager API and UTM report** (`crm_addons.demos.admin`), **My demos** for Sales Users (only the demos they take part in), a **Demos** flag on CRM Meetings
+  (`is_demo`, `demo_type`, `demo_booking`) and *First UTM Source / Medium / Campaign* on new Leads.
+- `/book/<slug>` can be framed only by the websites listed on the demo type (`Content-Security-Policy: frame-ancestors`); every other page keeps its protection.
+
+### Changed
+
+- The campaign email and WhatsApp sending code now has two small shared helpers (`queue_email`, `send_whatsapp_template`) that the demo messages reuse; campaign behaviour is unchanged.
+
+- **Demo booking: public booking widget.** `/book/<slug>` and `/book/manage/<token>` (calendar, time slots with 12h/24h and time-zone search, form with country-flag phone
+  field, guests and WhatsApp consent, confirmation with Google / .ics calendar links, reschedule and cancel). Branded per demo type (logo, accent colour, light/dark/auto),
+  keyboard accessible, mobile friendly. `embed.js` opens it as a pop-up (or inline) from any website with `data-crm-demo="slug"` and passes the visitor's first-touch UTMs.
+
 ## 1.4.0 - 2026-10-21
 
 **Upgrade (self-hosted admin):** `bench --site your-site migrate`, then `bench restart`. Migrate adds one field to the campaign email templates and copies

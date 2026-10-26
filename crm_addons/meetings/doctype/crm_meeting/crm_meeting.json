@@ -34,7 +34,11 @@
   "sync_error",
   "external_event_id",
   "external_event_url",
-  "reminders_sent"
+  "reminders_sent",
+  "section_break_demo",
+  "is_demo",
+  "demo_type",
+  "demo_booking"
  ],
  "fields": [
   {
@@ -213,11 +217,42 @@
    "label": "Reminders Sent",
    "read_only": 1,
    "hidden": 1
+  },
+  {
+   "fieldname": "section_break_demo",
+   "fieldtype": "Section Break",
+   "label": "Demo Booking",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "is_demo",
+   "fieldtype": "Check",
+   "label": "Is a booked demo",
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "demo_type",
+   "fieldtype": "Link",
+   "label": "Demo Type",
+   "options": "CRM Demo Type",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "demo_booking",
+   "fieldtype": "Link",
+   "label": "Demo Booking",
+   "options": "CRM Demo Booking",
+   "read_only": 1,
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-30 12:00:00.000000",
+ "modified": "2026-10-26 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Meetings",
  "name": "CRM Meeting",
