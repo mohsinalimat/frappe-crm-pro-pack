@@ -1,26 +1,51 @@
 # Changelog
 
-All notable changes to CRM Pro Pack (the `crm_addons` Frappe app).
+All notable changes to Frappe CRM Suite Pro (the `crm_addons` Frappe app).
 
 ## 1.5.0 - 2026-10-26
 
+**Frappe CRM Suite Pro** (the product was called CRM Pro Pack): a bigger release with website booking pages, team and access control, branding and many fixes.
+Technical names are unchanged (`crm_addons`, `/pro-pack-setup`, `/team-access`), so live sites keep working.
+
+**Upgrade (self-hosted admin):** take a backup, then `bench --site your-site migrate` and `bench restart`. Migrate adds the new doctypes and fields, the ready-made
+templates (marked *System*) and the ready-made access presets. No `bench build` is needed. A page that is already open notices the new version by itself within a few
+minutes and reloads, or shows an "Updated, refresh" bar.
+
 ### Added
 
-- **Hierarchy in Team and access**: the Sales Hierarchy as a tree where a System Manager changes who reports to whom, adds people who are not in it yet, takes people out (not while others report to them), and switches CRM's own hierarchy setting. Loops are refused.
-- **Settings in the CRM menu** (System Managers only), below Team and access: opens the setup page inside the CRM.
-- **Branding in Setup**: name, logo, favicon, login page picture, footer and tab title in one place, written to CRM's brand settings, Website Settings and Navbar Settings together; empty means the default look, with a preview and a reset. Also shown as an optional item in the setup checklist.
+- **Bookings (website booking pages).** A *widget* is a public page (`/book/<name>`, embeddable) where a visitor picks a time. Each booking creates or matches a Lead,
+  creates a CRM Meeting with a Google Meet link, keeps the visitor's first-touch UTMs, and sends confirmation, reschedule, cancel and reminder messages by email and WhatsApp.
+  Reschedule and cancel links, no double booking, spam protection without a CAPTCHA, per-widget branding and hosts, a **Report** by campaign, source, page and day.
+  Bookings and widgets can be shown as **cards or a list**; **Notify** sends the confirmation or a reminder again by hand and can tell the hosts.
+  In Meetings they are labelled **Website booking** in their own colour. The Google Meet logo marks Meet links everywhere.
+- **Team and access** (System Managers): **People** (add a person with picture, name, number, designation, company, role, preset, team leader and an optional WhatsApp login link;
+  switch accounts on or off; reset password), **Presets**, and a **Hierarchy** page: the Sales Hierarchy as an org tree you change by drag and drop, with the main administrator at the top,
+  one role tag per person and the team size. Levels *No access / Own only / My team / Everyone* (and View / Create-and-edit, and switches) apply to follow-ups, meetings, bookings,
+  the dashboard, lead assignment and the whole Campaign Manager, enforced on the server. Nothing changes for people nobody configures.
+- **Settings in the CRM menu** (System Managers) and **Branding** in Setup: name, logo, favicon, login-page picture, footer and tab title, written to CRM's brand settings, Website
+  Settings and Navbar Settings together; pick an image already in the library instead of uploading a duplicate; preview and reset.
+- **System templates.** The app's own email and WhatsApp templates (bookings, login link, missed call) are grouped as **System**: editable, protected from deletion. Only a System
+  Manager can delete one, after choosing a template to take its place. Email and WhatsApp template lists have cards or list layouts.
+- **Missed-call WhatsApp uses an approved template** (created from Setup, status shown); **login link on WhatsApp** when adding a person; **Meta daily limit, quality and recent
+  charges** in Setup (shown as "not available" when Meta does not say).
+- **Auto-reload after a deploy.** The CRM page checks for a new version every few minutes and when the tab is shown, reloads when nothing is being edited, otherwise shows a bar.
+- **Meetings agenda** moves one day at a time and has a Today menu (Today, Tomorrow, Next 7 days, Next 30 days). Person dropdowns in the Sales Dashboard and Follow-ups are searchable.
+- **Visual email builder:** real social icons, ready-made image rows, deletable empty rows. **Setup:** styled searchable dropdowns everywhere, drag to reorder the CRM menu and list columns,
+  count values picked from real data.
 
 ### Changed
 
-- **The product is now called Frappe CRM Suite Pro** (was CRM Pro Pack): headings, setup page, README and docs. Technical names, URLs (`/pro-pack-setup`, `/team-access`) and the Desk workspace name are unchanged so live sites keep working.
+- Renamed in the screens: Demos is now **Bookings**, Demo widgets is now **Widgets**, the access preset *Demo Host* is **Booking Host**, and the ready-made booking templates are
+  **Booking ...** in the **System** group using `booking_*` variables (the older `demo_*` names still work).
+- The old "who sees the Campaigns shortcuts" option is gone from Setup: Team and access decides. The diagnostic log is now **off by default** (`bench --site <site> set-config crm_addons_debug_log 1` to switch it on).
 
-### Changed
+### Fixed
 
-- **Team and access: Add person.** A button on the People page creates a CRM login (Sales User or Sales Manager), applies a preset and emails the invitation to set a password; if the email cannot be sent the person is still added and you are told why.
-- **Widgets can be shown as a list** (cards or list, remembered per browser), and the **Google Meet logo** marks Google Meet links and options wherever they appear.
-- **Demos is now Bookings, Demo widgets is now Widgets** (visible names only; the Report keeps its name). The ready-made access preset *Demo Host* is renamed *Booking Host* (people on it follow). URLs, API and doctype names are unchanged.
+- Booking page "Invalid Request" for someone logged in to the CRM in the same browser; Cancel button invisible in dark mode; a rescheduled booking now shows a thank-you instead of the buttons.
+- The assignment people picker crashed when nobody matched the search; the Sales Dashboard person dropdown could not be searched.
+- Branding refused uploaded images whose file names have spaces, brackets or accents.
 
-### Added
+### Details
 
 - **Demo booking: the backend** (module *Demos*, `crm_addons/demos/`; design and API in [docs/DEMO_BOOKING.md](docs/DEMO_BOOKING.md), admin steps in the Admin guide).
   Demo types (owners, weekly hours, date overrides, notice, horizon, buffers, per-day cap, form fields, message rules, branding, allowed websites), bookings with UTM
@@ -43,6 +68,60 @@ All notable changes to CRM Pro Pack (the `crm_addons` Frappe app).
 - **Demo booking: public booking widget.** `/book/<slug>` and `/book/manage/<token>` (calendar, time slots with 12h/24h and time-zone search, form with country-flag phone
   field, guests and WhatsApp consent, confirmation with Google / .ics calendar links, reschedule and cancel). Branded per demo type (logo, accent colour, light/dark/auto),
   keyboard accessible, mobile friendly. `embed.js` opens it as a pop-up (or inline) from any website with `data-crm-demo="slug"` and passes the visitor's first-touch UTMs.
+
+### Part of 1.5.0: menu support for older CRM versions
+- The left-menu shortcuts and the "page inside the CRM" layout now also work with CRM versions that draw their side menu as plain buttons
+  (for example CRM 1.74), not only as links. Before, such a CRM showed no shortcuts and opened every Pro Pack screen as a pop-up, because the
+  add-on could not find where CRM's menu ends. The menu is found by its own page labels (Dashboard, Leads, ...) when there are no links.
+- Clicking one of CRM's own menu rows while a Pro Pack page is open no longer sends CRM back to the previous address.
+
+### Part of 1.5.0: visual email builder
+- **Social links now show real icons** (round, brand coloured) instead of text pills. 40 networks (Facebook, Instagram, LinkedIn,
+  YouTube, X, WhatsApp, Telegram, TikTok, Pinterest, Threads, Snapchat, Discord, GitHub, Reddit, Medium, Spotify, Slack, Google reviews, Google Play,
+  App Store, Blog / RSS, Phone, Location, Website, Email and more) in a searchable list, plus **Custom**: your own icon image (upload or address) and name for
+  anything not listed. The list lives in one file, `public/campaigns/social/networks.js`; adding a network is one line there plus `node make_icons.js`. Icon size (small / medium / large) and style (brand colours, dark, light) are options of the block.
+  The icons are PNG images served by your own site (`public/campaigns/social/`, drawn from the MIT-licensed Bootstrap Icons; `make_icons.js` regenerates
+  them), because Gmail and Outlook do not show SVG or icon fonts. They load for recipients when the site is reachable from the internet; with images blocked,
+  the network's name shows instead. Templates saved before this change keep their text links until the block is opened and the template saved again.
+- **Several images side by side:** the palette has ready-made rows (**2 images**, **3 images**, **4 images**, **Image + text**) that insert a Row with its
+  columns already holding blocks. A Row still takes 1 to 6 columns and any blocks in each column; a row cannot be placed inside another row (the toast now
+  says what to do instead).
+- **Fixed: an empty row (or column) could not be removed in the visual email builder.** Clicking an empty column selected nothing, so the side panel stayed on
+  "Email style" and the row's tools (shown only for a selected block) never appeared. Now clicking an empty column selects it and the panel offers **Delete the whole
+  row**; an empty row also shows a **Delete row** button on the canvas, and the **Delete** key removes the selected block or an empty selected row.
+
+### Part of 1.5.0: ready-made demo messages
+- **Default templates for every demo message.** Seven email templates are added to the campaign template library (Transactional, editable like any other):
+  *Booking confirmed*, *Booking rescheduled*, *Booking cancelled*, and reminders for *24 hours*, *1 hour*, *30 minutes* and *Booking starting now*. A new demo type picks
+  them automatically and has email switched on, so nobody has to open the template window just to turn a message on. Switching email on for a rule that has no
+  template also takes the ready-made one.
+- **Ready-made WhatsApp (Utility) templates** for the same seven messages (`demos/defaults.py`). WhatsApp needs Meta's approval, so they are definitions: on a rule
+  with no template the Messages tab shows the message in a phone bubble with **Create and send to Meta for approval** (through frappe_whatsapp, like the template
+  creator); once Meta approves it, **Use this template** picks it with its variables already mapped (first name, demo title, date, time, Meet link, reschedule link).
+  A new demo type uses an approved one automatically.
+- Existing demo types: **Use ready-made messages** fills the empty messages in one click (never replaces a choice).
+- Manager API: `demos.admin.default_messages`, `demos.admin.create_default_whatsapp_template(event, minutes_before)`.
+
+### Part of 1.5.0: Team and access
+- **Team and access** page (System Managers): every CRM person with their roles, who they report to (from CRM's Sales Hierarchy) and their access. Each person gets a
+  **preset** and any **changes on top**; presets (Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer, Demo Host) are editable and can be copied.
+  Opened from the CRM menu / Dashboard header (**Team and access**) or at `/team-access`.
+- Access is set **per feature**: a level (No access / Own only / My team / Everyone) for Meetings, Follow-ups, Demos, Sales Dashboard numbers, Campaigns, moving leads and
+  assignment history; View / Create-and-edit levels for demo widgets, assignment rules, automations, email templates, WhatsApp templates and audiences; and on/off switches
+  (campaigns, demo report, list clean-up, the Demos tab in Meetings, the Campaigns tab in the Sales Dashboard...). **My team** = the person and everyone below them in
+  CRM's Sales Hierarchy.
+- Nothing changes for people nobody configures: managers, the Campaign Manager role and Sales Users keep exactly what they had. System Managers always keep full access.
+- Foundation: `team_access/` (registry, resolver `access.level / allows / scope_users`, doctypes *CRM Access Preset* and *CRM User Access*, manager API); each screen
+  starts to use it in the following changes. A password reset email can be sent from a person's panel (Frappe's own reset).
+- **Access levels now apply** to Follow-ups, Meetings, Demos and the Sales Dashboard numbers (own / my team / everyone / none), enforced on the server (lists, the follow-up page,
+  the dashboard report and its Excel export, the Demos list, demo report). A team lead's Follow-ups page, Meetings screen and Sales Dashboard show "My team" and offer
+  the people picker only for their team. The Campaigns tab of the Sales Dashboard and the Demos tab of Meetings can be switched off per person.
+- **Demos** (was "Demo booking") now has Demos first (the bookings: seen per your access, with a Demos entry in the CRM menu for everyone whose access allows it), **Demo widgets**
+  (was "Demo types": view-only or full access per person) and Report (a switch, limited to the person's demos). A host can record how their own demo went; acting on
+  other people's demos (cancel, resend) needs team or everyone.
+- Access is applied to lead assignment (rules: view / create and edit; moving leads and the history: own / my team / everyone) and to every part of the Campaign Manager: Campaigns by scope,
+  *Create and send campaigns* as a switch (so someone can build templates, automations or reports without being able to send), and levels for automations, email templates, WhatsApp
+  templates and audiences. The doctypes stay read-only for Sales Users; changes go only through the checked screens.
 
 ## 1.4.0 - 2026-10-21
 
@@ -386,57 +465,3 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
   (CRM writes localStorage constantly) or switching back to the tab started an endless loop. The theme is now only written when it
   changes and the page never observes itself.
 - The Campaign Manager now shows the reason on screen (and a Reload button) if it cannot start, instead of a blank page.
-
-### Part of 1.5.0: menu support for older CRM versions
-- The left-menu shortcuts and the "page inside the CRM" layout now also work with CRM versions that draw their side menu as plain buttons
-  (for example CRM 1.74), not only as links. Before, such a CRM showed no shortcuts and opened every Pro Pack screen as a pop-up, because the
-  add-on could not find where CRM's menu ends. The menu is found by its own page labels (Dashboard, Leads, ...) when there are no links.
-- Clicking one of CRM's own menu rows while a Pro Pack page is open no longer sends CRM back to the previous address.
-
-### Part of 1.5.0: visual email builder
-- **Social links now show real icons** (round, brand coloured) instead of text pills. 40 networks (Facebook, Instagram, LinkedIn,
-  YouTube, X, WhatsApp, Telegram, TikTok, Pinterest, Threads, Snapchat, Discord, GitHub, Reddit, Medium, Spotify, Slack, Google reviews, Google Play,
-  App Store, Blog / RSS, Phone, Location, Website, Email and more) in a searchable list, plus **Custom**: your own icon image (upload or address) and name for
-  anything not listed. The list lives in one file, `public/campaigns/social/networks.js`; adding a network is one line there plus `node make_icons.js`. Icon size (small / medium / large) and style (brand colours, dark, light) are options of the block.
-  The icons are PNG images served by your own site (`public/campaigns/social/`, drawn from the MIT-licensed Bootstrap Icons; `make_icons.js` regenerates
-  them), because Gmail and Outlook do not show SVG or icon fonts. They load for recipients when the site is reachable from the internet; with images blocked,
-  the network's name shows instead. Templates saved before this change keep their text links until the block is opened and the template saved again.
-- **Several images side by side:** the palette has ready-made rows (**2 images**, **3 images**, **4 images**, **Image + text**) that insert a Row with its
-  columns already holding blocks. A Row still takes 1 to 6 columns and any blocks in each column; a row cannot be placed inside another row (the toast now
-  says what to do instead).
-- **Fixed: an empty row (or column) could not be removed in the visual email builder.** Clicking an empty column selected nothing, so the side panel stayed on
-  "Email style" and the row's tools (shown only for a selected block) never appeared. Now clicking an empty column selects it and the panel offers **Delete the whole
-  row**; an empty row also shows a **Delete row** button on the canvas, and the **Delete** key removes the selected block or an empty selected row.
-
-### Part of 1.5.0: ready-made demo messages
-- **Default templates for every demo message.** Seven email templates are added to the campaign template library (Transactional, editable like any other):
-  *Booking confirmed*, *Booking rescheduled*, *Booking cancelled*, and reminders for *24 hours*, *1 hour*, *30 minutes* and *Booking starting now*. A new demo type picks
-  them automatically and has email switched on, so nobody has to open the template window just to turn a message on. Switching email on for a rule that has no
-  template also takes the ready-made one.
-- **Ready-made WhatsApp (Utility) templates** for the same seven messages (`demos/defaults.py`). WhatsApp needs Meta's approval, so they are definitions: on a rule
-  with no template the Messages tab shows the message in a phone bubble with **Create and send to Meta for approval** (through frappe_whatsapp, like the template
-  creator); once Meta approves it, **Use this template** picks it with its variables already mapped (first name, demo title, date, time, Meet link, reschedule link).
-  A new demo type uses an approved one automatically.
-- Existing demo types: **Use ready-made messages** fills the empty messages in one click (never replaces a choice).
-- Manager API: `demos.admin.default_messages`, `demos.admin.create_default_whatsapp_template(event, minutes_before)`.
-
-### Part of 1.5.0: Team and access
-- **Team and access** page (System Managers): every CRM person with their roles, who they report to (from CRM's Sales Hierarchy) and their access. Each person gets a
-  **preset** and any **changes on top**; presets (Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer, Demo Host) are editable and can be copied.
-  Opened from the CRM menu / Dashboard header (**Team and access**) or at `/team-access`.
-- Access is set **per feature**: a level (No access / Own only / My team / Everyone) for Meetings, Follow-ups, Demos, Sales Dashboard numbers, Campaigns, moving leads and
-  assignment history; View / Create-and-edit levels for demo widgets, assignment rules, automations, email templates, WhatsApp templates and audiences; and on/off switches
-  (campaigns, demo report, list clean-up, the Demos tab in Meetings, the Campaigns tab in the Sales Dashboard...). **My team** = the person and everyone below them in
-  CRM's Sales Hierarchy.
-- Nothing changes for people nobody configures: managers, the Campaign Manager role and Sales Users keep exactly what they had. System Managers always keep full access.
-- Foundation: `team_access/` (registry, resolver `access.level / allows / scope_users`, doctypes *CRM Access Preset* and *CRM User Access*, manager API); each screen
-  starts to use it in the following changes. A password reset email can be sent from a person's panel (Frappe's own reset).
-- **Access levels now apply** to Follow-ups, Meetings, Demos and the Sales Dashboard numbers (own / my team / everyone / none), enforced on the server (lists, the follow-up page,
-  the dashboard report and its Excel export, the Demos list, demo report). A team lead's Follow-ups page, Meetings screen and Sales Dashboard show "My team" and offer
-  the people picker only for their team. The Campaigns tab of the Sales Dashboard and the Demos tab of Meetings can be switched off per person.
-- **Demos** (was "Demo booking") now has Demos first (the bookings: seen per your access, with a Demos entry in the CRM menu for everyone whose access allows it), **Demo widgets**
-  (was "Demo types": view-only or full access per person) and Report (a switch, limited to the person's demos). A host can record how their own demo went; acting on
-  other people's demos (cancel, resend) needs team or everyone.
-- Access is applied to lead assignment (rules: view / create and edit; moving leads and the history: own / my team / everyone) and to every part of the Campaign Manager: Campaigns by scope,
-  *Create and send campaigns* as a switch (so someone can build templates, automations or reports without being able to send), and levels for automations, email templates, WhatsApp
-  templates and audiences. The doctypes stay read-only for Sales Users; changes go only through the checked screens.
