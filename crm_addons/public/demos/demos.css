@@ -157,3 +157,5 @@
 /* the ready-made WhatsApp message offered when a rule has no template yet */
 .wa-sug { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px dashed var(--border-strong, #cfd5dd); border-radius: 12px; background: color-mix(in srgb, var(--accent, #2563eb) 4%, transparent); }
 .wa-sug-h { display: flex; align-items: center; gap: 10px; }
+
+fieldset.ro { border: 0; margin: 0; padding: 0; min-width: 0; }

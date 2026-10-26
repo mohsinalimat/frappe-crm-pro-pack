@@ -151,8 +151,8 @@ class TestPresetsAndOverrides(AccessCase):
 		self.assertEqual(len(names), len(presets.PRESETS))
 
 
-class TestTeamScope(AccessCase):
-	"""'My team' follows CRM's Sales Hierarchy. This site's CRM may not have it, so a small stand-in table is used for the test."""
+class HierarchyMixin(AccessCase):
+	"""A stand-in for CRM's Sales Hierarchy table when this site's CRM has none (and the real one when it has)."""
 
 	@classmethod
 	def setUpClass(cls):
@@ -182,6 +182,8 @@ class TestTeamScope(AccessCase):
 		for user, lft, rgt in ((boss, 1, 10), (mid, 2, 7), (rep1, 3, 4), (rep2, 5, 6), (other, 8, 9)):
 			frappe.get_doc({"doctype": HIER, "user": user, "lft": lft, "rgt": rgt}).db_insert()
 
+
+class TestTeamScope(HierarchyMixin):
 	def test_my_team_is_me_and_everyone_below(self):
 		u = [self.person(f"t{i}.acc@example.org", "Sales User") for i in range(5)]
 		self.tree(*u)

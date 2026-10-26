@@ -9,7 +9,7 @@ from crm_addons.demos.common import ACTIVE, BOOKING
 NONE_LABELS = {"utm_source": "(direct)", "utm_medium": "(none)", "utm_campaign": "(none)"}
 
 
-def _where(from_date, to_date, demo_type):
+def _where(from_date, to_date, demo_type, extra=None):
 	start, end = date_range(from_date, to_date)
 	parts, values = ["1 = 1"], {}
 	if start:
@@ -21,6 +21,8 @@ def _where(from_date, to_date, demo_type):
 	if demo_type:
 		parts.append("b.demo_type = %(demo_type)s")
 		values["demo_type"] = demo_type
+	if extra:
+		parts.append(extra)
 	return " and ".join(parts), values
 
 
@@ -38,9 +40,9 @@ def _group(column, where, values, label_sql=None):
 	return [{"label": r.label, "booked": int(r.booked), "held": int(r.held or 0), "no_show": int(r.no_show or 0), "cancelled": int(r.cancelled or 0)} for r in rows]
 
 
-def demo_report(from_date=None, to_date=None, demo_type=None):
+def demo_report(from_date=None, to_date=None, demo_type=None, extra=None):
 	"""Bookings made in the range (by the day they were booked), by source, medium, campaign, demo type and day, and the funnel."""
-	where, values = _where(from_date, to_date, demo_type)
+	where, values = _where(from_date, to_date, demo_type, extra)
 	totals = frappe.db.sql(
 		f"""select {COUNTS}, sum(b.status in %(active)s and b.starts_utc >= %(now)s) as upcoming, sum(b.status = 'Rescheduled') as rescheduled
 		from `tab{BOOKING}` b where {where}""",

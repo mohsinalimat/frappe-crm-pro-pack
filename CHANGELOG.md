@@ -415,3 +415,9 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
 - Nothing changes for people nobody configures: managers, the Campaign Manager role and Sales Users keep exactly what they had. System Managers always keep full access.
 - Foundation: `team_access/` (registry, resolver `access.level / allows / scope_users`, doctypes *CRM Access Preset* and *CRM User Access*, manager API); each screen
   starts to use it in the following changes. A password reset email can be sent from a person's panel (Frappe's own reset).
+- **Access levels now apply** to Follow-ups, Meetings, Demos and the Sales Dashboard numbers (own / my team / everyone / none), enforced on the server (lists, the follow-up page,
+  the dashboard report and its Excel export, the Demos list, demo report). A team lead's Follow-ups page, Meetings screen and Sales Dashboard show "My team" and offer
+  the people picker only for their team. The Campaigns tab of the Sales Dashboard and the Demos tab of Meetings can be switched off per person.
+- **Demos** (was "Demo booking") now has Demos first (the bookings: seen per your access, with a Demos entry in the CRM menu for everyone whose access allows it), **Demo widgets**
+  (was "Demo types": view-only or full access per person) and Report (a switch, limited to the person's demos). A host can record how their own demo went; acting on
+  other people's demos (cancel, resend) needs team or everyone.

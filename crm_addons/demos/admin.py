@@ -16,9 +16,11 @@ from crm_addons.campaigns import personalization
 from crm_addons.campaigns.common import date_range, email_account_problem, whatsapp_installed
 from crm_addons.demos import booking, common, defaults, messaging, report, slots
 from crm_addons.demos.common import ACTIVE, BOOKING, DEMO_TYPE, LEAD, MESSAGE
-from crm_addons.demos.permissions import involved_sql
+from crm_addons.demos.permissions import involved_sql, scope_sql
+from crm_addons.demos.permissions import sees_others as sees_others_demos
 from frappe.utils import get_url
 
+from crm_addons.team_access import access
 from crm_addons.utils import is_manager
 
 PAGE = 25
@@ -28,9 +30,23 @@ BOOKING_COLUMNS = (
 )
 
 
-def _manager():
-	if not is_manager():
-		frappe.throw(_("Only a Sales Manager or System Manager can manage demo booking."), frappe.PermissionError)
+def _widgets(minimum="view"):
+	"""The demo widgets (booking pages): ``view`` to look, ``manage`` to create and change. Set on the Team and access page."""
+	access.require("demo_widgets", minimum, _("You do not have access to the demo widgets."))
+
+
+def _demos(others=False):
+	"""The Demos list: anyone with access; ``others`` = also acting on other people's demos (team or everyone)."""
+	level = access.level("demos")
+	if level == access.R.NONE or (others and level not in (access.R.TEAM, access.R.ALL)):
+		frappe.throw(_("You do not have access to this."), frappe.PermissionError)
+
+
+def _visible(name):
+	"""Is this booking one of the demos the person may see?"""
+	cond = scope_sql(frappe.session.user)
+	if cond and not frappe.db.sql(f"select 1 from `tab{BOOKING}` where name = %s and {cond}", name):
+		frappe.throw(_("You do not have access to this demo."), frappe.PermissionError)
 
 
 def _json(value, default):
@@ -58,7 +74,7 @@ def _type_dict(name):
 
 @frappe.whitelist()
 def list_demo_types():
-	_manager()
+	_widgets()
 	types = frappe.get_all(DEMO_TYPE, fields=["name", "slug", "title", "enabled", "duration_minutes", "timezone", "provider", "modified"], order_by="title asc")
 	owners = {}
 	for row in frappe.get_all("CRM Demo Owner", filters={"parenttype": DEMO_TYPE}, fields=["parent", "user"], order_by="idx asc", parent_doctype=DEMO_TYPE):
@@ -100,7 +116,7 @@ def _next_slot(name):
 
 @frappe.whitelist()
 def get_demo_type(name):
-	_manager()
+	_widgets()
 	if not frappe.db.exists(DEMO_TYPE, name):
 		frappe.throw(_("Demo type {0} was not found.").format(name), frappe.DoesNotExistError)
 	return _type_dict(name)
@@ -108,7 +124,7 @@ def get_demo_type(name):
 
 @frappe.whitelist()
 def save_demo_type(doc):
-	_manager()
+	_widgets("manage")
 	data = _json(doc, {})
 	name = data.get("name")
 	for key in ("creation", "modified", "modified_by", "owner", "docstatus", "idx"):
@@ -125,7 +141,7 @@ def save_demo_type(doc):
 
 @frappe.whitelist()
 def duplicate_demo_type(name, slug=None, title=None):
-	_manager()
+	_widgets("manage")
 	source = frappe.get_doc(DEMO_TYPE, name)
 	copy = frappe.copy_doc(source)
 	base = re.sub(r"-copy(-\d+)?$", "", source.slug)
@@ -142,7 +158,7 @@ def duplicate_demo_type(name, slug=None, title=None):
 
 @frappe.whitelist()
 def delete_demo_type(name):
-	_manager()
+	_widgets("manage")
 	if frappe.db.count(BOOKING, {"demo_type": name}):
 		frappe.throw(_("This demo type has bookings, so it cannot be deleted. Switch it off instead."))
 	frappe.delete_doc(DEMO_TYPE, name, ignore_permissions=True)
@@ -209,8 +225,8 @@ def _query_bookings(where, values, page, page_size, order="b.starts_utc desc"):
 
 @frappe.whitelist()
 def list_bookings(filters=None, search=None, from_date=None, to_date=None, page=1, page_size=PAGE):
-	_manager()
-	where, values = _filters_sql(filters, search, from_date, to_date)
+	_demos()
+	where, values = _filters_sql(filters, search, from_date, to_date, scope_sql(frappe.session.user, "b"))
 	rows, total, page, page_size = _query_bookings(where, values, page, page_size)
 	return {"rows": rows, "total": total, "page": page, "page_size": page_size}
 
@@ -243,7 +259,8 @@ def _booking_admin(name):
 
 @frappe.whitelist()
 def get_booking_admin(name):
-	_manager()
+	_demos()
+	_visible(name)
 	return _booking_admin(name)
 
 
@@ -266,7 +283,8 @@ def _close(name, status):
 
 @frappe.whitelist()
 def set_booking_status(name, status):
-	_manager()
+	_demos(others=True)
+	_visible(name)
 	if status not in ("Completed", "No Show", "Cancelled"):
 		frappe.throw(_("A booking can be marked Completed, No Show or Cancelled."))
 	if not frappe.db.exists(BOOKING, name):
@@ -285,7 +303,10 @@ def set_my_demo_outcome(booking, outcome):
 		frappe.throw(_("Choose Completed or No Show."))
 	if not frappe.db.exists(BOOKING, booking):
 		frappe.throw(_("Booking {0} was not found.").format(booking), frappe.DoesNotExistError)
-	if not is_manager() and not frappe.db.sql(f"select 1 from `tab{BOOKING}` where name = %s and {involved_sql(frappe.session.user)}", booking):
+	cond = involved_sql(frappe.session.user)
+	if sees_others_demos():
+		cond = scope_sql(frappe.session.user) or "1 = 1"
+	if not frappe.db.sql(f"select 1 from `tab{BOOKING}` where name = %s and {cond}", booking):
 		frappe.throw(_("You can only record the outcome of a demo you take part in."), frappe.PermissionError)
 	_close(booking, outcome)
 	return {"ok": True, "status": outcome}
@@ -294,7 +315,7 @@ def set_my_demo_outcome(booking, outcome):
 @frappe.whitelist()
 def send_test_message(demo_type, event, minutes_before=0, channel="Email"):
 	"""Send one of the demo type's messages, with sample data, to the logged-in manager's own email / mobile number."""
-	_manager()
+	_widgets("manage")
 	if channel not in ("Email", "WhatsApp"):
 		frappe.throw(_("Choose Email or WhatsApp."))
 	demo = frappe.get_doc(DEMO_TYPE, demo_type)
@@ -309,7 +330,8 @@ def send_test_message(demo_type, event, minutes_before=0, channel="Email"):
 @frappe.whitelist()
 def resend_message(booking, event=None, message=None):
 	"""With ``message`` (a row name) that row goes back in line; with ``event`` a fresh message for that event is queued now."""
-	_manager()
+	_demos(others=True)
+	_visible(booking)
 	if not frappe.db.exists(BOOKING, booking):
 		frappe.throw(_("Booking {0} was not found.").format(booking), frappe.DoesNotExistError)
 	queued = 0
@@ -328,8 +350,8 @@ def resend_message(booking, event=None, message=None):
 
 @frappe.whitelist()
 def demo_report(from_date=None, to_date=None, demo_type=None):
-	_manager()
-	return report.demo_report(from_date, to_date, demo_type)
+	access.require("demo_report", 1, _("You do not have access to the demo report."))
+	return report.demo_report(from_date, to_date, demo_type, scope_sql(frappe.session.user, "b") or None)
 
 
 # -- helpers for the editor ------------------------------------------------------------------------------------------------------
@@ -337,7 +359,7 @@ def demo_report(from_date=None, to_date=None, demo_type=None):
 
 @frappe.whitelist()
 def get_embed_code(slug):
-	_manager()
+	_widgets()
 	if not frappe.db.exists(DEMO_TYPE, slug):
 		frappe.throw(_("Demo type {0} was not found.").format(slug), frappe.DoesNotExistError)
 	url = common.public_url(slug)
@@ -352,7 +374,7 @@ def get_embed_code(slug):
 
 @frappe.whitelist()
 def list_templates():
-	_manager()
+	_widgets()
 	email = frappe.get_all("CRM Campaign Email Template", filters={"enabled": 1}, fields=["name", "subject", "category"], order_by="template_name asc")
 	whatsapp, accounts = [], []
 	if whatsapp_installed():
@@ -366,7 +388,7 @@ def list_templates():
 
 @frappe.whitelist()
 def get_demo_variables():
-	_manager()
+	_widgets()
 	return [{"name": v["name"], "label": v["label"]} for v in personalization.available_variables()]
 
 
@@ -379,7 +401,9 @@ def my_demos(from_date=None, to_date=None, scope="mine", page=1, page_size=100):
 	user = frappe.session.user
 	if user == "Guest":
 		frappe.throw(_("Please log in."), frappe.PermissionError)
-	extra = None if (scope == "all" and is_manager(user)) else involved_sql(user, "b")
+	if access.level("demos") == access.R.NONE:
+		return []
+	extra = (scope_sql(user, "b") or None) if (scope == "all" and sees_others_demos()) else involved_sql(user, "b")
 	where, values = _filters_sql(None, None, from_date, to_date, extra)
 	rows, total, page, page_size = _query_bookings(where, values, page, page_size, order="b.starts_utc asc")
 	leads = dict(frappe.get_all(LEAD, filters={"name": ["in", [r["lead"] for r in rows if r.get("lead")] or [""]]}, fields=["name", "lead_name"], as_list=True)) if rows else {}
@@ -392,7 +416,7 @@ def my_demos(from_date=None, to_date=None, scope="mine", page=1, page_size=100):
 def default_messages():
 	"""The ready-made message for every rule (demos/defaults.py): the library email template and the Utility WhatsApp template with
 	its state on this site (NOT CREATED, PENDING, APPROVED ...). The Messages tab fills empty rules from this."""
-	_manager()
+	_widgets("manage")
 	from crm_addons.campaigns import api as campaign_api
 	from crm_addons.install import ensure_default_email_templates
 
@@ -422,7 +446,7 @@ def default_messages():
 def create_default_whatsapp_template(event, minutes_before=0):
 	"""Submit the ready-made Utility template of a rule to Meta (through frappe_whatsapp, like the campaign template creator). It stays
 	Pending until Meta approves it; then it can be chosen in the rule. Managers only."""
-	_manager()
+	_widgets("manage")
 	from crm_addons.campaigns import api as campaign_api
 
 	spec = defaults.WHATSAPP.get(defaults.key_of(event, minutes_before))

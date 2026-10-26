@@ -9,7 +9,8 @@ from frappe import _
 from frappe.utils import add_days, cint, cstr, date_diff, getdate, now_datetime, nowdate
 
 from crm_addons import scoring, stale
-from crm_addons.utils import get_reference_info, get_settings, is_manager, user_details
+from crm_addons.team_access import access
+from crm_addons.utils import get_reference_info, get_settings, user_details
 
 ROLES = ("Sales User", "Sales Manager", "System Manager")
 COUNTS = ("calls", "connected", "not_picked", "not_connected", "attempt_sum", "follow_ups", "leads", "meetings", "held", "converted")
@@ -25,11 +26,24 @@ def _period(from_date, to_date):
 	return start, end
 
 
-def _who(user):
-	"""The one user to report on, or None for everybody (managers only)."""
-	if not is_manager():
-		return frappe.session.user
-	return user or None
+def _who(user=None):
+	"""Whom to report on: one person (a name), a team (a tuple of names) or None for everybody. What the signed-in person may look at
+	comes from their access settings for the dashboard (own / my team / everyone); ``user`` narrows it to one person inside that."""
+	users = access.scope_users("dashboard")
+	if users is None:
+		return user or None
+	if user and user in users:
+		return user
+	if not users:
+		return ("",)  # no access: matches nobody
+	return next(iter(users)) if len(users) == 1 else tuple(sorted(users))
+
+
+def _in_scope(column, who, prefix=" and "):
+	"""``and column = %(who)s`` for one person, ``and column in %(who)s`` for a team, nothing for everybody."""
+	if not who:
+		return ""
+	return f"{prefix}{column} = %(who)s" if isinstance(who, str) else f"{prefix}{column} in %(who)s"
 
 
 def _metrics(start, end, who):
@@ -37,7 +51,7 @@ def _metrics(start, end, who):
 	params = {"start": start, "end": end, "who": who}
 
 	def cond(column):
-		return f" and {column} = %(who)s" if who else ""
+		return _in_scope(column, who)
 
 	people = {}
 
@@ -94,7 +108,7 @@ def _pending(who):
 	today = getdate(nowdate())
 	params = {"today": today, "tomorrow": add_days(today, 1), "who": who}
 	people = {}
-	who_sql = " and f.assigned_to = %(who)s" if who else ""
+	who_sql = _in_scope("f.assigned_to", who)
 	for r in frappe.db.sql(
 		f"""select f.assigned_to as person,
 			sum(f.next_follow_up_on < %(today)s) as overdue,
@@ -129,7 +143,7 @@ def _totals(counts):
 def _team(who):
 	"""Everybody who can be reported on: the sales team, or just the one user."""
 	if who:
-		return {who}
+		return {who} if isinstance(who, str) else {u for u in who if u}
 	roles = frappe.get_all("Has Role", filters={"role": ["in", ["Sales User", "Sales Manager"]], "parenttype": "User"}, pluck="parent")
 	return {
 		u
@@ -146,7 +160,7 @@ def _title(reference_docname):
 def _build_report(from_date=None, to_date=None, user=None):
 	start, end = _period(from_date, to_date)
 	who = _who(user)
-	manager = is_manager()
+	manager = access.level("dashboard") in (access.R.TEAM, access.R.ALL)  # may look at other people (the picker is offered)
 	params = {"start": start, "end": add_days(end, 1), "who": who}
 	span = date_diff(end, start) + 1
 
@@ -157,7 +171,7 @@ def _build_report(from_date=None, to_date=None, user=None):
 	pending = _pending(who)
 
 	def cond(column):
-		return f" and {column} = %(who)s" if who else ""
+		return _in_scope(column, who)
 
 	# ---- per day and person; the page adds them up as it needs
 	days = {}
@@ -323,7 +337,7 @@ def _build_report(from_date=None, to_date=None, user=None):
 	stale_days = cint(get_settings().stale_lead_days)
 	if stale_days > 0:
 		try:
-			stale_count = len([r for r in stale.stale_records("CRM Lead", stale_days) if not who or r.owner_user == who])
+			stale_count = len([r for r in stale.stale_records("CRM Lead", stale_days) if not who or (r.owner_user == who if isinstance(who, str) else r.owner_user in who)])
 		except Exception:
 			frappe.log_error(title="CRM Add-ons: could not count stale leads", message=frappe.get_traceback())
 
@@ -404,13 +418,14 @@ def _build_report(from_date=None, to_date=None, user=None):
 	return {
 		"scope": {
 			"is_manager": manager,
-			"user": who,
-			"user_name": user_details(who)[1] if who else None,
+			"user": who if isinstance(who, str) else None,
+			"user_name": user_details(who)[1] if isinstance(who, str) else None,
+			"label": "My team" if access.level("dashboard") == access.R.TEAM else "Everyone",
 			"from": str(start),
 			"to": str(end),
 			"days": span,
 			"users": sorted(
-				[{"name": u, "full_name": user_details(u)[1] or u} for u in (_team(None) if manager else {frappe.session.user})],
+				[{"name": u, "full_name": user_details(u)[1] or u} for u in (_team(_who(None)) if manager else {frappe.session.user})],
 				key=lambda x: x["full_name"].lower(),
 			),
 		},
@@ -478,7 +493,7 @@ def _extras(who):
 	leads counted by a field (state, type, industry ...). A sales user only gets their own leads counted."""
 	from crm_addons.campaigns import audience
 
-	scope = [["CRM Lead", "lead_owner", "=", who]] if who else []
+	scope = ([["CRM Lead", "lead_owner", "=", who]] if isinstance(who, str) else [["CRM Lead", "lead_owner", "in", list(who)]]) if who else []
 	count = lambda extra=(): frappe.db.count("CRM Lead", filters=scope + list(extra))  # noqa: E731
 	totals = {"total": count(), "open": count([["CRM Lead", "converted", "=", 0]]), "converted": count([["CRM Lead", "converted", "=", 1]])}
 	if not who:
@@ -492,7 +507,7 @@ def _extras(who):
 			continue
 	breakdowns = []
 	for f in breakdown_fields():
-		where, params = ("lead_owner = %(who)s", {"who": who}) if who else ("1 = 1", {})
+		where, params = (("lead_owner = %(who)s" if isinstance(who, str) else "lead_owner in %(who)s"), {"who": who}) if who else ("1 = 1", {})
 		rows = frappe.db.sql(
 			f"""select ifnull(nullif(`{f.fieldname}`, ''), %(none)s) as v, count(*) as n from `tabCRM Lead` where {where} group by v order by n desc limit {BREAKDOWN_ROWS + 1}""",
 			{**params, "none": _("Not set")},
@@ -517,7 +532,7 @@ def get_sales_report(from_date=None, to_date=None, user=None):
 
 def _call_log(start, end, who):
 	"""Every call in the period, newest first (up to 10,000), for the detailed sheet / CSV."""
-	who_sql = " and f.owner = %(who)s" if who else ""
+	who_sql = _in_scope("f.owner", who)
 	rows = frappe.db.sql(
 		f"""select f.followed_up_on, f.reference_docname, f.owner, f.outcome, f.attempt_no, f.remark, f.next_follow_up_on
 		from `tabCRM Follow Up` f
@@ -584,7 +599,7 @@ def _workbook(data, log):
 		return ws
 
 	scope, t, p = data["scope"], data["totals"], data["previous"]
-	who = scope["user_name"] if scope["user"] else "Everyone"
+	who = scope["user_name"] if scope["user"] else scope.get("label", "Everyone")
 	labels = [
 		("Calls", "calls"),
 		("Connected calls", "connected"),

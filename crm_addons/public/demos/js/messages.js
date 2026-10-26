@@ -89,7 +89,7 @@
 												<div v-if="!rule.email_template" class="pick-empty" :class="{ bad: false }"><Ico name="mail" size="lg" /><div class="grow"><b>Choose an email template</b><div class="small muted">From the campaign template library. Pick one, or create a new one.</div></div><Btn variant="primary" @click="$emit('pick-email')">Choose</Btn><Btn icon="plus" @click="$emit('create-email')">New</Btn></div>
 						<div v-else class="tsel"><div class="tsel-th"><Thumb v-if="tpl && !tpl.missing" :html="DM.fill(tpl.body_html)" :height="120" /><div v-else class="skel" style="height:120px"></div></div>
 							<div class="grow" style="min-width:0"><div class="lbl">Email template</div><b class="ellipsis" style="font-size:15px">{{ rule.email_template }}</b><div v-if="tpl && tpl.missing" class="small" style="color:var(--red)">This template no longer exists. Choose another.</div><div v-else-if="tpl" class="small muted ellipsis">Subject: {{ DM.fill(tpl.subject) }}</div>
-								<div class="row wrap" style="margin-top:10px;gap:6px"><Btn size="sm" @click="$emit('pick-email')">Change</Btn><Btn size="sm" icon="eye" @click="$emit('preview-email')">Preview</Btn><Btn size="sm" icon="edit" @click="$emit('edit-email')">Edit template</Btn><Btn size="sm" icon="send" :loading="testing.Email" :disabled="!canTest" :title="canTest ? 'Sends this email to your own address' : 'Save the demo type first'" @click="test('Email')">Send me a test</Btn></div></div></div>
+								<div class="row wrap" style="margin-top:10px;gap:6px"><Btn size="sm" @click="$emit('pick-email')">Change</Btn><Btn size="sm" icon="eye" @click="$emit('preview-email')">Preview</Btn><Btn size="sm" icon="edit" @click="$emit('edit-email')">Edit template</Btn><Btn size="sm" icon="send" :loading="testing.Email" :disabled="!canTest" :title="canTest ? 'Sends this email to your own address' : 'Save the demo widget first'" @click="test('Email')">Send me a test</Btn></div></div></div>
 					</template>
 				</div>
 				<div class="chan">
@@ -107,7 +107,7 @@
 									<div v-for="(p, i) in waTpl.placeholders" :key="p" class="wa-map"><span class="wa-map-n mono">{{ $wa(p) }}</span><div class="grow"><input class="inp" :class="{ bad: !map[p] }" v-model="map[p]" :data-wam="rule.event + rule.minutes_before + '-' + p" placeholder="Type text or insert a variable" :aria-label="'Value for variable ' + p" /><div class="tiny faint" style="margin-top:3px">Sample: {{ DM.fill(map[p] || '') || waTpl.samples[i] || '-' }}</div></div><DemoVarMenu label="" size="sm" @pick="(t) => insert(p, t)" /></div>
 									<div v-if="missing.length" class="small" style="color:var(--red)">Fill {{ missing.map($wa).join(', ') }}. An empty value makes WhatsApp refuse the message.</div></template>
 								<div v-else class="small muted">This template has no variables.</div>
-								<div><Btn size="sm" icon="send" :loading="testing.WhatsApp" :disabled="!canTest" :title="canTest ? 'Sends this message to your own number' : 'Save the demo type first'" @click="test('WhatsApp')">Send me a test</Btn></div>
+								<div><Btn size="sm" icon="send" :loading="testing.WhatsApp" :disabled="!canTest" :title="canTest ? 'Sends this message to your own number' : 'Save the demo widget first'" @click="test('WhatsApp')">Send me a test</Btn></div>
 							</div>
 							<div class="wa-side"><WaBubble :header="waTpl.header" :header-type="waTpl.header_type" :body="waTpl.template" :footer="waTpl.footer" :buttons="waTpl.buttons" :values="vals" compact /></div>
 						</div>
@@ -136,7 +136,7 @@
 			// rules with a channel on but no template, or no channel at all while a ready-made message exists
 			const fillable = computed(() => DM.defaults.loaded && doc.messages.some((r) => { const d = DM.defaultFor(r); return d && ((!r.email_template && d.email_exists) || (!r.wa_template && d.whatsapp.approved)) }))
 			function fillDefaults() { let n = 0; doc.messages.forEach((r) => { n += DM.applyDefault(r).length }); CM.toast(n ? 'Filled ' + n + ' empty message' + (n === 1 ? '' : 's') + ' with the ready-made ones. Save to keep them.' : 'Nothing to fill.') }
-			// every event the demo type should have exists, even on a document saved before it was added
+			// every event the demo widget should have exists, even on a document saved before it was added
 			DM.EVENTS.forEach((e) => { if (!doc.messages.some((m) => m.event === e)) doc.messages.push(DM.defaultMessages().find((m) => m.event === e)) })
 			const custom = reactive({ open: false, value: 2, unit: 'hours' })
 			const used = computed(() => new Set(reminders.value.map((m) => m.minutes_before)))

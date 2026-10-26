@@ -717,6 +717,10 @@
 			const view = ref(params.get('view') || 'agenda')
 			const cursor = ref(sod(new Date()))
 			const scope = ref('mine')
+			// what the person's access settings allow: other people's meetings (their team's or everyone's), and the Demos view
+			const seesOthers = computed(() => !!config.value && ['team', 'all'].includes(config.value.meetings_scope || (config.value.is_manager ? 'all' : 'own')))
+			const othersLabel = computed(() => (config.value && config.value.meetings_scope === 'team' ? 'My team' : 'Everyone'))
+			const demosTab = computed(() => !config.value || !config.value.access || config.value.access.meetings_demos_tab !== 0)
 			const demosOnly = ref(params.get('demos') === '1') // the Demos view: only meetings booked through a demo page (everyone sees it)
 			const meetings = ref([])
 			const loading = ref(false)
@@ -756,7 +760,7 @@
 				if (list.every((m) => m.demo_type_title && m.demo_utm_source !== undefined)) return
 				try {
 					const day = (d) => toSql(d).slice(0, 10)
-					const rows = await call('crm_addons.demos.admin.my_demos', { from_date: day(addDays(s, -1)), to_date: day(addDays(e, 1)), scope: config.value && config.value.is_manager ? 'all' : 'mine', page_size: 200 })
+					const rows = await call('crm_addons.demos.admin.my_demos', { from_date: day(addDays(s, -1)), to_date: day(addDays(e, 1)), scope: seesOthers.value ? 'all' : 'mine', page_size: 200 })
 					if (my !== seq) return
 					const by = new Map((rows || []).filter((r) => r.meeting).map((r) => [String(r.meeting), r]))
 					list.forEach((m) => { const r = by.get(String(m.name)); if (r) { m.demo_type_title = m.demo_type_title || r.demo_title; m.demo_utm_source = m.demo_utm_source ?? r.utm_source; m.demo_utm_medium = m.demo_utm_medium ?? r.utm_medium; m.demo_utm_campaign = m.demo_utm_campaign ?? r.utm_campaign } })
@@ -912,7 +916,7 @@
 				try {
 					config.value = await call('crm_addons.api.get_client_config')
 				} catch (err) { fatal.value = err.message; return }
-				if (config.value.is_manager) scope.value = 'all'
+				if (seesOthers.value) scope.value = 'all'
 				if (editorOnly) {
 					const name = params.get('meeting')
 					if (name) { try { editor.value = { meeting: await call('crm_addons.api.get_meeting', { name }), preset: null } } catch (err) { fatal.value = err.message } }
@@ -940,7 +944,7 @@
 				config, fatal, view, cursor, scope, demosOnly, isDemo, demoSource, meetings, loading, selected, editor, toasts, stage, label, agenda, monthCells, columns, days, nowTop,
 				step, today, go, goHome, dateValue, jump, openPicker, pickMeeting, newMeeting, editMeeting, onSaved, onChanged, closeEditor, closeSelf, openFull, slotClick, toast, load, editorOnly,
 				dowNames: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-				hours: Array.from({ length: 24 }, (_, h) => h), clockLabel, fmtTime, fmtDay, fromSql, whenText, shortRange, statusClass, sameDay, sod, EMBED, HOUR, refName,
+				hours: Array.from({ length: 24 }, (_, h) => h), clockLabel, fmtTime, fmtDay, fromSql, whenText, shortRange, statusClass, sameDay, sod, EMBED, HOUR, refName, seesOthers, othersLabel, demosTab,
 			}
 		},
 		template: `
@@ -955,7 +959,7 @@
 		<label class="range-picker" title="Jump to a date"><span>{{ label }}</span><ico name="calendar" /><input type="date" :value="dateValue" @change="jump" @click="openPicker" aria-label="Jump to a date" /></label>
 		<span class="spin" v-if="loading"></span>
 		<span class="spacer"></span>
-		<div class="seg" role="group" aria-label="Which meetings"><button :class="{ on: scope === 'mine' && !demosOnly }" :aria-pressed="scope === 'mine' && !demosOnly" @click="scope = 'mine'; demosOnly = false">Mine</button><button v-if="config.is_manager" :class="{ on: scope === 'all' && !demosOnly }" :aria-pressed="scope === 'all' && !demosOnly" @click="scope = 'all'; demosOnly = false">Everyone</button><button :class="{ on: demosOnly }" :aria-pressed="demosOnly" title="Meetings booked through a demo page" @click="demosOnly = true"><ico name="calendar-check" /> Demos</button></div>
+		<div class="seg" role="group" aria-label="Which meetings"><button :class="{ on: scope === 'mine' && !demosOnly }" :aria-pressed="scope === 'mine' && !demosOnly" @click="scope = 'mine'; demosOnly = false">Mine</button><button v-if="seesOthers" :class="{ on: scope === 'all' && !demosOnly }" :aria-pressed="scope === 'all' && !demosOnly" @click="scope = 'all'; demosOnly = false">{{ othersLabel }}</button><button v-if="demosTab" :class="{ on: demosOnly }" :aria-pressed="demosOnly" title="Meetings booked through a demo page" @click="demosOnly = true"><ico name="calendar-check" /> Demos</button></div>
 		<div class="seg"><button v-for="v in ['agenda','month','week','day']" :key="v" :class="{ on: view === v }" @click="view = v">{{ v[0].toUpperCase() + v.slice(1) }}</button></div>
 		<button class="btn primary" @click="newMeeting()"><ico name="plus" /> Schedule</button>
 		<button class="btn ghost icon" v-if="EMBED" @click="openFull" title="Open in a new tab" aria-label="Open in a new tab"><ico name="external" size="lg" /></button>

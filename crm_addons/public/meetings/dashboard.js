@@ -343,7 +343,7 @@
 			const updatedAt = ref('')
 			// Lead Nurturing: campaign numbers, fetched only when that tab is opened
 			const config = ref(null)
-			const nurturingOn = computed(() => !!(config.value && config.value.campaigns_enabled))
+			const nurturingOn = computed(() => !!(config.value && config.value.campaigns_enabled && !(config.value.access && config.value.access.dashboard_campaigns_tab === 0)))
 			const deals = computed(() => !config.value || config.value.deals_enabled !== 0) // off when the Deals menu is hidden in the settings
 			const view = ref(location.hash === '#nurturing' ? 'nurturing' : 'sales')
 			const nur = ref(null)
@@ -421,8 +421,9 @@
 			const scope = computed(() => (data.value ? data.value.scope : null))
 			const isManager = computed(() => !!(scope.value && scope.value.is_manager))
 			const everyone = computed(() => isManager.value && !scope.value.user)
-			const userOptions = computed(() => [{ value: '', label: 'Everyone' }, ...(scope.value ? scope.value.users.map((u) => ({ value: u.name, label: u.full_name })) : [])])
-			const subtitle = computed(() => (!scope.value ? '' : scope.value.user ? (isManager.value ? scope.value.user_name : 'Your numbers') : 'Whole team'))
+			const teamLabel = computed(() => (scope.value && scope.value.label) || 'Everyone')
+			const userOptions = computed(() => [{ value: '', label: teamLabel.value }, ...(scope.value ? scope.value.users.map((u) => ({ value: u.name, label: u.full_name })) : [])])
+			const subtitle = computed(() => (!scope.value ? '' : scope.value.user ? (isManager.value ? scope.value.user_name : 'Your numbers') : (scope.value.label === 'My team' ? 'My team' : 'Whole team')))
 			const exportItems = computed(() => (view.value === 'sales'
 				? [{ key: 'xlsx', label: 'Excel workbook (.xlsx)', hint: 'Every section on its own sheet, plus the call log' }, { key: 'csv', label: 'Call log (.csv)', hint: 'Every call in this period' }]
 				: [{ key: 'xlsx', label: 'Excel workbook (.xlsx)', hint: 'Summary, by day, channels and every campaign' }, { key: 'csv', label: 'Campaigns (.csv)', hint: 'One row per campaign in this period' }]))
@@ -722,7 +723,7 @@
 				editing, dragOver, lay, titleOf, shownWidgets, shownCards, toggleKpi, toggleWidget, moveKpi, moveWidget, setWidth, isFirst, isLast, dragStart, dropOn, resetLayout, WIDTHS, deals,
 				EMBED, openFull, data, loading, fatal, range, user, userOptions, subtitle, updatedAt, exportItems, exportFile, metric, split, splitOptions, scope, isManager, everyone, cards,
 				dayLabels, seriesData, chartTotal, outcomeItems, outcomeTotal, pct, funnel, hourLabels, hourSeries, bestHour, attemptLabels, attemptSeries, statusRows, statusMax, statusTotal, assignedRows, assignedMax, bdOf, bdMax, sourceRows, sourceMax,
-				bandItems, meetingItems, meetingTotal, view, setView, nurturingOn, nur, nurLoading, nurError, refresh, funnelChannel, nurCards, nurDayLabels, nurSeries, nurTotalSent, nurFunnel, chanRows, chanMax, statusDonut, nurturedItems, campaignUrl, pct1, nurNoCampaigns, nurQuiet, nurRateTone, NUR, loadNurturing, showTeam, people, maxCalls, columns, sort, sortBy, rateTone, mixRows, mixMax, load, open, close, fmtWhen, outcomeTone, num, OUTCOME_COLORS,
+				teamLabel, bandItems, meetingItems, meetingTotal, view, setView, nurturingOn, nur, nurLoading, nurError, refresh, funnelChannel, nurCards, nurDayLabels, nurSeries, nurTotalSent, nurFunnel, chanRows, chanMax, statusDonut, nurturedItems, campaignUrl, pct1, nurNoCampaigns, nurQuiet, nurRateTone, NUR, loadNurturing, showTeam, people, maxCalls, columns, sort, sortBy, rateTone, mixRows, mixMax, load, open, close, fmtWhen, outcomeTone, num, OUTCOME_COLORS,
 			}
 		},
 		template: `
@@ -736,7 +737,7 @@
 		</div>
 		<div class="dash-controls">
 			<range-picker v-model="range" />
-			<div class="user-pick" v-if="isManager"><pick v-model="user" :options="userOptions" placeholder="Everyone" icon="user" /></div>
+			<div class="user-pick" v-if="isManager"><pick v-model="user" :options="userOptions" :placeholder="teamLabel" icon="user" /></div>
 		</div>
 		<span class="spacer"></span>
 		<span class="sub updated" v-if="updatedAt">Updated {{ updatedAt }}</span>

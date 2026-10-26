@@ -159,12 +159,17 @@
 	DM.nameOf = (p) => (p && (p.full_name || p.user || p.email)) || ''
 
 	// ------------------------------------------------------------------ manager check, shared lookups
-	DM.session = reactive({ ready: false, is_manager: false, error: '', demos_enabled: true })
+	DM.session = reactive({ ready: false, is_manager: false, error: '', demos_enabled: true, demos: 'own', widgets: 'none', report: false })
 	DM.loadSession = async () => {
 		try {
 			const c = await CM.call('crm_addons.api.get_client_config')
 			DM.session.is_manager = !!c.is_manager
 			DM.session.demos_enabled = c.demos_enabled !== 0
+			// what the person's access settings allow (Team and access): which demos, the widgets, the report
+			const a = c.access || {}
+			DM.session.demos = a.demos || (c.is_manager ? 'all' : 'own')
+			DM.session.widgets = a.demo_widgets || (c.is_manager ? 'manage' : 'none')
+			DM.session.report = a.demo_report === undefined ? !!c.is_manager : !!Number(a.demo_report)
 		} catch (e) { DM.session.error = e.message } finally { DM.session.ready = true }
 	}
 	DM.lookups = reactive({ sources: [], statuses: [], loaded: false })

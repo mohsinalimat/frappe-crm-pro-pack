@@ -418,7 +418,8 @@
 			const isManager = computed(() => !!(data.value && data.value.scope.is_manager))
 			const scopeModel = computed({ get: () => scope.value || (data.value ? data.value.scope.value : 'all'), set: (v) => { scope.value = v } })
 			const everyone = computed(() => isManager.value && scopeModel.value === 'all')
-			const scopeOptions = [{ value: 'all', label: 'Everyone' }, { value: 'mine', label: 'My follow-ups' }]
+			const everyoneLabel = computed(() => (data.value && data.value.scope && data.value.scope.label) || 'Everyone')
+			const scopeOptions = computed(() => [{ value: 'all', label: everyoneLabel.value }, { value: 'mine', label: 'My follow-ups' }])
 			const ownerOptions = computed(() => {
 				const list = data.value ? data.value.owners.map((o) => ({ value: o.name, label: `${o.full_name} · ${o.open}` })) : []
 				if (owner.value && !list.some((o) => o.value === owner.value)) list.push({ value: owner.value, label: knownOwners[owner.value] || owner.value })
@@ -587,7 +588,7 @@
 
 			return {
 				EMBED, TABS, data, items, loading, more, fatal, toasts, form, frame, busy, selected, tab, scope, scopeModel, owner, outcome, search, view, range, updatedAt, searchBox,
-				isManager, everyone, scopeOptions, ownerOptions, outcomeOptions, subtitle, filtered, clearFilters, cards, pickCard, rate, due, statusColor, outcomeTone,
+				isManager, everyone, everyoneLabel, scopeOptions, ownerOptions, outcomeOptions, subtitle, filtered, clearFilters, cards, pickCard, rate, due, statusColor, outcomeTone,
 				rows, dayCount, canSelect, selectedNames, allSelected, toggleAll, toggle, markDone, reschedule, bulk, logFor, closeForm, openLead, closeSelf, openFull, emptyText,
 				hasMore, load, loadMore, num, plural,
 			}
