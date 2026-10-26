@@ -137,7 +137,7 @@
 			<template v-else>
 				<div class="row wrap tool">
 					<div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search templates" clearable aria-label="Search templates" /></div>
- 					<div class="chips"><button v-for="p in ['', 'Default', 'Utility', 'Marketing']" :key="p" type="button" class="fchip" :class="{ on: q.purpose === p }" :aria-pressed="q.purpose === p" @click="q.purpose = p">{{ p || 'All' }} <span class="n">{{ purposeCount(p) }}</span></button></div>
+ 					<div class="chips"><button v-for="p in ['', 'System']" :key="p" type="button" class="fchip" :class="{ on: q.purpose === p }" :aria-pressed="q.purpose === p" @click="q.purpose = p">{{ p || 'All' }} <span class="n">{{ purposeCount(p) }}</span></button></div>
 					<div style="width:180px"><Dd v-model="q.category" :options="cats" placeholder="All categories" allow-empty="All categories" size="sm" /></div>
 					<div class="chips"><button v-for="s in STATUSES" :key="s[0]" type="button" class="fchip" :class="{ on: q.status === s[0] }" @click="q.status = s[0]">{{ s[1] }} <span class="n">{{ count(s[0]) }}</span></button></div>
 					<div class="grow"></div><LayoutSwitch v-model="layout" />
@@ -146,18 +146,18 @@
 				<ErrorState v-else-if="error" :message="error" @retry="load" />
 				<Empty v-else-if="!shown.length" icon="whatsapp" :title="rows.length ? 'No templates match' : 'No WhatsApp templates yet'" :text="rows.length ? 'Try a different search or status.' : 'Create a template in Meta (WhatsApp Manager), then press Sync from Meta. It appears here once synced.'"><Btn v-if="!rows.length && data && data.can_sync" variant="primary" icon="download" :loading="syncing" @click="sync">Sync from Meta</Btn></Empty>
  				<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
-					<thead><tr><th>Template</th><th>Type</th><th>Category</th><th>Status</th><th>Language</th><th></th></tr></thead>
-					<tbody><tr v-for="t in shown" :key="t.name" class="click" :class="'p-' + String(t.purpose).toLowerCase()" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
+					<thead><tr><th>Template</th><th>Group</th><th>Category</th><th>Status</th><th>Language</th><th></th></tr></thead>
+					<tbody><tr v-for="t in shown" :key="t.name" class="click" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
 						<td><b class="ellipsis" style="display:block;max-width:300px" :title="t.template_name">{{ t.template_name }}</b><div class="small muted ellipsis" style="max-width:300px">{{ t.template }}</div></td>
-						<td><PurposeTag :purpose="t.purpose" /></td><td>{{ catLabel(t.category) || '-' }}</td><td><span class="badge" :class="stateTone(t.state)">{{ stateLabel(t.state) }}</span></td><td>{{ t.language_code || 'en' }}</td>
+						<td><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-else class="faint">-</span></td><td>{{ catLabel(t.category) || '-' }}</td><td><span class="badge" :class="stateTone(t.state)">{{ stateLabel(t.state) }}</span></td><td>{{ t.language_code || 'en' }}</td>
 						<td class="num" @click.stop><Btn v-if="data && data.can_create" size="sm" :variant="t.approved ? 'primary' : ''" :disabled="!t.approved" @click="use(t)">Use in campaign</Btn></td>
 					</tr></tbody></table></div></div>
 				<div v-else class="wgrid">
-					<article v-for="t in shown" :key="t.name" class="wcard card hover" :class="'p-' + String(t.purpose).toLowerCase()" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
+					<article v-for="t in shown" :key="t.name" class="wcard card hover" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
 						<div class="wcard-pv"><WaTemplateBubble :t="t" compact /></div>
 						<div class="wcard-b">
 							<div class="row"><b class="grow ellipsis" :title="t.template_name">{{ t.template_name }}</b><span class="badge" :class="stateTone(t.state)">{{ stateLabel(t.state) }}</span></div>
-							<div class="row wrap" style="gap:6px"><PurposeTag :purpose="t.purpose" /><span v-if="t.category" class="tchip">{{ catLabel(t.category) }}</span><span class="tchip">{{ t.language_code || 'en' }}</span><span class="tchip" :title="t.synced ? 'Fetched from Meta' : 'Created in this CRM, not synced from Meta'"><Ico :name="t.synced ? 'check-circle' : 'file'" size="sm" style="margin-right:4px" />{{ t.synced ? 'Meta-synced' : 'Local' }}</span><span v-if="t.placeholders.length" class="tchip">{{ t.placeholders.length }} variable{{ t.placeholders.length > 1 ? 's' : '' }}</span></div>
+							<div class="row wrap" style="gap:6px"><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-if="t.category" class="tchip">{{ catLabel(t.category) }}</span><span class="tchip">{{ t.language_code || 'en' }}</span><span class="tchip" :title="t.synced ? 'Fetched from Meta' : 'Created in this CRM, not synced from Meta'"><Ico :name="t.synced ? 'check-circle' : 'file'" size="sm" style="margin-right:4px" />{{ t.synced ? 'Meta-synced' : 'Local' }}</span><span v-if="t.placeholders.length" class="tchip">{{ t.placeholders.length }} variable{{ t.placeholders.length > 1 ? 's' : '' }}</span></div>
 							<div class="row" style="margin-top:6px"><Btn size="sm" :variant="t.approved ? 'primary' : ''" :disabled="!t.approved" :title="t.approved ? '' : 'Only approved templates can be used'" @click.stop="use(t)" v-if="data && data.can_create">Use in campaign</Btn><span class="grow"></span><Btn size="sm" variant="ghost" icon="eye" @click.stop="detail = t">Details</Btn></div>
 						</div>
 					</article>

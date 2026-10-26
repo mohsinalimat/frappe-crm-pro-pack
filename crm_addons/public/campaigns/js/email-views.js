@@ -226,7 +226,7 @@
 			<div class="pg-head"><div class="grow"><h1>Email templates</h1><p>Reusable emails for campaigns and follow-ups. Build once, personalise with variables, use everywhere.</p></div><div class="actions"><Btn v-if="isManager()" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn></div></div>
 			<div class="row wrap tool">
 				<div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search templates" clearable aria-label="Search templates" /></div>
-				<div class="chips"><button v-for="p in ['', 'Default', 'Utility', 'Marketing']" :key="p" type="button" class="fchip" :class="{ on: q.purpose === p }" :aria-pressed="q.purpose === p" @click="q.purpose = p">{{ p || 'All' }} <span class="n">{{ purposeCount(p) }}</span></button></div>
+				<div class="chips"><button v-for="p in ['', 'System']" :key="p" type="button" class="fchip" :class="{ on: q.purpose === p }" :aria-pressed="q.purpose === p" @click="q.purpose = p">{{ p || 'All' }} <span class="n">{{ purposeCount(p) }}</span></button></div>
 				<div style="width:190px"><Dd v-model="q.category" :options="cats" placeholder="All categories" allow-empty="All categories" size="sm" /></div>
 				<button type="button" class="fchip" :class="{ on: q.fav }" @click="q.fav = !q.fav"><Ico name="star" size="sm" />Favourites</button>
 				<button type="button" class="fchip" :class="{ on: q.archived }" @click="q.archived = !q.archived"><Ico name="bookmark" size="sm" />Archived <span class="n">{{ archivedCount }}</span></button>
@@ -236,17 +236,17 @@
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<Empty v-else-if="!shown.length" icon="mail" :title="items.length ? 'No templates match' : 'No email templates yet'" :text="items.length ? 'Try a different search or filter.' : (isManager() ? 'Create your first template with the visual builder, or paste your own HTML.' : 'Templates your team creates will show up here.')"><Btn v-if="isManager() && !items.length" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn></Empty>
  			<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
-				<thead><tr><th>Template</th><th>Type</th><th>Category</th><th>Built with</th><th class="num">Used in</th><th></th></tr></thead>
-				<tbody><tr v-for="t in shown" :key="t.name" class="click" :class="'p-' + String(t.purpose).toLowerCase()" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
+				<thead><tr><th>Template</th><th>Group</th><th>Category</th><th>Built with</th><th class="num">Used in</th><th></th></tr></thead>
+				<tbody><tr v-for="t in shown" :key="t.name" class="click" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
 					<td><b class="ellipsis" style="display:block;max-width:300px">{{ t.template_name }}</b><div class="small muted ellipsis" style="max-width:300px">{{ t.subject }}</div></td>
-					<td><PurposeTag :purpose="t.purpose" /></td><td>{{ t.category || '-' }}</td><td class="nowrap">{{ t.editor_mode }}</td><td class="num">{{ t.used_in }}</td>
+					<td><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-else class="faint">-</span></td><td>{{ t.purpose ? '-' : (t.category || '-') }}</td><td class="nowrap">{{ t.editor_mode }}</td><td class="num">{{ t.used_in }}</td>
 					<td class="num" @click.stop><Menu :items="menu(t)" :label="'Actions for ' + t.template_name" /></td>
 				</tr></tbody></table></div></div>
 			<div v-else class="tgrid">
-				<article v-for="t in shown" :key="t.name" class="tcard card hover" :class="'p-' + String(t.purpose).toLowerCase()" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
+				<article v-for="t in shown" :key="t.name" class="tcard card hover" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
 					<div class="tcard-th"><Thumb :html="CM.sampleFill(t.body_html)" /><button type="button" class="star" :class="{ on: favs.includes(t.name) }" :aria-pressed="favs.includes(t.name)" :aria-label="favs.includes(t.name) ? 'Remove from favourites' : 'Add to favourites'" @click.stop="toggleFav(t.name)"><Ico name="star" /></button><span v-if="!t.enabled" class="badge neutral nodot arch">Archived</span></div>
 					<div class="tcard-b"><div class="row"><b class="grow ellipsis">{{ t.template_name }}</b><Menu :items="menu(t)" /></div><span class="small muted ellipsis">{{ t.subject }}</span>
-						<div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><PurposeTag :purpose="t.purpose" /><span v-if="t.category" class="tchip">{{ t.category }}</span><span class="tchip"><Ico :name="t.editor_mode === 'Visual Builder' ? 'layers' : t.editor_mode === 'Rich Text' ? 'edit' : 'code'" size="sm" style="margin-right:4px" />{{ t.editor_mode }}</span></div><div class="tiny faint" style="margin-top:2px">{{ t.used_in ? 'Used in ' + t.used_in + ' campaign' + (t.used_in > 1 ? 's' : '') : 'Not used yet' }} - updated {{ CM.ago(t.modified) }}</div></div></div>
+						<div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-if="t.category && !t.purpose" class="tchip">{{ t.category }}</span><span class="tchip"><Ico :name="t.editor_mode === 'Visual Builder' ? 'layers' : t.editor_mode === 'Rich Text' ? 'edit' : 'code'" size="sm" style="margin-right:4px" />{{ t.editor_mode }}</span></div><div class="tiny faint" style="margin-top:2px">{{ t.used_in ? 'Used in ' + t.used_in + ' campaign' + (t.used_in > 1 ? 's' : '') : 'Not used yet' }} - updated {{ CM.ago(t.modified) }}</div></div></div>
 				</article>
 			</div>
 			<Modal v-if="createOpen" size="lg" title="How would you like to create your email?" subtitle="You can always change the content later." @close="createOpen = false">

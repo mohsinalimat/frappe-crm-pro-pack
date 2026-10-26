@@ -48,7 +48,8 @@ CAMPAIGN_FIELDS = (
 RULE_FIELDS = ("event", "action", "value")
 STEP_FIELDS = ("channel", "day_offset", "condition", "email_template", "wa_template", "wa_account", "variable_map", "wa_attach", "attachments")
 EMAIL_TEMPLATE = "CRM Campaign Email Template"
-EMAIL_CATEGORIES = ["Welcome", "Promotion", "Newsletter", "Follow-up", "Event", "Announcement", "Utility", "Transactional", "Other"]
+EMAIL_CATEGORIES = ["Welcome", "Promotion", "Newsletter", "Follow-up", "Event", "Announcement", "Transactional", "Other"]
+SYSTEM_CATEGORY = "System"  # the app's own messages (bookings, login links): set by the app, not picked from the list
 EDITOR_MODES = ("Visual Builder", "HTML", "Rich Text")
 TEST_EMAIL_MAX = 10  # recipients per test-send call
 TEST_EMAIL_PER_HOUR = 40  # per user
@@ -464,7 +465,7 @@ def list_email_templates(search=None, category=None, enabled=None):
 		r["used_in"] = len(usage.get(r.name, ()))
 		r["editor_mode"] = r.editor_mode or "HTML"
 		r["is_system"] = cint(r.is_system)
-		r["purpose"] = "Default" if r["is_system"] else "Utility" if r.category in ("Utility", "Transactional") else "Marketing"
+		r["purpose"] = "System" if (r["is_system"] or r.category == SYSTEM_CATEGORY) else ""
 	return rows
 
 
@@ -477,7 +478,7 @@ def save_email_template(data, name=None):
 	data = _json(data)
 	if data.get("editor_mode") not in (None, "") + EDITOR_MODES:
 		frappe.throw(_("Unknown editor type."))
-	if data.get("category") not in (None, "") + tuple(EMAIL_CATEGORIES):
+	if data.get("category") not in (None, "", SYSTEM_CATEGORY) + tuple(EMAIL_CATEGORIES):
 		frappe.throw(_("Unknown template category."))
 	doc = frappe.get_doc(EMAIL_TEMPLATE, name) if name else frappe.new_doc(EMAIL_TEMPLATE)
 	for f in ("template_name", "enabled", "subject", "body_html", "body_text", "description", "category", "editor_mode"):
@@ -772,7 +773,7 @@ def list_whatsapp_templates(search=None, category=None, status=None):
 			{
 				**r, "state": state, "approved": state == "APPROVED", "synced": bool(r.id),
 				"is_system": cint(r.get("crm_system")),
-				"purpose": "Default" if cint(r.get("crm_system")) else "Marketing" if cstr(r.category).upper() == "MARKETING" else "Utility",
+				"purpose": "System" if cint(r.get("crm_system")) else "",
 				"variable_map": saved_map if isinstance(saved_map, dict) else {},
 				"default_media": r.sample if cstr(r.header_type).upper() in ("IMAGE", "DOCUMENT", "VIDEO") and cstr(r.sample).startswith(("/", "http")) else "",
 				"placeholders": personalization.placeholders_in(r.template), "samples": samples, "buttons": buttons.get(r.name, []),

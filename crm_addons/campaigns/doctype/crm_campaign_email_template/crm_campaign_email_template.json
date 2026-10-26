@@ -69,7 +69,7 @@
    "fieldname": "category",
    "fieldtype": "Select",
    "label": "Category",
-   "options": "\nWelcome\nPromotion\nNewsletter\nFollow-up\nEvent\nAnnouncement\nUtility\nTransactional\nOther",
+   "options": "\nWelcome\nPromotion\nNewsletter\nFollow-up\nEvent\nAnnouncement\nTransactional\nSystem\nOther",
    "in_list_view": 1
   },
   {
