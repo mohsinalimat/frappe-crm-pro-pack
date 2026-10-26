@@ -1,14 +1,14 @@
-/* Demos admin: application shell (left rail, router, access check) and mount. */
+/* Bookings admin: application shell (left rail, router, access check) and mount. */
 (() => {
 	const { createApp, computed, watch, nextTick, onMounted, onBeforeUnmount, ref } = Vue
 	const CM = window.CM
 	const DM = window.DM
 	const V = DM.views
 
-	// Demos (the bookings) first, then the widgets (the booking pages), then the report; each shows only if the person's access allows it
+	// Bookings first, then the widgets (the booking pages), then the report; each shows only if the person's access allows it
 	const NAV = [
-		{ key: 'bookings', label: 'Demos', icon: 'users', path: '/bookings', show: (s) => s.demos !== 'none' },
-		{ key: 'types', label: 'Demo widgets', icon: 'calendar', path: '/types', show: (s) => s.widgets !== 'none' },
+		{ key: 'bookings', label: 'Bookings', icon: 'users', path: '/bookings', show: (s) => s.demos !== 'none' },
+		{ key: 'types', label: 'Widgets', icon: 'calendar', path: '/types', show: (s) => s.widgets !== 'none' },
 		{ key: 'report', label: 'Report', icon: 'chart', path: '/report', show: (s) => s.report },
 	]
 
@@ -46,8 +46,8 @@
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
-			<nav class="rail" :class="{ collapsed }" aria-label="Demos">
-				<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg></span><div class="brand-txt"><b>Demos</b><span>CRM Pro Pack</span></div></div>
+			<nav class="rail" :class="{ collapsed }" aria-label="Bookings">
+				<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg></span><div class="brand-txt"><b>Bookings</b><span>CRM Pro Pack</span></div></div>
 				<template v-if="!nothing">
 				<a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null" @click="nav($event, n.path)"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span></a>
 				</template>
@@ -60,7 +60,7 @@
 			<main class="main">
 				<div v-if="!s.ready" class="page"><Skel h="40" r="10" /><Skel h="220" r="12" /></div>
 				<div v-else-if="s.error" class="page"><ErrorState :message="s.error" @retry="location.reload()" /></div>
-				<div v-else-if="nothing" class="page"><Empty icon="shield" title="You do not have access to Demos" text="Ask a System Manager to give you access on the Team and access page. Your own demos can also be shown on the Meetings screen, under Demos."><a class="btn primary" href="/crm" v-if="!embedded">Back to CRM</a></Empty></div>
+				<div v-else-if="nothing" class="page"><Empty icon="shield" title="You do not have access to Bookings" text="Ask a System Manager to give you access on the Team and access page. Your own demos can also be shown on the Meetings screen, under Bookings."><a class="btn primary" href="/crm" v-if="!embedded">Back to CRM</a></Empty></div>
 				<template v-else>
 					<div v-if="shared.error" class="page" style="padding-bottom:0"><div class="alert err"><Ico name="alert" /><div class="grow">{{ shared.error }}</div></div></div>
 					<component :is="view.comp" :key="view.key" v-bind="view.props || {}" />
@@ -78,6 +78,6 @@
 	app.config.globalProperties.$tok = (n) => '{{ ' + n + ' }}'
 	app.config.globalProperties.location = window.location
 	app.config.errorHandler = (err, inst, info) => { console.error('[demos]', err, info); CM.toast('Something went wrong on this page. ' + (err && err.message ? err.message : ''), 'err') }
-	document.title = 'Demos'
+	document.title = 'Bookings'
 	app.mount('#app')
 })()

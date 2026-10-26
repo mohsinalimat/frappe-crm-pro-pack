@@ -82,18 +82,18 @@ Open **Team and access** from CRM's own Settings window (User Management, next t
 - **People** lists everyone with a Sales User, Sales Manager, System Manager or Campaign Manager role: their roles, who they report to (from CRM's **Sales Hierarchy**, in CRM's own
   Settings under User Management) and their access. Click a person to give them a **preset** and change anything on top of it. Add and invite people, and the hierarchy itself, stay in CRM's Settings;
   the person's panel can send a password reset email (Frappe's own reset, it needs an outgoing email account).
-- **Presets** are ready-made sets of access: Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer and Demo Host. Edit them, copy them, make your own. Changing a preset changes everyone using it.
+- **Presets** are ready-made sets of access: Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer and Booking Host. Edit them, copy them, make your own. Changing a preset changes everyone using it.
 - Every part of Pro Pack is one line with a value:
-  - **Whose data** (Meetings, Follow-ups, Demos, Sales Dashboard numbers, Campaigns, moving leads, assignment history): *No access / Own only / My team / Everyone*. **My team** is the person and everyone below them in the Sales Hierarchy.
+  - **Whose data** (Meetings, Follow-ups, Bookings, Sales Dashboard numbers, Campaigns, moving leads, assignment history): *No access / Own only / My team / Everyone*. **My team** is the person and everyone below them in the Sales Hierarchy.
     Someone who is not in the hierarchy only sees themselves.
-  - **What they can do** (demo widgets, assignment rules, automations, email templates, WhatsApp templates, audiences): *None / View / Create and edit*.
-  - **Switches** (create and send campaigns, campaign reports, list clean-up, the demo report, the Demos tab inside Meetings, the Campaigns tab of the Sales Dashboard).
+  - **What they can do** (widgets, assignment rules, automations, email templates, WhatsApp templates, audiences): *None / View / Create and edit*.
+  - **Switches** (create and send campaigns, campaign reports, list clean-up, the demo report, the Bookings tab inside Meetings, the Campaigns tab of the Sales Dashboard).
 - **Nothing changes for people you do not configure.** Managers, the Campaign Manager role and Sales Users keep exactly what they had; System Managers always have everything (they cannot be limited, so nobody locks themselves out).
   A person's value is: their own change, else their preset, else what their role gave them before.
 - It is checked on the server for every list, report, export and action. Hiding a menu entry is only the convenience on top.
 
-Examples: a manager who should see only their team's follow-ups: *Follow-ups: My team*. Someone who may only build templates: the **Template Designer** preset. A host who only takes demos: **Demo Host**
-(*Demos: Own only* = the demos they host or are invited to). A Sales User who also runs campaigns: the **Campaign Executive** preset, or just switch on *Create and send campaigns*.
+Examples: a manager who should see only their team's follow-ups: *Follow-ups: My team*. Someone who may only build templates: the **Template Designer** preset. A host who only takes demos: **Booking Host**
+(*Bookings: Own only* = the demos they host or are invited to). A Sales User who also runs campaigns: the **Campaign Executive** preset, or just switch on *Create and send campaigns*.
 
 ## Testing as a new sales user
 
@@ -283,10 +283,10 @@ The script remembers the visitor's campaign tags (utm_*, gclid, fbclid) and refe
 
 A visitor on one of your websites clicks **Book a demo**, picks a day and time, fills in a short form and gets a confirmation. CRM Pro Pack creates (or finds) the Lead,
 creates one CRM Meeting with a Google Meet link, invites the hosts, remembers where the visitor came from (UTM tags) and sends email and WhatsApp messages.
-Only Sales Managers and System Managers set it up; a Sales User only sees the demos they take part in (**Meetings > Demos**, or the *My demos* list).
+Only Sales Managers and System Managers set it up; a Sales User only sees the demos they take part in (**Meetings > Bookings**, or the *My demos* list).
 
 ### 1. Create a demo type
-Open **Demos** in the CRM menu (or `/demos`), then **Create demo type**. One demo type per website or product (for example *Coding Junior demo*, *Coding Pro demo*).
+Open **Bookings** in the CRM menu (or `/demos`), then **Widgets > Create widget**. One demo type per website or product (for example *Coding Junior demo*, *Coding Pro demo*).
 
 | Tab | What to set |
 |---|---|
@@ -320,7 +320,7 @@ Variables for the demo: `{{ demo_title }}`, `{{ demo_date }}`, `{{ demo_time }}`
 * If Google is not connected the booking still works: the meeting shows *Not synced* and the visitor gets the demo type's fixed link.
 
 ### 5. Where did the bookings come from (UTM report)
-**Demos > Report** shows bookings made in a date range by source, medium, campaign, demo type and day, with how many were held, no-show or cancelled. A new Lead also gets
+**Bookings > Report** shows bookings made in a date range by source, medium, campaign, demo type and day, with how many were held, no-show or cancelled. A new Lead also gets
 *First UTM Source / Medium / Campaign* (an existing Lead keeps what it had). The booking itself keeps all tags, the landing page and the referrer.
 
 ### Upgrading

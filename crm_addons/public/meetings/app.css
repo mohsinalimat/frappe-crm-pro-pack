@@ -306,7 +306,7 @@ textarea.control { height: auto; min-height: 76px; padding: 8px 10px; resize: ve
 html.inline .btn[aria-label="Close"] { display: none; }
 html.inline .brand-ico { display: none; }
 
-/* Demos: meetings booked through a public demo page */
+/* Bookings: meetings booked through a public booking page */
 .badge.demo { background: var(--accent-soft); color: var(--accent-text); font-weight: 650; letter-spacing: .02em; }
 .card.demo .bar, .ev.demo, .tev.demo { box-shadow: inset 3px 0 0 var(--accent); }
 .card.demo .bar { box-shadow: none; background: var(--accent); }

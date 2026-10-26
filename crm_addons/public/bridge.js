@@ -10,7 +10,7 @@
  *   window.crmAddons.openFollowUps(hash?)     the Follow-ups workspace (hash: #overdue #today #upcoming #done)
  *   window.crmAddons.openCampaigns(hash?)     the Campaign Manager (hash e.g. "#/c/CAMP-00001")
  *   window.crmAddons.openAssignment()         lead assignment (System Managers only)
- *   window.crmAddons.openDemos(hash?)         Demos: bookings, demo widgets and the report (hash e.g. "#/bookings")
+ *   window.crmAddons.openDemos(hash?)         Bookings, widgets and the report (hash e.g. "#/bookings")
  *   window.crmAddons.openFollowUp({reference_docname, entry})   the "Add follow-up" form for a Lead
  *   window.crmAddons.close()                  close whatever is open
  *   window.addEventListener("crm-addons:changed", ...)  fires after a save / cancel
@@ -35,7 +35,7 @@
 		followups: { url: "/assets/crm_addons/meetings/followups.html?v=" + VER, title: "Follow-ups", large: true },
 		campaigns: { url: "/assets/crm_addons/campaigns/index.html?v=" + VER, title: "Campaign Manager", large: true },
 		assignment: { url: "/assets/crm_addons/campaigns/assignment.html?v=" + VER, title: "Lead assignment", large: true },
-		demos: { url: "/assets/crm_addons/demos/index.html?v=" + VER, title: "Demos", large: true },
+		demos: { url: "/assets/crm_addons/demos/index.html?v=" + VER, title: "Bookings", large: true },
 		access: { url: "/assets/crm_addons/access/index.html?v=" + VER, title: "Team and access", large: true },
 		editor: { url: "/assets/crm_addons/meetings/index.html?v=" + VER, title: "Meeting", large: false },
 		followup: { url: "/assets/crm_addons/meetings/index.html?v=" + VER, title: "Add follow-up", large: false },

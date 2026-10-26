@@ -62,7 +62,7 @@ All new doctypes. Names are fixed so the three parts of the build agree.
 `landing_url`, `referrer`, `first_touch` (JSON), `ip_hash` (salted hash, never the raw IP), `user_agent`,
 `messages` (table **CRM Demo Booking Message**: `event`, `due_at`, `channel`, `status` Pending / Sending / Sent / Skipped / Failed, `sent_at`, `error`, `reference`, `claim_token`).
 
-**CRM Meeting** gets: `is_demo` (Check), `demo_type` (Link), `demo_booking` (Link). The Meetings screen filters on `is_demo` (the **Demos** view).
+**CRM Meeting** gets: `is_demo` (Check), `demo_type` (Link), `demo_booking` (Link). The Meetings screen filters on `is_demo` (the **Bookings** view).
 **CRM Lead** gets (custom fields via install.py): `crm_demo_first_utm_source`, `..._medium`, `..._campaign` (first-touch), and the lead's `source` as configured.
 
 ## Backend modules (`crm_addons/demos/`)
@@ -100,9 +100,9 @@ Sales users: `crm_addons.demos.admin.my_demos(from_date, to_date, scope)` (their
 ## Pages
 - Public: route `/book/<slug>` and `/book/manage/<token>` (Frappe www page `crm_addons/www/book.*`, rule in `hooks.py`); assets in
   `crm_addons/public/book/` (Vue 3, no build, `embed.js` for host sites). Framing allowed only from the demo type's `allowed_origins` (CSP `frame-ancestors`).
-- Admin: `crm_addons/public/demos/` (Vue 3, no build; opened from CRM like the other pages: bridge `openDemos`, side-menu entry **Demos** for managers) -
+- Admin: `crm_addons/public/demos/` (Vue 3, no build; opened from CRM like the other pages: bridge `openDemos`, side-menu entry **Bookings** for managers) -
   demo types list + editor (Details, Availability, Team, Form, Messages, Branding with live preview, Embed code), bookings list, UTM report.
-- Meetings screen: a **Demos** view (Mine / Everyone / Demos) in `public/meetings/app.js`.
+- Meetings screen: a **Bookings** view (Mine / Everyone / Bookings) in `public/meetings/app.js`.
 
 ## Out of scope for now
 Google free/busy of other people's calendars beyond what the existing Google Calendar link of each owner gives (CRM Meetings are always checked),
@@ -171,10 +171,10 @@ Read this before building against the API. Everything above still holds unless s
 - When a CRM Meeting of a demo is cancelled, rescheduled or given an outcome inside CRM, the booking follows (cancel -> Cancelled and the visitor is told; Held -> Completed; No Show -> No Show).
 
 ## Contract changes (admin UI agent)
-What the admin screens (`public/demos/`, the Demos view of `public/meetings/app.js`, `bridge.js`, `addons.js`) use and what they still ask the backend for.
+What the admin screens (`public/demos/`, the Bookings view of `public/meetings/app.js`, `bridge.js`, `addons.js`) use and what they still ask the backend for.
 Everything below is implemented defensively on the UI side (a missing piece degrades, it never breaks a screen), so none of it blocks a release.
 - **Asked of the backend**
-  - `get_client_config`: `demos_enabled` (1 when the feature is on). The UI shows the Demos menu entry / shortcut to managers whenever `is_manager` is true and `demos_enabled` is not `0`.
+  - `get_client_config`: `demos_enabled` (1 when the feature is on). The UI shows the Bookings menu entry / shortcut to managers whenever `is_manager` is true and `demos_enabled` is not `0`.
   - `hooks.website_redirects`: `/demos` -> `/assets/crm_addons/demos/index.html` (standalone page, like `/pro-pack-setup`). The friendly in-CRM route `/crm/pro-pack-demos` is handled by `bridge.js` / `addons.js`.
   - `list_bookings`: a `filters.owner` (a user id: bookings of demo types that user hosts) for the owner filter. Until it exists the filter is sent but has no effect.
   - `list_demo_types`: optional `next_slot` (UTC ISO of the first free slot), `bookings_month` (bookings starting this month) and `provider`. Until they exist the cards ask `crm_addons.demos.public.get_slots` and `list_bookings` themselves, per card, after the list is shown.

@@ -79,7 +79,7 @@
 						<Btn size="sm" variant="ghost" icon="x" :aria-label="'Remove ' + DM.nameOf(o)" @click="doc.owners.splice(i, 1)" />
 					</li>
 				</ul>
-				<div v-else class="plist-empty"><Ico name="users" size="lg" /><div><b>No host yet</b><div class="small muted">Add at least one. A demo widget without a host cannot be turned on.</div></div></div>
+				<div v-else class="plist-empty"><Ico name="users" size="lg" /><div><b>No host yet</b><div class="small muted">Add at least one. A widget without a host cannot be turned on.</div></div></div>
 				<p v-if="doc.owners.length > 1" class="small faint" style="margin:0">Drag to change the order, or use the arrows. Slots are offered only when every host is free.</p>
 			</Section>
 			<Section title="Copy (CC)" icon="mail" text="People who are added to every meeting as guests, for example a manager or a shared inbox.">

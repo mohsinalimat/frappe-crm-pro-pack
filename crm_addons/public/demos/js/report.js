@@ -53,7 +53,7 @@
 			const kpis = computed(() => {
 				if (!t.value) return []; const x = t.value; const r = showRate(x)
 				return [
-					{ l: 'Bookings', v: CM.num(x.bookings), d: delta('bookings'), s: 'Demos booked in this period', i: 'calendar', c: 'var(--accent)' },
+					{ l: 'Bookings', v: CM.num(x.bookings), d: delta('bookings'), s: 'Booked in this period', i: 'calendar', c: 'var(--accent)' },
 					{ l: 'Held', v: CM.num(x.held), d: delta('held'), s: CM.pctText(x.held, x.bookings) + ' of bookings', i: 'check-circle', c: 'var(--green)' },
 					{ l: 'No-show', v: CM.num(x.no_show), d: delta('no_show', true), s: CM.pctText(x.no_show, x.bookings) + ' of bookings', i: 'ban', c: x.no_show ? 'var(--red)' : 'var(--text-faint)' },
 					{ l: 'Cancelled', v: CM.num(x.cancelled), d: delta('cancelled', true), s: CM.pctText(x.cancelled, x.bookings) + ' of bookings', i: 'x-circle', c: 'var(--amber)' },
@@ -66,7 +66,7 @@
 				if (Array.isArray(f) && f.length) return f.map((s, i) => ({ label: s.label || s.step || s.name, value: n(s.value ?? s.count), color: ['var(--border-strong)', 'var(--accent)', 'var(--green)', 'var(--red)'][i] || 'var(--accent)' }))
 				return [{ label: 'Booked', value: x.bookings, color: 'var(--border-strong)' }, { label: 'Still on (not cancelled)', value: Math.max(0, x.bookings - x.cancelled), color: 'var(--accent)' }, { label: 'Held', value: x.held, color: 'var(--green)' }]
 			})
-			const sections = [['source', 'By source'], ['medium', 'By medium'], ['campaign', 'By campaign'], ['type', 'By demo widget']]
+			const sections = [['source', 'By source'], ['medium', 'By medium'], ['campaign', 'By campaign'], ['type', 'By widget']]
 			const top = (list) => Math.max(1, ...list.map((r) => r.bookings))
 			const rows = (key) => (data.value ? data.value[key].slice().sort((a, b) => b.bookings - a.bookings) : [])
 			const rate = (r) => (r.held + r.no_show ? Math.round((r.held / (r.held + r.no_show)) * 100) + '%' : '-')
@@ -84,7 +84,7 @@
 			<p class="rng-note" role="status"><template v-if="rangeText">Showing <b>{{ rangeText }}</b><template v-if="prevText"> compared with <b>{{ prevText }}</b></template></template><template v-else>Showing <b>all time</b></template><span v-if="busy && !loading" class="spin" style="width:12px;height:12px;margin-left:8px" aria-label="Updating"></span></p>
 			<template v-if="loading"><div class="kpis"><Skel v-for="n in 5" :key="n" h="104" r="12" /></div><Skel h="280" r="12" /></template>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
-			<Empty v-else-if="!t.bookings" icon="chart" title="No bookings in this period" text="Choose a longer date range, or share your booking page to get the first ones."><Btn @click="go('/types')">Go to demo widgets</Btn></Empty>
+			<Empty v-else-if="!t.bookings" icon="chart" title="No bookings in this period" text="Choose a longer date range, or share your booking page to get the first ones."><Btn @click="go('/types')">Go to widgets</Btn></Empty>
 			<div v-else class="rep" :class="{ busy }">
 				<div class="kpis five"><div v-for="x in kpis" :key="x.l" class="kpi" :style="{ '--kc': x.c }"><div class="l"><Ico :name="x.i" size="sm" />{{ x.l }}</div><div class="v">{{ x.v }}<span v-if="x.d" class="d" :class="x.d.cls" :title="x.d.tip"><Ico v-if="x.d.arrow" :name="x.d.arrow" /> {{ x.d.text }}</span></div><div class="s">{{ x.s }}</div></div></div>
 				<div class="grid two-one">

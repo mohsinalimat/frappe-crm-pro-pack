@@ -37,6 +37,7 @@
 		x: '<path d="M18 6 6 18M6 6l12 12"/>',
 		check: '<path d="M20 6 9 17l-5-5"/>',
 		clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+		gmeet: '<path fill="#fff" stroke="none" d="M6 9.5h9.5v5H6z"/><path fill="#ea4335" stroke="none" d="M6 6v3.5H2z"/><path fill="#2684fc" stroke="none" d="M2 9.5h4v5H2z"/><path fill="#0066da" stroke="none" d="M2 14.5h4V18H4a2 2 0 0 1-2-2z"/><path fill="#ffba00" stroke="none" d="M6 6h7.5a2 2 0 0 1 2 2v1.5H6z"/><path fill="#00ac47" stroke="none" d="M6 14.5h9.5V16a2 2 0 0 1-2 2H6z"/><path fill="#00832d" stroke="none" d="m15.5 10.8 5.1-3.6a.6.6 0 0 1 .9.5v8.6a.6.6 0 0 1-.9.5l-5.1-3.6z"/>',
 		video: '<path d="m22 8-6 4 6 4V8z"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
 		users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
 		edit: '<path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
@@ -577,7 +578,7 @@
 					var tone = m.status === 'Cancelled' ? 'red' : m.status === 'Completed' ? 'green' : 'blue'
 					var buttons = []
 					if (m.google_meet_link && m.status === 'Scheduled') {
-						buttons.push(h('a', { class: 'cra-btn', href: m.google_meet_link, target: '_blank', rel: 'noopener' }, [svg('video'), h('span', { text: 'Join' })]))
+						buttons.push(h('a', { class: 'cra-btn', href: m.google_meet_link, target: '_blank', rel: 'noopener' }, [svg(m.provider === 'Google Meet' || /meet\.google\.com/.test(m.google_meet_link) ? 'gmeet' : 'video'), h('span', { text: 'Join' })]))
 					}
 					if (m.can_edit && m.status !== 'Cancelled' && (!m.meeting_outcome || m.meeting_outcome === 'Rescheduled')) {
 						buttons.push(h('button', { type: 'button', class: 'cra-btn', onclick: function () { openOutcomeForm(m, function () { renderMeetings(panel, r) }) } }, [svg('check'), h('span', { text: 'Record outcome' })]))
@@ -751,8 +752,8 @@
 		if (c.campaigns_enabled && c.show_campaigns_shortcut && hasCampaignAccess(c)) list.push({ key: 'campaigns', label: 'Campaigns', icon: 'send', title: 'Campaign Manager', run: function () { openCampaigns() } })
 		// lead assignment: System Managers only (the server checks as well)
 		if (c.can_assign) list.push({ key: 'assignment', label: 'Assignment', icon: 'users', title: 'Lead assignment rules, assigning and moving leads', run: function () { openAssignment() } })
-		// Demos: everyone whose access allows demos, widgets or the report (the server checks as well); hidden when the server says the feature is off
-		if (c.demos_enabled !== 0 && ((c.access || {}).demos !== 'none' || ((c.access || {}).demo_widgets || 'none') !== 'none' || Number((c.access || {}).demo_report))) list.push({ key: 'demos', label: 'Demos', icon: 'calendar-check', title: 'Demos: website bookings, demo widgets and the report', run: function () { openDemos() } })
+		// Bookings: everyone whose access allows bookings, widgets or the report (the server checks as well); hidden when the server says the feature is off
+		if (c.demos_enabled !== 0 && ((c.access || {}).demos !== 'none' || ((c.access || {}).demo_widgets || 'none') !== 'none' || Number((c.access || {}).demo_report))) list.push({ key: 'demos', label: 'Bookings', icon: 'calendar-check', title: 'Bookings: website bookings, widgets and the report', run: function () { openDemos() } })
 		// who sees what (presets and per-person changes): System Managers only (the server checks as well)
 		if (c.can_manage_access) list.push({ key: 'access', label: 'Team and access', icon: 'shield-check', title: 'Who sees what: presets and changes per person', run: function () { openAccess() } })
 		return list

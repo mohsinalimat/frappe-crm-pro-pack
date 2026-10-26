@@ -103,6 +103,7 @@
 		x: '<path d="M18 6 6 18M6 6l12 12"/>',
 		check: '<path d="M20 6 9 17l-5-5"/>',
 		plus: '<path d="M5 12h14M12 5v14"/>',
+		gmeet: '<path fill="#fff" stroke="none" d="M6 9.5h9.5v5H6z"/><path fill="#ea4335" stroke="none" d="M6 6v3.5H2z"/><path fill="#2684fc" stroke="none" d="M2 9.5h4v5H2z"/><path fill="#0066da" stroke="none" d="M2 14.5h4V18H4a2 2 0 0 1-2-2z"/><path fill="#ffba00" stroke="none" d="M6 6h7.5a2 2 0 0 1 2 2v1.5H6z"/><path fill="#00ac47" stroke="none" d="M6 14.5h9.5V16a2 2 0 0 1-2 2H6z"/><path fill="#00832d" stroke="none" d="m15.5 10.8 5.1-3.6a.6.6 0 0 1 .9.5v8.6a.6.6 0 0 1-.9.5l-5.1-3.6z"/>',
 		video: '<path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
 		clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 		user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
@@ -350,7 +351,7 @@
 
 		<div class="field">
 			<div class="video-row">
-				<label class="check"><input type="checkbox" v-model="f.addVideo" /> <ico name="video" /> Add a video meeting</label>
+				<label class="check"><input type="checkbox" v-model="f.addVideo" /> <ico :name="f.provider === 'Google Meet' ? 'gmeet' : 'video'" /> Add a video meeting</label>
 				<select class="control select" v-model="f.provider"><option v-for="p in config.providers" :key="p.key" :value="p.key">{{ p.label }}</option></select>
 			</div>
 			<div v-if="f.addVideo && f.provider === 'Manual Link'" style="margin-top:8px"><input class="control" type="url" v-model="f.link" placeholder="https://zoom.us/j/... or any meeting link" /></div>
@@ -413,8 +414,8 @@
 			<span class="badge warn" v-if="m.sync_status === 'Failed'" :title="m.sync_error">Sync failed</span>
 			<span class="badge warn" v-else-if="m.sync_status === 'Not synced' && m.provider === 'Google Meet'" :title="m.sync_error">Not in Google Calendar</span></div>
 		<div class="row"><ico name="clock" /><div>{{ whenText(m) }}</div></div>
-		<div class="row" v-if="m.google_meet_link && m.status !== 'Cancelled'"><ico name="video" />
-			<div style="min-width:0"><a class="join" :href="m.google_meet_link" target="_blank" rel="noopener" style="display:inline-flex"><ico name="video" /> Join {{ m.provider === 'Google Meet' ? 'with Google Meet' : 'meeting' }}</a>
+		<div class="row" v-if="m.google_meet_link && m.status !== 'Cancelled'"><ico :name="m.provider === 'Google Meet' ? 'gmeet' : 'video'" />
+			<div style="min-width:0"><a class="join" :href="m.google_meet_link" target="_blank" rel="noopener" style="display:inline-flex"><ico :name="m.provider === 'Google Meet' ? 'gmeet' : 'video'" /> Join {{ m.provider === 'Google Meet' ? 'with Google Meet' : 'meeting' }}</a>
 			<div class="linkbox" style="margin-top:8px"><input :value="m.google_meet_link" readonly @focus="$event.target.select()" /><button class="btn ghost icon" @click="copy" title="Copy link">Copy</button></div></div></div>
 		<div class="row" v-else-if="m.status === 'Scheduled'"><ico name="video" /><div class="sub">No video link on this meeting.</div></div>
 		<div class="row"><ico name="contact" /><div><a href="#" @click.prevent="openRecord">{{ m.reference_title }}</a><div class="sub">Lead · {{ m.reference_docname }}</div></div></div>
@@ -717,11 +718,11 @@
 			const view = ref(params.get('view') || 'agenda')
 			const cursor = ref(sod(new Date()))
 			const scope = ref('mine')
-			// what the person's access settings allow: other people's meetings (their team's or everyone's), and the Demos view
+			// what the person's access settings allow: other people's meetings (their team's or everyone's), and the Bookings view
 			const seesOthers = computed(() => !!config.value && ['team', 'all'].includes(config.value.meetings_scope || (config.value.is_manager ? 'all' : 'own')))
 			const othersLabel = computed(() => (config.value && config.value.meetings_scope === 'team' ? 'My team' : 'Everyone'))
 			const demosTab = computed(() => !config.value || !config.value.access || config.value.access.meetings_demos_tab !== 0)
-			const demosOnly = ref(params.get('demos') === '1') // the Demos view: only meetings booked through a demo page (everyone sees it)
+			const demosOnly = ref(params.get('demos') === '1') // the Bookings view: only meetings booked through a booking page (everyone sees it)
 			const meetings = ref([])
 			const loading = ref(false)
 			const selected = ref(null)
@@ -959,7 +960,7 @@
 		<label class="range-picker" title="Jump to a date"><span>{{ label }}</span><ico name="calendar" /><input type="date" :value="dateValue" @change="jump" @click="openPicker" aria-label="Jump to a date" /></label>
 		<span class="spin" v-if="loading"></span>
 		<span class="spacer"></span>
-		<div class="seg" role="group" aria-label="Which meetings"><button :class="{ on: scope === 'mine' && !demosOnly }" :aria-pressed="scope === 'mine' && !demosOnly" @click="scope = 'mine'; demosOnly = false">Mine</button><button v-if="seesOthers" :class="{ on: scope === 'all' && !demosOnly }" :aria-pressed="scope === 'all' && !demosOnly" @click="scope = 'all'; demosOnly = false">{{ othersLabel }}</button><button v-if="demosTab" :class="{ on: demosOnly }" :aria-pressed="demosOnly" title="Meetings booked through a demo page" @click="demosOnly = true"><ico name="calendar-check" /> Demos</button></div>
+		<div class="seg" role="group" aria-label="Which meetings"><button :class="{ on: scope === 'mine' && !demosOnly }" :aria-pressed="scope === 'mine' && !demosOnly" @click="scope = 'mine'; demosOnly = false">Mine</button><button v-if="seesOthers" :class="{ on: scope === 'all' && !demosOnly }" :aria-pressed="scope === 'all' && !demosOnly" @click="scope = 'all'; demosOnly = false">{{ othersLabel }}</button><button v-if="demosTab" :class="{ on: demosOnly }" :aria-pressed="demosOnly" title="Meetings booked through a booking page" @click="demosOnly = true"><ico name="calendar-check" /> Bookings</button></div>
 		<div class="seg"><button v-for="v in ['agenda','month','week','day']" :key="v" :class="{ on: view === v }" @click="view = v">{{ v[0].toUpperCase() + v.slice(1) }}</button></div>
 		<button class="btn primary" @click="newMeeting()"><ico name="plus" /> Schedule</button>
 		<button class="btn ghost icon" v-if="EMBED" @click="openFull" title="Open in a new tab" aria-label="Open in a new tab"><ico name="external" size="lg" /></button>
@@ -981,7 +982,7 @@
 								<div class="title">{{ m.subject }}</div>
 								<div class="meta"><span class="chip demo-type" v-if="isDemo(m) && (m.demo_type_title || m.demo_type)">{{ m.demo_type_title || m.demo_type }}</span><span class="chip">Lead · {{ m.reference_title }}</span><span class="chip src" v-if="isDemo(m) && demoSource(m)" title="Where the visitor came from (UTM)">{{ demoSource(m) }}</span><span v-if="scope === 'all' && !isDemo(m)">by {{ m.organizer_name }}</span><span v-if="m.attendees.length">{{ m.attendees.length }} guest{{ m.attendees.length === 1 ? '' : 's' }}</span></div>
 							</div>
-							<div class="card-side"><avatars :guests="m.attendees" /><a v-if="m.google_meet_link && m.status === 'Scheduled'" class="join" :href="m.google_meet_link" target="_blank" rel="noopener" @click.stop><ico name="video" /> Join</a></div>
+							<div class="card-side"><avatars :guests="m.attendees" /><a v-if="m.google_meet_link && m.status === 'Scheduled'" class="join" :href="m.google_meet_link" target="_blank" rel="noopener" @click.stop><ico :name="m.provider === 'Google Meet' ? 'gmeet' : 'video'" /> Join</a></div>
 						</div>
 					</div>
 				</div>

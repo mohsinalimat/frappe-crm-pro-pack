@@ -1,4 +1,4 @@
-"""The manager API behind the Demos admin page, plus ``my_demos`` for everyone who takes demos.
+"""The manager API behind the Bookings admin page, plus ``my_demos`` for everyone who takes bookings.
 
 Every function checks the role on the server (the page hiding a button protects nothing). Managers are Administrator, System Managers and
 Sales Managers; a Sales User only gets ``my_demos``, limited to the demos they take part in.
@@ -31,12 +31,12 @@ BOOKING_COLUMNS = (
 
 
 def _widgets(minimum="view"):
-	"""The demo widgets (booking pages): ``view`` to look, ``manage`` to create and change. Set on the Team and access page."""
-	access.require("demo_widgets", minimum, _("You do not have access to the demo widgets."))
+	"""The widgets (booking pages): ``view`` to look, ``manage`` to create and change. Set on the Team and access page."""
+	access.require("demo_widgets", minimum, _("You do not have access to the widgets."))
 
 
 def _demos(others=False):
-	"""The Demos list: anyone with access; ``others`` = also acting on other people's demos (team or everyone)."""
+	"""The Bookings list: anyone with access; ``others`` = also acting on other people's demos (team or everyone)."""
 	level = access.level("demos")
 	if level == access.R.NONE or (others and level not in (access.R.TEAM, access.R.ALL)):
 		frappe.throw(_("You do not have access to this."), frappe.PermissionError)
@@ -350,7 +350,7 @@ def resend_message(booking, event=None, message=None):
 
 @frappe.whitelist()
 def demo_report(from_date=None, to_date=None, demo_type=None):
-	access.require("demo_report", 1, _("You do not have access to the demo report."))
+	access.require("demo_report", 1, _("You do not have access to the bookings report."))
 	return report.demo_report(from_date, to_date, demo_type, scope_sql(frappe.session.user, "b") or None)
 
 

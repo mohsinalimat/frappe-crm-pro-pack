@@ -16,7 +16,7 @@ SWITCH = [(0, "Off"), (1, "On")]
 
 GROUPS = [
 	("sales", "Sales", "Meetings, follow-ups and the Sales Dashboard."),
-	("demos", "Demos", "Demo bookings and the demo widgets that visitors book through."),
+	("demos", "Bookings", "Website bookings, and the widgets (booking pages) that visitors book through."),
 	("assignment", "Lead assignment", "Moving leads between people, and the rules that do it automatically."),
 	("campaigns", "Campaign Manager", "Campaigns, automations, templates and audiences."),
 ]
@@ -32,14 +32,14 @@ def _level(*pairs):
 
 FEATURES = [
 	_f("meetings", "sales", "Meetings", "scope", (ALL, OWN, OWN), "Whose meetings the person sees in Meetings."),
-	_f("meetings_demos_tab", "sales", "Demos tab inside Meetings", "switch", (1, 1, 1), "Show the Demos view next to Mine and Everyone."),
+	_f("meetings_demos_tab", "sales", "Bookings tab inside Meetings", "switch", (1, 1, 1), "Show the Bookings view next to Mine and Everyone."),
 	_f("followups", "sales", "Follow-ups", "scope", (ALL, OWN, OWN), "Whose follow-ups the person sees."),
 	_f("dashboard", "sales", "Sales Dashboard numbers", "scope", (ALL, OWN, OWN), "Whose numbers the dashboard adds up."),
 	_f("dashboard_campaigns_tab", "sales", "Campaigns tab in the Sales Dashboard", "switch", (1, 1, 1), "Show the campaign numbers."),
-	_f("demos", "demos", "Demos", "scope", (ALL, OWN, OWN), "Which demos the person sees. Own = demos they host or are invited to."),
-	_f("demo_widgets", "demos", "Demo widgets", "level", ("manage", "none", "none"), "The booking pages: their times, team, form, messages and branding.",
+	_f("demos", "demos", "Bookings", "scope", (ALL, OWN, OWN), "Which bookings the person sees. Own = bookings they host or are invited to."),
+	_f("demo_widgets", "demos", "Widgets", "level", ("manage", "none", "none"), "The booking pages: their times, team, form, messages and branding.",
 		_level(("none", "No access"), ("view", "View only"), ("manage", "Create and edit"))),
-	_f("demo_report", "demos", "Demo report", "switch", (1, 0, 0), "The demo numbers by source, campaign and day."),
+	_f("demo_report", "demos", "Bookings report", "switch", (1, 0, 0), "The booking numbers by source, campaign and day."),
 	_f("assignment_rules", "assignment", "Assignment rules", "level", ("none", "none", "none"), "The rules that give new leads to people.",
 		_level(("none", "No access"), ("view", "View only"), ("manage", "Create and edit"))),
 	_f("assignment_move", "assignment", "Moving leads", "scope", (NONE, NONE, NONE), "Give leads to other people. Own = leads they own; team = their team's; everyone = any lead."),

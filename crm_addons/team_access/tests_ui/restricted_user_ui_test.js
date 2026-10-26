@@ -3,7 +3,7 @@
  *   BASE=http://127.0.0.1:8011 ADMIN_USER=Administrator ADMIN_PASS=admin node crm_addons/team_access/tests_ui/restricted_user_ui_test.js
  *
  * It creates one Sales User (ax.ui.<id>@example.org), gives them a preset through the Team and access API, logs in as them and checks the Campaign
- * Manager, Demos, Meetings and Assignment screens; then removes the user. Set PLAYWRIGHT_MODULE=/path/to/node_modules/playwright if needed.
+ * Manager, Bookings, Meetings and Assignment screens; then removes the user. Set PLAYWRIGHT_MODULE=/path/to/node_modules/playwright if needed.
  */
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright')
 const BASE = (process.env.BASE || 'http://127.0.0.1:8011').replace(/\/$/, '')
@@ -58,14 +58,14 @@ const problems = []
 		{
 			const { ctx, page } = await open('/assets/crm_addons/demos/index.html#/')
 			const items = (await rail(page)).map((s) => s.trim())
-			check('sales user: the Demos screen offers Demos only', items.includes('Demos') && !items.includes('Demo widgets') && !items.includes('Report'), items.join(', '))
+			check('sales user: the Bookings screen offers Bookings only', items.includes('Bookings') && !items.includes('Widgets') && !items.includes('Report'), items.join(', '))
 			await ctx.close()
 		}
-		await as('Demo Host', { demo_widgets: 'view' })
+		await as('Booking Host', { demo_widgets: 'view' })
 		{
 			const { ctx, page } = await open('/assets/crm_addons/demos/index.html#/types')
-			check('demo widgets: view only shows the banner', (await page.locator('text=View only').count()) >= 1)
-			check('demo widgets: no Create button', (await page.locator('button:has-text("Create demo widget")').count()) === 0)
+			check('widgets: view only shows the banner', (await page.locator('text=View only').count()) >= 1)
+			check('widgets: no Create button', (await page.locator('button:has-text("Create widget")').count()) === 0)
 			await ctx.close()
 		}
 		// 4. assignment: nothing by default, only the history when that is given
@@ -82,12 +82,12 @@ const problems = []
 			check('assignment: only the History part is offered', items.includes('History') && !items.includes('Rules') && !items.includes('Move leads'), items.join(', '))
 			await ctx.close()
 		}
-		// 5. meetings: the team label and the Demos tab switch
+		// 5. meetings: the team label and the Bookings tab switch
 		await as(null, { meetings: 'team', meetings_demos_tab: 0 })
 		{
 			const { ctx, page } = await open('/assets/crm_addons/meetings/index.html', '.seg')
 			const labels = (await page.locator('.seg[aria-label="Which meetings"] button').allInnerTexts()).map((s) => s.trim())
-			check('meetings: "My team" instead of Everyone, and no Demos tab', labels.includes('My team') && !labels.some((l) => /Demos/.test(l)), labels.join(', '))
+			check('meetings: "My team" instead of Everyone, and no Bookings tab', labels.includes('My team') && !labels.some((l) => /Bookings/.test(l)), labels.join(', '))
 			await ctx.close()
 		}
 		check('console: no errors', problems.length === 0, problems.slice(0, 3).join(' | '))

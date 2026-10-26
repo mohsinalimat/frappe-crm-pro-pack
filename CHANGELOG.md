@@ -4,6 +4,11 @@ All notable changes to CRM Pro Pack (the `crm_addons` Frappe app).
 
 ## Unreleased
 
+### Changed
+
+- **Widgets can be shown as a list** (cards or list, remembered per browser), and the **Google Meet logo** marks Google Meet links and options wherever they appear.
+- **Demos is now Bookings, Demo widgets is now Widgets** (visible names only; the Report keeps its name). The ready-made access preset *Demo Host* is renamed *Booking Host* (people on it follow). URLs, API and doctype names are unchanged.
+
 ### Added
 
 - **Demo booking: the backend** (module *Demos*, `crm_addons/demos/`; design and API in [docs/DEMO_BOOKING.md](docs/DEMO_BOOKING.md), admin steps in the Admin guide).

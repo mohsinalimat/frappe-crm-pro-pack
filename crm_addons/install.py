@@ -499,6 +499,10 @@ def ensure_access_presets():
 
 	if not frappe.db.exists("DocType", "CRM Access Preset") or frappe.db.get_default("crm_addons_access_presets") == presets.VERSION:
 		return
+	# "Demo Host" is now "Booking Host": rename the ready-made one (people using it follow), unless the admin already made their own with the new name
+	if frappe.db.exists("CRM Access Preset", "Demo Host") and not frappe.db.exists("CRM Access Preset", "Booking Host"):
+		frappe.rename_doc("CRM Access Preset", "Demo Host", "Booking Host", force=True)
+		frappe.db.set_value("CRM Access Preset", "Booking Host", "preset_name", "Booking Host")
 	for name, description, grants in presets.PRESETS:
 		if frappe.db.exists("CRM Access Preset", name):
 			continue

@@ -76,26 +76,26 @@ bookings list filters; booking detail and status; resend; embed code; permission
 
 Manual, with a real Google calendar, SMTP and Meta WhatsApp (not covered by the automated tests, which fake all three):
 
-1. Create a demo type with two owners and a CC address; book a slot from `/book/<slug>`: one Google event, both owners and the CC invited, the first owner organizes, a Meet link, the confirmation email and WhatsApp arrive, the Lead shows the UTMs, the meeting shows in **Meetings > Demos**.
+1. Create a demo type with two owners and a CC address; book a slot from `/book/<slug>`: one Google event, both owners and the CC invited, the first owner organizes, a Meet link, the confirmation email and WhatsApp arrive, the Lead shows the UTMs, the meeting shows in **Meetings > Bookings**.
 2. Book from a phone whose time zone differs from the demo's: the email shows the visitor's time and zone name.
 3. Reschedule and cancel from the links in the messages; Google's event moves / disappears; the old slot is free; a reminder planned for the old time does not arrive.
 4. Embed `embed.js` on a second site that is listed under *Websites that may embed this page*, and on one that is not: the first shows the pop-up, the second shows a blocked frame.
 5. Reply STOP to a WhatsApp message: later reminders for that number are skipped; the confirmation email is still sent.
 6. Disconnect Google: the booking still works, the meeting says *Not synced*, the visitor gets the fixed link.
-7. As a Sales User, **My demos** shows only your demos, and the Demos admin API and page refuse you.
+7. As a Sales User, **My demos** shows only your demos, and the Bookings admin API and page refuse you.
 
 
 ## Team and access
 
 Automated: `crm_addons.team_access.test_access` (the registry, precedence override > preset > role default, admins cannot be limited, bad values refused, "My team" from the Sales Hierarchy using a stand-in table
-when the CRM has none, the manager API and its permissions, presets, the password reset call) and `crm_addons.team_access.test_enforcement` (follow-ups, meetings, the dashboard report, demos and demo widgets,
+when the CRM has none, the manager API and its permissions, presets, the password reset call) and `crm_addons.team_access.test_enforcement` (follow-ups, meetings, the dashboard report, demos and widgets,
 lead assignment, and every Campaign Manager part at each level). Browser scripts under `crm_addons/team_access/tests_ui/`: `access_ui_test.js` (the screens) and `restricted_user_ui_test.js`
-(a real limited user: template designer, view-only templates, demo widgets, assignment, meetings).
+(a real limited user: template designer, view-only templates, widgets, assignment, meetings).
 
 Manual (needs CRM with a Sales Hierarchy, which CRM 1.74 does not have):
 
 1. In CRM Settings > Sales Hierarchy build boss -> lead -> two reps. In Team and access give the lead *Follow-ups: My team*: the lead sees their reps' follow-ups and the "My team" picker, the boss's and others' stay hidden.
 2. Give a rep the **Template Designer** preset: the Campaign Manager menu shows only the two template screens; a campaign cannot be created or listed; the API refuses.
 3. Give a person *Assignment: History only*: the Assignment page shows only History.
-4. Set *Demos: Own only* for a host: the Demos page and the Demos tab of Meetings show only their demos; switch the tab off and it disappears.
+4. Set *Bookings: Own only* for a host: the Bookings page and the Bookings tab of Meetings show only their demos; switch the tab off and it disappears.
 5. Reset a password from a person's panel: the email arrives.

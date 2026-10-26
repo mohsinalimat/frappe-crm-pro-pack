@@ -1,4 +1,4 @@
-/* Demo booking admin: the Demo widgets list (cards). */
+/* Demo booking admin: the Widgets list (cards). */
 (() => {
 	const { ref, reactive, computed, watch, onMounted } = Vue
 	const CM = window.CM
@@ -20,6 +20,9 @@
 		setup() {
 			const rows = ref([]); const loading = ref(true); const error = ref(''); const q = ref(''); const busy = reactive({})
 			const filter = ref('all')
+			// cards or a list: the choice is remembered in this browser
+			const layout = ref((() => { try { return localStorage.getItem('crm_widgets_layout') === 'list' ? 'list' : 'cards' } catch (e) { return 'cards' } })())
+			watch(layout, (v) => { try { localStorage.setItem('crm_widgets_layout', v) } catch (e) { /* not saved */ } })
 			async function load(quiet) {
 				if (!quiet) loading.value = true; error.value = ''
 				try { rows.value = (await DM.api('list_demo_types')) || []; DM.typesCache = rows.value; enrich(rows.value) } catch (e) { error.value = DM.friendly(e) } finally { loading.value = false }
@@ -52,7 +55,7 @@
 					d.enabled = on
 					await DM.api('save_demo_type', { doc: DM.toServer(d) })
 					r.enabled = on ? 1 : 0
-					CM.toast(on ? 'Demo widget is on: its page accepts bookings' : 'Demo widget is off: its page shows "not available"')
+					CM.toast(on ? 'Widget is on: its page accepts bookings' : 'Widget is off: its page shows "not available"')
 				} catch (e) { CM.toast(DM.friendly(e), 'err'); load(true) } finally { busy[r.name] = false }
 			}
 			async function duplicate(r) {
@@ -61,14 +64,14 @@
 			}
 			async function remove(r) {
 				if (Number(r.total ?? r.bookings_total) > 0) {
-					const ok = await CM.confirm({ title: 'This demo widget has bookings', message: `"${r.title}" has ${r.total ?? r.bookings_total} booking${Number(r.total ?? r.bookings_total) === 1 ? '' : 's'}, so it cannot be deleted: the bookings, leads and reports would lose their link to it. Turn it off instead. Its page stops taking new bookings and the history stays.`, confirmText: DM.bool(r.enabled) ? 'Turn it off' : 'Close', danger: false })
+					const ok = await CM.confirm({ title: 'This widget has bookings', message: `"${r.title}" has ${r.total ?? r.bookings_total} booking${Number(r.total ?? r.bookings_total) === 1 ? '' : 's'}, so it cannot be deleted: the bookings, leads and reports would lose their link to it. Turn it off instead. Its page stops taking new bookings and the history stays.`, confirmText: DM.bool(r.enabled) ? 'Turn it off' : 'Close', danger: false })
 					if (ok && DM.bool(r.enabled)) setEnabled(r, false)
 					return
 				}
-				const ok = await CM.confirm({ title: 'Delete this demo widget?', message: `"${r.title}" and its public page /book/${r.slug} will be removed. This cannot be undone.`, confirmText: 'Delete', danger: true })
+				const ok = await CM.confirm({ title: 'Delete this widget?', message: `"${r.title}" and its public page /book/${r.slug} will be removed. This cannot be undone.`, confirmText: 'Delete', danger: true })
 				if (!ok) return
 				busy[r.name] = true
-				try { await DM.api('delete_demo_type', { name: r.name }); CM.toast('Demo widget deleted'); await load(true) } catch (e) {
+				try { await DM.api('delete_demo_type', { name: r.name }); CM.toast('Widget deleted'); await load(true) } catch (e) {
 					const m = DM.friendly(e)
 					if (/booking/i.test(m)) { const off = await CM.confirm({ title: 'It has bookings', message: m + ' Turn it off instead?', confirmText: 'Turn it off' }); if (off) await setEnabled(r, false); load(true) } else CM.toast(m, 'err')
 				} finally { busy[r.name] = false }
@@ -83,21 +86,21 @@
 				{ label: 'Delete', icon: 'trash', danger: true, run: () => remove(r) },
 			]
 			const canManage = computed(() => DM.session.widgets === 'manage')
-			return { canManage, extra, nextSlot, monthCount, rows, shown, loading, error, q, filter, counts, busy, url, owners, edit, setEnabled, load, menu, DM, CM, go: CM.go }
+			return { layout, canManage, extra, nextSlot, monthCount, rows, shown, loading, error, q, filter, counts, busy, url, owners, edit, setEnabled, load, menu, DM, CM, go: CM.go }
 		},
 		template: `
 		<div class="page">
-			<div v-if="!canManage" class="alert info"><Ico name="info" /><div class="grow"><b>View only.</b> You can see the demo widgets but not change them.</div></div>
-			<div class="pg-head"><div class="grow"><h1>Demo widgets</h1><p>Each demo widget is a public booking page for one website or offer: its own hours, hosts, form, messages and branding.</p></div><div class="actions"><Btn v-if="canManage" variant="primary" icon="plus" @click="go('/types/new/details')">Create demo widget</Btn></div></div>
-			<div v-if="!loading && !error && rows.length" class="row wrap tools"><div class="chips"><button v-for="f in [['all', 'All'], ['on', 'On'], ['off', 'Off']]" :key="f[0]" type="button" class="fchip" :class="{ on: filter === f[0] }" :aria-pressed="filter === f[0]" @click="filter = f[0]">{{ f[1] }}<span class="n">{{ counts[f[0]] }}</span></button></div><div class="grow"></div><div style="width:min(300px,100%)"><Inp v-model="q" icon="search" placeholder="Search demo widgets" clearable aria-label="Search demo widgets" /></div></div>
+			<div v-if="!canManage" class="alert info"><Ico name="info" /><div class="grow"><b>View only.</b> You can see the widgets but not change them.</div></div>
+			<div class="pg-head"><div class="grow"><h1>Widgets</h1><p>Each widget is a public booking page for one website or offer: its own hours, hosts, form, messages and branding.</p></div><div class="actions"><Btn v-if="canManage" variant="primary" icon="plus" @click="go('/types/new/details')">Create widget</Btn></div></div>
+			<div v-if="!loading && !error && rows.length" class="row wrap tools"><div class="chips"><button v-for="f in [['all', 'All'], ['on', 'On'], ['off', 'Off']]" :key="f[0]" type="button" class="fchip" :class="{ on: filter === f[0] }" :aria-pressed="filter === f[0]" @click="filter = f[0]">{{ f[1] }}<span class="n">{{ counts[f[0]] }}</span></button></div><div class="grow"></div><div class="seg" role="group" aria-label="Layout"><button type="button" :class="{ on: layout === 'cards' }" :aria-pressed="layout === 'cards'" title="Cards" aria-label="Cards" @click="layout = 'cards'"><Ico name="grid" /></button><button type="button" :class="{ on: layout === 'list' }" :aria-pressed="layout === 'list'" title="List" aria-label="List" @click="layout = 'list'"><Ico name="list" /></button></div><div style="width:min(300px,100%)"><Inp v-model="q" icon="search" placeholder="Search widgets" clearable aria-label="Search widgets" /></div></div>
 			<div v-if="loading" class="dgrid"><Skel v-for="n in 3" :key="n" h="212" r="12" /></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load()" />
-			<Empty v-else-if="!rows.length" icon="calendar" title="No demo widgets yet" text="Create one to get a booking page you can put on a website: visitors pick a time, you get the lead, the meeting and the messages."><Btn v-if="canManage" variant="primary" icon="plus" @click="go('/types/new/details')">Create demo widget</Btn></Empty>
-			<Empty v-else-if="!shown.length" icon="search" title="No demo widget matches" text="Try a different search or filter."><Btn @click="q = ''; filter = 'all'">Clear filters</Btn></Empty>
-			<div v-else class="dgrid">
+			<Empty v-else-if="!rows.length" icon="calendar" title="No widgets yet" text="Create one to get a booking page you can put on a website: visitors pick a time, you get the lead, the meeting and the messages."><Btn v-if="canManage" variant="primary" icon="plus" @click="go('/types/new/details')">Create widget</Btn></Empty>
+			<Empty v-else-if="!shown.length" icon="search" title="No widget matches" text="Try a different search or filter."><Btn @click="q = ''; filter = 'all'">Clear filters</Btn></Empty>
+			<div v-else-if="layout === 'cards'" class="dgrid">
 				<article v-for="r in shown" :key="r.name" class="card dcard" :class="{ off: !DM.bool(r.enabled) }">
 					<div class="dcard-h">
-						<button type="button" class="dcard-t" @click="edit(r)" :aria-label="'Edit ' + r.title"><b class="ellipsis">{{ r.title }}</b><span class="small muted">{{ DM.durationLabel(r.duration_minutes) }}<template v-if="r.provider"> - {{ r.provider }}</template></span></button>
+						<button type="button" class="dcard-t" @click="edit(r)" :aria-label="'Edit ' + r.title"><b class="ellipsis">{{ r.title }}</b><span class="small muted">{{ DM.durationLabel(r.duration_minutes) }}<template v-if="r.provider"> - <Ico v-if="r.provider === 'Google Meet'" name="gmeet" size="sm" style="vertical-align:-3px" /> {{ r.provider }}</template></span></button>
 						<span class="dcard-sw"><span class="small" :class="DM.bool(r.enabled) ? '' : 'faint'">{{ DM.bool(r.enabled) ? 'On' : 'Off' }}</span><Switch :model-value="DM.bool(r.enabled)" :aria-disabled="!canManage" :label="'Turn ' + r.title + (DM.bool(r.enabled) ? ' off' : ' on')" @update:model-value="(v) => !busy[r.name] && setEnabled(r, v)" /></span>
 						<Menu v-if="canManage" :items="menu(r)" :label="'Actions for ' + r.title" />
 					</div>
@@ -109,6 +112,18 @@
 					<div class="dcard-f"><AvatarStack v-if="owners(r).length" :people="owners(r)" /><span v-else class="small" style="color:var(--amber)"><Ico name="alert" size="sm" /> No host yet</span><span class="grow small muted ellipsis">{{ owners(r).map((o) => o.full_name || o.user).slice(0, 2).join(', ') }}<template v-if="owners(r).length > 2"> +{{ owners(r).length - 2 }}</template></span><Btn size="sm" @click="edit(r)">Edit</Btn></div>
 				</article>
 			</div>
+			<div v-else class="card" style="padding:0"><div class="table-wrap"><table class="tbl wl-tbl">
+				<thead><tr><th>Widget</th><th>Page</th><th>Hosts</th><th>Next free slot</th><th class="num">This month</th><th>On</th><th></th></tr></thead>
+				<tbody><tr v-for="r in shown" :key="r.name" class="click" :class="{ off: !DM.bool(r.enabled) }" tabindex="0" @click="edit(r)" @keydown.enter="edit(r)">
+					<td><b class="ellipsis" style="display:block;max-width:230px">{{ r.title }}</b><div class="small muted">{{ DM.durationLabel(r.duration_minutes) }}<template v-if="r.provider"> - <Ico v-if="r.provider === 'Google Meet'" name="gmeet" size="sm" style="vertical-align:-3px" /> {{ r.provider }}</template></div></td>
+					<td @click.stop><span class="row" style="gap:4px;flex-wrap:nowrap"><a :href="url(r)" target="_blank" rel="noopener" class="mono ellipsis" style="max-width:170px">/book/{{ r.slug }}</a><CopyBtn :text="url(r)" bare label="Copy link" what="Link" /></span></td>
+					<td><AvatarStack v-if="owners(r).length" :people="owners(r)" /><span v-else class="small" style="color:var(--amber)">No host yet</span></td>
+					<td class="nowrap"><template v-if="nextSlot(r)">{{ DM.nextSlotText(nextSlot(r), r.timezone) }}</template><span v-else class="faint">{{ !DM.bool(r.enabled) ? 'Off' : nextSlot(r) === undefined ? '...' : 'No free slot' }}</span></td>
+					<td class="num"><b>{{ monthCount(r) === undefined ? '-' : CM.num(monthCount(r)) }}</b></td>
+					<td @click.stop><Switch :model-value="DM.bool(r.enabled)" :aria-disabled="!canManage" :label="'Turn ' + r.title + (DM.bool(r.enabled) ? ' off' : ' on')" :disabled="!canManage || busy[r.name]" @update:model-value="canManage && setEnabled(r, $event)" /></td>
+					<td class="num nowrap" @click.stop><Menu v-if="canManage" :items="menu(r)" :label="'Actions for ' + r.title" /></td>
+				</tr></tbody>
+			</table></div></div>
 		</div>`,
 	}
 })()
