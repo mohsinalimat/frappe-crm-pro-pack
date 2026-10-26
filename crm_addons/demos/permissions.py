@@ -1,8 +1,8 @@
 """Who sees which demo, per the person's access settings (Team and access).
 
-* Demos (a scope): no access / own = the demos whose meeting they organize or were invited to (the owners of a demo type are guests of it) /
+* Bookings (a scope): no access / own = the demos whose meeting they organize or were invited to (the owners of a demo type are guests of it) /
   my team = the same for everyone below them in the Sales Hierarchy / everyone. Managers keep "everyone" unless an admin limits them.
-* Demo widgets (the booking pages and their settings): none / view / create and edit.
+* Widgets (the booking pages and their settings): none / view / create and edit.
 """
 
 import frappe

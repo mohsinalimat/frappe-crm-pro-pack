@@ -1,4 +1,4 @@
-/* UI regression for the Demos admin screens and the Demos view of Meetings (Playwright + Chromium).
+/* UI regression for the Bookings admin screens and the Bookings view of Meetings (Playwright + Chromium).
  *
  *   BASE=http://127.0.0.1:8011 ADMIN_USER=Administrator ADMIN_PASS=admin node crm_addons/demos/tests_ui/admin_ui_test.js
  *
@@ -58,15 +58,15 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 	await step('list', async () => {
 		await open(page, '/types')
 		await page.waitForSelector('.dgrid, .empty', { timeout: 10000 })
-		check('shell: rail with the three sections', (await page.locator('.rail .nav').count()) >= 3 && (await page.locator('.rail .nav', { hasText: 'Demos' }).count()) === 1)
-		check('page title', (await page.title()) === 'Demos')
+		check('shell: rail with the three sections', (await page.locator('.rail .nav').count()) >= 3 && (await page.locator('.rail .nav', { hasText: 'Bookings' }).count()) === 1)
+		check('page title', (await page.title()) === 'Bookings')
 		await shot(page, 'list-light-1240')
 	})
 
 	// ------------------------------------------------------------------ create: validation first
 	await step('validation', async () => {
 		await open(page, '/types/new/details', '.ed-bar')
-		await page.locator('button:has-text("Create demo widget")').first().click()
+		await page.locator('button:has-text("Create widget")').first().click()
 		await settle(page, 300)
 		check('validation: empty title blocks saving and says why', (await page.locator('.field .err', { hasText: 'title' }).count()) === 1)
 		check('validation: tab dot shows where the problem is', (await page.locator('.tab-dot').count()) >= 1)
@@ -145,7 +145,7 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 		await page.fill('input[aria-label="Colour code"]', '#0a7d4b')
 		await shot(page, 'branding-light-1240')
 		await page.click('.tab:has-text("Details")'); await page.waitForSelector('.ed-bar')
-		await page.locator('.ed-r button:has-text("Create demo widget")').click()
+		await page.locator('.ed-r button:has-text("Create widget")').click()
 		await page.waitForFunction((s) => location.hash.includes('/types/' + s), SLUG, { timeout: 10000 })
 		await settle(page, 600)
 		check('create: saved, the address now names the demo type', page.url().includes(SLUG))
@@ -187,7 +187,7 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 		await page.fill('input[placeholder^="For example"]', TITLE + ' edited')
 		await settle(page, 200)
 		check('dirty: the unsaved badge appears and Save is enabled', (await page.locator('.ed-title .badge', { hasText: 'Unsaved' }).count()) === 1 && !(await save.isDisabled()))
-		await page.click('.rail .nav:has-text("Demos")'); await page.waitForSelector('.modal')
+		await page.click('.rail .nav:has-text("Bookings")'); await page.waitForSelector('.modal')
 		check('dirty: leaving asks first', (await page.locator('.modal', { hasText: 'Leave without saving' }).count()) === 1)
 		await page.click('.modal button:has-text("Cancel")'); await settle(page, 200)
 		check('dirty: Cancel stays on the editor', (await page.locator('.ed-bar').count()) === 1)
@@ -338,23 +338,23 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 		check('stall: the page still answers a click', await page.click('.tab:has-text("Details")', { timeout: 3000 }).then(() => true, () => false))
 	})
 
-	// ------------------------------------------------------------------ Demos view in Meetings
+	// ------------------------------------------------------------------ Bookings view in Meetings
 	if (process.env.SKIP_MEETINGS !== '1') await step('meetings demos view', async () => {
 		const MEET = BASE + '/assets/crm_addons/meetings/index.html'
 		const m = await ctx.newPage(); watch(m, 'meetings')
 		await m.goto(MEET + '?view=agenda'); await m.waitForSelector('.toolbar', { timeout: 15000 }); await settle(m, 500)
 		const seg = m.locator('.seg[aria-label="Which meetings"]')
-		check('meetings: Mine / Everyone / Demos switch is there', (await seg.locator('button', { hasText: 'Demos' }).count()) === 1 && (await seg.locator('button', { hasText: 'Mine' }).count()) === 1)
-		await seg.locator('button', { hasText: 'Demos' }).click(); await settle(m, 800)
-		check('meetings: the Demos button is selected', (await seg.locator('button.on', { hasText: 'Demos' }).count()) === 1)
+		check('meetings: Mine / Everyone / Bookings switch is there', (await seg.locator('button', { hasText: 'Bookings' }).count()) === 1 && (await seg.locator('button', { hasText: 'Mine' }).count()) === 1)
+		await seg.locator('button', { hasText: 'Bookings' }).click(); await settle(m, 800)
+		check('meetings: the Bookings button is selected', (await seg.locator('button.on', { hasText: 'Bookings' }).count()) === 1)
 		const cards = await m.locator('.card.demo').count()
 		if (cards) {
 			const card = m.locator('.card.demo').first()
 			check('meetings: demo cards carry the Demo badge', (await card.locator('.badge.demo').count()) === 1)
-			check('meetings: demo cards are the only ones in the Demos view', (await m.locator('.card:not(.demo)').count()) === 0)
+			check('meetings: demo cards are the only ones in the Bookings view', (await m.locator('.card:not(.demo)').count()) === 0)
 		} else check('meetings: a demo card to look at', 'skip')
 		for (const v of ['month', 'week', 'day', 'agenda']) { await m.locator('.seg button', { hasText: new RegExp('^' + v, 'i') }).first().click(); await settle(m, 500) }
-		check('meetings: month / week / day / agenda keep working with the Demos filter', (await m.locator('.banner.error').count()) === 0)
+		check('meetings: month / week / day / agenda keep working with the Bookings filter', (await m.locator('.banner.error').count()) === 0)
 		await shot(m, 'meetings-demos-light-1240')
 		await m.close()
 	})

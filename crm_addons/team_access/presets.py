@@ -1,10 +1,10 @@
 """The ready-made presets. An admin can edit or delete them; a deleted one is not brought back until the next version changes the list."""
 
-VERSION = "1"
+VERSION = "2"
 
 PRESETS = [
 	(
-		"Sales Executive", "Works their own leads: sees their own meetings, follow-ups, demos and numbers, and uses the shared templates.",
+		"Sales Executive", "Works their own leads: sees their own meetings, follow-ups, bookings and numbers, and uses the shared templates.",
 		{
 			"meetings": "own", "meetings_demos_tab": 1, "followups": "own", "dashboard": "own", "dashboard_campaigns_tab": 1, "demos": "own",
 			"demo_widgets": "none", "demo_report": 0, "assignment_rules": "none", "assignment_move": "none", "assignment_history": "none",
@@ -22,7 +22,7 @@ PRESETS = [
 		},
 	),
 	(
-		"Sales Manager", "Sees everything in sales and demos, and can manage the demo widgets, assignment and campaigns.",
+		"Sales Manager", "Sees everything in sales and bookings, and can manage the widgets, assignment and campaigns.",
 		{
 			"meetings": "all", "meetings_demos_tab": 1, "followups": "all", "dashboard": "all", "dashboard_campaigns_tab": 1, "demos": "all",
 			"demo_widgets": "manage", "demo_report": 1, "assignment_rules": "view", "assignment_move": "all", "assignment_history": "all",
@@ -49,7 +49,7 @@ PRESETS = [
 		},
 	),
 	(
-		"Demo Host", "Takes the website demos: sees the demos they host or are invited to, and their own meetings and follow-ups.",
+		"Booking Host", "Takes the website bookings: sees the bookings they host or are invited to, and their own meetings and follow-ups.",
 		{
 			"meetings": "own", "meetings_demos_tab": 1, "followups": "own", "dashboard": "own", "dashboard_campaigns_tab": 0, "demos": "own",
 			"demo_widgets": "none", "demo_report": 0, "assignment_rules": "none", "assignment_move": "none", "assignment_history": "none",

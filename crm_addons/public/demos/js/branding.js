@@ -43,7 +43,7 @@
 				<div class="bk-brand"><img v-if="doc.logo" :src="doc.logo" alt="" class="bk-logo" /><span v-else class="bk-logo ph">{{ CM.initials(doc.brand_name || doc.title || 'D') }}</span><b class="ellipsis">{{ doc.brand_name || 'Your brand' }}</b></div>
 				<h2>{{ doc.heading || title }}</h2>
 				<p v-if="doc.description" class="bk-desc">{{ doc.description }}</p>
-				<ul class="bk-facts"><li><Ico name="clock" size="sm" />{{ DM.durationLabel(doc.duration_minutes) }}</li><li><Ico :name="doc.provider === 'Google Meet' ? 'monitor' : 'link'" size="sm" />{{ doc.provider === 'Google Meet' ? 'Google Meet' : 'Online meeting' }}</li><li><Ico name="globe" size="sm" />{{ doc.timezone }}</li></ul>
+				<ul class="bk-facts"><li><Ico name="clock" size="sm" />{{ DM.durationLabel(doc.duration_minutes) }}</li><li><Ico :name="doc.provider === 'Google Meet' ? 'gmeet' : 'link'" size="sm" />{{ doc.provider === 'Google Meet' ? 'Google Meet' : 'Online meeting' }}</li><li><Ico name="globe" size="sm" />{{ doc.timezone }}</li></ul>
 			</aside>
 			<section class="bk-main">
 				<template v-if="step === 'time'">
@@ -118,7 +118,7 @@
 				<div class="card pad prev-card">
 					<div class="prev-bar"><Seg v-model="view" :options="[{ value: 'mock', label: 'Live preview' }, { value: 'page', label: 'Saved page' }]" /><span class="grow"></span><template v-if="view === 'mock'"><Seg v-model="step" :options="[{ value: 'time', label: 'Time' }, { value: 'form', label: 'Details' }, { value: 'done', label: 'Done' }]" /><Seg v-model="mode" :options="[{ value: 'auto', label: 'Auto' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]" /></template><Btn v-else size="sm" icon="refresh" aria-label="Reload the preview" :disabled="!canFrame" @click="frameKey++">Reload</Btn></div>
 					<BrandMock v-if="view === 'mock'" :doc="doc" :mode="mode" :step="step" />
-					<template v-else><div v-if="!canFrame" class="empty" style="padding:40px 12px"><div class="art"><Ico name="eye" size="xl" /></div><h3>Save to see the real page</h3><p>The real booking page is available once the demo widget is saved. Until then the live preview shows how it will look.</p></div>
+					<template v-else><div v-if="!canFrame" class="empty" style="padding:40px 12px"><div class="art"><Ico name="eye" size="xl" /></div><h3>Save to see the real page</h3><p>The real booking page is available once the widget is saved. Until then the live preview shows how it will look.</p></div>
 						<template v-else><div v-if="dirty" class="alert info" style="margin-bottom:10px"><Ico name="info" /><div class="grow">Showing the last saved version. Save, then reload.</div></div><iframe :key="frameKey" class="prev-frame" :src="frameSrc" title="Saved booking page"></iframe></template></template>
 					<p class="small faint" style="margin:10px 0 0">The preview shows the first free times from your weekly hours. Visitors see their own time zone.</p>
 				</div>

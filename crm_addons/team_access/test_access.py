@@ -95,6 +95,26 @@ class TestLegacyDefaults(AccessCase):
 
 
 class TestPresetsAndOverrides(AccessCase):
+	def test_demo_host_preset_is_renamed_and_people_follow(self):
+		from crm_addons import install
+		from crm_addons.team_access import presets
+
+		user = self.person("host.acc@example.org", "Sales User")
+		if frappe.db.exists("CRM Access Preset", "Booking Host"):
+			frappe.delete_doc("CRM Access Preset", "Booking Host", force=True, ignore_permissions=True)
+		if not frappe.db.exists("CRM Access Preset", "Demo Host"):
+			self.preset("Demo Host", {"demos": "own"})
+		self.configure(user, "Demo Host")
+		old = frappe.db.get_default("crm_addons_access_presets")
+		frappe.db.set_default("crm_addons_access_presets", "1")
+		try:
+			install.ensure_access_presets()
+		finally:
+			frappe.db.set_default("crm_addons_access_presets", old or presets.VERSION)
+		self.assertFalse(frappe.db.exists("CRM Access Preset", "Demo Host"))
+		self.assertTrue(frappe.db.exists("CRM Access Preset", "Booking Host"))
+		self.assertEqual(frappe.db.get_value("CRM User Access", user, "preset"), "Booking Host")
+
 	def test_a_preset_replaces_the_default(self):
 		user = self.person("lead.acc@example.org", "Sales User")
 		self.preset("Test Lead Preset", {"followups": "team", "campaign_create": 1})

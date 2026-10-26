@@ -10,6 +10,7 @@
 	DM.who = (b) => b.name_ || b.visitor_name || b.full_name || b.email || b.name
 	const startOf = (b) => b.starts_on || b.starts_utc
 	DM.when = (b, long) => { const s = startOf(b); if (!s) return '-'; const d = new Date(String(s).replace(' ', 'T')); return isNaN(d) ? String(s) : d.toLocaleDateString([], long ? { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }
+	const meetIcon = (b) => (/meet\.google\.com/.test(meetLink(b)) ? 'gmeet' : 'monitor')
 	const meetLink = (b) => b.meet_link || b.meeting_link || b.google_meet_link || ''
 	const MSG_TONE = { Sent: 'green', Failed: 'red', Skipped: 'amber', Pending: 'neutral', Sending: 'blue' }
 
@@ -34,7 +35,7 @@
 			}
 			const leadUrl = computed(() => (b.value && b.value.lead ? b.value.lead_url || CM.leadUrl(b.value.lead) : ''))
 			const statusItems = computed(() => [{ label: 'Mark as held', icon: 'check-circle', run: () => setStatus('Completed') }, { label: 'Mark as no-show', icon: 'ban', run: () => setStatus('No Show') }, ...(DM.canActOnOthers() ? [{ sep: true }, { label: 'Cancel booking', icon: 'x-circle', danger: true, run: () => setStatus('Cancelled') }] : [])])
-			return { statusItems, b, loading, error, load, answers, utm, touchRows, msgs, setStatus, resend, busy, leadUrl, meetLink, MSG_TONE, DM, CM }
+			return { statusItems, b, loading, error, load, answers, utm, touchRows, msgs, setStatus, resend, busy, leadUrl, meetLink, meetIcon, MSG_TONE, DM, CM }
 		},
 		template: `
 		<Drawer wide :title="b ? DM.who(b) : 'Booking'" :subtitle="b ? b.demo_title || b.demo_type_title || b.demo_type : ''" @close="$emit('close')">
@@ -44,7 +45,7 @@
 				<div class="bd-top"><StatusBadge :value="b.status" /><span class="b">{{ DM.when(b, true) }}</span><span v-if="b.visitor_timezone" class="small faint">visitor zone {{ b.visitor_timezone }}</span></div>
 				<div class="row wrap" style="gap:8px">
 					<a v-if="leadUrl" class="btn sm" :href="leadUrl" @click="CM.openCrm($event, leadUrl)"><Ico name="user" />Open lead</a>
-					<a v-if="meetLink(b)" class="btn sm" :href="meetLink(b)" target="_blank" rel="noopener"><Ico name="monitor" />Meeting link</a>
+					<a v-if="meetLink(b)" class="btn sm" :href="meetLink(b)" target="_blank" rel="noopener"><Ico :name="meetIcon(b)" />Meeting link</a>
 					<Menu :items="statusItems" label="Change status"><Btn size="sm" icon="chevron-down">Change status</Btn></Menu>
 				</div>
 				<h4 class="dh">Visitor</h4>
@@ -79,7 +80,7 @@
 			const open = computed(() => CM.route.parts[1] || '')
 			let seq = 0
 			const args = (extra) => ({ filters: { status: status.value || undefined, demo_type: demoType.value || undefined, owner: owner.value || undefined, ...(extra || {}) }, search: q.value || undefined, ...CM.rangeArgs(range.value) })
-			// A host filter: the demo widgets that person hosts are asked one by one and merged (the server's own `owner` filter is also sent,
+			// A host filter: the widgets that person hosts are asked one by one and merged (the server's own `owner` filter is also sent,
 			// so a server that knows it gives the same answer).
 			const hosted = (u) => types.value.filter((t) => (t.owners || []).some((o) => (typeof o === 'string' ? o : o.user) === u)).map((t) => t.name)
 			async function fetchPage(p, size) {
@@ -105,7 +106,7 @@
 			const reload = CM.debounce(() => { page.value = 0; load() }, 300)
 			watch([status, demoType, owner, () => range.value.preset, () => range.value.from, () => range.value.to], () => { page.value = 0; load() })
 			watch(q, reload); watch(page, () => load())
-			onMounted(async () => { load(); if (!types.value.length) { try { types.value = (await DM.api('list_demo_types')) || []; DM.typesCache = types.value } catch (e) { /* filters just have no demo widgets */ } } })
+			onMounted(async () => { load(); if (!types.value.length) { try { types.value = (await DM.api('list_demo_types')) || []; DM.typesCache = types.value } catch (e) { /* filters just have no widgets */ } } })
 			const typeOpts = computed(() => types.value.map((t) => ({ value: t.name, label: t.title })))
 			const ownerOpts = computed(() => { const m = new Map(); types.value.forEach((t) => (t.owners || []).forEach((o) => { const u = typeof o === 'string' ? o : o.user; if (u) m.set(u, typeof o === 'object' ? o.full_name || u : u) })); return [...m].map(([value, label]) => ({ value, label })) })
 			const typeTitle = (b) => b.demo_title || b.demo_type_title || (types.value.find((t) => t.name === b.demo_type) || {}).title || b.demo_type
@@ -117,7 +118,7 @@
 			const menu = (b) => [
 				{ label: 'View details', icon: 'eye', run: () => view(b) },
 				b.lead ? { label: 'Open lead', icon: 'user', run: () => CM.openCrm(null, leadUrl(b)) } : null,
-				meetLink(b) ? { label: 'Open meeting link', icon: 'external', run: () => window.open(meetLink(b), '_blank', 'noopener') } : null,
+				meetLink(b) ? { label: 'Open meeting link', icon: meetIcon(b) === 'gmeet' ? 'gmeet' : 'external', run: () => window.open(meetLink(b), '_blank', 'noopener') } : null,
 				{ sep: true },
 				{ label: 'Mark as held', icon: 'check-circle', run: () => DM.changeStatus(b, 'Completed', () => load(true)), disabled: b.status === 'Completed' },
 				{ label: 'Mark as no-show', icon: 'ban', run: () => DM.changeStatus(b, 'No Show', () => load(true)), disabled: b.status === 'No Show' },
@@ -129,36 +130,36 @@
 				try {
 					let all = [], p = 0, tot = Infinity
 					while (all.length < tot && p < 200) { const r = await fetchPage(p, 200); all = all.concat(r.rows); tot = r.total; if (!r.rows.length) break; p++ }
-					CM.csv([['Booking', 'Status', 'Demo widget', 'Starts', 'Name', 'Email', 'Phone', 'Organisation', 'UTM source', 'UTM medium', 'UTM campaign', 'UTM term', 'UTM content', 'Lead', 'Meeting link', 'Created'], ...all.map((b) => [b.name, b.status, typeTitle(b), startOf(b), DM.who(b), b.email, b.phone, b.organization, b.utm_source, b.utm_medium, b.utm_campaign, b.utm_term, b.utm_content, b.lead, meetLink(b), b.creation])], 'demo-bookings' + (range.value.preset === 'any' ? '' : '-' + CM.resolveRange(range.value).from + '-to-' + CM.resolveRange(range.value).to) + '.csv')
+					CM.csv([['Booking', 'Status', 'Widget', 'Starts', 'Name', 'Email', 'Phone', 'Organisation', 'UTM source', 'UTM medium', 'UTM campaign', 'UTM term', 'UTM content', 'Lead', 'Meeting link', 'Created'], ...all.map((b) => [b.name, b.status, typeTitle(b), startOf(b), DM.who(b), b.email, b.phone, b.organization, b.utm_source, b.utm_medium, b.utm_campaign, b.utm_term, b.utm_content, b.lead, meetLink(b), b.creation])], 'demo-bookings' + (range.value.preset === 'any' ? '' : '-' + CM.resolveRange(range.value).from + '-to-' + CM.resolveRange(range.value).to) + '.csv')
 					CM.toast(all.length + ' booking' + (all.length === 1 ? '' : 's') + ' exported')
 				} catch (e) { CM.toast(DM.friendly(e), 'err') } finally { exporting.value = false }
 			}
 			const chips = [['', 'All'], ...DM.STATUSES.map((s) => [s, s])]
-			return { rows, total, loading, busy, error, page, SIZE, q, status, demoType, owner, range, typeOpts, ownerOpts, typeTitle, view, closeDrawer, open, load, filtered, clear, menu, exportCsv, exporting, chips, leadUrl, meetLink, DM, CM }
+			return { rows, total, loading, busy, error, page, SIZE, q, status, demoType, owner, range, typeOpts, ownerOpts, typeTitle, view, closeDrawer, open, load, filtered, clear, menu, exportCsv, exporting, chips, leadUrl, meetLink, meetIcon, DM, CM }
 		},
 		template: `
 		<div class="page wide">
-			<div class="pg-head"><div class="grow"><h1>Demos</h1><p>Everyone who booked a demo, where they came from, and how it went.</p></div><div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
+			<div class="pg-head"><div class="grow"><h1>Bookings</h1><p>Everyone who booked, where they came from, and how it went.</p></div><div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
 			<div class="row wrap tools">
 				<div class="chips" role="group" aria-label="Status"><button v-for="c in chips" :key="c[0]" type="button" class="fchip" :class="{ on: status === c[0] }" :aria-pressed="status === c[0]" @click="status = c[0]">{{ c[1] }}</button></div>
 				<div class="grow"></div>
-				<div style="width:200px"><Dd v-model="demoType" :options="typeOpts" allow-empty="All demo widgets" placeholder="All demo widgets" aria-label="Demo widget" size="sm" /></div>
+				<div style="width:200px"><Dd v-model="demoType" :options="typeOpts" allow-empty="All widgets" placeholder="All widgets" aria-label="Widget" size="sm" /></div>
 				<div style="width:180px"><Dd v-model="owner" :options="ownerOpts" allow-empty="All hosts" placeholder="All hosts" aria-label="Host" size="sm" /></div>
 				<div style="width:min(260px,100%)"><Inp v-model="q" icon="search" placeholder="Search name, email or phone" clearable aria-label="Search bookings" /></div>
 			</div>
 			<template v-if="loading"><div class="card"><div v-for="n in 6" :key="n" style="padding:14px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div></template>
 			<ErrorState v-else-if="error" :message="error" @retry="load()" />
-			<Empty v-else-if="!rows.length" icon="calendar" :title="filtered ? 'No bookings match' : 'No bookings yet'" :text="filtered ? 'Change the filters or the date range.' : 'When a visitor books a demo through one of your pages, it shows up here.'"><Btn v-if="filtered" @click="clear">Clear filters</Btn><Btn v-else variant="primary" @click="CM.go('/types')">Go to demo widgets</Btn></Empty>
+			<Empty v-else-if="!rows.length" icon="calendar" :title="filtered ? 'No bookings match' : 'No bookings yet'" :text="filtered ? 'Change the filters or the date range.' : 'When a visitor books a demo through one of your pages, it shows up here.'"><Btn v-if="filtered" @click="clear">Clear filters</Btn><Btn v-else variant="primary" @click="CM.go('/types')">Go to widgets</Btn></Empty>
 			<div v-else class="card" :class="{ busy }" style="overflow:hidden">
 				<div class="table-wrap"><table class="tbl bk-tbl">
-					<thead><tr><th>Visitor</th><th>Demo</th><th>When</th><th>Status</th><th>Source</th><th>Medium</th><th>Campaign</th><th></th></tr></thead>
+					<thead><tr><th>Visitor</th><th>Widget</th><th>When</th><th>Status</th><th>Source</th><th>Medium</th><th>Campaign</th><th></th></tr></thead>
 					<tbody><tr v-for="b in rows" :key="b.name" class="click" tabindex="0" @click="view(b)" @keydown.enter="view(b)">
 						<td><b class="ellipsis" style="display:block;max-width:210px">{{ DM.who(b) }}</b><div class="small muted ellipsis" style="max-width:210px" :title="b.email + ' ' + (b.phone || '')">{{ b.email }}</div></td>
 						<td class="ellipsis" style="max-width:150px" :title="typeTitle(b)">{{ typeTitle(b) }}</td>
 						<td class="nowrap">{{ DM.when(b) }}</td>
 						<td><StatusBadge :value="b.status" /></td>
 						<td>{{ b.utm_source || '-' }}</td><td>{{ b.utm_medium || '-' }}</td><td class="ellipsis" style="max-width:130px" :title="b.utm_campaign">{{ b.utm_campaign || '-' }}</td>
-						<td class="num nowrap" @click.stop><a v-if="b.lead" class="btn ghost icon sm" :href="leadUrl(b)" title="Open lead" aria-label="Open lead" @click="CM.openCrm($event, leadUrl(b))"><Ico name="user" /></a><a v-if="meetLink(b)" class="btn ghost icon sm" :href="meetLink(b)" target="_blank" rel="noopener" title="Meeting link" aria-label="Meeting link"><Ico name="monitor" /></a><Menu :items="menu(b)" :label="'Actions for ' + DM.who(b)" /></td>
+						<td class="num nowrap" @click.stop><a v-if="b.lead" class="btn ghost icon sm" :href="leadUrl(b)" title="Open lead" aria-label="Open lead" @click="CM.openCrm($event, leadUrl(b))"><Ico name="user" /></a><a v-if="meetLink(b)" class="btn ghost icon sm" :href="meetLink(b)" target="_blank" rel="noopener" title="Meeting link" aria-label="Meeting link"><Ico :name="meetIcon(b)" /></a><Menu :items="menu(b)" :label="'Actions for ' + DM.who(b)" /></td>
 					</tr></tbody>
 				</table></div>
 				<Pager v-model:page="page" :size="SIZE" :total="total" />

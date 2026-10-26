@@ -125,7 +125,7 @@
 		template: `
 		<div class="col tabcol">
 			<div class="avgrid">
-				<Section title="Weekly hours" icon="clock" text="When visitors can book, in the time zone of this demo widget.">
+				<Section title="Weekly hours" icon="clock" text="When visitors can book, in the time zone of this widget.">
 					<template #actions><Menu :items="PRESETS.map((p) => ({ label: p.label, icon: 'clock', run: () => preset(p) })).concat([{ sep: true }, { label: 'Clear all days', icon: 'trash', run: () => weekdays.forEach((d) => toggleDay(d, false)) }])" label="Quick presets"><Btn size="sm" icon="zap">Presets</Btn></Menu></template>
 					<div class="chips presets"><button v-for="p in PRESETS.slice(0, 2)" :key="p.key" type="button" class="fchip" @click="preset(p)">{{ p.label }}</button></div>
 					<div v-if="errs.hours" class="alert err" role="alert"><Ico name="alert" /><div class="grow">{{ errs.hours }}</div></div>

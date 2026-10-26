@@ -186,6 +186,7 @@
 	var ICONS = {
 		calendar: '<rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
 		clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+		gmeet: '<path fill="#fff" stroke="none" d="M6 9.5h9.5v5H6z"/><path fill="#ea4335" stroke="none" d="M6 6v3.5H2z"/><path fill="#2684fc" stroke="none" d="M2 9.5h4v5H2z"/><path fill="#0066da" stroke="none" d="M2 14.5h4V18H4a2 2 0 0 1-2-2z"/><path fill="#ffba00" stroke="none" d="M6 6h7.5a2 2 0 0 1 2 2v1.5H6z"/><path fill="#00ac47" stroke="none" d="M6 14.5h9.5V16a2 2 0 0 1-2 2H6z"/><path fill="#00832d" stroke="none" d="m15.5 10.8 5.1-3.6a.6.6 0 0 1 .9.5v8.6a.6.6 0 0 1-.9.5l-5.1-3.6z"/>',
 		video: '<rect x="2.5" y="6" width="13" height="12" rx="3"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/>',
 		globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9S14.600 18.400 12 21c-2.600-2.600-3.900-5.600-3.900-9S9.400 5.600 12 3z"/>',
 		pin: '<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.500C5 14.800 12 21 12 21z"/><circle cx="12" cy="9.500" r="2.500"/>',
@@ -292,7 +293,7 @@
 	<ul class="bk-meta">\
 		<li v-if="whenText" class="bk-meta-when"><Ico n="calendar"/><span><b>{{ whenText.date }}</b><br>{{ whenText.time }}</span></li>\
 		<li v-if="demo.duration_minutes"><Ico n="clock"/><span>{{ demo.duration_minutes }} minutes</span></li>\
-		<li><Ico n="video"/><span>{{ where }}</span></li>\
+		<li><Ico :n="demo.provider === \'Manual Link\' ? \'video\' : \'gmeet\'"/><span>{{ where }}</span></li>\
 		<li v-if="showTz" class="bk-meta-tz"><TimezonePicker/></li>\
 	</ul>\
 	<p v-if="note" class="bk-panel-note">{{ note }}</p>\
@@ -778,7 +779,7 @@
 	<p class="bk-done-text">{{ rescheduled ? "We have sent you the new details." : ((demo.brand && demo.brand.success_text) || ("We have sent a confirmation" + (email ? " to " + email : "") + ".")) }}</p>\
 	<BookingSummary :booking="booking" :demo="demo"/>\
 	<div class="bk-done-actions">\
-		<a v-if="booking.meet_link" class="bk-btn primary" :href="booking.meet_link" target="_blank" rel="noopener"><Ico n="video" :size="18"/> Open Google Meet</a>\
+		<a v-if="booking.meet_link" class="bk-btn primary" :href="booking.meet_link" target="_blank" rel="noopener"><Ico n="gmeet" :size="18"/> Open Google Meet</a>\
 		<div class="bk-menu" ref="mroot">\
 			<button type="button" class="bk-btn ghost" @click="menu = !menu" :aria-expanded="menu" aria-haspopup="menu"><Ico n="calendar" :size="18"/> Add to calendar <Ico n="down" :size="14"/></button>\
 			<div v-if="menu" class="bk-pop bk-menu-pop" role="menu">\
