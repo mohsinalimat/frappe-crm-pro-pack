@@ -96,9 +96,10 @@ def level(feature, user=None):
 	user = user or frappe.session.user
 	f = R.BY_KEY[feature]
 	cache = _cache()
-	if user not in cache:
-		cache[user] = {k: v["value"] for k, v in explain(user).items()}
-	return cache[user][feature]
+	key = (user, frozenset(_roles(user)))  # a role added during the request (tests do this) must not be answered from the old roles
+	if key not in cache:
+		cache[key] = {k: v["value"] for k, v in explain(user).items()}
+	return cache[key][feature]
 
 
 def allows(feature, minimum, user=None):

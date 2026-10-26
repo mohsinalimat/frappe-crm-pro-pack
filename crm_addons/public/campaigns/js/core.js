@@ -127,6 +127,16 @@
 	const shared = (CM.shared = reactive({ config: null, fields: null, error: '', loading: false }))
 	let sharedP = null
 	// Resolves when the config is in (or failed). Callers can all await it; it is never started twice at once.
+	/** May the person do this? From the access settings the server sent (Team and access); allowed while they have not arrived yet. */
+	const ORDER = { campaigns: ['none', 'own', 'team', 'all'], automations: ['none', 'view', 'manage'], email_templates: ['none', 'view', 'edit'], whatsapp_templates: ['none', 'view', 'create'], audiences: ['none', 'view', 'edit'] }
+	CM.can = (feature, minimum) => {
+		const a = shared.config && shared.config.access
+		if (!a || a[feature] === undefined) return true
+		const order = ORDER[feature]
+		return order ? order.indexOf(a[feature]) >= order.indexOf(minimum) : !!Number(a[feature])
+	}
+	CM.canAny = (...pairs) => pairs.some(([f, m]) => CM.can(f, m))
+
 	CM.loadShared = (force) => {
 		if (sharedP && !force) return sharedP
 		if (shared.config && !force) return Promise.resolve()

@@ -49,7 +49,7 @@
 				if (!saveTpl.name.trim()) return CM.toast('Give the template a name.', 'warn')
 				try { await CM.api('save_as_template', { name: props.name, template_name: saveTpl.name, description: saveTpl.desc }); saveTpl.open = false; CM.toast('Saved as a campaign template') } catch (e) { CM.toast(e.message, 'err') }
 			}
-			const canManage = computed(() => !!(CM.shared.config && CM.shared.config.is_manager))
+			const canManage = computed(() => CM.can('campaign_create', 1))
 			const menu = computed(() => !c.value ? [] : [canManage.value && can('duplicate') && { label: 'Duplicate', icon: 'copy', run: dup }, CM.shared.config && CM.shared.config.is_manager && { label: 'Save as template', icon: 'bookmark', run: () => Object.assign(saveTpl, { open: true, name: c.value.campaign_name + ' template', desc: '' }) }, canManage.value && can('delete') && { sep: true }, canManage.value && can('delete') && { label: 'Delete', icon: 'trash', danger: true, run: del }].filter(Boolean))
 
 			// ---- numbers (only what the integrations really report)
@@ -129,7 +129,7 @@
 				if (!(await CM.confirm({ title: 'Opt this address out?', message: `${r.email || r.whatsapp_number} will not receive any future campaign on ${r.channel}.`, confirmText: 'Opt out', danger: true }))) return
 				try { await CM.api('opt_out_recipient', { recipient: r.name }); CM.toast('Added to the opt-out list') } catch (e) { CM.toast(e.message, 'err') }
 			}
-			const recMenu = (r) => (CM.shared.config && CM.shared.config.is_manager ? [{ label: 'Open lead', icon: 'external', run: () => CM.openCrm(null, CM.leadUrl(r.recipient_id)) }, { label: 'Opt out this address', icon: 'ban', danger: true, run: () => optOut(r) }] : [{ label: 'Open lead', icon: 'external', run: () => CM.openCrm(null, CM.leadUrl(r.recipient_id)) }])
+			const recMenu = (r) => (CM.can('campaign_create', 1) ? [{ label: 'Open lead', icon: 'external', run: () => CM.openCrm(null, CM.leadUrl(r.recipient_id)) }, { label: 'Opt out this address', icon: 'ban', danger: true, run: () => optOut(r) }] : [{ label: 'Open lead', icon: 'external', run: () => CM.openCrm(null, CM.leadUrl(r.recipient_id)) }])
 			return { canManage, canStep, stepBusy, toggleStep, triggerText, hoursText, res, money, range, anBusy, rangeText: computed(() => CM.rangeText(range.value)), deliveryParts, c, an, loading, error, busy, tab, saveTpl, can, load, pause, resume, cancel, retry, dup, saveAsTemplate, menu, chans, k, funnels, reasons, days, rec, loadRec, exportCsv, exporting, recMenu, REC_STATUS, COND, CM, mode, go: CM.go, open: (n) => CM.go(n), editUrl: () => CM.go('/campaigns/edit/' + encodeURIComponent(props.name)) }
 		},
 		template: `
@@ -260,7 +260,7 @@
 			const statusParts = computed(() => (data.value ? Object.entries(data.value.status_counts).map(([k, v]) => ({ label: k, value: v, color: { Completed: 'var(--green)', Running: 'var(--accent)', Draft: 'var(--border-strong)', Scheduled: 'var(--amber)', Paused: 'var(--amber)', Failed: 'var(--red)', Cancelled: 'var(--text-faint)', Queued: 'var(--accent)' }[k] || 'var(--text-faint)' })) : []))
 			const rate = (v) => (v ? v + '%' : '-')
 			const hasCost = computed(() => !!(data.value && data.value.totals && data.value.totals.cost != null))
-			return { canCreate: computed(() => !!(CM.shared.config && CM.shared.config.is_manager)), hasCost, data, loading, busy, error, range, compare, rangeText, prevText, t, kpis, rows, sort, setSort, load, exportCsv, statusParts, rate, CM, go: CM.go }
+			return { canCreate: computed(() => CM.can('campaign_create', 1)), hasCost, data, loading, busy, error, range, compare, rangeText, prevText, t, kpis, rows, sort, setSort, load, exportCsv, statusParts, rate, CM, go: CM.go }
 		},
 		template: `
 		<div class="page">
