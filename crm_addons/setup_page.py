@@ -194,3 +194,16 @@ def save_setup(values):
 	doc.save()
 	frappe.clear_document_cache(SETTINGS, SETTINGS)
 	return {"values": _values(), "status": _status()}
+
+
+@frappe.whitelist()
+def field_values(fieldname):
+	"""The values leads actually have in a field (most used first), so a highlighted count can be picked from a list instead of typed."""
+	_only_admins()
+	allowed = {f["value"] for f in _choices().get("lead_fields", [])}
+	if fieldname not in allowed:
+		return []
+	rows = frappe.db.sql(
+		f"select `{fieldname}`, count(*) c from `tabCRM Lead` where ifnull(`{fieldname}`, '') != '' group by `{fieldname}` order by c desc limit 100"
+	)
+	return [{"value": str(v), "label": str(v), "count": c} for v, c in rows]

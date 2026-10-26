@@ -385,7 +385,8 @@
   {
    "fieldname": "campaign_shortcut_roles",
    "fieldtype": "Small Text",
-   "label": "Roles that see the Campaigns shortcuts",
+   "label": "Roles that see the Campaigns shortcuts (no longer used: see Team and access)",
+   "hidden": 1,
    "depends_on": "campaigns_enabled",
    "description": "Comma-separated role names. Only people with one of these roles see the Campaigns button and menu link in CRM. Leave empty to show them to everyone."
   },

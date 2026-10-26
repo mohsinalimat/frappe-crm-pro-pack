@@ -36,10 +36,9 @@ def is_campaign_manager(user=None):
 
 
 def campaigns_shortcut_visible(settings=None, user=None):
-	"""The Campaigns button and menu link show to everyone, or only to the roles chosen in the setup page."""
-	settings = settings or get_settings()
-	wanted = {r.strip() for r in (settings.get("campaign_shortcut_roles") or "").replace("\n", ",").split(",") if r.strip()}
-	return not wanted or bool(wanted & set(frappe.get_roles(user or frappe.session.user)))
+	"""The Campaigns button and menu link. Who gets them is decided in Team and access (the person's campaign access), so the old
+	"who sees the shortcuts" role list is no longer used and every signed-in user passes here."""
+	return True
 
 
 def crm_url(reference_doctype, reference_docname):
