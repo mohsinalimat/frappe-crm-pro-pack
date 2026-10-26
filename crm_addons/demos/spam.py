@@ -161,5 +161,5 @@ def check_repeat_contact(demo, email, phone, exclude_booking=None):
 	if len([r for r in rows if r[0] != exclude_booking]) >= limit:
 		fail(
 			"repeat_contact",
-			_("You already have a demo booked with this email or phone number. Use the link in your confirmation to change or cancel it."),
+			_("You already have a booking with this email or phone number. Use the link in your confirmation to change or cancel it."),
 		)

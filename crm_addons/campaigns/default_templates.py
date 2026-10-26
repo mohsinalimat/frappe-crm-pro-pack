@@ -9,7 +9,7 @@ import json
 import zlib
 from html import escape
 
-VERSION = "1.5.0"  # bump to seed templates added in a later release
+VERSION = "1.6.0"  # bump to seed templates added in a later release
 ARIAL = "Arial, Helvetica, sans-serif"
 BLUE, INK, GREY = "#2563eb", "#14161a", "#3b4252"
 SETTINGS = {"bg": "#f4f5f7", "contentBg": "#ffffff", "width": 600, "font": "Arial"}
@@ -248,81 +248,89 @@ def _templates():
 				footer("Your company name, Street address, City"),
 			],
 		),
-		# ---- demo booking messages (names in demos/defaults.py; they use the demo_* variables) ------------------
+		# ---- booking messages (names in demos/defaults.py; they use the demo_* variables) ------------------
 		(
-			"Demo confirmed", "Your {{ demo_title }} is confirmed: {{ demo_date }}", "Transactional",
-			"Sent right after someone books a demo.",
+			"Booking confirmed", "Your {{ demo_title }} is confirmed: {{ demo_date }}", "Transactional",
+			"Sent right after someone books a time.",
 			[
 				heading("You are booked, {{ first_name }}", "h1"),
 				text(hi + "<p>Your <b>{{ demo_title }}</b> is confirmed.</p><p><b>When:</b> {{ demo_datetime }}<br><b>With:</b> {{ host_names }}<br><b>Length:</b> {{ demo_duration }} minutes</p>"),
-				button("Join the demo", "{{ meet_link }}"),
+				button("Join the meeting", "{{ meet_link }}"),
 				text('<p>Need another time? <a href="{{ reschedule_link }}">Reschedule</a> or <a href="{{ cancel_link }}">cancel</a>.</p>'),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Demo rescheduled", "Your {{ demo_title }} has a new time: {{ demo_date }}", "Transactional",
+			"Booking rescheduled", "Your {{ demo_title }} has a new time: {{ demo_date }}", "Transactional",
 			"Sent when the visitor picks a new time.",
 			[
-				heading("Your demo has a new time", "h1"),
+				heading("Your booking has a new time", "h1"),
 				text(hi + "<p>Your <b>{{ demo_title }}</b> now takes place on:</p><p><b>{{ demo_datetime }}</b><br>With {{ host_names }}</p>"),
-				button("Join the demo", "{{ meet_link }}"),
+				button("Join the meeting", "{{ meet_link }}"),
 				text('<p>Plans changed again? <a href="{{ reschedule_link }}">Pick another time</a> or <a href="{{ cancel_link }}">cancel</a>.</p>'),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Demo cancelled", "Your {{ demo_title }} on {{ demo_date }} was cancelled", "Transactional",
-			"Sent when the visitor or a host cancels a demo.",
+			"Booking cancelled", "Your {{ demo_title }} on {{ demo_date }} was cancelled", "Transactional",
+			"Sent when the visitor or a host cancels a booking.",
 			[
-				heading("Your demo was cancelled", "h1"),
-				text(hi + "<p>Your <b>{{ demo_title }}</b> on {{ demo_datetime }} has been cancelled.</p><p>We would still love to show you around. Pick a new time whenever it suits you.</p>"),
+				heading("Your booking was cancelled", "h1"),
+				text(hi + "<p>Your <b>{{ demo_title }}</b> on {{ demo_datetime }} has been cancelled.</p><p>Pick a new time whenever it suits you.</p>"),
 				button("Book a new time", "{{ booking_link }}"),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Demo reminder (24 hours)", "Tomorrow: {{ demo_title }} at {{ demo_time }}", "Transactional",
-			"A reminder the day before a demo.",
+			"Booking reminder (24 hours)", "Tomorrow: {{ demo_title }} at {{ demo_time }}", "Transactional",
+			"A reminder the day before a meeting.",
 			[
-				heading("Your demo is tomorrow", "h1"),
+				heading("Your meeting is tomorrow", "h1"),
 				text(hi + "<p>A quick reminder about your <b>{{ demo_title }}</b>:</p><p><b>{{ demo_datetime }}</b><br>With {{ host_names }}</p>"),
-				button("Join the demo", "{{ meet_link }}"),
+				button("Join the meeting", "{{ meet_link }}"),
 				text('<p>Cannot make it? <a href="{{ reschedule_link }}">Reschedule</a> or <a href="{{ cancel_link }}">cancel</a>.</p>'),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Demo reminder (1 hour)", "Starting in 1 hour: {{ demo_title }}", "Transactional",
-			"A reminder an hour before a demo.",
+			"Booking reminder (1 hour)", "Starting in 1 hour: {{ demo_title }}", "Transactional",
+			"A reminder an hour before a meeting.",
 			[
-				heading("Your demo starts in 1 hour", "h1"),
+				heading("Your meeting starts in 1 hour", "h1"),
 				text(hi + "<p>Your <b>{{ demo_title }}</b> starts at <b>{{ demo_time }}</b>.</p>"),
-				button("Join the demo", "{{ meet_link }}"),
+				button("Join the meeting", "{{ meet_link }}"),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Demo reminder (30 minutes)", "Starting in 30 minutes: {{ demo_title }}", "Transactional",
-			"A reminder half an hour before a demo.",
+			"Booking reminder (30 minutes)", "Starting in 30 minutes: {{ demo_title }}", "Transactional",
+			"A reminder half an hour before a meeting.",
 			[
-				heading("Your demo starts in 30 minutes", "h1"),
+				heading("Your meeting starts in 30 minutes", "h1"),
 				text(hi + "<p>Your <b>{{ demo_title }}</b> starts at <b>{{ demo_time }}</b>. Open the link a minute early to check your sound and video.</p>"),
-				button("Join the demo", "{{ meet_link }}"),
+				button("Join the meeting", "{{ meet_link }}"),
 				footer("Your company name, Street address, City"),
 			],
 		),
 		(
-			"Demo starting now", "{{ demo_title }} is starting now", "Transactional",
-			"Sent at the start time of a demo.",
+			"Booking starting now", "{{ demo_title }} is starting now", "Transactional",
+			"Sent at the start time of a meeting.",
 			[
-				heading("Your demo is starting", "h1"),
+				heading("Your meeting is starting", "h1"),
 				text(hi + "<p>Your <b>{{ demo_title }}</b> with {{ host_names }} is starting now.</p>"),
 				button("Join now", "{{ meet_link }}"),
 				footer("Your company name, Street address, City"),
 			],
 		),
 	]
+
+
+# The booking messages were first called "Demo ..." (never released); sites that seeded them get the new names.
+RENAMED = {
+	"Demo confirmed": "Booking confirmed", "Demo rescheduled": "Booking rescheduled", "Demo cancelled": "Booking cancelled",
+	"Demo reminder (24 hours)": "Booking reminder (24 hours)", "Demo reminder (1 hour)": "Booking reminder (1 hour)",
+	"Demo reminder (30 minutes)": "Booking reminder (30 minutes)", "Demo starting now": "Booking starting now",
+}
 
 
 def default_templates():

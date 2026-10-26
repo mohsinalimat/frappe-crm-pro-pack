@@ -704,14 +704,14 @@
 	function fold(line) { var out = []; while (line.length > 74) { out.push(line.slice(0, 74)); line = ' ' + line.slice(74) } out.push(line); return out.join('\r\n') }
 	function calendarInfo(b, startD, endD) {
 		var details = (b.meet_link ? 'Join: ' + b.meet_link + '\n' : '') + (b.manage_url ? 'Change or cancel: ' + absUrl(b.manage_url) : '')
-		return { title: b.title || 'Demo', details: details, where: b.meet_link || '', s: startD, e: endD, uid: (b.token || String(startD.getTime())) + '@crm-demo' }
+		return { title: b.title || 'Booking', details: details, where: b.meet_link || '', s: startD, e: endD, uid: (b.token || String(startD.getTime())) + '@crm-demo' }
 	}
 	function absUrl(u) { return safe(function () { return new URL(u, location.origin).href }, u) }
 	function googleLink(i) {
 		return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(i.title) + '&dates=' + icsStamp(i.s) + '/' + icsStamp(i.e) + '&details=' + encodeURIComponent(i.details) + (i.where ? '&location=' + encodeURIComponent(i.where) : '')
 	}
 	function icsBlob(i) {
-		var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CRM Pro Pack//Demo booking//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT', 'UID:' + i.uid, 'DTSTAMP:' + icsStamp(new Date()), 'DTSTART:' + icsStamp(i.s), 'DTEND:' + icsStamp(i.e),
+		var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CRM Pro Pack//Booking//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT', 'UID:' + i.uid, 'DTSTAMP:' + icsStamp(new Date()), 'DTSTART:' + icsStamp(i.s), 'DTEND:' + icsStamp(i.e),
 			'SUMMARY:' + icsEsc(i.title), 'DESCRIPTION:' + icsEsc(i.details)]
 		if (i.where) lines.push('LOCATION:' + icsEsc(i.where), 'URL:' + i.where)
 		lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'TRIGGER:-PT30M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR')
@@ -776,7 +776,7 @@
 		template: '\
 <section class="bk-done" aria-live="polite">\
 	<div class="bk-tick" aria-hidden="true"><Ico n="check" :size="26"/></div>\
-	<h1 class="bk-done-title" tabindex="-1" id="bk-done-title">{{ rescheduled ? "Your demo has been moved" : ((demo.brand && demo.brand.success_title) || "You are booked") }}</h1>\
+	<h1 class="bk-done-title" tabindex="-1" id="bk-done-title">{{ rescheduled ? "Your booking has been moved" : ((demo.brand && demo.brand.success_title) || "You are booked") }}</h1>\
 	<p class="bk-done-text">{{ rescheduled ? "We have sent you the new details." : ((demo.brand && demo.brand.success_text) || ("We have sent a confirmation" + (email ? " to " + email : "") + ".")) }}</p>\
 	<BookingSummary :booking="booking" :demo="demo"/>\
 	<div class="bk-done-actions">\
@@ -834,7 +834,7 @@
 					if (!d) throw new ApiError('', 'not_found', 404)
 					demo.value = d
 					applyBrand(d)
-					document.title = (d.title || 'Book a demo') + (d.brand && d.brand.name ? ' | ' + d.brand.name : '')
+					document.title = (d.title || 'Book a time') + (d.brand && d.brand.name ? ' | ' + d.brand.name : '')
 					nextTick(reportHeight)
 				}).catch(function (e) { err.value = e })
 			}
@@ -905,7 +905,7 @@
 				var slug = r.slug || d.slug || b.slug || b.demo_slug || ''
 				var canChange = r.can_change != null ? r.can_change : (r.can_modify != null ? r.can_modify : (r.can_reschedule != null ? r.can_reschedule : (b.can_change != null ? b.can_change : true)))
 				return { booking: b, slug: slug, status: String(b.status || r.status || '').toLowerCase(), canChange: !!canChange, past: !!(r.past || b.past),
-					demo: Object.assign({ title: b.title || d.title || 'Demo', description: d.description || r.description || '', duration_minutes: d.duration_minutes || r.duration_minutes || b.duration_minutes, provider: d.provider || r.provider, min_date: d.min_date || r.min_date, max_date: d.max_date || r.max_date, brand: brand, allow_guests: false, fields: [] }, d, { brand: brand }) }
+					demo: Object.assign({ title: b.title || d.title || 'Booking', description: d.description || r.description || '', duration_minutes: d.duration_minutes || r.duration_minutes || b.duration_minutes, provider: d.provider || r.provider, min_date: d.min_date || r.min_date, max_date: d.max_date || r.max_date, brand: brand, allow_guests: false, fields: [] }, d, { brand: brand }) }
 			}
 			function load() {
 				err.value = null
@@ -970,7 +970,7 @@
 		</div>\
 		<div v-else class="bk-formwrap">\
 			<div class="bk-status" :class="cancelled ? \'bad\' : isPast ? \'mute\' : \'good\'">{{ cancelled ? "Cancelled" : isPast ? "Completed" : (data.status === "rescheduled" ? "Rescheduled" : "Confirmed") }}</div>\
-			<h2 class="bk-form-title">{{ done === "cancelled" ? "Your booking is cancelled" : done === "rescheduled" ? "Your demo has been moved" : cancelled ? "This booking was cancelled" : isPast ? "This demo has already taken place" : "Your booking" }}</h2>\
+			<h2 class="bk-form-title">{{ done === "cancelled" ? "Your booking is cancelled" : done === "rescheduled" ? "Your booking has been moved" : cancelled ? "This booking was cancelled" : isPast ? "This booking has already taken place" : "Your booking" }}</h2>\
 			<BookingSummary :booking="data.booking" :demo="data.demo" :strike="cancelled"/>\
 			<div v-if="msg" class="bk-banner err" role="alert"><Ico n="alert" :size="18"/><span>{{ msg }}</span></div>\
 			<template v-if="mode === \'cancel\'">\

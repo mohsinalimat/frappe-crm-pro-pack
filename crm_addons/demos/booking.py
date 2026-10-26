@@ -385,7 +385,7 @@ def create_booking(demo, start, tz_name, answers=None, guests=None, consent=0, u
 		meeting = create_meeting(demo, booking.name, _meeting_payload(demo, lead, starts_site, ends_site, contact, extra_guests, extra, utm_now))
 		booking.db_set("meeting", meeting.name, update_modified=False)
 		messaging.queue_messages(booking.name, "Confirmed")
-		_tell_first_owner(demo, lead, _("New demo booked: {0} on {1}").format(contact["name"], starts_site))
+		_tell_first_owner(demo, lead, _("New booking: {0} on {1}").format(contact["name"], starts_site))
 	except Exception as exc:
 		_undo("demo_booking", exc, taken)
 		raise
@@ -398,7 +398,7 @@ def create_booking(demo, start, tz_name, answers=None, guests=None, consent=0, u
 
 def _changeable(row):
 	if not row or row.status not in ACTIVE or row.starts_utc <= common.utcnow():
-		fail("not_changeable", _("This demo has already started or was cancelled, so it can no longer be changed."))
+		fail("not_changeable", _("This booking has already started or was cancelled, so it can no longer be changed."))
 
 
 def reschedule(name, start, tz_name=None, by_team=False, fresh=False):
@@ -432,12 +432,12 @@ def reschedule(name, start, tz_name=None, by_team=False, fresh=False):
 			},
 		)
 		if frappe.db.sql("select row_count()")[0][0] != 1:
-			fail("not_changeable", _("This demo has already started or was cancelled, so it can no longer be changed."))
+			fail("not_changeable", _("This booking has already started or was cancelled, so it can no longer be changed."))
 		if row.meeting and frappe.db.exists("CRM Meeting", row.meeting):
 			_move_meeting(demo, row.meeting, starts_site, ends_site)
 		messaging.cancel_pending(name, _("Moved to a new time."), events=("Confirmed", "Rescheduled", "Reminder"))
 		messaging.queue_messages(name, "Rescheduled")
-		_tell_first_owner(demo, row.lead, _("Demo rescheduled to {0}").format(starts_site))
+		_tell_first_owner(demo, row.lead, _("Booking rescheduled to {0}").format(starts_site))
 	except Exception as exc:
 		_undo("demo_reschedule", exc, taken)
 		raise
@@ -467,7 +467,7 @@ def cancel(name, reason="", by_team=False, sync_meeting=True):
 		{"reason": cstr(reason)[:500] or None, "now": now_datetime(), "name": name, "active": ACTIVE},
 	)
 	if frappe.db.sql("select row_count()")[0][0] != 1:
-		fail("not_changeable", _("This demo has already started or was cancelled, so it can no longer be changed."))
+		fail("not_changeable", _("This booking has already started or was cancelled, so it can no longer be changed."))
 	if sync_meeting and row.meeting and frappe.db.exists("CRM Meeting", row.meeting):
 		doc = frappe.get_doc("CRM Meeting", row.meeting)
 		if doc.status != "Cancelled":
@@ -478,7 +478,7 @@ def cancel(name, reason="", by_team=False, sync_meeting=True):
 				doc.save(ignore_permissions=True)
 	messaging.cancel_pending(name, _("Booking cancelled."))
 	messaging.queue_messages(name, "Cancelled")
-	_tell_first_owner(demo, row.lead, _("Demo cancelled: {0}").format(common.to_site(row.starts_utc)))
+	_tell_first_owner(demo, row.lead, _("Booking cancelled: {0}").format(common.to_site(row.starts_utc)))
 	messaging.kick(name)
 	return name
 
@@ -565,7 +565,7 @@ def on_meeting_update(doc, method=None):
 		elif doc.meeting_outcome != before.meeting_outcome and doc.meeting_outcome in ("Held", "No Show"):
 			status = "Completed" if doc.meeting_outcome == "Held" else "No Show"
 			frappe.db.set_value(BOOKING, booking.name, "status", status, update_modified=False)
-			messaging.cancel_pending(booking.name, _("The demo is over."))
+			messaging.cancel_pending(booking.name, _("The booking is over."))
 		elif doc.status == "Scheduled" and booking.status in ACTIVE and get_datetime(before.starts_on) != get_datetime(doc.starts_on):
 			start = common.from_site(get_datetime(doc.starts_on))
 			frappe.db.sql(

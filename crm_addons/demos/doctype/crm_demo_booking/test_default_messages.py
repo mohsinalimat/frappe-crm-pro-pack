@@ -74,7 +74,7 @@ class TestDefaultMessages(DemoCase):
 	def test_an_approved_whatsapp_template_is_picked_up_with_its_variables(self):
 		self.seed_emails()
 		real = frappe.get_all
-		fake = [frappe._dict(name="demo_confirmed-en", actual_name="demo_confirmed", template_name="demo_confirmed", whatsapp_account="Acme")]
+		fake = [frappe._dict(name="booking_confirmed-en", actual_name="booking_confirmed", template_name="booking_confirmed", whatsapp_account="Acme")]
 
 		def get_all(doctype, *a, **k):
 			return fake if doctype == "WhatsApp Templates" else real(doctype, *a, **k)
@@ -82,7 +82,7 @@ class TestDefaultMessages(DemoCase):
 		with patch.object(frappe, "get_all", side_effect=get_all):
 			demo = self.make_demo("defaults-wa")
 		rule = next(r for r in demo.messages if r.event == "Confirmed")
-		self.assertEqual((rule.send_whatsapp, rule.wa_template, rule.wa_account), (1, "demo_confirmed-en", "Acme"))
+		self.assertEqual((rule.send_whatsapp, rule.wa_template, rule.wa_account), (1, "booking_confirmed-en", "Acme"))
 		self.assertEqual(frappe.parse_json(rule.wa_variables)["1"], "{{ first_name }}")
 		other = next(r for r in demo.messages if r.event == "Cancelled")
 		self.assertFalse(other.send_whatsapp)
@@ -100,16 +100,16 @@ class TestDefaultMessages(DemoCase):
 		self.assertEqual([(r["event"], r["minutes_before"]) for r in rows], defaults.ORDER)
 		first = rows[0]
 		self.assertTrue(first["email_exists"])
-		self.assertEqual(first["whatsapp"]["template_name"], "demo_confirmed")
+		self.assertEqual(first["whatsapp"]["template_name"], "booking_confirmed")
 		self.assertIn(first["whatsapp"]["state"], ("NOT CREATED", "PENDING", "APPROVED", "REJECTED", "NOT SYNCED"))
 		self.assertEqual(len(re.findall(r"\{\{\d\}\}", first["whatsapp"]["body"])), 6)
 
 	def test_submitting_a_default_goes_through_the_creator_and_only_for_managers(self):
-		with patch.object(campaign_api, "create_whatsapp_template", return_value={"name": "demo_reminder_1h-en", "status": "PENDING"}) as create:
+		with patch.object(campaign_api, "create_whatsapp_template", return_value={"name": "booking_reminder_1h-en", "status": "PENDING"}) as create:
 			out = admin.create_default_whatsapp_template("Reminder", 60)
 		self.assertEqual(out["status"], "PENDING")
 		sent = create.call_args[0][0]
-		self.assertEqual((sent["template_name"], sent["category"]), ("demo_reminder_1h", "UTILITY"))
+		self.assertEqual((sent["template_name"], sent["category"]), ("booking_reminder_1h", "UTILITY"))
 		with self.assertRaises(frappe.ValidationError):
 			admin.create_default_whatsapp_template("Reminder", 7)  # no ready-made message for that one
 		self.as_user(self.owner.name)

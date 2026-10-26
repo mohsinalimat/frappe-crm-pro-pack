@@ -46,7 +46,7 @@ def _visible(name):
 	"""Is this booking one of the demos the person may see?"""
 	cond = scope_sql(frappe.session.user)
 	if cond and not frappe.db.sql(f"select 1 from `tab{BOOKING}` where name = %s and {cond}", name):
-		frappe.throw(_("You do not have access to this demo."), frappe.PermissionError)
+		frappe.throw(_("You do not have access to this booking."), frappe.PermissionError)
 
 
 def _json(value, default):
@@ -118,7 +118,7 @@ def _next_slot(name):
 def get_demo_type(name):
 	_widgets()
 	if not frappe.db.exists(DEMO_TYPE, name):
-		frappe.throw(_("Demo type {0} was not found.").format(name), frappe.DoesNotExistError)
+		frappe.throw(_("Widget {0} was not found.").format(name), frappe.DoesNotExistError)
 	return _type_dict(name)
 
 
@@ -160,7 +160,7 @@ def duplicate_demo_type(name, slug=None, title=None):
 def delete_demo_type(name):
 	_widgets("manage")
 	if frappe.db.count(BOOKING, {"demo_type": name}):
-		frappe.throw(_("This demo type has bookings, so it cannot be deleted. Switch it off instead."))
+		frappe.throw(_("This widget has bookings, so it cannot be deleted. Switch it off instead."))
 	frappe.delete_doc(DEMO_TYPE, name, ignore_permissions=True)
 	return {"ok": True}
 
@@ -270,7 +270,7 @@ def _close(name, status):
 	if row.status == "Cancelled":
 		frappe.throw(_("A cancelled booking cannot be completed."))
 	frappe.db.set_value(BOOKING, name, "status", status, update_modified=False)
-	messaging.cancel_pending(name, _("The demo is over."))
+	messaging.cancel_pending(name, _("The booking is over."))
 	if row.meeting and frappe.db.exists("CRM Meeting", row.meeting):
 		meeting = frappe.get_doc("CRM Meeting", row.meeting)
 		if meeting.status != "Cancelled":
@@ -307,7 +307,7 @@ def set_my_demo_outcome(booking, outcome):
 	if sees_others_demos():
 		cond = scope_sql(frappe.session.user) or "1 = 1"
 	if not frappe.db.sql(f"select 1 from `tab{BOOKING}` where name = %s and {cond}", booking):
-		frappe.throw(_("You can only record the outcome of a demo you take part in."), frappe.PermissionError)
+		frappe.throw(_("You can only record the outcome of a booking you take part in."), frappe.PermissionError)
 	_close(booking, outcome)
 	return {"ok": True, "status": outcome}
 
@@ -323,7 +323,7 @@ def send_test_message(demo_type, event, minutes_before=0, channel="Email"):
 		(r for r in demo.messages if r.event == event and (event != "Reminder" or cint(r.minutes_before) == cint(minutes_before))), None
 	)
 	if not rule:
-		frappe.throw(_("That message is not part of this demo type. Save it first."))
+		frappe.throw(_("That message is not part of this widget. Save it first."))
 	return {"message": messaging.send_test(demo, rule, channel, frappe.session.user)}
 
 
@@ -361,7 +361,7 @@ def demo_report(from_date=None, to_date=None, demo_type=None):
 def get_embed_code(slug):
 	_widgets()
 	if not frappe.db.exists(DEMO_TYPE, slug):
-		frappe.throw(_("Demo type {0} was not found.").format(slug), frappe.DoesNotExistError)
+		frappe.throw(_("Widget {0} was not found.").format(slug), frappe.DoesNotExistError)
 	url = common.public_url(slug)
 	script = get_url("/assets/crm_addons/book/embed.js")
 	return {

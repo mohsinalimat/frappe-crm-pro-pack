@@ -420,7 +420,7 @@
 		<div class="row" v-else-if="m.status === 'Scheduled'"><ico name="video" /><div class="sub">No video link on this meeting.</div></div>
 		<div class="row"><ico name="contact" /><div><a href="#" @click.prevent="openRecord">{{ m.reference_title }}</a><div class="sub">Lead · {{ m.reference_docname }}</div></div></div>
 		<div class="row"><ico name="user" /><div>Organizer: <b>{{ m.organizer_name }}</b></div></div>
-		<div class="demo-box" v-if="demo"><div class="demo-h"><span class="badge demo">Demo</span><b>{{ m.demo_type_title || m.demo_type || 'Demo booking' }}</b></div>
+		<div class="demo-box" v-if="demo"><div class="demo-h"><span class="badge demo">Booking</span><b>{{ m.demo_type_title || m.demo_type || 'Booking' }}</b></div>
 			<div class="demo-utm" v-if="demoUtm.length"><span v-for="u in demoUtm" :key="u[0]"><i>{{ u[0] }}</i> {{ u[1] }}</span></div>
 			<div class="demo-act" v-if="m.can_edit !== false && m.status !== 'Cancelled'"><button class="btn" :class="{ on: m.meeting_outcome === 'Held' }" :disabled="busy" @click="outcome('held')"><ico name="check" /> Held</button><button class="btn" :class="{ on: m.meeting_outcome === 'No Show' }" :disabled="busy" @click="outcome('noshow')"><ico name="x" /> No show</button></div></div>
 		<div class="row" v-if="m.description"><ico name="text" /><div style="white-space:pre-wrap">{{ m.description }}</div></div>
@@ -978,7 +978,7 @@
 						<div class="card" :class="[statusClass(m), { demo: isDemo(m) }]" v-for="m in g.items" :key="m.name" @click="pickMeeting(m)" tabindex="0" @keydown.enter="pickMeeting(m)">
 							<div class="bar"></div>
 							<div class="card-body">
-								<div class="time">{{ shortRange(m) }} <span class="badge demo" v-if="isDemo(m)">Demo</span> <span class="badge cancelled" v-if="m.status === 'Cancelled'">Cancelled</span><span class="badge completed" v-else-if="m.status === 'Completed'">Completed</span></div>
+								<div class="time">{{ shortRange(m) }} <span class="badge demo" v-if="isDemo(m)">Booking</span> <span class="badge cancelled" v-if="m.status === 'Cancelled'">Cancelled</span><span class="badge completed" v-else-if="m.status === 'Completed'">Completed</span></div>
 								<div class="title">{{ m.subject }}</div>
 								<div class="meta"><span class="chip demo-type" v-if="isDemo(m) && (m.demo_type_title || m.demo_type)">{{ m.demo_type_title || m.demo_type }}</span><span class="chip">Lead · {{ m.reference_title }}</span><span class="chip src" v-if="isDemo(m) && demoSource(m)" title="Where the visitor came from (UTM)">{{ demoSource(m) }}</span><span v-if="scope === 'all' && !isDemo(m)">by {{ m.organizer_name }}</span><span v-if="m.attendees.length">{{ m.attendees.length }} guest{{ m.attendees.length === 1 ? '' : 's' }}</span></div>
 							</div>

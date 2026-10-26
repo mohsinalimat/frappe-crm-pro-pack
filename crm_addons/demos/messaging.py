@@ -138,7 +138,7 @@ def queue_messages(booking, event, now=None, reminders=True):
 			elif channel == "WhatsApp" and not cint(b.whatsapp_consent):
 				status, error = "Skipped", _("The visitor did not agree to WhatsApp updates.")
 			elif reminder and due <= now:
-				status, error = "Skipped", _("Too late: the demo starts sooner than this reminder.")
+				status, error = "Skipped", _("Too late: the booking starts sooner than this reminder.")
 			_add_row(b.name, rule.event, channel, due, status, error, rule.minutes_before if reminder else None)
 			count += 1
 	return count
@@ -294,18 +294,18 @@ def _deliver(name):
 		as_dict=True,
 	)
 	if not booking or not frappe.db.exists(DEMO_TYPE, booking.demo_type):
-		raise Skipped(_("The booking or its demo type no longer exists."))
+		raise Skipped(_("The booking or its widget no longer exists."))
 	if row.event == "Cancelled":
 		if booking.status != "Cancelled":
 			raise Skipped(_("The booking is no longer cancelled."))
 	elif booking.status not in ACTIVE:
 		raise Skipped(_("The booking was cancelled or is already over."))
 	elif row.event == "Reminder" and booking.starts_utc <= common.utcnow():
-		raise Skipped(_("The demo has already started."))
+		raise Skipped(_("The booking has already started."))
 	demo = frappe.get_cached_doc(DEMO_TYPE, booking.demo_type)
 	rule = _rule_for(demo, row)
 	if not rule:
-		raise Skipped(_("This message was removed from the demo type."))
+		raise Skipped(_("This message was removed from the widget."))
 	context = demo_context(booking, demo)
 	if row.channel == "Email":
 		return _send_email(booking, demo, rule, context)
