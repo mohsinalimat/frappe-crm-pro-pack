@@ -349,6 +349,34 @@ def resend_message(booking, event=None, message=None):
 
 
 @frappe.whitelist()
+def get_notify_options(booking):
+	"""For the Notify dialog: what can be sent again, on which channels, and whether the visitor agreed to WhatsApp."""
+	_demos(others=True)
+	_visible(booking)
+	row = frappe.db.get_value(BOOKING, booking, ["status", "whatsapp_consent", "phone", "email"], as_dict=True)
+	if not row:
+		frappe.throw(_("Booking {0} was not found.").format(booking), frappe.DoesNotExistError)
+	return {"options": messaging.notify_options(booking), "whatsapp_consent": bool(cint(row.whatsapp_consent)), "has_phone": bool(row.phone), "status": row.status}
+
+
+@frappe.whitelist()
+def notify_booking(booking, event, minutes_before=0, channels=None, hosts=0):
+	"""Send the visitor a booking message again, by email and/or WhatsApp, and (when asked) tell the hosts too in CRM and by email."""
+	_demos(others=True)
+	_visible(booking)
+	channels = [c for c in (frappe.parse_json(channels) if isinstance(channels, str) else (channels or ["Email", "WhatsApp"])) if c in ("Email", "WhatsApp")]
+	if not channels:
+		frappe.throw(_("Choose Email, WhatsApp or both."))
+	if event not in ("Confirmed", "Rescheduled", "Reminder"):
+		frappe.throw(_("Choose what to send."))
+	result = messaging.queue_manual(booking, event, cint(minutes_before), channels)
+	told = messaging.notify_hosts(booking, event) if cint(hosts) else 0
+	if any(status == "Pending" for _c, status, _e in result):
+		messaging.send_for_booking(booking)
+	return {"ok": True, "sent": [c for c, s, _e in result if s == "Pending"], "skipped": [{"channel": c, "reason": e} for c, s, e in result if s == "Skipped"], "hosts": told}
+
+
+@frappe.whitelist()
 def demo_report(from_date=None, to_date=None, demo_type=None):
 	access.require("demo_report", 1, _("You do not have access to the bookings report."))
 	return report.demo_report(from_date, to_date, demo_type, scope_sql(frappe.session.user, "b") or None)

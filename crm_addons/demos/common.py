@@ -115,6 +115,18 @@ def full_name(user):
 	return (frappe.db.get_value("User", user, "full_name") if user else "") or user or ""
 
 
+def minutes_label(minutes):
+	"""1440 -> "24 hours", 60 -> "1 hour", 30 -> "30 minutes"."""
+	minutes = int(minutes or 0)
+	if minutes and minutes % 1440 == 0:
+		n = minutes // 1440
+		return f"{n} day" + ("" if n == 1 else "s")
+	if minutes and minutes % 60 == 0:
+		n = minutes // 60
+		return f"{n} hour" + ("" if n == 1 else "s")
+	return f"{minutes} minutes"
+
+
 def owners_of(demo, enabled_only=True):
 	"""The owners' user names in the order the admin gave them."""
 	users = [row.user for row in demo.get("owners") or [] if row.user]

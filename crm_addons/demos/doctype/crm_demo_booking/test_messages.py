@@ -338,3 +338,31 @@ class TestVariables(MessageCase):
 		self.assertEqual(context["host_name"], "owner.test")
 		self.assertEqual(context["host_names"], "owner.test and owner2.test")
 		self.assertEqual(context["first_name"], "Visitor")
+
+
+class TestManualNotify(MessageCase):
+	def test_notify_sends_again_on_the_chosen_channels_and_tells_the_hosts(self):
+		from crm_addons.demos import admin
+
+		demo = self.demo_with_messages()
+		name = self.book(demo, ist("2030-03-06", 10), consent=1)
+		before = len(self.rows(name))
+		opts = {o["key"]: o for o in admin.get_notify_options(name)["options"]}
+		self.assertIn("Confirmed:0", opts)
+		self.assertIn("Reminder:60", opts)
+		out = admin.notify_booking(name, "Reminder", 60, ["Email", "WhatsApp"], 1)
+		self.assertEqual(sorted(out["sent"]), ["Email", "WhatsApp"])
+		self.assertGreaterEqual(out["hosts"], 1)
+		self.assertEqual(len(self.rows(name)), before + 2)
+		new = [r for r in self.rows(name) if r.event == "Reminder" and r.minutes_before == 60 and r.status == "Sent"]
+		self.assertGreaterEqual(len(new), 2)  # the email and the WhatsApp message really went through the sender (faked)
+		self.assertTrue(self.wa_sent)
+
+	def test_whatsapp_without_consent_is_skipped_with_a_reason(self):
+		from crm_addons.demos import admin
+
+		demo = self.demo_with_messages()
+		name = self.book(demo, ist("2030-03-06", 10), consent=0)
+		out = admin.notify_booking(name, "Reminder", 60, ["WhatsApp"], 0)
+		self.assertEqual(out["sent"], [])
+		self.assertIn("did not agree", out["skipped"][0]["reason"])

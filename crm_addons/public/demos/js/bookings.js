@@ -14,6 +14,56 @@
 	const meetLink = (b) => b.meet_link || b.meeting_link || b.google_meet_link || ''
 	const MSG_TONE = { Sent: 'green', Failed: 'red', Skipped: 'amber', Pending: 'neutral', Sending: 'blue' }
 
+	/** "Notify": send the visitor a booking message again (email and/or WhatsApp), and optionally tell the hosts. */
+	V.NotifyModal = {
+		props: { booking: Object },
+		emits: ['close', 'done'],
+		setup(props, { emit }) {
+			const info = ref(null); const error = ref(''); const busy = ref(false)
+			const f = reactive({ key: '', email: true, whatsapp: true, hosts: false })
+			onMounted(async () => {
+				try { info.value = await DM.api('get_notify_options', { booking: props.booking.name }); const first = info.value.options[0]; f.key = first ? first.key : ''; f.whatsapp = !!info.value.whatsapp_consent } catch (e) { error.value = DM.friendly(e) }
+			})
+			const opts = computed(() => ((info.value && info.value.options) || []).map((o) => ({ value: o.key, label: o.label, sub: [o.email ? 'email' : '', o.whatsapp ? 'WhatsApp' : ''].filter(Boolean).join(' + ') || 'no template chosen' })))
+			const chosen = computed(() => ((info.value && info.value.options) || []).find((o) => o.key === f.key))
+			const canWa = computed(() => !!(info.value && info.value.whatsapp_consent && info.value.has_phone && chosen.value && chosen.value.whatsapp))
+			watch([chosen, info], () => { if (!info.value) return; if (!canWa.value) f.whatsapp = false; else f.whatsapp = true; if (chosen.value && !chosen.value.email) f.email = false; else if (chosen.value) f.email = true })
+			async function send() {
+				const o = chosen.value; if (!o) return
+				const channels = [f.email && 'Email', f.whatsapp && 'WhatsApp'].filter(Boolean)
+				if (!channels.length && !f.hosts) { error.value = 'Choose email, WhatsApp or both.'; return }
+				busy.value = true; error.value = ''
+				try {
+					const r = await DM.api('notify_booking', { booking: props.booking.name, event: o.event, minutes_before: o.minutes_before, channels: JSON.stringify(channels.length ? channels : ['Email']), hosts: f.hosts ? 1 : 0 })
+					const bits = []
+					if (r.sent.length) bits.push('sent by ' + r.sent.join(' and ').toLowerCase())
+					if (r.hosts) bits.push(r.hosts + ' host' + (r.hosts === 1 ? '' : 's') + ' told')
+					const skipped = (r.skipped || []).map((x) => x.channel + ': ' + x.reason).join(' ')
+					CM.toast((bits.length ? 'Notification ' + bits.join(', ') + '.' : 'Nothing was sent.') + (skipped ? ' ' + skipped : ''), skipped && !bits.length ? 'err' : undefined)
+					emit('done')
+				} catch (e) { error.value = DM.friendly(e) } finally { busy.value = false }
+			}
+			return { info, error, busy, f, opts, chosen, canWa, send, DM }
+		},
+		template: `
+		<Modal title="Notify" :subtitle="'Send ' + DM.who(booking) + ' the booking details again.'" @close="$emit('close')">
+			<div class="col" style="gap:14px">
+				<Skel v-if="!info && !error" h="120" r="10" />
+				<div v-if="error" class="alert err"><Ico name="alert" /><div class="grow">{{ error }}</div></div>
+				<template v-if="info">
+					<div v-if="!opts.length" class="alert warn"><Ico name="info" /><div class="grow">This widget has no messages set up. Add them under Widgets, Messages.</div></div>
+					<template v-else>
+						<Field label="What to send"><Dd v-model="f.key" :options="opts" aria-label="What to send" /></Field>
+						<div class="col" style="gap:8px"><label class="check"><input type="checkbox" v-model="f.email" :disabled="chosen && !chosen.email" /> Email to {{ booking.email }}</label>
+							<label class="check"><input type="checkbox" v-model="f.whatsapp" :disabled="!info.whatsapp_consent || !info.has_phone || (chosen && !chosen.whatsapp)" /> WhatsApp to {{ booking.phone || 'their number' }} <span class="small muted">{{ !info.has_phone ? '(no number)' : !info.whatsapp_consent ? '(they did not agree to WhatsApp updates)' : chosen && !chosen.whatsapp ? '(no WhatsApp template chosen)' : '' }}</span></label>
+							<label class="check"><input type="checkbox" v-model="f.hosts" /> Also tell the hosts (CRM notification and email)</label></div>
+					</template>
+				</template>
+			</div>
+			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="send" :loading="busy" :disabled="!info || !chosen" @click="send">Send now</Btn></template>
+		</Modal>`,
+	}
+
 	V.BookingDrawer = {
 		props: { name: String },
 		emits: ['close', 'changed'],
@@ -33,9 +83,10 @@
 				busy.value = m.name || m.event + m.channel
 				try { await DM.api('resend_message', m.name ? { booking: b.value.name, message: m.name } : { booking: b.value.name, event: m.event }); CM.toast('Message queued to send'); load() } catch (e) { CM.toast(DM.friendly(e), 'err') } finally { busy.value = '' }
 			}
+			const notifyOpen = ref(false)
 			const leadUrl = computed(() => (b.value && b.value.lead ? b.value.lead_url || CM.leadUrl(b.value.lead) : ''))
 			const statusItems = computed(() => [{ label: 'Mark as held', icon: 'check-circle', run: () => setStatus('Completed') }, { label: 'Mark as no-show', icon: 'ban', run: () => setStatus('No Show') }, ...(DM.canActOnOthers() ? [{ sep: true }, { label: 'Cancel booking', icon: 'x-circle', danger: true, run: () => setStatus('Cancelled') }] : [])])
-			return { statusItems, b, loading, error, load, answers, utm, touchRows, msgs, setStatus, resend, busy, leadUrl, meetLink, meetIcon, MSG_TONE, DM, CM }
+			return { notifyOpen, statusItems, b, loading, error, load, answers, utm, touchRows, msgs, setStatus, resend, busy, leadUrl, meetLink, meetIcon, MSG_TONE, DM, CM }
 		},
 		template: `
 		<Drawer wide :title="b ? DM.who(b) : 'Booking'" :subtitle="b ? b.demo_title || b.demo_type_title || b.demo_type : ''" @close="$emit('close')">
@@ -46,6 +97,7 @@
 				<div class="row wrap" style="gap:8px">
 					<a v-if="leadUrl" class="btn sm" :href="leadUrl" @click="CM.openCrm($event, leadUrl)"><Ico name="user" />Open lead</a>
 					<a v-if="meetLink(b)" class="btn sm" :href="meetLink(b)" target="_blank" rel="noopener"><Ico :name="meetIcon(b)" />Meeting link</a>
+					<Btn v-if="b.status !== 'Cancelled'" size="sm" icon="send" @click="notifyOpen = true">Notify</Btn>
 					<Menu :items="statusItems" label="Change status"><Btn size="sm" icon="chevron-down">Change status</Btn></Menu>
 				</div>
 				<h4 class="dh">Visitor</h4>
@@ -59,6 +111,7 @@
 				<div v-if="!msgs.length" class="small faint">No messages were queued for this booking.</div>
 				<ul v-else class="mlog" role="list"><li v-for="(m, i) in msgs" :key="i"><ChannelBadge :value="m.channel" /><div class="grow"><b>{{ m.event === 'Reminder' && m.minutes_before !== undefined ? DM.offsetLabel(m.minutes_before) + ' reminder' : m.event }}</b><div class="small muted">Due {{ CM.fmt(m.due_at) }}<template v-if="m.sent_at"> - sent {{ CM.fmt(m.sent_at) }}</template></div><div v-if="m.error" class="small" style="color:var(--red)">{{ m.error }}</div></div><span class="badge" :class="MSG_TONE[m.status] || 'neutral'">{{ m.status }}</span><Btn v-if="(m.status === 'Failed' || m.status === 'Sent') && DM.canActOnOthers()" size="sm" variant="ghost" icon="retry" :loading="busy === (m.name || m.event + m.channel)" :aria-label="'Resend ' + m.event" title="Send again" @click="resend(m)" /></li></ul>
 			</template>
+			<NotifyModal v-if="notifyOpen && b" :booking="b" @close="notifyOpen = false" @done="notifyOpen = false; load()" />
 		</Drawer>`,
 	}
 
@@ -119,11 +172,13 @@
 				{ label: 'View details', icon: 'eye', run: () => view(b) },
 				b.lead ? { label: 'Open lead', icon: 'user', run: () => CM.openCrm(null, leadUrl(b)) } : null,
 				meetLink(b) ? { label: 'Open meeting link', icon: meetIcon(b) === 'gmeet' ? 'gmeet' : 'external', run: () => window.open(meetLink(b), '_blank', 'noopener') } : null,
+				b.status !== 'Cancelled' ? { label: 'Notify', icon: 'send', run: () => (notify.value = b) } : null,
 				{ sep: true },
 				{ label: 'Mark as held', icon: 'check-circle', run: () => DM.changeStatus(b, 'Completed', () => load(true)), disabled: b.status === 'Completed' },
 				{ label: 'Mark as no-show', icon: 'ban', run: () => DM.changeStatus(b, 'No Show', () => load(true)), disabled: b.status === 'No Show' },
 				DM.canActOnOthers() ? { label: 'Cancel booking', icon: 'x-circle', danger: true, run: () => DM.changeStatus(b, 'Cancelled', () => load(true)), disabled: b.status === 'Cancelled' } : null,
 			]
+			const notify = ref(null)
 			const exporting = ref(false)
 			async function exportCsv() {
 				exporting.value = true
@@ -136,7 +191,7 @@
 			}
 			const layout = CM.useLayout('crm_bookings_layout', 'list')
 			const chips = [['', 'All'], ...DM.STATUSES.map((s) => [s, s])]
-			return { layout, rows, total, loading, busy, error, page, SIZE, q, status, demoType, owner, range, typeOpts, ownerOpts, typeTitle, view, closeDrawer, open, load, filtered, clear, menu, exportCsv, exporting, chips, leadUrl, meetLink, meetIcon, DM, CM }
+			return { notify, layout, rows, total, loading, busy, error, page, SIZE, q, status, demoType, owner, range, typeOpts, ownerOpts, typeTitle, view, closeDrawer, open, load, filtered, clear, menu, exportCsv, exporting, chips, leadUrl, meetLink, meetIcon, DM, CM }
 		},
 		template: `
 		<div class="page wide">
@@ -175,6 +230,7 @@
 				</table></div>
 				<Pager v-model:page="page" :size="SIZE" :total="total" />
 			</div>
+			<NotifyModal v-if="notify" :booking="notify" @close="notify = null" @done="notify = null; load(true)" />
 			<BookingDrawer v-if="open" :name="open" @close="closeDrawer" @changed="load(true)" />
 		</div>`,
 	}

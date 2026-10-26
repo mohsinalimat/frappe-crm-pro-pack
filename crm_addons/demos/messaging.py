@@ -146,6 +146,45 @@ def queue_messages(booking, event, now=None, reminders=True):
 	return count
 
 
+def notify_options(booking):
+	"""What an admin can send again for this booking: its confirmation and each reminder the widget has, with which channels have a template."""
+	b = _booking_row(booking)
+	demo = frappe.get_cached_doc(DEMO_TYPE, b.demo_type)
+	out = []
+	for rule in demo.get("messages") or []:
+		if rule.event not in ("Confirmed", "Reminder", "Rescheduled"):
+			continue
+		mins = cint(rule.minutes_before) if rule.event == "Reminder" else None
+		label = {"Confirmed": _("Confirmation"), "Rescheduled": _("New time"), "Reminder": (_("Reminder, {0} before").format(common.minutes_label(mins)) if mins else _("Reminder: starting now"))}[rule.event]
+		out.append({"key": f"{rule.event}:{mins or 0}", "event": rule.event, "minutes_before": mins or 0, "label": label, "email": bool(rule.email_template), "whatsapp": bool(rule.wa_template)})
+	return out
+
+
+def queue_manual(booking, event, minutes_before=0, channels=("Email", "WhatsApp")):
+	"""An admin's "Notify": the widget's own message for ``event`` goes to the visitor now, on the chosen channels, whatever the rule's
+	on/off switch says (a template must be chosen; WhatsApp still needs the visitor's consent). Returns [(channel, status, reason)]."""
+	b = _booking_row(booking)
+	demo = frappe.get_cached_doc(DEMO_TYPE, b.demo_type)
+	rule = next((r for r in demo.get("messages") or [] if r.event == event and (event != "Reminder" or cint(r.minutes_before) == cint(minutes_before))), None)
+	if not rule:
+		frappe.throw(_("That message is not part of this widget."))
+	if b.status in ("Cancelled",) and event != "Cancelled":
+		frappe.throw(_("This booking is cancelled."))
+	now = common.site_now()
+	result = []
+	for channel, template in (("Email", rule.email_template), ("WhatsApp", rule.wa_template)):
+		if channel not in channels:
+			continue
+		status, error = "Pending", ""
+		if not template:
+			status, error = "Skipped", _("No template is chosen for this message.")
+		elif channel == "WhatsApp" and not cint(b.whatsapp_consent):
+			status, error = "Skipped", _("The visitor did not agree to WhatsApp updates.")
+		_add_row(b.name, rule.event, channel, now, status, error, rule.minutes_before if event == "Reminder" else None)
+		result.append((channel, status, error))
+	return result
+
+
 def queue_messages_now(booking, event):
 	"""Only the message for ``event`` itself, due now (an admin's Resend); no reminders are planned."""
 	return queue_messages(booking, event, reminders=False)
@@ -398,3 +437,32 @@ def retry(message_name):
 		(common.site_now(), now_datetime(), message_name),
 	)
 	return frappe.db.sql("select row_count()")[0][0] == 1
+
+
+def notify_hosts(booking, event):
+	"""Tell everybody who hosts this booking (CRM bell and an email with the time and the link). Returns how many people were told."""
+	from crm_addons import notifications
+	from crm_addons.campaigns.channels import queue_email
+
+	row = frappe.db.get_value(BOOKING, booking, ["name", "demo_type", "name_", "lead", "starts_utc"], as_dict=True)
+	if not row:
+		return 0
+	demo = frappe.get_cached_doc(DEMO_TYPE, row.demo_type)
+	owners = common.owners_of(demo)
+	when = common.to_site(row.starts_utc).strftime("%a %d %b %Y, %I:%M %p")
+	meet = frappe.db.get_value(BOOKING, booking, "meeting")
+	link = (frappe.db.get_value("CRM Meeting", meet, "google_meet_link") if meet else "") or demo.get("manual_link") or ""
+	text = _("{0}: {1} with {2} on {3}").format(_("Reminder") if event == "Reminder" else _("Booking"), demo.title, row.name_, when)
+	count = 0
+	for user in owners:
+		if row.lead:
+			notifications.create_record_notification(LEAD, row.lead, user, text, kind="scheduled")
+		email = frappe.db.get_value("User", user, "email")
+		if email:
+			try:
+				html = f"<p>{frappe.utils.escape_html(text)}</p>" + (f'<p><a href="{frappe.utils.escape_html(link)}">{frappe.utils.escape_html(link)}</a></p>' if link else "")
+				queue_email(email, text, html, html, LEAD if row.lead else None, row.lead, None, unsubscribe=False)
+			except Exception:
+				frappe.log_error(title="CRM Pro Pack: host notification email failed", message=frappe.get_traceback())
+		count += 1
+	return count
