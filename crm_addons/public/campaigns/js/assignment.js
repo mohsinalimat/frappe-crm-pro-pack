@@ -2,7 +2,7 @@
  * the leads you already have to people, move one person's leads to others - each a short form that reads like a sentence.
  * The server does all the work and all the checking; this only asks and shows. */
 (() => {
-	const { ref, reactive, computed, watch, onMounted, onBeforeUnmount } = Vue
+	const { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } = Vue
 	const CM = window.CM
 	const C = CM.components
 	const V = CM.views
@@ -44,7 +44,10 @@
 			const outside = (e) => { if (open.value && root.value && !root.value.contains(e.target)) open.value = false }
 			onMounted(() => { loadPeople(); document.addEventListener('mousedown', outside) })
 			onBeforeUnmount(() => document.removeEventListener('mousedown', outside))
-			return { open, q, free, add, remove, root, nameOf }
+			const searchBox = ref(null)
+			watch(open, (v) => { if (v) nextTick(() => { const i = root.value && root.value.querySelector('.pf-pop input'); if (i) i.focus() }) })
+			const emptyText = computed(() => (!state.people.length ? 'Loading...' : q.value.trim() ? 'No one matches "' + q.value.trim() + '".' : 'No one else to add.'))
+			return { open, q, free, add, remove, root, nameOf, emptyText, searchBox }
 		},
 		template: `
 		<div ref="root" class="pf">
@@ -53,7 +56,7 @@
 				<button type="button" class="pf-add" :aria-expanded="open" @click="open = !open"><Ico name="plus" size="sm" />{{ modelValue.length ? 'Add another' : placeholder }}</button>
 			</div>
 			<div v-if="open" class="pf-pop"><Inp v-model="q" icon="search" placeholder="Search people" clearable aria-label="Search people" autofocus />
-				<div class="pf-list"><button v-for="p in free" :key="p.name" type="button" class="pf-row" @click="add(p.name)"><span class="pf-av">{{ (p.full_name || p.name)[0] }}</span><span class="grow ellipsis">{{ p.full_name }}<span class="small muted" v-if="p.name !== p.full_name"> {{ p.name }}</span></span><span class="small muted">{{ p.load }} to do</span></button><div v-if="!free.length" class="small muted" style="padding:8px">{{ state.people.length ? 'No one else to add.' : 'Loading' }}</div></div></div>
+				<div class="pf-list"><button v-for="p in free" :key="p.name" type="button" class="pf-row" @click="add(p.name)"><span class="pf-av">{{ (p.full_name || p.name)[0] }}</span><span class="grow ellipsis">{{ p.full_name }}<span class="small muted pf-mail" v-if="p.name !== p.full_name">{{ p.name }}</span></span><span class="small muted">{{ p.load }} to do</span></button><div v-if="!free.length" class="small muted" style="padding:8px">{{ emptyText }}</div></div></div>
 		</div>`,
 	}
 

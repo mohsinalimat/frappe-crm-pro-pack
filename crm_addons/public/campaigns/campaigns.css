@@ -317,3 +317,5 @@ html.inline .pg-head .grow { min-width: 0; }
 .ptag.marketing { background: var(--input); color: var(--text-soft); font-weight: 500; }
 .card.p-default, .card.p-utility { box-shadow: inset 3px 0 0 var(--accent); } .card.p-utility { box-shadow: inset 3px 0 0 var(--green); }
 .tbl tr.p-default td:first-child, .tbl tr.p-utility td:first-child { box-shadow: inset 3px 0 0 var(--accent); } .tbl tr.p-utility td:first-child { box-shadow: inset 3px 0 0 var(--green); }
+
+.pf-mail { margin-left: 8px; }
