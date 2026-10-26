@@ -119,10 +119,10 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 		// messages
 		await page.click('.tab:has-text("Messages")'); await settle(page, 400)
 		await page.click('.rule-h:has-text("Confirmed")'); await settle(page, 200)
-		await page.click('.chan:has(.ch.Email) .switch'); await settle(page, 900)
-		// the ready-made template is chosen as soon as the email is switched on (no template window to open just to turn a message on)
+		// a new demo type starts with the ready-made email template chosen and email on (no template window to open just to turn a message on)
 		const readyMade = (await page.locator('.tsel').count()) === 1
-		check('messages: switching email on takes the ready-made template', readyMade || 'skip')
+		check('messages: a new demo type starts with the ready-made email template', readyMade || 'skip')
+		if (!readyMade) { await page.click('.chan:has(.ch.Email) .switch'); await settle(page, 900) }
 		await page.click('.tsel button:has-text("Change")'); await page.waitForSelector('.tcard, .modal .empty', { timeout: 15000 })
 		const tcards = await page.locator('.tcard').count()
 		check('messages: the campaign template picker opens', tcards > 0 || (await page.locator('.empty').count()) > 0)
