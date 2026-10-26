@@ -21,7 +21,7 @@
 <body>
 	<div id="app"></div>
 	<noscript><p style="font:15px system-ui;padding:24px">This page needs JavaScript to show the available times.</p></noscript>
-	<script>window.CRM_BOOK = {{ {"mode": mode, "value": value, "version": version, "theme": theme, "accent": accent, "brand": brand} | tojson }};</script>
+	<script>window.CRM_BOOK = {{ {"mode": mode, "value": value, "version": version, "theme": theme, "accent": accent, "brand": brand, "csrf": csrf} | tojson }};</script>
 	<script src="/assets/crm_addons/meetings/vendor/vue.global.prod.js?v={{ version | e }}"></script>
 	<script src="/assets/crm_addons/book/book.js?v={{ version | e }}"></script>
 </body>

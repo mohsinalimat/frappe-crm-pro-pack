@@ -145,7 +145,8 @@
 		if (post) {
 			opts.method = 'POST'
 			opts.headers['Content-Type'] = 'application/json'
-			if (window.csrf_token && window.csrf_token !== '{{ csrf_token }}') opts.headers['X-Frappe-CSRF-Token'] = window.csrf_token
+			var tok = (window.CRM_BOOK && window.CRM_BOOK.csrf) || (window.csrf_token && window.csrf_token !== '{{ csrf_token }}' ? window.csrf_token : '')
+			if (tok) opts.headers['X-Frappe-CSRF-Token'] = tok
 			opts.body = JSON.stringify(params || {})
 		} else {
 			var q = new URLSearchParams()
