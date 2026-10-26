@@ -337,7 +337,7 @@ def on_lead_insert(doc, method=None):
 			auto_assign(doc.name)
 			doc.lead_owner = frappe.db.get_value(LEAD, doc.name, "lead_owner")
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: lead assignment rule failed", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: lead assignment rule failed", message=frappe.get_traceback())
 	finally:
 		frappe.flags.in_assignment = False
 

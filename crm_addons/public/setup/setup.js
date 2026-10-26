@@ -1,4 +1,4 @@
-/* CRM Pro Pack setup page: a guided front for the CRM Addons Settings record.
+/* Frappe CRM Suite Pro setup page: a guided front for the CRM Addons Settings record.
  * Left: the sections. Top of the first section: a live checklist that says what still needs doing and how.
  * Every option has a switch or field, a short label and an (i) button with the details. Changes are saved together. */
 ;(() => {
@@ -380,7 +380,7 @@
 		<div class="shell">
 			<header class="top">
 				<div class="top-in">
-					<div class="grow"><h1>CRM Pro Pack setup</h1><p>Switch features on or off, set how they behave, and see what still needs connecting.</p></div>
+					<div class="grow"><h1>Frappe CRM Suite Pro setup</h1><p>Switch features on or off, set how they behave, and see what still needs connecting.</p></div>
 					<div class="search"><Ico name="search" :size="16" /><input v-model="q" type="search" placeholder="Find an option" aria-label="Find an option" /></div>
 					<a class="btn" href="/crm"><Ico name="home" :size="16" /> Back to CRM</a>
 				</div>
@@ -443,7 +443,7 @@
 										<Sel v-else-if="it.t === 'select'" :id="'f-' + it.k" :model-value="draft[it.k]" :options="selectOptions(it)" :placeholder="it.empty || 'Select'" :disabled="!met(it)" :aria-label="it.label" @update:model-value="(v) => (draft[it.k] = v)" />
 										<div v-else-if="it.t === 'roles'" class="rolechips" role="group" :aria-label="it.label"><button v-for="o in optionsOf(it)" :key="o.value" type="button" class="rolechip" :class="{ on: hasRole(it.k, o.value) }" :aria-pressed="hasRole(it.k, o.value)" :disabled="!met(it)" @click="toggleRole(it.k, o.value)"><Ico v-if="hasRole(it.k, o.value)" name="check" :size="13" />{{ o.label }}</button></div>
 										<div v-else-if="it.t === 'menu'" class="menuedit">
-											<div v-for="(m, i) in menuItems(it.k)" :key="m.key" class="menurow dnd" :class="{ off: m.hidden, dragging: menuDrag.s.from === i && menuDrag.s.ctx === it.k, over: menuDrag.s.over === i && menuDrag.s.from !== i && menuDrag.s.ctx === it.k }" draggable="true" @dragstart="menuDrag.start(it.k, i, $event)" @dragenter.prevent="menuDrag.enter(it.k, i)" @dragover.prevent @drop.prevent="menuDrag.drop(it.k, i)" @dragend="menuDrag.end()"><span class="grip" aria-hidden="true">&#8942;&#8942;</span><span class="menu-n">{{ i + 1 }}</span><span class="menu-l">{{ m.label }}<em v-if="m.ours">Pro Pack</em></span>
+											<div v-for="(m, i) in menuItems(it.k)" :key="m.key" class="menurow dnd" :class="{ off: m.hidden, dragging: menuDrag.s.from === i && menuDrag.s.ctx === it.k, over: menuDrag.s.over === i && menuDrag.s.from !== i && menuDrag.s.ctx === it.k }" draggable="true" @dragstart="menuDrag.start(it.k, i, $event)" @dragenter.prevent="menuDrag.enter(it.k, i)" @dragover.prevent @drop.prevent="menuDrag.drop(it.k, i)" @dragend="menuDrag.end()"><span class="grip" aria-hidden="true">&#8942;&#8942;</span><span class="menu-n">{{ i + 1 }}</span><span class="menu-l">{{ m.label }}<em v-if="m.ours">Suite Pro</em></span>
 												<button type="button" class="menu-b" :disabled="i === 0" :aria-label="'Move ' + m.label + ' up'" @click="moveMenu(it.k, i, -1)">&uarr;</button><button type="button" class="menu-b" :disabled="i === menuItems(it.k).length - 1" :aria-label="'Move ' + m.label + ' down'" @click="moveMenu(it.k, i, 1)">&darr;</button>
 												<Toggle :model-value="!m.hidden" :label="'Show ' + m.label" @update:model-value="toggleMenu(it.k, i)" /></div>
 											<button type="button" class="menu-reset" @click="resetMenu(it.k)">Back to CRM's own order</button></div>
@@ -491,5 +491,5 @@
 		</div>`,
 	}
 	createApp(App).mount('#app')
-	document.title = 'Pro Pack Setup'
+	document.title = 'Suite Pro Setup'
 })()

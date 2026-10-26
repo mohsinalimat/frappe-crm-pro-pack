@@ -1,6 +1,6 @@
 # Finding out what freezes the app (temporary diagnostics)
 
-CRM Pro Pack writes a diagnostic log while you use it, so a freeze or a crash leaves evidence. It is **temporary**:
+Frappe CRM Suite Pro writes a diagnostic log while you use it, so a freeze or a crash leaves evidence. It is **temporary**:
 switch it off or remove it when the problem is solved (see the end).
 
 ## What to do

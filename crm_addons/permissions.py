@@ -67,7 +67,7 @@ def has_follow_up_permission(doc, ptype=None, user=None, debug=False):
 # adds these conditions to every list and report (the UI hiding things is not what protects the data):
 #
 # * CRM Lead: CRM's own condition (crm.permissions.org_hierarchy) already limits a Sales User to the leads they own or
-#   are assigned. Older CRM releases have none, so Pro Pack adds the same rule - but only when CRM has not.
+#   are assigned. Older CRM releases have none, so Suite Pro adds the same rule - but only when CRM has not.
 # * CRM Call Log, FCRM Note, CRM Task: what the user created, was assigned or took part in, plus whatever is attached
 #   to a lead they own or are assigned (so the lead's own timeline stays complete after it is reassigned).
 

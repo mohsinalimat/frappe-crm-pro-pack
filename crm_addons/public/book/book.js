@@ -1,4 +1,4 @@
-/* CRM Pro Pack - public demo booking widget (Vue 3, no build step).
+/* Frappe CRM Suite Pro - public demo booking widget (Vue 3, no build step).
  * Served at /book/<slug> (book a time) and /book/manage/<token> (reschedule or cancel).
  * Talks to the guest API crm_addons.demos.public.* (see docs/DEMO_BOOKING.md).
  * Everything lives inside one IIFE; nothing but window.CRMBook (debug hooks) is exposed.
@@ -711,7 +711,7 @@
 		return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(i.title) + '&dates=' + icsStamp(i.s) + '/' + icsStamp(i.e) + '&details=' + encodeURIComponent(i.details) + (i.where ? '&location=' + encodeURIComponent(i.where) : '')
 	}
 	function icsBlob(i) {
-		var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CRM Pro Pack//Booking//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT', 'UID:' + i.uid, 'DTSTAMP:' + icsStamp(new Date()), 'DTSTART:' + icsStamp(i.s), 'DTEND:' + icsStamp(i.e),
+		var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Frappe CRM Suite Pro//Booking//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT', 'UID:' + i.uid, 'DTSTAMP:' + icsStamp(new Date()), 'DTSTART:' + icsStamp(i.s), 'DTEND:' + icsStamp(i.e),
 			'SUMMARY:' + icsEsc(i.title), 'DESCRIPTION:' + icsEsc(i.details)]
 		if (i.where) lines.push('LOCATION:' + icsEsc(i.where), 'URL:' + i.where)
 		lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'TRIGGER:-PT30M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR')

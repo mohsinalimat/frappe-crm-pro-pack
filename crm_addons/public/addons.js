@@ -1,4 +1,4 @@
-/* CRM Pro Pack UI. Loaded into the Frappe CRM page by the app (see inject.py), so CRM's own
+/* Frappe CRM Suite Pro UI. Loaded into the Frappe CRM page by the app (see inject.py), so CRM's own
  * source is never edited.
  *
  *   - a "Sales Dashboard" button on CRM's own Dashboard page
@@ -200,7 +200,7 @@
 	}
 
 	// The CRM is a PWA: its service worker can keep serving the page it saved earlier, with the script tag of an older
-	// Pro Pack release in it. When the server says the files are newer than the ones running, load the new ones under
+	// Suite Pro release in it. When the server says the files are newer than the ones running, load the new ones under
 	// their new version (a URL the browser has never seen), and ask the service worker to look for an update.
 	function updateIfStale(serverVer) {
 		serverVer = String(serverVer || '')
@@ -232,7 +232,7 @@
 		b.id = 'cra-update'
 		b.setAttribute('role', 'status')
 		b.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2147483000;display:flex;gap:12px;align-items:center;padding:10px 14px;border-radius:10px;background:#1f2937;color:#fff;font:13px/1.3 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)'
-		b.appendChild(document.createTextNode('Pro Pack was updated. Refresh to use the new version.'))
+		b.appendChild(document.createTextNode('Suite Pro was updated. Refresh to use the new version.'))
 		var r = document.createElement('button')
 		r.textContent = 'Refresh'
 		r.style.cssText = 'border:0;border-radius:6px;padding:6px 12px;background:#fff;color:#111;font-weight:600;cursor:pointer'
@@ -905,7 +905,7 @@
 			if (radius) seg.style.setProperty('--cra-seg-r', radius)
 		}
 		var more = h('div', { class: 'cra-more' })
-		var trigger = headerButton(proto, { key: 'more', label: 'Pro Pack', icon: 'ellipsis', title: 'Meetings, Follow-ups, Campaigns and dashboards', run: function () {} }, true)
+		var trigger = headerButton(proto, { key: 'more', label: 'Suite Pro', icon: 'ellipsis', title: 'Meetings, Follow-ups, Campaigns and dashboards', run: function () {} }, true)
 		trigger.setAttribute('aria-haspopup', 'menu')
 		var pop = h('div', { class: 'cra-pop', role: 'menu', hidden: true }, list.map(function (s) {
 			return h('button', { type: 'button', class: 'cra-pop-item', role: 'menuitem', 'data-cra-shortcut': s.key, onclick: function (e) { e.stopPropagation(); closeMore(); s.run() } },
@@ -1327,7 +1327,7 @@
 	}
 
 	var syncCount = 0
-	// A reload (or a link) on /crm/pro-pack-<name> shows that Pro Pack page again, as soon as CRM has drawn its menu.
+	// A reload (or a link) on /crm/pro-pack-<name> shows that Suite Pro page again, as soon as CRM has drawn its menu.
 	var pageTries = 0
 	function openPageFromUrl() {
 		var m = /^\/crm\/pro-pack-([a-z-]+)\/?$/.exec(location.pathname)

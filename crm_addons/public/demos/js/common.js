@@ -11,7 +11,7 @@
 	DM.apiLatest = (key, m, a) => CM.call('crm_addons.demos.admin.' + m, a) // keys are used by callers that cancel with CM.cancel
 	DM.ERR_MISSING = /not found|has no attribute|no module named|not whitelisted|AttributeError|ImportError|Failed to get method/i
 	/** A server that does not have an endpoint yet answers with a technical error; say it in plain words. */
-	DM.friendly = (e) => (e && DM.ERR_MISSING.test(e.message || '') ? 'This part of the server is not available yet. Update CRM Pro Pack and run bench migrate.' : (e && e.message) || 'Something went wrong.')
+	DM.friendly = (e) => (e && DM.ERR_MISSING.test(e.message || '') ? 'This part of the server is not available yet. Update Frappe CRM Suite Pro and run bench migrate.' : (e && e.message) || 'Something went wrong.')
 
 	DM.WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 	DM.SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }

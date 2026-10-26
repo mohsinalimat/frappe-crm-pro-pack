@@ -77,7 +77,7 @@
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
 			<nav class="rail" :class="{ collapsed }" aria-label="Campaign Manager">
-					<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.5.5 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span><div class="brand-txt"><b>Campaign Manager</b><span>CRM Pro Pack</span></div></div>
+					<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.5.5 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span><div class="brand-txt"><b>Campaign Manager</b><span>Frappe CRM Suite Pro</span></div></div>
 					<div class="nav-sec">Manage</div>
 					<a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span></a>
 					<div class="rail-foot">

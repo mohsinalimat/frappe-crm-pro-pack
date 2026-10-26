@@ -1,4 +1,4 @@
-# Admin guide - CRM Pro Pack
+# Admin guide - Frappe CRM Suite Pro
 
 This is a one-time job. After it, sales users schedule meetings without ever signing in to Google.
 
@@ -32,7 +32,7 @@ A separate OAuth client for each environment (production, staging, your laptop) 
 1. **Google Settings**: tick **Enable** and paste the Client ID and Client secret.
 2. **Google Calendar > New**:
    - **User**: the admin user who is authorizing
-   - **Calendar Name**: for example `CRM Pro Pack` (Google creates a calendar with this name)
+   - **Calendar Name**: for example `Frappe CRM Suite Pro` (Google creates a calendar with this name)
    - **Enable** and **Push to Google Calendar** ticked. Leave **Pull from Google Calendar** off,
      otherwise the whole personal calendar is imported.
    - Save, then click **Authorize Google Calendar Access** and sign in with the company account.
@@ -85,7 +85,7 @@ Open **Team and access** from the CRM menu or the Dashboard header (System Manag
   Settings under User Management) and their access. Click a person to give them a **preset** and change anything on top of it. Add and invite people, and the hierarchy itself, stay in CRM's Settings;
   the person's panel can send a password reset email (Frappe's own reset, it needs an outgoing email account).
 - **Presets** are ready-made sets of access: Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer and Booking Host. Edit them, copy them, make your own. Changing a preset changes everyone using it.
-- Every part of Pro Pack is one line with a value:
+- Every part of Suite Pro is one line with a value:
   - **Whose data** (Meetings, Follow-ups, Bookings, Sales Dashboard numbers, Campaigns, moving leads, assignment history): *No access / Own only / My team / Everyone*. **My team** is the person and everyone below them in the Sales Hierarchy.
     Someone who is not in the hierarchy only sees themselves.
   - **What they can do** (widgets, assignment rules, automations, email templates, WhatsApp templates, audiences): *None / View / Create and edit*.
@@ -256,8 +256,8 @@ others, and a history with Undo for 24 hours.
    (settings, CRM View Settings, WhatsApp Templates), adds the ready-made email templates and mirrors email templates with CRM's own
    *Email Template* list.
 2. The workers must be running for jobs of more than 300 leads (assignment, undo) and for campaign sending.
-3. Everyone hard-refreshes the CRM once (Ctrl/Cmd + Shift + R). From then on a release loads by itself: if Pro Pack has not started 8
-   seconds after the CRM loads, the page clears CRM's saved copy of itself and reloads once, then shows a *Pro Pack did not load* bar.
+3. Everyone hard-refreshes the CRM once (Ctrl/Cmd + Shift + R). From then on a release loads by itself: if Suite Pro has not started 8
+   seconds after the CRM loads, the page clears CRM's saved copy of itself and reloads once, then shows a *Suite Pro did not load* bar.
 
 ## Demo booking: embedding
 
@@ -283,7 +283,7 @@ The script remembers the visitor's campaign tags (utm_*, gclid, fbclid) and refe
 
 ## Demo booking (book a demo from your websites)
 
-A visitor on one of your websites clicks **Book a demo**, picks a day and time, fills in a short form and gets a confirmation. CRM Pro Pack creates (or finds) the Lead,
+A visitor on one of your websites clicks **Book a demo**, picks a day and time, fills in a short form and gets a confirmation. Frappe CRM Suite Pro creates (or finds) the Lead,
 creates one CRM Meeting with a Google Meet link, invites the hosts, remembers where the visitor came from (UTM tags) and sends email and WhatsApp messages.
 Only Sales Managers and System Managers set it up; a Sales User only sees the demos they take part in (**Meetings > Bookings**, or the *My demos* list).
 

@@ -47,7 +47,7 @@ NEXT_FOLLOWUP_FIELD = {
 	"no_copy": 1,
 	"print_hide": 1,
 	"report_hide": 0,
-	"description": "Set automatically by CRM Pro Pack.",
+	"description": "Set automatically by Frappe CRM Suite Pro.",
 }
 
 SCORE_FIELD = {
@@ -58,7 +58,7 @@ SCORE_FIELD = {
 	"no_copy": 1,
 	"print_hide": 1,
 	"report_hide": 0,
-	"description": "0-100, worked out by CRM Pro Pack from calls, outcomes, meetings and recent activity.",
+	"description": "0-100, worked out by Frappe CRM Suite Pro from calls, outcomes, meetings and recent activity.",
 }
 
 STALE_FIELD = {
@@ -80,7 +80,7 @@ NEXT_MEETING_FIELD = {
 	"no_copy": 1,
 	"print_hide": 1,
 	"report_hide": 0,
-	"description": "Set automatically by CRM Pro Pack.",
+	"description": "Set automatically by Frappe CRM Suite Pro.",
 }
 
 # Consent is the one thing a campaign must never lose, so this field is NOT removed on uninstall.
@@ -112,9 +112,9 @@ STARTER_EMAIL_TEMPLATES = [
 # -- CRM scripts ----------------------------------------------------------------------
 # Loaded by CRM's own script engine, so no CRM source file is ever edited.
 
-LOADER = """// Managed by the CRM Pro Pack app. It is rewritten when the app updates - do not edit.
+LOADER = """// Managed by the Frappe CRM Suite Pro app. It is rewritten when the app updates - do not edit.
 function crmAddonsLoad() {
-	// the page's own Pro Pack script did not start (an old saved copy of the CRM page): start it from here
+	// the page's own Suite Pro script did not start (an old saved copy of the CRM page): start it from here
 	if (!window.__crmAddonsUI && !window.__craEnsuring) {
 		window.__craEnsuring = true
 		const a = document.createElement("script")
@@ -128,7 +128,7 @@ function crmAddonsLoad() {
 		const s = document.createElement("script")
 		s.src = "/assets/crm_addons/bridge.js?v=__VERSION__"
 		s.onload = () => resolve(window.crmAddons)
-		s.onerror = () => reject(new Error("CRM Pro Pack could not be loaded"))
+		s.onerror = () => reject(new Error("Frappe CRM Suite Pro could not be loaded"))
 		document.head.appendChild(s)
 	})
 }
@@ -322,12 +322,12 @@ def sync_email_templates():
 	try:
 		email_sync.backfill()
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: email template sync", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: email template sync", message=frappe.get_traceback())
 
 
 # -- Desk workspace --------------------------------------------------------------------------
 
-WORKSPACE = "CRM Pro Pack"
+WORKSPACE = "CRM Pro Pack"  # the stored name of the Desk workspace: kept so existing sites do not get a second one
 WORKSPACE_SHORTCUTS = [
 	# label, type, target (a doctype, or a URL)
 	("CRM Addons Settings", "DocType", "CRM Addons Settings"),
@@ -352,7 +352,7 @@ def ensure_workspace():
 		return
 	try:
 		blocks = [
-			{"id": frappe.generate_hash(length=10), "type": "header", "data": {"text": '<span class="h4"><b>CRM Pro Pack</b></span>', "col": 12}}
+			{"id": frappe.generate_hash(length=10), "type": "header", "data": {"text": '<span class="h4"><b>Frappe CRM Suite Pro</b></span>', "col": 12}}
 		] + [
 			{"id": frappe.generate_hash(length=10), "type": "shortcut", "data": {"shortcut_name": label, "col": 3}}
 			for label, _type, _target in WORKSPACE_SHORTCUTS
@@ -374,7 +374,7 @@ def ensure_workspace():
 			}
 		).insert(ignore_permissions=True)
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: could not create the Desk workspace", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: could not create the Desk workspace", message=frappe.get_traceback())
 
 
 # -- settings ----------------------------------------------------------------------------
@@ -444,16 +444,16 @@ def ensure_demo_setup():
 		frappe.db.add_index("CRM Demo Booking", ["demo_type", "starts_utc"])
 		frappe.db.add_index("CRM Demo Booking Message", ["status", "due_at"])
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: could not add the demo booking indexes", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: could not add the demo booking indexes", message=frappe.get_traceback())
 
 
 WA_TEMPLATE_FIELDS = [
 	{
-		"fieldname": "crm_system", "fieldtype": "Check", "label": "Ready-made by CRM Pro Pack", "read_only": 1, "no_copy": 1, "default": "0",
+		"fieldname": "crm_system", "fieldtype": "Check", "label": "Ready-made by Frappe CRM Suite Pro", "read_only": 1, "no_copy": 1, "default": "0",
 		"description": "Created by the app for its own messages. Protected from deletion.", "insert_after": "crm_variable_map",
 	},
 	{
-		"fieldname": "crm_variable_map", "fieldtype": "Long Text", "label": "Default variable mapping (CRM Pro Pack)", "read_only": 1,
+		"fieldname": "crm_variable_map", "fieldtype": "Long Text", "label": "Default variable mapping (Frappe CRM Suite Pro)", "read_only": 1,
 		"description": "Which Lead field fills each {{n}} by default when a campaign uses this template.", "insert_after": "field_names",
 	}
 ]
@@ -465,7 +465,7 @@ def ensure_view_fields():
 
 	if frappe.db.exists("DocType", "CRM View Settings"):
 		create_custom_fields(
-			{"CRM View Settings": [{"fieldname": "crm_addons_sig", "fieldtype": "Data", "label": "CRM Pro Pack mark", "read_only": 1, "hidden": 1, "no_copy": 1}]}, ignore_validate=True
+			{"CRM View Settings": [{"fieldname": "crm_addons_sig", "fieldtype": "Data", "label": "Frappe CRM Suite Pro mark", "read_only": 1, "hidden": 1, "no_copy": 1}]}, ignore_validate=True
 		)
 
 
@@ -531,7 +531,7 @@ def ensure_default_email_templates():
 
 
 USER_FIELDS = [
-	{"fieldname": "crm_designation", "fieldtype": "Data", "label": "Designation", "insert_after": "mobile_no", "description": "Shown next to the name in Team and access (CRM Pro Pack)."},
+	{"fieldname": "crm_designation", "fieldtype": "Data", "label": "Designation", "insert_after": "mobile_no", "description": "Shown next to the name in Team and access (Frappe CRM Suite Pro)."},
 	{"fieldname": "crm_company", "fieldtype": "Data", "label": "Company", "insert_after": "crm_designation"},
 ]
 

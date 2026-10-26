@@ -1,4 +1,4 @@
-# CRM Pro Pack for Frappe CRM
+# Frappe CRM Suite Pro for Frappe CRM
 
 **Google Meet and Google Calendar meetings, call follow-ups, lead scoring, email and WhatsApp campaigns, automatic lead assignment and a role-aware Sales Dashboard - in one app, with no changes to Frappe CRM's own code.**
 
@@ -7,7 +7,7 @@
 ![Frappe CRM 1.x](https://img.shields.io/badge/Frappe%20CRM-1.x-blue)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 
-CRM Pro Pack is a free, open-source plugin (a normal Frappe app) that turns [Frappe CRM](https://frappe.io/crm) into a complete sales-follow-up tool. Sales teams schedule Google Meet meetings from a lead, log every call attempt with its outcome, get reminded about the next follow-up, and managers see who is calling whom on a Sales Dashboard they can download as Excel. Admins connect Google once, and nobody else ever signs in to Google.
+Frappe CRM Suite Pro is a free, open-source plugin (a normal Frappe app) that turns [Frappe CRM](https://frappe.io/crm) into a complete sales-follow-up tool. Sales teams schedule Google Meet meetings from a lead, log every call attempt with its outcome, get reminded about the next follow-up, and managers see who is calling whom on a Sales Dashboard they can download as Excel. Admins connect Google once, and nobody else ever signs in to Google.
 
 It installs like any other Frappe app (`bench get-app`, `bench install-app`) and works by adding to CRM's screens from the outside, so **you never fork or patch Frappe CRM**.
 
@@ -85,9 +85,9 @@ See [docs/CAMPAIGN_MANAGER.md](docs/CAMPAIGN_MANAGER.md).
 ### Built into CRM's own screens
 
 - **Tabs on the Lead page:** Meetings and Follow-ups, next to Activity, Emails, Comments, Calls, Tasks, Notes and Attachments.
-- **Header buttons:** Schedule Meeting and Add Follow Up on the Lead page; Meetings, Follow-ups and Sales Dashboard on the Leads list; floating buttons on the Kanban view; a **CRM Pro Pack** group in the left menu and a button group in the Dashboard header (Meetings, Follow-ups, Campaigns, Sales Dashboard).
+- **Header buttons:** Schedule Meeting and Add Follow Up on the Lead page; Meetings, Follow-ups and Sales Dashboard on the Leads list; floating buttons on the Kanban view; a **Frappe CRM Suite Pro** group in the left menu and a button group in the Dashboard header (Meetings, Follow-ups, Campaigns, Sales Dashboard).
 - **On the Lead timeline:** every meeting, reschedule, cancellation and follow-up is posted as a comment.
-- **Pro Pack pages open inside the CRM**, not in a pop-up: Sales Dashboard, Follow-ups, Meetings, Campaigns and Assignment fill the area beside CRM's menu, with their own address (`/crm/pro-pack-<name>`), so Back, reload and shared links work.
+- **Suite Pro pages open inside the CRM**, not in a pop-up: Sales Dashboard, Follow-ups, Meetings, Campaigns and Assignment fill the area beside CRM's menu, with their own address (`/crm/pro-pack-<name>`), so Back, reload and shared links work.
 - **Optional:** hide the Deals menu entry and the Convert to Deal button, if your team only works with leads.
 - **CRM dashboard charts:** meetings and follow-ups charts you can add to CRM's own dashboard.
 
@@ -113,7 +113,7 @@ bench get-app crm --branch main                     # Frappe CRM 1.x, the line f
 bench --site your-site.com install-app crm
 ```
 
-Then install CRM Pro Pack:
+Then install Frappe CRM Suite Pro:
 
 ```bash
 bench get-app https://github.com/sidrajputt/frappe-crm-pro-pack --branch main
@@ -134,7 +134,7 @@ Everything is set up by the install itself and re-checked on every migrate (it n
 
 About ten minutes, once:
 
-1. Open **CRM Addons Settings** in Desk (search for it, or use the **CRM Pro Pack** workspace). It shows a live checklist of what is connected and what is missing.
+1. Open **CRM Addons Settings** in Desk (search for it, or use the **Frappe CRM Suite Pro** workspace). It shows a live checklist of what is connected and what is missing.
 2. **Meetings with Google Meet:** follow [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) to connect one company Google account. The settings page shows the exact redirect URI for your site and a **Test Google connection** button. Skip this step to start with Manual Link meetings.
 3. **Reminders and emails:** enable the scheduler (`bench --site your-site.com enable-scheduler`) and set up an outgoing Email Account on the site.
 4. Give people the CRM roles: **Sales User** for the team, **Sales Manager** for managers.
@@ -236,7 +236,7 @@ Follow-up templates are managed under **CRM Follow Up Template** (eight starters
 
 ## How it works
 
-CRM Pro Pack does not modify Frappe CRM. On install and on every migrate (safe to repeat) it:
+Frappe CRM Suite Pro does not modify Frappe CRM. On install and on every migrate (safe to repeat) it:
 
 - creates its doctypes: **CRM Meeting**, **CRM Meeting Attendee**, **CRM Follow Up**, **CRM Follow Up Template**, **CRM Addons Settings**, the Campaign Manager's doctypes and **CRM Assignment Rule** / **CRM Assignment Log**;
 - adds a few hidden marker fields on other apps' doctypes (CRM View Settings, frappe_whatsapp's WhatsApp Templates, CRM Lead consent);
@@ -245,7 +245,7 @@ CRM Pro Pack does not modify Frappe CRM. On install and on every migrate (safe t
 - adds a short script to CRM's page through a Frappe `after_request` hook, which draws the tabs, Kanban buttons, follow-up form and dashboard link;
 - adds charts to CRM's dashboard, once, through CRM's chart hook (and fills them in itself on CRM 1.x, which lacks the hook);
 - schedules a job every 5 minutes for reminders, and daily jobs for stale-lead alerts and lead scores;
-- creates a **CRM Pro Pack** workspace in Desk with shortcuts to the settings and lists.
+- creates a **Frappe CRM Suite Pro** workspace in Desk with shortcuts to the settings and lists.
 
 The tabs are built by cloning CRM's own tab buttons, and the optional Deals hiding matches CRM's markup. If a future CRM release changes that markup, the tabs or the hiding may stop appearing - the header buttons, the follow-up form and the Sales Dashboard keep working. See [Troubleshooting](#troubleshooting).
 

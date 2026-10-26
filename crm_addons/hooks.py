@@ -1,10 +1,10 @@
 from . import __version__ as app_version  # noqa: F401
 
 app_name = "crm_addons"
-app_title = "CRM Pro Pack"
+app_title = "Frappe CRM Suite Pro"
 app_publisher = "Siddharth Singh"
 app_description = (
-	"CRM Pro Pack for Frappe CRM: Google Meet and Google Calendar meetings, call follow-ups with "
+	"Frappe CRM Suite Pro for Frappe CRM: Google Meet and Google Calendar meetings, call follow-ups with "
 	"attempts and outcomes, lead scoring, stale-lead alerts, a role-aware Sales Dashboard with Excel "
 	"export, and reminders. Installs like any other Frappe app, with no changes to CRM's code."
 )

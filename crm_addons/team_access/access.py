@@ -1,4 +1,4 @@
-"""Who may do what in Pro Pack: the resolver every other module asks.
+"""Who may do what in Suite Pro: the resolver every other module asks.
 
     level("followups")                 -> "all" / "team" / "own" / "none"      (or "view" / "manage" / 1 / 0 for the other kinds)
     allows("automations", "manage")    -> True / False

@@ -1,4 +1,4 @@
-/* CRM Pro Pack - demo booking embed. One tiny script for the owner's other websites, no dependencies.
+/* Frappe CRM Suite Pro - demo booking embed. One tiny script for the owner's other websites, no dependencies.
  *
  *   <script src="https://CRM-HOST/assets/crm_addons/book/embed.js" async></script>
  *   <button data-crm-demo="coding-junior-demo">Book a demo</button>      (any button or link opens the pop-up)

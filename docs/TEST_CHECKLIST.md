@@ -46,10 +46,10 @@ Use three real users: **Sales User** (call them Asha), a second **Sales User** (
 ## After an upgrade
 
 1. `bench --site <site> migrate` then `bench restart`.
-2. Open the CRM in a browser that had it open before the upgrade, **without** a hard refresh, and wait about a minute: the Pro Pack buttons and tabs still appear and no button is doubled. (After this first 1.4.0 load, later releases update themselves the same way.)
+2. Open the CRM in a browser that had it open before the upgrade, **without** a hard refresh, and wait about a minute: the Suite Pro buttons and tabs still appear and no button is doubled. (After this first 1.4.0 load, later releases update themselves the same way.)
 3. In CRM, open Settings > Email Templates: every campaign template is listed, and no template existed twice.
 
-4. Watchdog: in the browser's developer tools block `/assets/crm_addons/addons.js` (Network > Block request URL) and open the CRM: after about 8 seconds the page reloads once by itself, and if the script is still blocked a "CRM Pro Pack did not load" bar with a Reload button appears. Unblock it and press Reload: everything appears and the bar does not come back.
+4. Watchdog: in the browser's developer tools block `/assets/crm_addons/addons.js` (Network > Block request URL) and open the CRM: after about 8 seconds the page reloads once by itself, and if the script is still blocked a "Frappe CRM Suite Pro did not load" bar with a Reload button appears. Unblock it and press Reload: everything appears and the bar does not come back.
 
 ## System Manager: lead assignment
 

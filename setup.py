@@ -10,7 +10,7 @@ setup(
 	name="crm_addons",
 	version="1.5.0",
 	description=(
-		"CRM Pro Pack for Frappe CRM: Google Meet meetings, call follow-ups, lead scoring, "
+		"Frappe CRM Suite Pro for Frappe CRM: Google Meet meetings, call follow-ups, lead scoring, "
 		"a role-aware Sales Dashboard with Excel export, and reminders."
 	),
 	long_description=long_description,

@@ -463,6 +463,6 @@ def notify_hosts(booking, event):
 				html = f"<p>{frappe.utils.escape_html(text)}</p>" + (f'<p><a href="{frappe.utils.escape_html(link)}">{frappe.utils.escape_html(link)}</a></p>' if link else "")
 				queue_email(email, text, html, html, LEAD if row.lead else None, row.lead, None, unsubscribe=False)
 			except Exception:
-				frappe.log_error(title="CRM Pro Pack: host notification email failed", message=frappe.get_traceback())
+				frappe.log_error(title="Frappe CRM Suite Pro: host notification email failed", message=frappe.get_traceback())
 		count += 1
 	return count

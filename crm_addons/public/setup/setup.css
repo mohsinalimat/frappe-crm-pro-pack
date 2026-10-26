@@ -1,4 +1,4 @@
-/* CRM Pro Pack setup page. Light / dark follow CRM's theme (html[data-theme]). */
+/* Frappe CRM Suite Pro setup page. Light / dark follow CRM's theme (html[data-theme]). */
 :root {
 	--bg: #f6f7f9; --surface: #fff; --bg-soft: #f9fafb; --hover: #f1f2f5; --input: #f3f4f6; --border: #e7e9ee; --border-strong: #d3d7de;
 	--text: #14161a; --soft: #4b5563; --faint: #8b93a1; --primary: #14161a; --primary-text: #fff;

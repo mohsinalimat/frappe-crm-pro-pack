@@ -1,4 +1,4 @@
-"""Every Pro Pack permission an admin can give a person, in one list.
+"""Every Suite Pro permission an admin can give a person, in one list.
 
 A feature has a *kind*:
   scope   whose data the person sees: none / own / team / all   (team = themselves and everyone below them in CRM's Sales Hierarchy)

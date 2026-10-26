@@ -1,4 +1,4 @@
-/* CRM Pro Pack - calendar UI (Vue 3, no build step).
+/* Frappe CRM Suite Pro - calendar UI (Vue 3, no build step).
  * Works inside CRM (embedded through bridge.js) and as a standalone page. */
 (() => {
 	const { createApp, ref, reactive, computed, watch, onMounted, onBeforeUnmount, onErrorCaptured, nextTick } = Vue

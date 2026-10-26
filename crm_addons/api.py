@@ -228,7 +228,7 @@ def get_client_config():
 	try:
 		views_changed = 1 if views.ensure_for_user() else 0
 	except Exception:
-		frappe.log_error(title="CRM Pro Pack: default views", message=frappe.get_traceback())
+		frappe.log_error(title="Frappe CRM Suite Pro: default views", message=frappe.get_traceback())
 		views_changed = 0
 
 	try:
