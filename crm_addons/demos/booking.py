@@ -229,6 +229,15 @@ def find_or_create_lead(demo, contact, extra, consent, first_touch):
 	for row in demo.get("fields") or []:
 		if row.lead_field and cint(row.enabled) and meta.has_field(row.lead_field) and extra.get(row.key) and not values.get(row.lead_field):
 			values[row.lead_field] = extra[row.key]
+	# fields the widget always sets on the leads it creates (for example organization type = School); what the visitor typed wins
+	try:
+		defaults = common.clean_lead_defaults(demo.get("lead_defaults"))
+	except Exception:
+		frappe.clear_messages()
+		defaults = []  # a setting that no longer fits the Lead (a deleted field or value) must not stop a booking
+	for item in defaults:
+		if meta.has_field(item["field"]) and values.get(item["field"]) in (None, ""):
+			values[item["field"]] = item["value"]
 	if consent and meta.has_field("crm_wa_opt_in"):
 		values["crm_wa_opt_in"] = 1
 	for column, key in (("crm_demo_first_utm_source", "utm_source"), ("crm_demo_first_utm_medium", "utm_medium"), ("crm_demo_first_utm_campaign", "utm_campaign")):

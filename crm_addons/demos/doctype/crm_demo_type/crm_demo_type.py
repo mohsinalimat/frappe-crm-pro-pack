@@ -9,6 +9,7 @@ from frappe.model.document import Document
 from frappe.utils import cint, cstr, validate_email_address
 
 from crm_addons.campaigns.common import valid_timezone
+from crm_addons.demos import common
 from crm_addons.demos.common import BOOKING, RESERVED_SLUGS, SLUG_RE, WEEKDAYS
 from crm_addons.demos.framing import ORIGIN_RE
 from crm_addons.demos.slots import _to_time
@@ -82,8 +83,14 @@ class CRMDemoType(Document):
 		self.validate_team()
 		self.validate_availability()
 		self.validate_form()
+		self.validate_lead_defaults()
 		self.validate_messages()
 		self.validate_branding()
+
+	def validate_lead_defaults(self):
+		import json
+
+		self.lead_defaults = json.dumps(common.clean_lead_defaults(self.get("lead_defaults"))) if self.get("lead_defaults") else ""
 
 	def validate_numbers(self):
 		self.duration_minutes = cint(self.duration_minutes) or 30

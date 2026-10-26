@@ -219,3 +219,8 @@ input.inp.wide[type="text"], textarea.inp.wide { width: 100%; } .br-card { align
 .br-libg { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 .br-tile { display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); text-align: center; } .br-tile:hover { border-color: var(--accent); }
 .br-tile img { width: 100%; height: 72px; object-fit: contain; background: #fff; border-radius: 6px; } .br-tile .ell { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
+/* wide rows keep everything left-aligned under the label (WhatsApp template picker, Meta card, long text) */
+.row-i.wide .watpl, .row-i.wide .metabox { align-items: flex-start; max-width: 560px; width: 100%; }
+.row-i.wide .watpl .sel { min-width: 260px; }
+.row-i.wide .inp.area { width: min(560px, 100%); }

@@ -52,7 +52,7 @@
 
 	V.Presets = {
 		setup() {
-			const editing = ref(null); const copyOf = ref('')
+			const editing = ref(null); const copyOf = ref(''); const layout = CM.useLayout('ax_presets_layout')
 			onMounted(() => AX.load())
 			const d = AX.data
 			function open(name, copy) { editing.value = { name: name || '' }; copyOf.value = copy || '' }
@@ -66,13 +66,23 @@
 				const pick = ['followups', 'meetings', 'demos', 'campaigns']
 				return pick.map((k) => AX.feature(k)).filter(Boolean).map((f) => ({ label: f.label, value: AX.label(f, p.grants[f.key] !== undefined ? p.grants[f.key] : AX.legacy(f, ['Sales User'])) }))
 			}
-			return { d, editing, copyOf, open, duplicate, remove, summary }
+			return { layout, d, editing, copyOf, open, duplicate, remove, summary }
 		},
 		template: `
 		<div class="page wide">
 			<div class="pg-head"><div class="grow"><h1>Presets</h1><p>A preset is a ready-made set of access. Give one to a person on the People page, then change anything on top. Edit a preset and everyone using it follows.</p></div><div class="actions"><Btn variant="primary" icon="plus" @click="open()">New preset</Btn></div></div>
 			<div v-if="d.error" class="alert err"><Ico name="alert" /><div class="grow">{{ d.error }}</div></div>
+			<div v-if="d.loaded" class="row" style="justify-content:flex-end"><LayoutSwitch v-model="layout" /></div>
 			<div v-if="!d.loaded && !d.error" class="ax-cards"><Skel h="170" r="12" v-for="n in 4" :key="n" /></div>
+			<div v-else-if="d.loaded && layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
+				<thead><tr><th>Preset</th><th>What it is for</th><th v-for="s in summary(d.presets[0] || { grants: {} })" :key="s.label">{{ s.label }}</th><th class="num">People</th><th></th></tr></thead>
+				<tbody><tr v-for="p in d.presets" :key="p.name" class="click" tabindex="0" @click="open(p.name)" @keydown.enter="open(p.name)">
+					<td><b>{{ p.preset_name }}</b><span v-if="p.is_system" class="badge sm nodot" style="margin-left:6px">Ready-made</span></td>
+					<td class="small muted" style="max-width:320px">{{ p.description || '-' }}</td>
+					<td v-for="s in summary(p)" :key="s.label" class="nowrap">{{ s.value }}</td>
+					<td class="num">{{ p.users }}</td>
+					<td class="num nowrap" @click.stop><Btn size="sm" variant="ghost" icon="copy" aria-label="Duplicate" title="Duplicate" @click="duplicate(p)" /><Btn size="sm" variant="ghost" icon="trash" aria-label="Delete" title="Delete" @click="remove(p)" /></td>
+				</tr></tbody></table></div></div>
 			<div v-else-if="d.loaded" class="ax-cards">
 				<article v-for="p in d.presets" :key="p.name" class="card pad ax-preset">
 					<div class="row" style="gap:8px"><b class="grow" style="font-size:15px">{{ p.preset_name }}</b><span v-if="p.is_system" class="badge sm nodot">Ready-made</span></div>

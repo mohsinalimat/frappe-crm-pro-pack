@@ -12,8 +12,18 @@ A patch release. **Upgrade:** `bench --site your-site migrate` and `bench restar
   variables (the first name, then the link; or only the link). It becomes a system template. "Use the ready-made one" goes back. Added setting field `login_link_whatsapp_template`
   (hidden), created by `migrate`.
 
+### Added (more)
+
+- **A widget can set lead fields.** In the widget editor, Leads: "Also set these lead fields". Pick a Lead field (organization type, industry, website, territory ...) and a value from a dropdown;
+  every new lead created from that widget gets it. What the visitor types is never overwritten and an existing lead is left alone. Stored in the hidden field `lead_defaults` (added by `migrate`).
+- **Presets as a list**, next to the cards (remembered per browser), and a **Sales User (default)** preset: what a plain Sales User gets with no preset.
+
 ### Fixed
 
+- **Widget host and CC pickers listed contacts and leads.** Hosts and CC now search only team members (people with a CRM role), best match first; a full email address can still be typed in CC.
+- **Audience filters did not list the values of CRM fields such as Organization type or Territory** (only ten, in a plain search box). They are now a searchable dropdown with up to 200 values, and "is any of" / "is none of" work for them too.
+- **A rule or filter value typed with spaces around it** ("School ") did not match "School", so "is not School" could let School leads through. Values are trimmed.
+- Setup: the WhatsApp template picker and the Meta card are aligned with the other options.
 - **A booking's confirmation email could fail with `(1020, "Record has changed since last read in table 'tabCRM Lead'")`.** The email is now tried again (up to three times) when the database reports a
   clashing change, as the booking's own work may still be updating the Lead at that moment. WhatsApp messages are never repeated this way. A message that already shows Failed can be sent again
   with the retry button on the booking.
