@@ -4,15 +4,13 @@ All notable changes to Frappe CRM Suite Pro (the `crm_addons` Frappe app).
 
 ## 1.5.1 - 2026-10-27
 
-A patch release. **Upgrade:** `bench --site your-site migrate` and `bench restart` (migrate adds one hidden setting field).
+A patch release. **Upgrade:** take a backup, then `bench --site your-site migrate` and `bench restart` (migrate adds two hidden fields and rewrites the Leads list script), and hard-refresh the CRM once.
 
 ### Added
 
 - **Choose an existing approved WhatsApp template for the login link** (Team and access, People: "Choose a template"). The template must be approved by Meta and have one or two
   variables (the first name, then the link; or only the link). It becomes a system template. "Use the ready-made one" goes back. Added setting field `login_link_whatsapp_template`
   (hidden), created by `migrate`.
-
-### Added (more)
 
 - **A widget can set lead fields.** In the widget editor, Leads: "Also set these lead fields". Pick a Lead field (organization type, industry, website, territory ...) and a value from a dropdown;
   every new lead created from that widget gets it. What the visitor types is never overwritten and an existing lead is left alone. Stored in the hidden field `lead_defaults` (added by `migrate`).
