@@ -310,6 +310,7 @@ def run_all():
 	ensure_whatsapp_template_fields()
 	ensure_view_fields()
 	ensure_default_email_templates()
+	ensure_user_fields()
 	ensure_access_presets()
 	sync_email_templates()
 
@@ -489,6 +490,19 @@ def ensure_default_email_templates():
 			}
 		).insert(ignore_permissions=True)
 	frappe.db.set_default("crm_addons_default_email_templates", dt.VERSION)
+
+
+USER_FIELDS = [
+	{"fieldname": "crm_designation", "fieldtype": "Data", "label": "Designation", "insert_after": "mobile_no", "description": "Shown next to the name in Team and access (CRM Pro Pack)."},
+	{"fieldname": "crm_company", "fieldtype": "Data", "label": "Company", "insert_after": "crm_designation"},
+]
+
+
+def ensure_user_fields():
+	"""Designation and company on the User, set from Team and access. They are data, so uninstalling does not remove them."""
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+	create_custom_fields({"User": [dict(f) for f in USER_FIELDS]}, ignore_validate=True)
 
 
 def ensure_access_presets():

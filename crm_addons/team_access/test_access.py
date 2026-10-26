@@ -361,3 +361,74 @@ class TestAdminApi(AccessCase):
 		with patch.object(User, name) as reset:
 			self.assertEqual(admin.send_password_reset(rep), {"sent_to": rep})
 		reset.assert_called_once_with(send_email=True)
+
+
+class TestPeopleAdmin(HierarchyMixin):
+	def setUp(self):
+		super().setUp()
+		frappe.db.delete(HIER)
+		self.addCleanup(frappe.set_user, "Administrator")
+		self.addCleanup(lambda: [frappe.db.exists("User", e) and frappe.delete_doc("User", e, force=True, ignore_permissions=True) for e in ("pp.new@example.org",)])
+
+	def test_add_person_with_profile_and_team_leader(self):
+		from crm_addons.team_access import admin
+
+		lead = self.person("pp.lead@example.org", "Sales Manager")
+		if frappe.db.exists("User", "pp.new@example.org"):
+			frappe.delete_doc("User", "pp.new@example.org", force=True, ignore_permissions=True)
+		with patch("frappe.core.doctype.user.user.User.send_welcome_mail_to_user"):
+			out = admin.add_person("pp.new@example.org", "New", "Hire", "Sales User", None, 0, "+91 98765 43210", "Sales Executive", "Acme", "", lead)
+		self.assertEqual(out["problems"], [])
+		doc = frappe.get_doc("User", "pp.new@example.org")
+		self.assertEqual((doc.mobile_no, doc.get("crm_designation"), doc.get("crm_company")), ("+91 98765 43210", "Sales Executive", "Acme"))
+		self.assertEqual(admin._leader("pp.new@example.org"), lead)
+		row = next(p for p in admin.get_overview()["people"] if p["user"] == "pp.new@example.org")
+		self.assertEqual((row["designation"], row["company"], row["enabled"]), ("Sales Executive", "Acme", True))
+		# change the leader and take it away again
+		other = self.person("pp.other@example.org", "Sales Manager")
+		admin.update_person("pp.new@example.org", reports_to=other, set_leader=1)
+		self.assertEqual(admin._leader("pp.new@example.org"), other)
+		admin.update_person("pp.new@example.org", designation="Lead", set_leader=0)
+		self.assertEqual(admin._leader("pp.new@example.org"), other)  # untouched without set_leader
+		admin.update_person("pp.new@example.org", reports_to="", set_leader=1)
+		self.assertIsNone(admin._leader("pp.new@example.org"))
+
+	def test_bad_input_is_refused(self):
+		from crm_addons.team_access import admin
+
+		lead = self.person("pp.l2@example.org", "Sales Manager")
+		with self.assertRaises(frappe.ValidationError):
+			admin.add_person("pp.new@example.org", "N", "", "Sales User", None, 0, "abc")
+		with self.assertRaises(frappe.ValidationError):
+			admin.update_person(lead, reports_to=lead, set_leader=1)
+		# no loops: the leader's own leader cannot be put under them
+		mid = self.person("pp.mid@example.org", "Sales User")
+		admin.update_person(mid, reports_to=lead, set_leader=1)
+		self.assertEqual(admin._leader(mid), lead)
+
+	def test_switch_off_and_on(self):
+		from crm_addons.team_access import admin
+
+		rep = self.person("pp.rep@example.org", "Sales User")
+		admin.set_active(rep, 0)
+		self.assertEqual(frappe.db.get_value("User", rep, "enabled"), 0)
+		row = next(p for p in admin.get_overview()["people"] if p["user"] == rep)
+		self.assertFalse(row["enabled"])
+		admin.set_active(rep, 1)
+		self.assertEqual(frappe.db.get_value("User", rep, "enabled"), 1)
+		with self.assertRaises(frappe.ValidationError):  # not yourself
+			frappe.set_user("Administrator")
+			admin.set_active("Administrator", 0)
+
+	def test_the_contact_number_is_for_system_managers_only(self):
+		rep = self.person("pp.num@example.org", "Sales User")
+		frappe.set_user(rep)
+		doc = frappe.get_doc("User", rep)
+		doc.mobile_no = "9876543210"
+		with self.assertRaises(frappe.PermissionError):
+			doc.save(ignore_permissions=True)
+		frappe.set_user("Administrator")
+		doc = frappe.get_doc("User", rep)
+		doc.mobile_no = "9876543210"
+		doc.save()
+		self.assertEqual(frappe.db.get_value("User", rep, "mobile_no"), "9876543210")
