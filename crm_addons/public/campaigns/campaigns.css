@@ -318,3 +318,5 @@ html.inline .pg-head .grow { min-width: 0; }
 .tbl tr.p-system td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
 .pf-mail { margin-left: 8px; }
+
+.mre-dd { width: 128px; } .mre-dd.sm { width: 72px; } .mre-dd .dd-btn { height: 28px; }

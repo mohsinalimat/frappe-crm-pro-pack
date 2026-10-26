@@ -582,9 +582,42 @@
 </div>',
 	}
 
+	/* ------------------------------------------------------------------ SelectBox (a styled list instead of the browser's own) */
+	var SelectBox = {
+		components: { Ico: Ico },
+		props: { modelValue: String, options: Array, id: String, placeholder: String, invalid: Boolean, describedby: String, required: Boolean },
+		emits: ['update:modelValue', 'change'],
+		setup: function (props, ctx) {
+			var open = ref(false), q = ref(''), active = ref(0), root = ref(null), search = ref(null), btn = ref(null)
+			var items = computed(function () { var s = q.value.trim().toLowerCase(); return (props.options || []).filter(function (o) { return !s || String(o).toLowerCase().indexOf(s) >= 0 }) })
+			var searchable = computed(function () { return (props.options || []).length > 8 })
+			watch(q, function () { active.value = 0 })
+			function close(f) { open.value = false; q.value = ''; if (f && btn.value) btn.value.focus() }
+			function toggle() { open.value = !open.value; if (open.value) { active.value = Math.max(0, (props.options || []).indexOf(props.modelValue)); nextTick(function () { if (search.value) search.value.focus() }) } }
+			function pick(o) { ctx.emit('update:modelValue', o); ctx.emit('change', o); close(true) }
+			function key(e) {
+				if (e.key === 'ArrowDown') { e.preventDefault(); active.value = Math.min(items.value.length - 1, active.value + 1) }
+				else if (e.key === 'ArrowUp') { e.preventDefault(); active.value = Math.max(0, active.value - 1) }
+				else if (e.key === 'Enter') { e.preventDefault(); if (items.value[active.value] !== undefined) pick(items.value[active.value]) }
+				else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true) }
+			}
+			function btnKey(e) { if (!open.value && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle() } }
+			useOutside(root, function () { if (open.value) close() })
+			return { open: open, q: q, active: active, root: root, search: search, btn: btn, items: items, searchable: searchable, toggle: toggle, pick: pick, key: key, btnKey: btnKey }
+		},
+		template: '\
+<div class="bk-sel" ref="root" :class="{ bad: invalid }">\
+	<button :id="id" type="button" class="bk-sel-btn" ref="btn" @click="toggle" @keydown="btnKey" aria-haspopup="listbox" :aria-expanded="open" :aria-invalid="invalid" :aria-describedby="describedby" :aria-required="required"><span :class="{ ph: !modelValue }">{{ modelValue || placeholder || \'Select...\' }}</span><Ico n="down" :size="16"/></button>\
+	<div v-if="open" class="bk-pop bk-sel-pop" @keydown="key">\
+		<div v-if="searchable" class="bk-search"><Ico n="search" :size="16"/><input ref="search" v-model="q" type="text" placeholder="Search" aria-label="Search" autocomplete="off" spellcheck="false"></div>\
+		<ul class="bk-list" role="listbox"><li v-for="(o, i) in items" :key="o" role="option" :aria-selected="o === modelValue" :class="{ on: i === active, sel: o === modelValue }" @mousemove="active = i" @click="pick(o)"><span>{{ o }}</span></li><li v-if="!items.length" class="bk-list-empty">No match</li></ul>\
+	</div>\
+</div>',
+	}
+
 	/* ------------------------------------------------------------------ BookingForm */
 	var BookingForm = {
-		components: { Ico: Ico, PhoneInput: PhoneInput },
+		components: { Ico: Ico, PhoneInput: PhoneInput, SelectBox: SelectBox },
 		props: { demo: Object, busy: Boolean, error: String, prefill: Object },
 		emits: ['back', 'submit'],
 		setup: function (props, ctx) {
@@ -671,7 +704,7 @@
 			<label class="bk-label" :for="\'bk-f-\' + f.key">{{ f.label }}<i v-if="f.required" class="bk-req" aria-hidden="true"> *</i><span v-if="!f.required" class="bk-opt">optional</span></label>\
 			<PhoneInput v-if="f.kind === \'Phone\'" :id="\'bk-f-\' + f.key" v-model="vals[f.key]" :invalid="!!errs[f.key]" :describedby="errs[f.key] ? \'bk-e-\' + f.key : null" :required="f.required" :placeholder="f.placeholder" @blur="blur(f, $event)"/>\
 			<textarea v-else-if="f.kind === \'Long Text\'" :id="\'bk-f-\' + f.key" v-model="vals[f.key]" rows="3" maxlength="2000" :placeholder="f.placeholder" :aria-invalid="!!errs[f.key]" :aria-describedby="errs[f.key] ? \'bk-e-\' + f.key : null" :aria-required="f.required" @blur="blur(f, $event)"></textarea>\
-			<div v-else-if="f.kind === \'Select\'" class="bk-select"><select :id="\'bk-f-\' + f.key" v-model="vals[f.key]" :aria-invalid="!!errs[f.key]" :aria-describedby="errs[f.key] ? \'bk-e-\' + f.key : null" :aria-required="f.required" @blur="blur(f, $event)" @change="blur(f, $event)"><option value="" disabled>{{ f.placeholder || "Select..." }}</option><option v-for="o in (Array.isArray(f.options) ? f.options : String(f.options || \'\').split(/\\r?\\n/).filter(Boolean))" :key="o" :value="o">{{ o }}</option></select><Ico n="down" :size="16"/></div>\
+			<SelectBox v-else-if="f.kind === \'Select\'" :id="\'bk-f-\' + f.key" v-model="vals[f.key]" :options="(Array.isArray(f.options) ? f.options : String(f.options || \'\').split(/\\r?\\n/).filter(Boolean))" :placeholder="f.placeholder || \'Select...\'" :invalid="!!errs[f.key]" :describedby="errs[f.key] ? \'bk-e-\' + f.key : null" :required="f.required" @change="blur(f)"/>\
 			<input v-else :id="\'bk-f-\' + f.key" v-bind="inputAttrs(f)" v-model="vals[f.key]" maxlength="250" :placeholder="f.placeholder" :aria-invalid="!!errs[f.key]" :aria-describedby="errs[f.key] ? \'bk-e-\' + f.key : null" :aria-required="f.required" @blur="blur(f, $event)">\
 		</template>\
 		<p v-if="errs[f.key]" :id="\'bk-e-\' + f.key" class="bk-err" role="alert">{{ errs[f.key] }}</p>\

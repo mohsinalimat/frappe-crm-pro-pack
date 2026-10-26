@@ -238,3 +238,9 @@ html.bk-sheet, html.bk-sheet body { background: var(--card); }
 html.bk-sheet .bk-panel { padding-right: 60px; }
 
 .bk-banner.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+
+.bk-sel { position: relative; }
+.bk-sel-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.bk-sel-btn:focus-visible, .bk-sel-btn[aria-expanded="true"] { outline: 0; border-color: var(--ac-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac-text) 22%, transparent); }
+.bk-sel-btn .ph { color: var(--faint); } .bk-sel-btn svg { color: var(--faint); flex: none; }
+.bk-sel.bad .bk-sel-btn { border-color: var(--danger); } .bk-sel-pop { width: 100%; }

@@ -107,7 +107,8 @@
 			function applyLink() { linkOpen.value = false; restore(); if (getSelection().toString()) document.execCommand('createLink', false, link.url); else document.execCommand('insertHTML', false, `<a href="${CM.escape(link.url)}">${CM.escape(link.text || link.url)}</a>`); changed(); track() }
 			function paste(e) { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain')); changed() }
 			const insertText = (t) => { restore(); document.execCommand('insertText', false, t); changed() }
-			return { ed, changed, cmd, setSize, setFont, pick, openLink, applyLink, link, linkOpen, paste, insertText, sizes, fonts }
+			const sizeOpts = sizes.map((x) => ({ value: x, label: String(x) }))
+			return { sizeOpts, ed, changed, cmd, setSize, setFont, pick, openLink, applyLink, link, linkOpen, paste, insertText, sizes, fonts }
 		},
 		template: `
 		<div class="mre">
@@ -116,8 +117,8 @@
 				<button type="button" class="btn ghost icon sm" title="Italic" aria-label="Italic" @mousedown.prevent @click="cmd('italic')"><Ico name="italic" /></button>
 				<button type="button" class="btn ghost icon sm" title="Underline" aria-label="Underline" @mousedown.prevent @click="cmd('underline')"><Ico name="underline" /></button>
 				<span class="re-sep"></span>
-				<select class="inp mre-sel" aria-label="Font" @change="pick($event, setFont)"><option value="">Font</option><option v-for="f in fonts" :key="f" :value="f">{{ f }}</option></select>
-				<select class="inp mre-sel sm" aria-label="Font size" @change="pick($event, (v) => setSize(+v))"><option value="">Size</option><option v-for="s in sizes" :key="s" :value="s">{{ s }}</option></select>
+				<div class="mre-dd" @mousedown.prevent><Dd :model-value="''" :options="fonts" placeholder="Font" size="sm" :width="190" aria-label="Font" @change="setFont" /></div>
+				<div class="mre-dd sm" @mousedown.prevent><Dd :model-value="''" :options="sizeOpts" placeholder="Size" size="sm" :width="90" aria-label="Font size" @change="(v) => setSize(+v)" /></div>
 				<label class="btn ghost icon sm mre-col" title="Text colour"><Ico name="palette" /><input type="color" aria-label="Text colour" @input="cmd('foreColor', $event.target.value)" /></label>
 				<span class="re-sep"></span>
 				<button type="button" class="btn ghost icon sm" title="Align left" aria-label="Align left" @mousedown.prevent @click="cmd('justifyLeft')"><Ico name="align-left" /></button>
