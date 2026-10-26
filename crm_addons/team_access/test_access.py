@@ -432,3 +432,27 @@ class TestPeopleAdmin(HierarchyMixin):
 		doc.mobile_no = "9876543210"
 		doc.save()
 		self.assertEqual(frappe.db.get_value("User", rep, "mobile_no"), "9876543210")
+
+
+class TestLoginLink(HierarchyMixin):
+	def test_login_link_by_whatsapp_needs_an_approved_template(self):
+		from crm_addons import system_messages
+		from crm_addons.team_access import admin
+
+		email = "wl.new@example.org"
+		if frappe.db.exists("User", email):
+			frappe.delete_doc("User", email, force=True, ignore_permissions=True)
+		self.addCleanup(lambda: frappe.db.exists("User", email) and frappe.delete_doc("User", email, force=True, ignore_permissions=True))
+		with patch("frappe.core.doctype.user.user.User.send_welcome_mail_to_user"), \
+			patch.object(system_messages, "login_template_status", return_value={"exists": False, "ready": False, "state": ""}):
+			out = admin.add_person(email, "Wa", "Link", "Sales User", None, 0, "9876543210", "", "", "", None, 1)
+		self.assertTrue(out["created"])  # the person is still added
+		self.assertTrue(any("WhatsApp login link was not sent" in p for p in out["problems"]))
+		frappe.delete_doc("User", email, force=True, ignore_permissions=True)
+		ok = {"exists": True, "ready": True, "state": "APPROVED", "name": "t"}
+		with patch("frappe.core.doctype.user.user.User.send_welcome_mail_to_user"), \
+			patch.object(system_messages, "login_template_status", return_value=ok), \
+			patch.object(system_messages, "send_login_link", return_value={"message": "WM", "to": "91"}) as send:
+			out = admin.add_person(email, "Wa", "Link", "Sales User", None, 0, "9876543210", "", "", "", None, 1)
+		self.assertEqual(out["problems"], [])
+		self.assertIn("update-password?key=", send.call_args[0][1])  # a set-password link, never a password

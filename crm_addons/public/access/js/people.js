@@ -155,25 +155,26 @@
 		emits: ['close', 'added'],
 		setup(props, { emit }) {
 			const lastCompany = (AX.data.people.map((p) => p.company).filter(Boolean)[0]) || ''
-			const f = reactive({ email: '', first_name: '', last_name: '', mobile_no: '', designation: '', company: lastCompany, image: '', role: 'Sales User', preset: '', reports_to: '', invite: true })
+			const f = reactive({ email: '', first_name: '', last_name: '', mobile_no: '', designation: '', company: lastCompany, image: '', role: 'Sales User', preset: '', reports_to: '', invite: true, whatsapp: false })
 			const busy = ref(false); const err = ref('')
 			const SHOWN = ['Sales Executive', 'Sales Manager', 'Campaign Executive']
 			const presetOptions = computed(() => [{ value: '', label: 'No preset (what their role gives them)' }, ...AX.data.presets.filter((p) => SHOWN.includes(p.name)).map((p) => ({ value: p.name, label: p.preset_name, sub: p.description }))])
 			const leaderOptions = computed(() => AX.leaderOptions(''))
+			const waReady = computed(() => !!(AX.data.login_template && AX.data.login_template.ready))
 			async function submit() {
 				err.value = ''
 				if (!/^\S+@\S+\.\S+$/.test(f.email.trim())) { err.value = 'Enter a valid email address.'; return }
 				if (!f.first_name.trim()) { err.value = 'Enter the first name.'; return }
 				busy.value = true
 				try {
-					const r = await AX.api('add_person', { email: f.email.trim(), first_name: f.first_name.trim(), last_name: f.last_name.trim(), role: f.role, preset: f.preset || null, send_invite: f.invite ? 1 : 0, mobile_no: f.mobile_no, designation: f.designation, company: f.company, user_image: f.image, reports_to: f.reports_to || null })
+					const r = await AX.api('add_person', { email: f.email.trim(), first_name: f.first_name.trim(), last_name: f.last_name.trim(), role: f.role, preset: f.preset || null, send_invite: f.invite ? 1 : 0, send_whatsapp: f.whatsapp ? 1 : 0, mobile_no: f.mobile_no, designation: f.designation, company: f.company, user_image: f.image, reports_to: f.reports_to || null })
 					await AX.load(true)
 					const notes = [...(r.invite_problem ? ['The invitation email could not be sent: ' + r.invite_problem] : []), ...(r.problems || [])]
 					CM.toast(!r.created ? f.email + ' already had an account and now has the role.' : (r.invited ? f.email + ' is added and the invitation email is sent.' : f.email + ' is added.') + (notes.length ? ' ' + notes.join(' ') : ''), notes.length ? 'err' : undefined)
 					emit('added', r.user)
 				} catch (e) { err.value = e.message } finally { busy.value = false }
 			}
-			return { f, busy, err, presetOptions, leaderOptions, submit, AX }
+			return { f, busy, err, presetOptions, leaderOptions, waReady, submit, AX }
 		},
 		template: `
 		<Modal size="lg" title="Add a person" subtitle="They get a CRM login with the role below." @close="$emit('close')" @submit="submit">
@@ -187,6 +188,7 @@
 				<div class="ax-two"><Field label="Preset" hint="The ready-made access to start from."><Dd v-model="f.preset" :options="presetOptions" aria-label="Preset" /></Field>
 					<Field v-if="AX.data.hierarchy.available" label="Team leader" hint="They are added under this person in the Sales Hierarchy."><Dd v-model="f.reports_to" :options="leaderOptions" searchable allow-empty="Nobody" placeholder="Nobody" aria-label="Team leader" /></Field></div>
 				<label class="check"><input type="checkbox" v-model="f.invite" /> Email them an invitation to set a password</label>
+				<label class="check" :class="{ faint: !waReady }"><input type="checkbox" v-model="f.whatsapp" :disabled="!waReady || !f.mobile_no.trim()" /> Also send the login link on WhatsApp <span class="small muted">{{ !AX.data.login_template.exists ? '(create the WhatsApp template first)' : !waReady ? '(template waiting for Meta approval)' : !f.mobile_no.trim() ? '(needs a contact number)' : '' }}</span></label>
 			</div>
 			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="plus" :loading="busy" @click="submit">Add person</Btn></template>
 		</Modal>`,
@@ -194,7 +196,11 @@
 
 	V.People = {
 		setup() {
-			const q = ref(''); const filter = ref('all'); const editing = ref(null); const adding = ref(false)
+			const q = ref(''); const filter = ref('all'); const editing = ref(null); const adding = ref(false); const creatingTpl = ref(false)
+			async function createTpl() {
+				creatingTpl.value = true
+				try { const r = await AX.api('create_login_template', {}); CM.toast(r.message || 'Submitted to Meta.'); await AX.load(true) } catch (e) { CM.toast(e.message, 'err') } finally { creatingTpl.value = false }
+			}
 			onMounted(() => AX.load())
 			const d = AX.data
 			const people = computed(() => d.people.filter((p) => {
@@ -206,11 +212,12 @@
 				return !s || (p.full_name + ' ' + p.user).toLowerCase().includes(s)
 			}))
 			const counts = computed(() => ({ all: d.people.length, custom: d.people.filter((p) => p.configured).length, default: d.people.filter((p) => !p.configured).length, inactive: d.people.filter((p) => !p.enabled).length }))
-			return { d, q, filter, editing, adding, people, counts, AX }
+			return { createTpl, creatingTpl, d, q, filter, editing, adding, people, counts, AX }
 		},
 		template: `
 		<div class="page wide">
 			<div class="pg-head"><div class="grow"><h1>Team and access</h1><p>Choose who sees what in Pro Pack: follow-ups, meetings, demos, assignment and the Campaign Manager. Each person gets a preset, and you can change anything on top of it.</p></div><div class="actions"><Btn variant="primary" icon="plus" @click="adding = true">Add person</Btn></div></div>
+			<div v-if="d.loaded && d.login_template && d.login_template.available && !d.login_template.ready" class="alert info"><Ico name="info" /><div class="grow"><template v-if="!d.login_template.exists"><b>WhatsApp login link is not set up.</b> Create the ready-made template to send new people their login link on WhatsApp. Meta reviews it before it can be used.</template><template v-else><b>WhatsApp login template: {{ d.login_template.state.toLowerCase() }}.</b> It can be used once Meta approves it (Campaign Manager, WhatsApp templates, Sync from Meta).</template></div><Btn v-if="!d.login_template.exists" size="sm" :loading="creatingTpl" @click="createTpl">Create template</Btn></div>
 			<div v-if="d.error" class="alert err"><Ico name="alert" /><div class="grow">{{ d.error }}</div></div>
 			<div v-if="d.loaded && !d.hierarchy.available" class="alert warn"><Ico name="info" /><div class="grow"><b>This CRM has no Sales Hierarchy.</b> "My team" then means just the person themselves. Newer Frappe CRM versions have the hierarchy in Settings, under User Management.</div></div>
 			<div v-else-if="d.loaded && !d.hierarchy.enabled" class="alert info"><Ico name="info" /><div class="grow"><b>The Sales Hierarchy is switched off in CRM.</b> "My team" still follows the tree ({{ d.hierarchy.people }} people in it); CRM itself only uses it for leads once you switch it on in Settings.</div></div>

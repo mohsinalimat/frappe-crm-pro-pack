@@ -48,6 +48,21 @@ def _extra_fields():
 	return [f for f in ("crm_designation", "crm_company") if meta.has_field(f)]
 
 
+def _login_template():
+	from crm_addons import system_messages
+
+	return system_messages.login_template_status()
+
+
+@frappe.whitelist()
+def create_login_template():
+	"""Submit the ready-made WhatsApp login-link template to Meta (System Managers). It stays Pending until Meta approves it."""
+	_admin()
+	from crm_addons import system_messages
+
+	return system_messages.create_login_template()
+
+
 def _people():
 	users = frappe.get_all(
 		"User", filters={"user_type": "System User", "name": ["not in", ["Administrator", "Guest"]]},
@@ -85,7 +100,7 @@ def _people():
 def get_overview():
 	"""Everything the screen needs in one call."""
 	_admin()
-	return {**_registry(), "presets": _presets(), "people": _people(), "hierarchy": access.hierarchy_info(), "me": frappe.session.user}
+	return {**_registry(), "presets": _presets(), "people": _people(), "hierarchy": access.hierarchy_info(), "me": frappe.session.user, "login_template": _login_template()}
 
 
 @frappe.whitelist()
@@ -265,7 +280,7 @@ def _apply_profile(doc, first_name=None, last_name=None, mobile_no=None, designa
 
 
 @frappe.whitelist()
-def add_person(email, first_name, last_name="", role="Sales User", preset=None, send_invite=1, mobile_no="", designation="", company="", user_image="", reports_to=None):
+def add_person(email, first_name, last_name="", role="Sales User", preset=None, send_invite=1, mobile_no="", designation="", company="", user_image="", reports_to=None, send_whatsapp=0):
 	"""Add a person to the CRM: a System User with a CRM role, profile details, an optional preset and team leader, and (by default) the
 	welcome email with the link to set a password.
 
@@ -320,6 +335,16 @@ def add_person(email, first_name, last_name="", role="Sales User", preset=None, 
 		except Exception as exc:
 			frappe.clear_messages()
 			problem = frappe.utils.strip_html(cstr(exc))[:200]
+	if created and cint(send_whatsapp):
+		try:
+			from crm_addons import system_messages
+
+			doc.reload()
+			link = doc._reset_password(send_email=False) if hasattr(doc, "_reset_password") else doc.reset_password(send_email=False)
+			system_messages.send_login_link(email, link)
+		except Exception as exc:
+			frappe.clear_messages()
+			problems.append(_("The WhatsApp login link was not sent: {0}").format(frappe.utils.strip_html(cstr(exc))[:200]))
 	access.clear()
 	return {"user": email, "created": created, "invited": invited, "invite_problem": problem, "problems": problems}
 
