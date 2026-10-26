@@ -25,6 +25,8 @@ A patch release. **Upgrade:** `bench --site your-site migrate` and `bench restar
 
 ### Fixed
 
+- **Typing a question in a widget's Form tab lost the cursor after every letter.** The list item was keyed by the question's saved key, which follows the label as you type, so it was rebuilt on each
+  keystroke. It now has its own steady key. The browser test types for real now.
 - **Widget host and CC pickers listed contacts and leads.** Hosts and CC now search only team members (people with a CRM role), best match first; a full email address can still be typed in CC.
 - **Audience filters did not list the values of CRM fields such as Organization type or Territory** (only ten, in a plain search box). They are now a searchable dropdown with up to 200 values, and "is any of" / "is none of" work for them too.
 - **A rule or filter value typed with spaces around it** ("School ") did not match "School", so "is not School" could let School leads through. Values are trimmed.

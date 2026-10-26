@@ -250,10 +250,13 @@
 			const fixed = computed(() => doc.fields.filter((f) => DM.FIXED_FIELDS.includes(f.key)))
 			const extra = computed(() => doc.fields.filter((f) => !DM.FIXED_FIELDS.includes(f.key)))
 			const open = reactive({}); const dragFrom = ref(null); const dragOver = ref(null)
+			// a question's list key must not change while its label is typed (the saved key follows the label), or the box is rebuilt and loses the cursor
+			const ids = new WeakMap(); let nextId = 0
+			const uid = (f) => { let v = ids.get(f); if (!v) { v = 'q' + ++nextId; ids.set(f, v) } return v }
 			function add() {
 				let n = extra.value.length + 1; while (doc.fields.some((f) => f.key === 'question_' + n)) n++
 				const f = { key: 'question_' + n, label: '', kind: 'Text', required: false, options: '', placeholder: '', enabled: true, lead_field: '' }
-				doc.fields.push(f); open[f.key] = true
+				doc.fields.push(f); open[uid(doc.fields[doc.fields.length - 1])] = true
 				nextTick(() => { const el = document.querySelector('[data-q="' + f.key + '"] input'); if (el) el.focus() })
 			}
 			function setLabel(f, v) { const auto = f.key === DM.keyify(f.label) || /^question_\d+$/.test(f.key); f.label = v; if (auto && v.trim()) { let k = DM.keyify(v) || f.key, i = 2; const base = k; while (doc.fields.some((x) => x !== f && x.key === k)) k = base + '_' + i++; f.key = k } }
@@ -268,7 +271,7 @@
 			onMounted(() => { DM.loadLookups() })
 			const sources = computed(() => DM.lookups.sources.map((s) => ({ value: s, label: s })))
 			const statuses = computed(() => DM.lookups.statuses.map((s) => ({ value: s, label: s })))
-			return { fixed, extra, open, add, setLabel, remove, move, dragFrom, dragOver, drop, leadFields, KINDS, KIND_ICON, kindOpts: KINDS.map((k) => ({ value: k, label: k, icon: KIND_ICON[k] })), sources, statuses, DM }
+			return { uid, fixed, extra, open, add, setLabel, remove, move, dragFrom, dragOver, drop, leadFields, KINDS, KIND_ICON, kindOpts: KINDS.map((k) => ({ value: k, label: k, icon: KIND_ICON[k] })), sources, statuses, DM }
 		},
 		template: `
 		<div class="col tabcol">
@@ -279,13 +282,13 @@
 						<ul class="qlist" role="list">
 							<li v-for="f in fixed" :key="f.key" class="q fixed"><span class="grip off" aria-hidden="true"><Ico name="shield" /></span><div class="grow"><b>{{ f.label || f.key }}</b><span class="small muted"> - {{ f.kind }}, always required</span></div><span class="badge neutral nodot">Fixed</span>
 								<input class="inp q-ph" v-model="f.placeholder" :aria-label="'Placeholder for ' + f.key" placeholder="Placeholder" /></li>
-							<li v-for="(f, n) in extra" :key="f.key" class="q" :data-q="f.key" :class="{ over: dragOver === f && dragFrom !== f, off: !f.enabled }" draggable="true" @dragstart="dragFrom = f" @dragover.prevent="dragOver = f" @dragleave="dragOver = null" @drop.prevent="drop(f)" @dragend="dragFrom = dragOver = null">
+							<li v-for="(f, n) in extra" :key="uid(f)" class="q" :data-q="f.key" :class="{ over: dragOver === f && dragFrom !== f, off: !f.enabled }" draggable="true" @dragstart="dragFrom = f" @dragover.prevent="dragOver = f" @dragleave="dragOver = null" @drop.prevent="drop(f)" @dragend="dragFrom = dragOver = null">
 								<div class="q-h"><span class="grip" aria-hidden="true"><Ico name="grip" /></span><Ico :name="KIND_ICON[f.kind]" class="faint" />
 									<input class="inp q-l" :value="f.label" placeholder="Question, for example: How many students?" :aria-label="'Question ' + (n + 1)" @input="setLabel(f, $event.target.value)" />
 									<span class="small muted nowrap">Required</span><Switch v-model="f.required" :label="'Required: ' + f.label" />
 									<Btn size="sm" variant="ghost" icon="arrow-up" :disabled="n === 0" :aria-label="'Move up'" @click="move(f, -1)" /><Btn size="sm" variant="ghost" icon="arrow-down" :disabled="n === extra.length - 1" aria-label="Move down" @click="move(f, 1)" />
-									<Btn size="sm" variant="ghost" :icon="open[f.key] ? 'chevron-up' : 'chevron-down'" :aria-expanded="!!open[f.key]" aria-label="More settings" @click="open[f.key] = !open[f.key]" /><Btn size="sm" variant="ghost" icon="trash" aria-label="Remove question" @click="remove(f)" /></div>
-								<div v-if="open[f.key]" class="q-b">
+									<Btn size="sm" variant="ghost" :icon="open[uid(f)] ? 'chevron-up' : 'chevron-down'" :aria-expanded="!!open[uid(f)]" aria-label="More settings" @click="open[uid(f)] = !open[uid(f)]" /><Btn size="sm" variant="ghost" icon="trash" aria-label="Remove question" @click="remove(f)" /></div>
+								<div v-if="open[uid(f)]" class="q-b">
 									<div class="g3"><Field label="Answer type"><Dd v-model="f.kind" :options="kindOpts" aria-label="Answer type" /></Field><Field label="Placeholder"><input class="inp" v-model="f.placeholder" /></Field><Field label="Save the answer on the lead as" hint="Optional."><Dd v-model="f.lead_field" :options="leadFields" searchable allow-empty="Do not copy to the lead" placeholder="Do not copy to the lead" aria-label="Lead field" /></Field></div>
 									<Field v-if="f.kind === 'Select'" label="Options" hint="One per line."><textarea class="inp" rows="3" v-model="f.options" placeholder="Option one&#10;Option two"></textarea></Field>
 									<Toggle v-model="f.enabled" label="Show this question" text="Switch off to hide it without losing it." />
