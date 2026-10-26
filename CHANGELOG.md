@@ -403,3 +403,15 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
   A new demo type uses an approved one automatically.
 - Existing demo types: **Use ready-made messages** fills the empty messages in one click (never replaces a choice).
 - Manager API: `demos.admin.default_messages`, `demos.admin.create_default_whatsapp_template(event, minutes_before)`.
+
+## Unreleased - Team and access
+- **Team and access** page (System Managers): every CRM person with their roles, who they report to (from CRM's Sales Hierarchy) and their access. Each person gets a
+  **preset** and any **changes on top**; presets (Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer, Demo Host) are editable and can be copied.
+  Opened from the CRM menu / Dashboard header (**Team and access**) or at `/team-access`.
+- Access is set **per feature**: a level (No access / Own only / My team / Everyone) for Meetings, Follow-ups, Demos, Sales Dashboard numbers, Campaigns, moving leads and
+  assignment history; View / Create-and-edit levels for demo widgets, assignment rules, automations, email templates, WhatsApp templates and audiences; and on/off switches
+  (campaigns, demo report, list clean-up, the Demos tab in Meetings, the Campaigns tab in the Sales Dashboard...). **My team** = the person and everyone below them in
+  CRM's Sales Hierarchy.
+- Nothing changes for people nobody configures: managers, the Campaign Manager role and Sales Users keep exactly what they had. System Managers always keep full access.
+- Foundation: `team_access/` (registry, resolver `access.level / allows / scope_users`, doctypes *CRM Access Preset* and *CRM User Access*, manager API); each screen
+  starts to use it in the following changes. A password reset email can be sent from a person's panel (Frappe's own reset).

@@ -180,6 +180,23 @@ def email_templates_stamp():
 	return _email_templates_stamp()
 
 
+def _is_access_admin():
+	from crm_addons.team_access import access
+
+	return access.is_admin()
+
+
+def _my_access():
+	"""What the person's access settings allow, so the screens can hide what they cannot use (the server checks every call as well)."""
+	from crm_addons.team_access import access
+
+	try:
+		return access.my_access()
+	except Exception:
+		frappe.clear_messages()
+		return {}
+
+
 @frappe.whitelist()
 def get_client_config():
 	# settings.get(): a field added by a newer version is simply empty until `bench migrate` has run,
@@ -216,6 +233,8 @@ def get_client_config():
 		"hide_deals_menu": cint(settings.get("hide_deals_menu")),
 		"can_manage_campaigns": 1 if is_campaign_manager() else 0,
 		"demos_enabled": 1,
+		"can_manage_access": 1 if _is_access_admin() else 0,
+		"access": _my_access(),
 		"can_assign": 1 if frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles() else 0,  # the Assignment menu: System Managers only
 		"show_campaigns_shortcut": 1 if campaigns_shortcut_visible(settings) else 0,
 		"deals_enabled": 0 if cint(settings.get("hide_deals_menu")) else 1,  # dashboards leave deal numbers out for a team that does not use Deals

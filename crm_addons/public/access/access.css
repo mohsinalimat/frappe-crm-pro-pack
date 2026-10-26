@@ -1,0 +1,18 @@
+/* Team and access: only what the Campaign Manager's styles do not already give. */
+.ax-grid { display: grid; gap: 14px; }
+.ax-group { padding: 0; overflow: hidden; }
+.ax-group header { padding: 14px 18px 10px; border-bottom: 1px solid var(--border); }
+.ax-group header h3 { margin: 0; font-size: 15px; } .ax-group header p { margin: 2px 0 0; font-size: 12.5px; color: var(--text-soft); }
+.ax-row { display: flex; align-items: center; gap: 16px; padding: 11px 18px; border-bottom: 1px solid var(--border); }
+.ax-row:last-child { border-bottom: 0; } .ax-row.changed { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.ax-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; } .ax-name b { font-size: 13.5px; }
+.ax-ctl { display: flex; align-items: center; gap: 8px; flex: none; }
+.ax-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft, transparent); }
+.ax-facts > div { display: flex; flex-direction: column; gap: 4px; } .ax-facts b { font-size: 13.5px; font-weight: 600; }
+.ax-acct { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ax-tbl tr.click { cursor: pointer; } .ax-tbl tr.click:hover td { background: var(--hover, rgba(127, 127, 127, .06)); }
+.ax-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.ax-sum { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12.5px; } .ax-sum dt { color: var(--text-soft); } .ax-sum dd { margin: 0; font-weight: 600; text-align: right; }
+@media (max-width: 720px) { .ax-row { flex-direction: column; align-items: stretch; gap: 8px; } .ax-ctl { justify-content: space-between; } }
+
+.ax-grid [aria-disabled="true"] { pointer-events: none; opacity: .65; }
