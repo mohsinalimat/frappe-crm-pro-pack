@@ -6,6 +6,11 @@
  */
 window.SETUP_SCHEMA = [
 	{
+		key: 'branding', title: 'Branding', icon: 'palette', custom: 'branding',
+		desc: 'The name, logo and favicon people see in the CRM, on the login page, in the Desk and in the footer. Leave a field empty to keep the default look.',
+		items: [],
+	},
+	{
 		key: 'meetings', title: 'Meetings', icon: 'calendar',
 		desc: 'How meetings are created, and who is told about them.',
 		items: [
