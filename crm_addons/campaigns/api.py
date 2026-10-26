@@ -48,7 +48,7 @@ CAMPAIGN_FIELDS = (
 RULE_FIELDS = ("event", "action", "value")
 STEP_FIELDS = ("channel", "day_offset", "condition", "email_template", "wa_template", "wa_account", "variable_map", "wa_attach", "attachments")
 EMAIL_TEMPLATE = "CRM Campaign Email Template"
-EMAIL_CATEGORIES = ["Welcome", "Promotion", "Newsletter", "Follow-up", "Event", "Announcement", "Transactional", "Other"]
+EMAIL_CATEGORIES = ["Welcome", "Promotion", "Newsletter", "Follow-up", "Event", "Announcement", "Utility", "Transactional", "Other"]
 EDITOR_MODES = ("Visual Builder", "HTML", "Rich Text")
 TEST_EMAIL_MAX = 10  # recipients per test-send call
 TEST_EMAIL_PER_HOUR = 40  # per user
@@ -116,6 +116,7 @@ def get_config():
 		"now": now_datetime().strftime("%Y-%m-%d %H:%M:%S"),  # the site's wall clock: date pickers use its "today"
 		"user": frappe.session.user,
 		"email_categories": EMAIL_CATEGORIES,
+		"is_admin": 1 if access.is_admin() else 0,
 		"attachment_limit_mb": round(attachment_limit_bytes() / 1048576),
 		"test_email_max": TEST_EMAIL_MAX,
 		"sender_name": frappe.utils.get_fullname(frappe.session.user),
@@ -463,7 +464,7 @@ def list_email_templates(search=None, category=None, enabled=None):
 		r["used_in"] = len(usage.get(r.name, ()))
 		r["editor_mode"] = r.editor_mode or "HTML"
 		r["is_system"] = cint(r.is_system)
-		r["purpose"] = "Default" if r["is_system"] else "Utility" if r.category == "Transactional" else "Marketing"
+		r["purpose"] = "Default" if r["is_system"] else "Utility" if r.category in ("Utility", "Transactional") else "Marketing"
 	return rows
 
 

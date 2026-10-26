@@ -508,6 +508,21 @@ def ensure_default_email_templates():
 				"editor_mode": "Visual Builder", "builder_json": builder_json, "body_html": body_html, "enabled": 1, "is_system": 1 if name in booking_names else 0,
 			}
 		).insert(ignore_permissions=True)
+	# The booking messages are Utility (service messages, not marketing). Sites that seeded them as "Transactional" or with the old
+	# "demo" wording get the new category, and the new wording when the text is still the ready-made one.
+	fresh = {n: (sub, desc, bj, bh) for n, sub, c, desc, bj, bh in dt.default_templates()}
+	for n in list(booking_names) + ["Counselling session reminder"]:
+		if n in fresh and frappe.db.exists("CRM Campaign Email Template", n):
+			doc = frappe.get_doc("CRM Campaign Email Template", n)
+			changed = False
+			if doc.category != "Utility":
+				doc.category, changed = "Utility", True
+			if any(m in (doc.body_html or "") for m in ("Join the demo", "Your demo ", "demo_title")) and n in booking_names:
+				doc.update({"subject": fresh[n][0], "description": fresh[n][1], "builder_json": fresh[n][2], "body_html": fresh[n][3]})
+				changed = True
+			if changed:
+				doc.flags.ignore_permissions = True
+				doc.save()
 	# the booking messages are protected from deletion (see campaigns/api.py): mark the ones already on the site too
 	booking = list(booking_names)
 	if booking and frappe.get_meta("CRM Campaign Email Template").has_field("is_system"):

@@ -27,7 +27,7 @@ EMAIL = {
 }
 
 _SAMPLE = ["Asha", "Intro session", "Tue 27 Oct", "4:00 PM IST", "https://meet.google.com/abc-defg-hij", "https://crm.example.com/book/manage/abc123"]
-_V = {"1": "{{ first_name }}", "2": "{{ demo_title }}", "3": "{{ demo_date }}", "4": "{{ demo_time }}", "5": "{{ meet_link }}", "6": "{{ reschedule_link }}"}
+_V = {"1": "{{ first_name }}", "2": "{{ booking_title }}", "3": "{{ booking_date }}", "4": "{{ booking_time }}", "5": "{{ meet_link }}", "6": "{{ reschedule_link }}"}
 
 
 def _wa(name, body, variables, samples):

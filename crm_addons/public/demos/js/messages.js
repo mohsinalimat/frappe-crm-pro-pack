@@ -47,7 +47,7 @@
 				rule.wa_template = n
 				const t = wa.rows.find((x) => x.name === n)
 				rule.wa_account = (t && t.whatsapp_account) || ''
-				const saved = (t && t.variable_map) || {}; const defaults = ['{{ first_name }}', '{{ demo_title }}', '{{ demo_datetime }}', '{{ meet_link }}', '{{ host_name }}']
+				const saved = (t && t.variable_map) || {}; const defaults = ['{{ first_name }}', '{{ booking_title }}', '{{ booking_datetime }}', '{{ meet_link }}', '{{ host_name }}']
 				const next = {}; ;(t ? t.placeholders : []).forEach((p, i) => { next[p] = map[p] || saved[p] || defaults[i] || '' })
 				Object.keys(map).forEach((k) => delete map[k]); Object.assign(map, next)
 			}
