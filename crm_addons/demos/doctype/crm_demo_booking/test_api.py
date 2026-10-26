@@ -173,10 +173,10 @@ class TestManagerApi(ApiCase):
 	def test_every_manager_function_refuses_a_sales_user(self):
 		demo = self.make_demo()
 		name = self.book(demo, ist(MONDAY, 10))
-		self.as_user(self.owner.name)
+		self.as_user(self.owner2.name)  # a Sales User who is not part of this demo
 		calls = [
 			(admin.list_demo_types, ()), (admin.get_demo_type, (demo.name,)), (admin.save_demo_type, (json.dumps({"title": "x"}),)),
-			(admin.duplicate_demo_type, (demo.name,)), (admin.delete_demo_type, (demo.name,)), (admin.list_bookings, ()),
+			(admin.duplicate_demo_type, (demo.name,)), (admin.delete_demo_type, (demo.name,)),
 			(admin.get_booking_admin, (name,)), (admin.set_booking_status, (name, "Completed")), (admin.resend_message, (name, "Confirmed")),
 			(admin.demo_report, ()), (admin.get_embed_code, (demo.name,)), (admin.list_templates, ()), (admin.get_demo_variables, ()),
 		]
@@ -185,6 +185,20 @@ class TestManagerApi(ApiCase):
 				fn(*args)
 		self.assertEqual(frappe.db.get_value(BOOKING, name, "status"), "Confirmed")
 		self.assertTrue(frappe.db.exists(DEMO_TYPE, demo.name))
+
+	def test_a_sales_user_sees_only_the_demos_they_take_part_in(self):
+		demo = self.make_demo()
+		name = self.book(demo, ist(MONDAY, 10))
+		self.as_user(self.owner2.name)
+		self.assertEqual(admin.list_bookings()["rows"], [])
+		self.assertEqual(admin.my_demos(scope="all"), [])
+		frappe.set_user("Administrator")
+		self.as_user(self.owner.name)  # the host
+		self.assertEqual([r["name"] for r in admin.list_bookings()["rows"]], [name])
+		self.assertEqual(admin.get_booking_admin(name)["booking"]["name"], name)
+		with self.assertRaises(frappe.PermissionError):
+			admin.set_booking_status(name, "Cancelled")  # acting on bookings is for people who see other people's demos
+		self.assertEqual(admin.set_my_demo_outcome(name, "Completed")["status"], "Completed")  # but a host records how their own demo went
 
 	def test_guest_cannot_use_my_demos_or_the_manager_api(self):
 		self.as_user("Guest")

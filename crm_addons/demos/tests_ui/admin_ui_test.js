@@ -1,4 +1,4 @@
-/* UI regression for the Demo booking admin screens and the Demos view of Meetings (Playwright + Chromium).
+/* UI regression for the Demos admin screens and the Demos view of Meetings (Playwright + Chromium).
  *
  *   BASE=http://127.0.0.1:8011 ADMIN_USER=Administrator ADMIN_PASS=admin node crm_addons/demos/tests_ui/admin_ui_test.js
  *
@@ -58,15 +58,15 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 	await step('list', async () => {
 		await open(page, '/types')
 		await page.waitForSelector('.dgrid, .empty', { timeout: 10000 })
-		check('shell: rail with the three sections', (await page.locator('.rail .nav').count()) >= 3 && (await page.locator('.rail .nav', { hasText: 'Bookings' }).count()) === 1)
-		check('page title', (await page.title()) === 'Demo booking')
+		check('shell: rail with the three sections', (await page.locator('.rail .nav').count()) >= 3 && (await page.locator('.rail .nav', { hasText: 'Demos' }).count()) === 1)
+		check('page title', (await page.title()) === 'Demos')
 		await shot(page, 'list-light-1240')
 	})
 
 	// ------------------------------------------------------------------ create: validation first
 	await step('validation', async () => {
 		await open(page, '/types/new/details', '.ed-bar')
-		await page.locator('button:has-text("Create demo type")').first().click()
+		await page.locator('button:has-text("Create demo widget")').first().click()
 		await settle(page, 300)
 		check('validation: empty title blocks saving and says why', (await page.locator('.field .err', { hasText: 'title' }).count()) === 1)
 		check('validation: tab dot shows where the problem is', (await page.locator('.tab-dot').count()) >= 1)
@@ -145,7 +145,7 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 		await page.fill('input[aria-label="Colour code"]', '#0a7d4b')
 		await shot(page, 'branding-light-1240')
 		await page.click('.tab:has-text("Details")'); await page.waitForSelector('.ed-bar')
-		await page.locator('.ed-r button:has-text("Create demo type")').click()
+		await page.locator('.ed-r button:has-text("Create demo widget")').click()
 		await page.waitForFunction((s) => location.hash.includes('/types/' + s), SLUG, { timeout: 10000 })
 		await settle(page, 600)
 		check('create: saved, the address now names the demo type', page.url().includes(SLUG))
@@ -187,7 +187,7 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 		await page.fill('input[placeholder^="For example"]', TITLE + ' edited')
 		await settle(page, 200)
 		check('dirty: the unsaved badge appears and Save is enabled', (await page.locator('.ed-title .badge', { hasText: 'Unsaved' }).count()) === 1 && !(await save.isDisabled()))
-		await page.click('.rail .nav:has-text("Bookings")'); await page.waitForSelector('.modal')
+		await page.click('.rail .nav:has-text("Demos")'); await page.waitForSelector('.modal')
 		check('dirty: leaving asks first', (await page.locator('.modal', { hasText: 'Leave without saving' }).count()) === 1)
 		await page.click('.modal button:has-text("Cancel")'); await settle(page, 200)
 		check('dirty: Cancel stays on the editor', (await page.locator('.ed-bar').count()) === 1)

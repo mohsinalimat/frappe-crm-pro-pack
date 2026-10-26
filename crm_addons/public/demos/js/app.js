@@ -1,14 +1,15 @@
-/* Demo booking admin: application shell (left rail, router, access check) and mount. */
+/* Demos admin: application shell (left rail, router, access check) and mount. */
 (() => {
 	const { createApp, computed, watch, nextTick, onMounted, onBeforeUnmount, ref } = Vue
 	const CM = window.CM
 	const DM = window.DM
 	const V = DM.views
 
+	// Demos (the bookings) first, then the widgets (the booking pages), then the report; each shows only if the person's access allows it
 	const NAV = [
-		{ key: 'types', label: 'Demo types', icon: 'calendar', path: '/types' },
-		{ key: 'bookings', label: 'Bookings', icon: 'users', path: '/bookings' },
-		{ key: 'report', label: 'Report', icon: 'chart', path: '/report' },
+		{ key: 'bookings', label: 'Demos', icon: 'users', path: '/bookings', show: (s) => s.demos !== 'none' },
+		{ key: 'types', label: 'Demo widgets', icon: 'calendar', path: '/types', show: (s) => s.widgets !== 'none' },
+		{ key: 'report', label: 'Report', icon: 'chart', path: '/report', show: (s) => s.report },
 	]
 
 	const App = {
@@ -22,10 +23,10 @@
 						return { comp: 'DemoTypes', key: 'types' }
 					case 'bookings': return { comp: 'Bookings', key: 'bk' }
 					case 'report': return { comp: 'Report', key: 'rep' }
-					default: return { comp: 'DemoTypes', key: 'types' }
+					default: return DM.session.demos !== 'none' || DM.session.widgets === 'none' ? { comp: 'Bookings', key: 'bk' } : { comp: 'DemoTypes', key: 'types' }
 				}
 			})
-			const active = computed(() => (r.parts[0] === 'bookings' ? 'bookings' : r.parts[0] === 'report' ? 'report' : 'types'))
+			const active = computed(() => (r.parts[0] === 'types' ? 'types' : r.parts[0] === 'report' ? 'report' : 'bookings'))
 			onMounted(() => { DM.loadSession(); CM.loadShared() })
 			let saved = false; try { saved = localStorage.getItem('dm_rail_collapsed') === '1' } catch (e) { /* storage blocked */ }
 			const collapsed = ref(saved)
@@ -39,13 +40,15 @@
 			}
 			if (CM.embed) { onMounted(() => { window.addEventListener('keydown', onEsc); try { window.focus() } catch (e) { /* the host page focuses the frame too */ } }); onBeforeUnmount(() => window.removeEventListener('keydown', onEsc)) }
 			function nav(e, path) { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return; e.preventDefault(); DM.leave(path) }
-			return { view, active, NAV, collapsed, toggleRail, canConfigure, s: DM.session, shared: CM.shared, nav, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
+			const nav_items = computed(() => NAV.filter((n) => n.show(DM.session)))
+			const nothing = computed(() => DM.session.ready && !nav_items.value.length)
+			return { view, active, NAV: nav_items, nothing, collapsed, toggleRail, canConfigure, s: DM.session, shared: CM.shared, nav, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
-			<nav class="rail" :class="{ collapsed }" aria-label="Demo booking">
-				<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg></span><div class="brand-txt"><b>Demo booking</b><span>CRM Pro Pack</span></div></div>
-				<template v-if="s.is_manager">
+			<nav class="rail" :class="{ collapsed }" aria-label="Demos">
+				<div class="brand"><span class="brand-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/></svg></span><div class="brand-txt"><b>Demos</b><span>CRM Pro Pack</span></div></div>
+				<template v-if="!nothing">
 				<a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null" @click="nav($event, n.path)"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span></a>
 				</template>
 				<div class="rail-foot">
@@ -57,7 +60,7 @@
 			<main class="main">
 				<div v-if="!s.ready" class="page"><Skel h="40" r="10" /><Skel h="220" r="12" /></div>
 				<div v-else-if="s.error" class="page"><ErrorState :message="s.error" @retry="location.reload()" /></div>
-				<div v-else-if="!s.is_manager" class="page"><Empty icon="shield" title="Demo booking is for managers" text="Only managers can create demo types, see all bookings and open the report. Your own demos are on the Meetings screen, under Demos."><a class="btn primary" href="/crm" v-if="!embedded">Back to CRM</a></Empty></div>
+				<div v-else-if="nothing" class="page"><Empty icon="shield" title="You do not have access to Demos" text="Ask a System Manager to give you access on the Team and access page. Your own demos can also be shown on the Meetings screen, under Demos."><a class="btn primary" href="/crm" v-if="!embedded">Back to CRM</a></Empty></div>
 				<template v-else>
 					<div v-if="shared.error" class="page" style="padding-bottom:0"><div class="alert err"><Ico name="alert" /><div class="grow">{{ shared.error }}</div></div></div>
 					<component :is="view.comp" :key="view.key" v-bind="view.props || {}" />
@@ -75,6 +78,6 @@
 	app.config.globalProperties.$tok = (n) => '{{ ' + n + ' }}'
 	app.config.globalProperties.location = window.location
 	app.config.errorHandler = (err, inst, info) => { console.error('[demos]', err, info); CM.toast('Something went wrong on this page. ' + (err && err.message ? err.message : ''), 'err') }
-	document.title = 'Demo booking'
+	document.title = 'Demos'
 	app.mount('#app')
 })()

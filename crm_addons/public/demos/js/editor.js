@@ -1,4 +1,4 @@
-/* Demo booking admin: the demo type editor (tabs, sticky save bar, validation, draft safety) and its simpler tabs:
+/* Demo booking admin: the demo widget editor (tabs, sticky save bar, validation, draft safety) and its simpler tabs:
  * Details, Form, Embed and Anti-spam. Availability, Team, Messages and Branding are in their own files. */
 (() => {
 	const { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } = Vue
@@ -23,14 +23,14 @@
 
 	function validate(doc, takenSlugs) {
 		const e = {}
-		if (!doc.title.trim()) e.title = 'Give the demo type a title.'
+		if (!doc.title.trim()) e.title = 'Give the demo widget a title.'
 		if (!doc.slug) e.slug = 'A web address is needed.'
 		else if (!/^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$|^[a-z0-9]$/.test(doc.slug)) e.slug = 'Use lower-case letters, numbers and dashes only.'
 		else if (DM.RESERVED.includes(doc.slug)) e.slug = '"' + doc.slug + '" is reserved. Choose another.'
-		else if (takenSlugs.includes(doc.slug)) e.slug = 'Another demo type already uses this address.'
+		else if (takenSlugs.includes(doc.slug)) e.slug = 'Another demo widget already uses this address.'
 		if (!(doc.duration_minutes >= 5 && doc.duration_minutes <= 480)) e.duration = 'Between 5 minutes and 8 hours.'
 		if (doc.provider === 'Manual Link' && !/^https?:\/\//i.test(doc.manual_link || '')) e.manual_link = 'Enter the full meeting link, starting with https://'
-		if (doc.enabled && !doc.owners.length) e.owners = 'Add at least one host before turning this demo type on.'
+		if (doc.enabled && !doc.owners.length) e.owners = 'Add at least one host before turning this demo widget on.'
 		if (doc.enabled && !doc.hours.length) e.hours = 'Set weekly hours, or visitors will find nothing to book.'
 		const bad = DM.WEEKDAYS.some((d) => {
 			const r = doc.hours.filter((h) => h.weekday === d).map((h) => [DM.toMin(h.from_time), DM.toMin(h.to_time)])
@@ -74,7 +74,7 @@
 					taken.value = (list || []).filter((r) => r.name !== serverName.value).map((r) => r.slug)
 					DM.typesCache = list || []
 					doc.value = isNew ? DM.newDoc() : DM.fromServer(d)
-					// a new demo type starts with the ready-made messages (before the baseline, so it is not an "unsaved change" or a draft)
+					// a new demo widget starts with the ready-made messages (before the baseline, so it is not an "unsaved change" or a draft)
 					if (isNew) { await DM.loadDefaults(); doc.value.messages.forEach(DM.applyDefault) }
 					baseline = snap(); loadKey.value++
 					const saved = CM.store.json(draftKey, null)
@@ -88,7 +88,7 @@
 			function discardDraft() { try { localStorage.removeItem(draftKey) } catch (e) { /* ignore */ } draft.value = null }
 			async function discard() {
 				if (!dirty.value) return
-				if (!(await CM.confirm({ title: 'Discard your changes?', message: 'The demo type goes back to how it was last saved.', confirmText: 'Discard', danger: true }))) return
+				if (!(await CM.confirm({ title: 'Discard your changes?', message: 'The demo widget goes back to how it was last saved.', confirmText: 'Discard', danger: true }))) return
 				doc.value = JSON.parse(baseline); discardDraft(); loadKey.value++
 			}
 			function goTab(k) { CM.replace('/types/' + encodeURIComponent(props.name) + '/' + k) }
@@ -108,7 +108,7 @@
 					const saved = res && (res.doc || res)
 					if (saved && saved.name) {
 						discardDraft()
-						if (isNew) { DM.guard.fn = null; CM.toast('Demo type created'); CM.replace('/types/' + encodeURIComponent(saved.name) + '/' + tab.value); return true }
+						if (isNew) { DM.guard.fn = null; CM.toast('Demo widget created'); CM.replace('/types/' + encodeURIComponent(saved.name) + '/' + tab.value); return true }
 						serverName.value = saved.name
 						doc.value = DM.fromServer(saved); baseline = snap(); loadKey.value++
 					} else baseline = snap()
@@ -133,7 +133,8 @@
 			onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); DM.guard.fn = null; DM.guard.dirty = null })
 			const url = computed(() => (doc.value && doc.value.slug ? DM.publicUrl(doc.value.slug) : ''))
 			const draftText = computed(() => (draft.value ? new Date(draft.value.at).toLocaleString([], { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''))
-			return { doc, loading, loadError, saving, dirty, tab, cur, TABS, errs, tabErr, showErrors, load, save, discard, goTab, isNew, loadKey, url, draft, draftText, restore, discardDraft, serverName, back: () => DM.leave('/types'), DM, CM }
+			const viewOnly = computed(() => DM.session.widgets !== 'manage')
+			return { viewOnly, doc, loading, loadError, saving, dirty, tab, cur, TABS, errs, tabErr, showErrors, load, save, discard, goTab, isNew, loadKey, url, draft, draftText, restore, discardDraft, serverName, back: () => DM.leave('/types'), DM, CM }
 		},
 		template: `
 		<div class="page wide editor">
@@ -141,13 +142,14 @@
 			<ErrorState v-else-if="loadError" :message="loadError" @retry="load" />
 			<template v-else>
 			<div class="ed-bar">
-				<div class="ed-l"><button type="button" class="back" @click="back"><Ico name="arrow-left" /> Demo types</button>
-					<div class="ed-title"><h1 class="ellipsis">{{ doc.title || (isNew ? 'New demo type' : 'Untitled demo type') }}</h1><span v-if="dirty" class="badge amber"><span class="sr">Status: </span>Unsaved changes</span><span v-else-if="!isNew" class="badge green">Saved</span></div></div>
-				<div class="ed-r"><a v-if="!isNew && doc.enabled && !dirty" class="btn" :href="url" target="_blank" rel="noopener"><Ico name="external" />Open page</a><Btn :disabled="!dirty || saving" @click="discard">Discard</Btn><Btn variant="primary" icon="save" :loading="saving" :disabled="!dirty && !isNew" title="Save (Ctrl+S)" @click="save">{{ isNew ? 'Create demo type' : 'Save changes' }}</Btn></div>
+				<div class="ed-l"><button type="button" class="back" @click="back"><Ico name="arrow-left" /> Demo widgets</button>
+					<div class="ed-title"><h1 class="ellipsis">{{ doc.title || (isNew ? 'New demo widget' : 'Untitled demo widget') }}</h1><span v-if="dirty" class="badge amber"><span class="sr">Status: </span>Unsaved changes</span><span v-else-if="!isNew" class="badge green">Saved</span></div></div>
+				<div class="ed-r"><a v-if="!isNew && doc.enabled && !dirty" class="btn" :href="url" target="_blank" rel="noopener"><Ico name="external" />Open page</a><Btn :disabled="!dirty || saving" @click="discard">Discard</Btn><Btn variant="primary" icon="save" :loading="saving" :disabled="(!dirty && !isNew) || viewOnly" title="Save (Ctrl+S)" @click="save">{{ isNew ? 'Create demo widget' : 'Save changes' }}</Btn></div>
 			</div>
 			<div v-if="draft" class="alert info" role="status"><Ico name="info" /><div class="grow">Unsaved changes from <b>{{ draftText }}</b> were found in this browser.</div><Btn size="sm" variant="primary" @click="restore">Restore them</Btn><Btn size="sm" @click="discardDraft">Discard</Btn></div>
-			<div class="tabs ed-tabs" role="tablist" aria-label="Demo type sections"><button v-for="t in TABS" :key="t.key" type="button" class="tab" :class="{ on: t.key === tab }" role="tab" :aria-selected="t.key === tab" @click="goTab(t.key)"><Ico :name="t.icon" />{{ t.label }}<i v-if="tabErr(t.key) && (showErrors || !isNew)" class="tab-dot" title="Needs attention"></i></button></div>
-			<component :is="cur.comp" :key="cur.key + loadKey" :doc="doc" :errs="showErrors || !isNew ? errs : {}" :saved-name="serverName" :is-new="isNew" :dirty="dirty" />
+			<div class="tabs ed-tabs" role="tablist" aria-label="Demo widget sections"><button v-for="t in TABS" :key="t.key" type="button" class="tab" :class="{ on: t.key === tab }" role="tab" :aria-selected="t.key === tab" @click="goTab(t.key)"><Ico :name="t.icon" />{{ t.label }}<i v-if="tabErr(t.key) && (showErrors || !isNew)" class="tab-dot" title="Needs attention"></i></button></div>
+			<div v-if="viewOnly" class="alert info"><Ico name="info" /><div class="grow"><b>View only.</b> You can look at this demo widget but not change it.</div></div>
+			<fieldset :disabled="viewOnly" class="ro"><component :is="cur.comp" :key="cur.key + loadKey" :doc="doc" :errs="showErrors || !isNew ? errs : {}" :saved-name="serverName" :is-new="isNew" :dirty="dirty" /></fieldset>
 			</template>
 		</div>`,
 	}
@@ -180,7 +182,7 @@
 			<Section title="Basics" icon="file">
 				<Field label="Title" required :error="errs.title" hint="Shown to visitors at the top of the booking page."><input class="inp" :class="{ bad: errs.title }" v-model="doc.title" maxlength="120" placeholder="For example: 30-minute product demo" @input="onTitle" /></Field>
 				<Field label="Web address" required :error="errs.slug"><div class="slugbox" :class="{ bad: errs.slug || (!isNew ? false : st.state === 'bad'), locked: !isNew }"><span class="slug-pre mono">{{ DM.publicUrl('') }}</span><input class="slug-in mono" :value="doc.slug" maxlength="60" placeholder="product-demo" aria-label="Web address" :readonly="!isNew" @input="onSlug($event.target.value)" /><span v-if="!isNew" class="slug-st"><Ico name="shield" size="sm" />Fixed</span><span v-else-if="st.state" class="slug-st" :class="st.state"><Ico :name="st.state === 'ok' ? 'check-circle' : 'x-circle'" size="sm" />{{ st.text }}</span></div>
-					<div v-if="!errs.slug" class="hint"><template v-if="isNew">Lower-case letters, numbers and dashes. It cannot be changed after the demo type is created, because links already shared would break.</template><template v-else>The address is fixed once a demo type exists. To use a different one, duplicate the demo type.</template><template v-if="doc.slug"> <CopyBtn :text="url" label="Copy link" what="Link" /></template></div></Field>
+					<div v-if="!errs.slug" class="hint"><template v-if="isNew">Lower-case letters, numbers and dashes. It cannot be changed after the demo widget is created, because links already shared would break.</template><template v-else>The address is fixed once a demo widget exists. To use a different one, duplicate the demo widget.</template><template v-if="doc.slug"> <CopyBtn :text="url" label="Copy link" what="Link" /></template></div></Field>
 				<Field label="Description" hint="Shown under the title. What will the visitor see in the demo?"><textarea class="inp" v-model="doc.description" rows="3" maxlength="600" placeholder="A walk through the product, tailored to your school, with time for questions."></textarea></Field>
 				<Toggle v-model="doc.enabled" label="Accepting bookings" text="When off, the page shows that bookings are closed. Existing bookings are not affected." />
 			</Section>
@@ -299,11 +301,11 @@
 		},
 		template: `
 		<div class="col tabcol">
-			<div v-if="isNew || !doc.slug" class="alert warn"><Ico name="alert" /><div class="grow">Create the demo type first. Its page address and embed code are available once it is saved.</div></div>
+			<div v-if="isNew || !doc.slug" class="alert warn"><Ico name="alert" /><div class="grow">Create the demo widget first. Its page address and embed code are available once it is saved.</div></div>
 			<div v-else-if="dirty" class="alert info"><Ico name="info" /><div class="grow">You have unsaved changes. The embed code does not depend on them, but the public page shows the saved version only.</div></div>
 			<Section title="Your booking page" icon="globe">
 				<div class="urlbox"><Ico name="link" /><a class="mono grow ellipsis" :href="url" target="_blank" rel="noopener">{{ url }}</a><CopyBtn :text="url" label="Copy link" what="Link" /><a class="btn sm" :href="url" target="_blank" rel="noopener"><Ico name="external" />Open</a></div>
-				<p v-if="!doc.enabled" class="small" style="margin:0;color:var(--amber)"><Ico name="alert" size="sm" /> This demo type is switched off, so the page shows that bookings are closed.</p>
+				<p v-if="!doc.enabled" class="small" style="margin:0;color:var(--amber)"><Ico name="alert" size="sm" /> This demo widget is switched off, so the page shows that bookings are closed.</p>
 			</Section>
 			<Section title="Put it on your website" icon="code" text="Copy one of these into the page where the button should be.">
 				<Seg v-model="kind" :options="[{ value: 'button', label: 'Pop-up button' }, { value: 'link', label: 'Link' }, { value: 'inline', label: 'Inline' }]" />

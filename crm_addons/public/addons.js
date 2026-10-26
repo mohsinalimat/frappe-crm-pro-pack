@@ -744,8 +744,8 @@
 		if (c.campaigns_enabled && c.show_campaigns_shortcut) list.push({ key: 'campaigns', label: 'Campaigns', icon: 'send', title: 'Campaign Manager', run: function () { openCampaigns() } })
 		// lead assignment: System Managers only (the server checks as well)
 		if (c.can_assign) list.push({ key: 'assignment', label: 'Assignment', icon: 'users', title: 'Lead assignment rules, assigning and moving leads', run: function () { openAssignment() } })
-		// demo booking admin: managers only (the server checks as well); shown unless the server says the feature is off
-		if (c.is_manager && c.demos_enabled !== 0) list.push({ key: 'demos', label: 'Demos', icon: 'calendar-check', title: 'Demo booking: demo types, bookings and report', run: function () { openDemos() } })
+		// Demos: everyone whose access allows demos, widgets or the report (the server checks as well); hidden when the server says the feature is off
+		if (c.demos_enabled !== 0 && ((c.access || {}).demos !== 'none' || ((c.access || {}).demo_widgets || 'none') !== 'none' || Number((c.access || {}).demo_report))) list.push({ key: 'demos', label: 'Demos', icon: 'calendar-check', title: 'Demos: website bookings, demo widgets and the report', run: function () { openDemos() } })
 		// who sees what (presets and per-person changes): System Managers only (the server checks as well)
 		if (c.can_manage_access) list.push({ key: 'access', label: 'Team and access', icon: 'shield-check', title: 'Who sees what: presets and changes per person', run: function () { openAccess() } })
 		return list

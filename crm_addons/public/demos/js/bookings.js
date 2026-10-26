@@ -33,7 +33,8 @@
 				try { await DM.api('resend_message', m.name ? { booking: b.value.name, message: m.name } : { booking: b.value.name, event: m.event }); CM.toast('Message queued to send'); load() } catch (e) { CM.toast(DM.friendly(e), 'err') } finally { busy.value = '' }
 			}
 			const leadUrl = computed(() => (b.value && b.value.lead ? b.value.lead_url || CM.leadUrl(b.value.lead) : ''))
-			return { b, loading, error, load, answers, utm, touchRows, msgs, setStatus, resend, busy, leadUrl, meetLink, MSG_TONE, DM, CM }
+			const statusItems = computed(() => [{ label: 'Mark as held', icon: 'check-circle', run: () => setStatus('Completed') }, { label: 'Mark as no-show', icon: 'ban', run: () => setStatus('No Show') }, ...(DM.canActOnOthers() ? [{ sep: true }, { label: 'Cancel booking', icon: 'x-circle', danger: true, run: () => setStatus('Cancelled') }] : [])])
+			return { statusItems, b, loading, error, load, answers, utm, touchRows, msgs, setStatus, resend, busy, leadUrl, meetLink, MSG_TONE, DM, CM }
 		},
 		template: `
 		<Drawer wide :title="b ? DM.who(b) : 'Booking'" :subtitle="b ? b.demo_title || b.demo_type_title || b.demo_type : ''" @close="$emit('close')">
@@ -44,7 +45,7 @@
 				<div class="row wrap" style="gap:8px">
 					<a v-if="leadUrl" class="btn sm" :href="leadUrl" @click="CM.openCrm($event, leadUrl)"><Ico name="user" />Open lead</a>
 					<a v-if="meetLink(b)" class="btn sm" :href="meetLink(b)" target="_blank" rel="noopener"><Ico name="monitor" />Meeting link</a>
-					<Menu :items="[{ label: 'Mark as held', icon: 'check-circle', run: () => setStatus('Completed') }, { label: 'Mark as no-show', icon: 'ban', run: () => setStatus('No Show') }, { sep: true }, { label: 'Cancel booking', icon: 'x-circle', danger: true, run: () => setStatus('Cancelled') }]" label="Change status"><Btn size="sm" icon="chevron-down">Change status</Btn></Menu>
+					<Menu :items="statusItems" label="Change status"><Btn size="sm" icon="chevron-down">Change status</Btn></Menu>
 				</div>
 				<h4 class="dh">Visitor</h4>
 				<dl class="dl"><dt>Name</dt><dd>{{ DM.who(b) }}</dd><dt>Email</dt><dd><a :href="'mailto:' + b.email">{{ b.email }}</a></dd><dt>Phone</dt><dd>{{ b.phone || '-' }}</dd><dt v-if="b.organization">Organisation</dt><dd v-if="b.organization">{{ b.organization }}</dd><dt v-if="b.guests">Guests</dt><dd v-if="b.guests" style="white-space:pre-wrap">{{ b.guests }}</dd><dt>WhatsApp consent</dt><dd>{{ DM.bool(b.whatsapp_consent) ? 'Given' : 'Not given' }}</dd><dt v-if="b.cancel_reason">Cancel reason</dt><dd v-if="b.cancel_reason">{{ b.cancel_reason }}</dd></dl>
@@ -55,16 +56,18 @@
 				<template v-if="touchRows.length"><h4 class="dh">First touch <span class="faint small">the visitor's first visit to the website</span></h4><dl class="dl"><template v-for="t in touchRows" :key="t[0]"><dt>{{ t[0] }}</dt><dd class="mono ellipsis" :title="t[1]">{{ t[1] }}</dd></template></dl></template>
 				<h4 class="dh">Messages</h4>
 				<div v-if="!msgs.length" class="small faint">No messages were queued for this booking.</div>
-				<ul v-else class="mlog" role="list"><li v-for="(m, i) in msgs" :key="i"><ChannelBadge :value="m.channel" /><div class="grow"><b>{{ m.event === 'Reminder' && m.minutes_before !== undefined ? DM.offsetLabel(m.minutes_before) + ' reminder' : m.event }}</b><div class="small muted">Due {{ CM.fmt(m.due_at) }}<template v-if="m.sent_at"> - sent {{ CM.fmt(m.sent_at) }}</template></div><div v-if="m.error" class="small" style="color:var(--red)">{{ m.error }}</div></div><span class="badge" :class="MSG_TONE[m.status] || 'neutral'">{{ m.status }}</span><Btn v-if="m.status === 'Failed' || m.status === 'Sent'" size="sm" variant="ghost" icon="retry" :loading="busy === (m.name || m.event + m.channel)" :aria-label="'Resend ' + m.event" title="Send again" @click="resend(m)" /></li></ul>
+				<ul v-else class="mlog" role="list"><li v-for="(m, i) in msgs" :key="i"><ChannelBadge :value="m.channel" /><div class="grow"><b>{{ m.event === 'Reminder' && m.minutes_before !== undefined ? DM.offsetLabel(m.minutes_before) + ' reminder' : m.event }}</b><div class="small muted">Due {{ CM.fmt(m.due_at) }}<template v-if="m.sent_at"> - sent {{ CM.fmt(m.sent_at) }}</template></div><div v-if="m.error" class="small" style="color:var(--red)">{{ m.error }}</div></div><span class="badge" :class="MSG_TONE[m.status] || 'neutral'">{{ m.status }}</span><Btn v-if="(m.status === 'Failed' || m.status === 'Sent') && DM.canActOnOthers()" size="sm" variant="ghost" icon="retry" :loading="busy === (m.name || m.event + m.channel)" :aria-label="'Resend ' + m.event" title="Send again" @click="resend(m)" /></li></ul>
 			</template>
 		</Drawer>`,
 	}
 
 	/** Change a booking's status after a confirmation that says what happens. */
+	// people who see other people's demos (team / everyone) may also cancel; a host records how their own demo went
+	DM.canActOnOthers = () => ['team', 'all'].includes(DM.session.demos)
 	DM.changeStatus = async (b, status, done) => {
 		const words = { Completed: ['Mark as held?', 'The demo took place. It counts in the show rate.', 'Mark as held'], 'No Show': ['Mark as no-show?', 'The visitor did not join. It counts against the show rate.', 'Mark as no-show'], Cancelled: ['Cancel this booking?', 'The slot is freed, the meeting is cancelled and the visitor gets the cancellation message.', 'Cancel booking'] }[status]
 		if (!(await CM.confirm({ title: words[0], message: DM.who(b) + ' - ' + DM.when(b) + '. ' + words[1], confirmText: words[2], danger: status === 'Cancelled' }))) return
-		try { await DM.api('set_booking_status', { name: b.name, status }); CM.toast(status === 'Completed' ? 'Marked as held' : status === 'No Show' ? 'Marked as no-show' : 'Booking cancelled'); done && done() } catch (e) { CM.toast(DM.friendly(e), 'err') }
+		try { await (DM.canActOnOthers() ? DM.api('set_booking_status', { name: b.name, status }) : DM.api('set_my_demo_outcome', { booking: b.name, outcome: status })); CM.toast(status === 'Completed' ? 'Marked as held' : status === 'No Show' ? 'Marked as no-show' : 'Booking cancelled'); done && done() } catch (e) { CM.toast(DM.friendly(e), 'err') }
 	}
 
 	V.Bookings = {
@@ -76,7 +79,7 @@
 			const open = computed(() => CM.route.parts[1] || '')
 			let seq = 0
 			const args = (extra) => ({ filters: { status: status.value || undefined, demo_type: demoType.value || undefined, owner: owner.value || undefined, ...(extra || {}) }, search: q.value || undefined, ...CM.rangeArgs(range.value) })
-			// A host filter: the demo types that person hosts are asked one by one and merged (the server's own `owner` filter is also sent,
+			// A host filter: the demo widgets that person hosts are asked one by one and merged (the server's own `owner` filter is also sent,
 			// so a server that knows it gives the same answer).
 			const hosted = (u) => types.value.filter((t) => (t.owners || []).some((o) => (typeof o === 'string' ? o : o.user) === u)).map((t) => t.name)
 			async function fetchPage(p, size) {
@@ -102,7 +105,7 @@
 			const reload = CM.debounce(() => { page.value = 0; load() }, 300)
 			watch([status, demoType, owner, () => range.value.preset, () => range.value.from, () => range.value.to], () => { page.value = 0; load() })
 			watch(q, reload); watch(page, () => load())
-			onMounted(async () => { load(); if (!types.value.length) { try { types.value = (await DM.api('list_demo_types')) || []; DM.typesCache = types.value } catch (e) { /* filters just have no demo types */ } } })
+			onMounted(async () => { load(); if (!types.value.length) { try { types.value = (await DM.api('list_demo_types')) || []; DM.typesCache = types.value } catch (e) { /* filters just have no demo widgets */ } } })
 			const typeOpts = computed(() => types.value.map((t) => ({ value: t.name, label: t.title })))
 			const ownerOpts = computed(() => { const m = new Map(); types.value.forEach((t) => (t.owners || []).forEach((o) => { const u = typeof o === 'string' ? o : o.user; if (u) m.set(u, typeof o === 'object' ? o.full_name || u : u) })); return [...m].map(([value, label]) => ({ value, label })) })
 			const typeTitle = (b) => b.demo_title || b.demo_type_title || (types.value.find((t) => t.name === b.demo_type) || {}).title || b.demo_type
@@ -118,7 +121,7 @@
 				{ sep: true },
 				{ label: 'Mark as held', icon: 'check-circle', run: () => DM.changeStatus(b, 'Completed', () => load(true)), disabled: b.status === 'Completed' },
 				{ label: 'Mark as no-show', icon: 'ban', run: () => DM.changeStatus(b, 'No Show', () => load(true)), disabled: b.status === 'No Show' },
-				{ label: 'Cancel booking', icon: 'x-circle', danger: true, run: () => DM.changeStatus(b, 'Cancelled', () => load(true)), disabled: b.status === 'Cancelled' },
+				DM.canActOnOthers() ? { label: 'Cancel booking', icon: 'x-circle', danger: true, run: () => DM.changeStatus(b, 'Cancelled', () => load(true)), disabled: b.status === 'Cancelled' } : null,
 			]
 			const exporting = ref(false)
 			async function exportCsv() {
@@ -126,7 +129,7 @@
 				try {
 					let all = [], p = 0, tot = Infinity
 					while (all.length < tot && p < 200) { const r = await fetchPage(p, 200); all = all.concat(r.rows); tot = r.total; if (!r.rows.length) break; p++ }
-					CM.csv([['Booking', 'Status', 'Demo type', 'Starts', 'Name', 'Email', 'Phone', 'Organisation', 'UTM source', 'UTM medium', 'UTM campaign', 'UTM term', 'UTM content', 'Lead', 'Meeting link', 'Created'], ...all.map((b) => [b.name, b.status, typeTitle(b), startOf(b), DM.who(b), b.email, b.phone, b.organization, b.utm_source, b.utm_medium, b.utm_campaign, b.utm_term, b.utm_content, b.lead, meetLink(b), b.creation])], 'demo-bookings' + (range.value.preset === 'any' ? '' : '-' + CM.resolveRange(range.value).from + '-to-' + CM.resolveRange(range.value).to) + '.csv')
+					CM.csv([['Booking', 'Status', 'Demo widget', 'Starts', 'Name', 'Email', 'Phone', 'Organisation', 'UTM source', 'UTM medium', 'UTM campaign', 'UTM term', 'UTM content', 'Lead', 'Meeting link', 'Created'], ...all.map((b) => [b.name, b.status, typeTitle(b), startOf(b), DM.who(b), b.email, b.phone, b.organization, b.utm_source, b.utm_medium, b.utm_campaign, b.utm_term, b.utm_content, b.lead, meetLink(b), b.creation])], 'demo-bookings' + (range.value.preset === 'any' ? '' : '-' + CM.resolveRange(range.value).from + '-to-' + CM.resolveRange(range.value).to) + '.csv')
 					CM.toast(all.length + ' booking' + (all.length === 1 ? '' : 's') + ' exported')
 				} catch (e) { CM.toast(DM.friendly(e), 'err') } finally { exporting.value = false }
 			}
@@ -135,17 +138,17 @@
 		},
 		template: `
 		<div class="page wide">
-			<div class="pg-head"><div class="grow"><h1>Bookings</h1><p>Everyone who booked a demo, where they came from, and how it went.</p></div><div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
+			<div class="pg-head"><div class="grow"><h1>Demos</h1><p>Everyone who booked a demo, where they came from, and how it went.</p></div><div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
 			<div class="row wrap tools">
 				<div class="chips" role="group" aria-label="Status"><button v-for="c in chips" :key="c[0]" type="button" class="fchip" :class="{ on: status === c[0] }" :aria-pressed="status === c[0]" @click="status = c[0]">{{ c[1] }}</button></div>
 				<div class="grow"></div>
-				<div style="width:200px"><Dd v-model="demoType" :options="typeOpts" allow-empty="All demo types" placeholder="All demo types" aria-label="Demo type" size="sm" /></div>
+				<div style="width:200px"><Dd v-model="demoType" :options="typeOpts" allow-empty="All demo widgets" placeholder="All demo widgets" aria-label="Demo widget" size="sm" /></div>
 				<div style="width:180px"><Dd v-model="owner" :options="ownerOpts" allow-empty="All hosts" placeholder="All hosts" aria-label="Host" size="sm" /></div>
 				<div style="width:min(260px,100%)"><Inp v-model="q" icon="search" placeholder="Search name, email or phone" clearable aria-label="Search bookings" /></div>
 			</div>
 			<template v-if="loading"><div class="card"><div v-for="n in 6" :key="n" style="padding:14px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div></template>
 			<ErrorState v-else-if="error" :message="error" @retry="load()" />
-			<Empty v-else-if="!rows.length" icon="calendar" :title="filtered ? 'No bookings match' : 'No bookings yet'" :text="filtered ? 'Change the filters or the date range.' : 'When a visitor books a demo through one of your pages, it shows up here.'"><Btn v-if="filtered" @click="clear">Clear filters</Btn><Btn v-else variant="primary" @click="CM.go('/types')">Go to demo types</Btn></Empty>
+			<Empty v-else-if="!rows.length" icon="calendar" :title="filtered ? 'No bookings match' : 'No bookings yet'" :text="filtered ? 'Change the filters or the date range.' : 'When a visitor books a demo through one of your pages, it shows up here.'"><Btn v-if="filtered" @click="clear">Clear filters</Btn><Btn v-else variant="primary" @click="CM.go('/types')">Go to demo widgets</Btn></Empty>
 			<div v-else class="card" :class="{ busy }" style="overflow:hidden">
 				<div class="table-wrap"><table class="tbl bk-tbl">
 					<thead><tr><th>Visitor</th><th>Demo</th><th>When</th><th>Status</th><th>Source</th><th>Medium</th><th>Campaign</th><th></th></tr></thead>

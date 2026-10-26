@@ -180,6 +180,12 @@ def email_templates_stamp():
 	return _email_templates_stamp()
 
 
+def _meetings_scope():
+	from crm_addons.team_access import access
+
+	return access.level("meetings")
+
+
 def _is_access_admin():
 	from crm_addons.team_access import access
 
@@ -234,6 +240,7 @@ def get_client_config():
 		"can_manage_campaigns": 1 if is_campaign_manager() else 0,
 		"demos_enabled": 1,
 		"can_manage_access": 1 if _is_access_admin() else 0,
+		"meetings_scope": _meetings_scope(),
 		"access": _my_access(),
 		"can_assign": 1 if frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles() else 0,  # the Assignment menu: System Managers only
 		"show_campaigns_shortcut": 1 if campaigns_shortcut_visible(settings) else 0,
@@ -279,7 +286,7 @@ def list_meetings(start, end, scope="mine", reference_doctype=None, reference_na
 		order_by="starts_on asc",
 		limit_page_length=min(cint(limit) or 500, 1000),
 	)
-	if scope == "mine" and is_manager():
+	if scope == "mine" and _meetings_scope() in ("team", "all"):
 		me = frappe.session.user
 		mine = set(
 			frappe.get_all(
