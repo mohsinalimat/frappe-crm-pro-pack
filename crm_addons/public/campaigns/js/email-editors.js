@@ -265,13 +265,20 @@
 			watch(sel, (b) => { if (b && b.type === 'text' && !b.props.html && b.props.text) b.props.html = '<p>' + CM.escape(b.props.text).replace(/\r?\n/g, '<br>') + '</p>' })
 			const colRow = computed(() => (colSel.value ? CM.findBlock(blocks.value, colSel.value.row) : null))
 			const quick = ['heading', 'text', 'image', 'button']
+			/** A row none of whose visible columns holds a block: it can be removed in one click, selected or not. */
+			const rowEmpty = (b) => b.type === 'row' && rowCols(b).every((c) => !c.blocks.length)
 
 			// Clicking anywhere outside the builder (the subject, the toolbar, the page) deselects; so does Escape.
 			function outside(e) { if (root.value && !root.value.contains(e.target) && !(e.target.closest && e.target.closest('.overlay, .pop'))) clear() }
+			function keys(e) {
+				if (e.key !== 'Delete' || (e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"], .overlay, .pop'))) return
+				if (sel.value && found.value) { e.preventDefault(); del(found.value) }
+				else if (colRow.value && rowEmpty(colRow.value.block)) { e.preventDefault(); del(colRow.value) }
+			}
 			function esc(e) { if (e.key === 'Escape' && !(e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"], .overlay'))) clear() }
-			onMounted(() => { document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc) })
-			onBeforeUnmount(() => { document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', esc); const s = getSelection(); if (s && s.rangeCount && root.value && root.value.contains(s.anchorNode)) s.removeAllRanges() })
-			return { root, panel, selId, colSel, drag, blocks, sel, found, groups, html, rowCols, keyOf, select, selectCol, clear, add, move, dup, del, at, dragNew, dragMove, dragOver, overEnd, drop, endDrag, insertVar, schema, setColsCount, addLink, uploadIcon, networks, colRow, quick, setCount, addInto, COLTYPES, CM, fonts: CM.FONTS }
+			onMounted(() => { document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', esc); document.addEventListener('keydown', keys) })
+			onBeforeUnmount(() => { document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', esc); document.removeEventListener('keydown', keys); const s = getSelection(); if (s && s.rangeCount && root.value && root.value.contains(s.anchorNode)) s.removeAllRanges() })
+			return { root, panel, selId, colSel, drag, blocks, sel, found, groups, html, rowCols, keyOf, select, selectCol, clear, add, move, dup, del, at, dragNew, dragMove, dragOver, overEnd, drop, endDrag, insertVar, schema, setColsCount, addLink, uploadIcon, rowEmpty, networks, colRow, quick, setCount, addInto, COLTYPES, CM, fonts: CM.FONTS }
 		},
 		template: `
 		<div ref="root" class="bld">
@@ -293,9 +300,10 @@
 										<BlockBox :b="c" :html="html[c.id]" :selected="c.id === selId" :first="k === 0" :last="k === col.blocks.length - 1" @select="select(c.id)" @move="move(at(c), $event)" @dup="dup(at(c))" @del="del(at(c))" @dragstart="dragMove($event, c)" @dragend="endDrag" @dragover="dragOver($event, keyOf(b.id, ci), k)" />
 									</template>
 									<div v-if="drag.key === keyOf(b.id, ci) && drag.i === col.blocks.length && drag.active" class="drop-line"></div>
-									<div class="col-empty" :class="{ big: !col.blocks.length }" @click.stop><template v-if="!col.blocks.length"><span class="col-hint">Column {{ ci + 1 }}: choose the content</span><div class="col-types"><button v-for="t in COLTYPES" :key="t" type="button" class="col-type" @click.stop="addInto(b, ci, t)"><Ico :name="CM.BLOCKS[t].icon" size="sm" />{{ CM.BLOCKS[t].label }}</button></div></template><button v-else type="button" class="col-more" @click.stop="selectCol(b, ci)"><Ico name="plus" size="sm" />Add content</button></div>
+									<div class="col-empty" :class="{ big: !col.blocks.length }" @click.stop="selectCol(b, ci)"><template v-if="!col.blocks.length"><span class="col-hint">Column {{ ci + 1 }}: choose the content</span><div class="col-types"><button v-for="t in COLTYPES" :key="t" type="button" class="col-type" @click.stop="addInto(b, ci, t)"><Ico :name="CM.BLOCKS[t].icon" size="sm" />{{ CM.BLOCKS[t].label }}</button></div></template><button v-else type="button" class="col-more" @click.stop="selectCol(b, ci)"><Ico name="plus" size="sm" />Add content</button></div>
 								</td>
 							</tr></tbody></table>
+							<button v-if="rowEmpty(b)" type="button" class="row-del" title="Delete this empty row" aria-label="Delete this empty row" @click.stop="del(at(b))"><Ico name="trash" size="sm" />Delete row</button>
 						</BlockBox>
 					</template>
 					<div v-if="drag.key === 'root' && drag.i === blocks.length && drag.active" class="drop-line"></div>
@@ -333,7 +341,8 @@
 					<div class="lbl" style="margin-bottom:2px">Selected column</div><b style="font-size:15px">Column {{ colSel.col + 1 }} of {{ colRow.block.props.count }}</b>
 					<p class="small muted" style="margin:6px 0 12px">Choose what goes in this column.</p>
 					<div class="row wrap" style="gap:6px"><button v-for="t in COLTYPES" :key="t" type="button" class="col-type" @click="add(t)"><Ico :name="CM.BLOCKS[t].icon" size="sm" />{{ CM.BLOCKS[t].label }}</button></div>
-					<div style="margin-top:14px"><Btn size="sm" @click="select(colRow.block.id)">Row settings</Btn></div>
+					<div class="row wrap" style="margin-top:14px;gap:8px"><Btn size="sm" @click="select(colRow.block.id)">Row settings</Btn><Btn size="sm" icon="trash" @click="del(colRow)">Delete the whole row</Btn></div>
+					<p class="small muted" style="margin:10px 0 0">Tip: press Delete to remove an empty row.</p>
 				</template>
 				<template v-else>
 					<div class="lbl" style="margin-bottom:2px">Email style</div><p class="small muted" style="margin:0 0 14px">Click a block to edit it. These settings apply to the whole email.</p>

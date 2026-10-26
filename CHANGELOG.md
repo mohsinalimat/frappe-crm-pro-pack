@@ -388,3 +388,6 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
 - **Several images side by side:** the palette has ready-made rows (**2 images**, **3 images**, **4 images**, **Image + text**) that insert a Row with its
   columns already holding blocks. A Row still takes 1 to 6 columns and any blocks in each column; a row cannot be placed inside another row (the toast now
   says what to do instead).
+- **Fixed: an empty row (or column) could not be removed in the visual email builder.** Clicking an empty column selected nothing, so the side panel stayed on
+  "Email style" and the row's tools (shown only for a selected block) never appeared. Now clicking an empty column selects it and the panel offers **Delete the whole
+  row**; an empty row also shows a **Delete row** button on the canvas, and the **Delete** key removes the selected block or an empty selected row.
