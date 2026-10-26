@@ -387,3 +387,5 @@ html.embed .ae-bar { padding-right: 76px; }
 
 .row-del { position: absolute; top: 6px; right: 6px; z-index: 4; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface, #fff); color: var(--text-soft, #4b5563); font-size: 12px; cursor: pointer; } .row-del:hover { color: #b42318; border-color: #b42318; }
 .blk:has(> .row-del) .col-hint { display: block; margin-top: 22px; }
+
+fieldset.ro { border: 0; margin: 0; padding: 0; min-width: 0; }
