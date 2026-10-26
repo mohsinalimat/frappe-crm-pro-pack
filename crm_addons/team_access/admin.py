@@ -253,7 +253,7 @@ def _check_leader(user, leader):
 	cursor, steps = leader, 0
 	while cursor and steps < 200:
 		if cursor == user:
-			frappe.throw(_("{0} already reports to this person.").format(frappe.bold(leader)))
+			frappe.throw(_("You cannot put {0} under {1}: {1} already reports to {0}.").format(frappe.bold(frappe.utils.get_fullname(user)), frappe.bold(frappe.utils.get_fullname(leader))))
 		cursor, steps = _leader(cursor), steps + 1
 	return leader
 
@@ -408,6 +408,9 @@ def _tree():
 		kids.setdefault(boss if boss in boss_of else None, []).append(user)
 	for k in kids.values():
 		k.sort(key=lambda u: (people.get(u).full_name if people.get(u) else u).lower())
+	roles = {}
+	for row in frappe.get_all("Has Role", filters={"parenttype": "User", "parent": ["in", list(boss_of) or [""]], "role": ["in", list(CRM_ROLES)]}, fields=["parent", "role"], limit_page_length=20000):
+		roles.setdefault(row.parent, []).append(row.role)
 	out, seen = [], set()
 
 	def count_below(user, path):
@@ -421,7 +424,7 @@ def _tree():
 		p = people.get(user)
 		size = count_below(user, set())
 		out.append({"user": user, "full_name": (p.full_name if p else user) or user, "image": p.user_image if p else None, "designation": p.get("crm_designation") if p else None,
-			"enabled": bool(p.enabled) if p else False, "reports_to": boss_of.get(user), "depth": depth, "below": size})
+			"enabled": bool(p.enabled) if p else False, "reports_to": boss_of.get(user), "depth": depth, "below": size, "roles": roles.get(user, [])})
 		for c in kids.get(user, []):
 			walk(c, depth + 1)
 
@@ -441,7 +444,11 @@ def get_hierarchy():
 	tree = _tree()
 	placed = {n["user"] for n in tree}
 	loose = [p for p in _people() if p["user"] not in placed and p["enabled"]]
-	return {**info, "tree": tree, "loose": [{"user": p["user"], "full_name": p["full_name"], "image": p["image"], "designation": p.get("designation")} for p in loose]}
+	admin = frappe.db.get_value("User", "Administrator", ["full_name", "user_image"], as_dict=True) or {}
+	return {
+		**info, "tree": tree, "root": {"user": "Administrator", "full_name": admin.get("full_name") or "Administrator", "image": admin.get("user_image"), "roles": ["System Manager"]},
+		"loose": [{"user": p["user"], "full_name": p["full_name"], "image": p["image"], "designation": p.get("designation"), "roles": p["roles"]} for p in loose],
+	}
 
 
 @frappe.whitelist()
