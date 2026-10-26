@@ -77,7 +77,7 @@ System Managers can customize a dashboard.
 
 ## Team and access (who sees what)
 
-Open **Team and access** from CRM's own Settings window (User Management, next to Sales Hierarchy), the CRM menu or the Dashboard header (System Managers only), or go to `/team-access`.
+Open **Team and access** from the CRM menu or the Dashboard header (System Managers only), or go to `/team-access`.
 
 - **People** lists everyone with a Sales User, Sales Manager, System Manager or Campaign Manager role: their roles, who they report to (from CRM's **Sales Hierarchy**, in CRM's own
   Settings under User Management) and their access. Click a person to give them a **preset** and change anything on top of it. Add and invite people, and the hierarchy itself, stay in CRM's Settings;

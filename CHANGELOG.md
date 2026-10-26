@@ -426,7 +426,6 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
 - **Demos** (was "Demo booking") now has Demos first (the bookings: seen per your access, with a Demos entry in the CRM menu for everyone whose access allows it), **Demo widgets**
   (was "Demo types": view-only or full access per person) and Report (a switch, limited to the person's demos). A host can record how their own demo went; acting on
   other people's demos (cancel, resend) needs team or everyone.
-- **Team and access** is also reachable from CRM's own Settings window, under User Management, next to Sales Hierarchy (a copy of the neighbouring row, System Managers only).
 - Access is applied to lead assignment (rules: view / create and edit; moving leads and the history: own / my team / everyone) and to every part of the Campaign Manager: Campaigns by scope,
   *Create and send campaigns* as a switch (so someone can build templates, automations or reports without being able to send), and levels for automations, email templates, WhatsApp
   templates and audiences. The doctypes stay read-only for Sales Users; changes go only through the checked screens.

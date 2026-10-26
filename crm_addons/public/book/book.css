@@ -166,6 +166,7 @@ html.bk-embed .bk-card { box-shadow: none; }
 .bk-btn.ghost:hover:not(:disabled) { background: var(--hover); }
 .bk-btn.danger { background: var(--danger); color: #fff; }
 :root[data-theme="dark"] .bk-btn.danger { color: #1a0707; }
+:root[data-theme="dark"] .bk-btn.danger.ghost { color: var(--danger); }
 .bk-btn.danger.ghost { background: transparent; color: var(--danger); border-color: var(--line-strong); }
 .bk-btn:disabled { opacity: .5; cursor: not-allowed; }
 .bk-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: bk-rot .7s linear infinite; }
@@ -235,3 +236,5 @@ html.bk-embed .bk-card { box-shadow: none; }
 /* pop-up as a full-screen sheet on phones: opaque, room for the close button */
 html.bk-sheet, html.bk-sheet body { background: var(--card); }
 html.bk-sheet .bk-panel { padding-right: 60px; }
+
+.bk-banner.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }

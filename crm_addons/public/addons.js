@@ -988,42 +988,6 @@
 		sideSig = sig
 	}
 
-	// ---- "Team and access" in CRM's own Settings window (User Management, next to Sales Hierarchy) -------------------------------------
-	// Copied from a neighbouring row so it looks and behaves like the others; it opens the Team and access page. System Managers only.
-	function ensureSettingsEntry(c) {
-		var old = document.querySelector('[data-cra="settings-entry"]')
-		var dlg = document.querySelector('[role="dialog"]')
-		if (!c.can_manage_access || !dlg) { if (old && !document.body.contains(dlg || document.body)) old.remove(); return }
-		if (old && dlg.contains(old)) return
-		var labels = ['Sales Hierarchy', 'Invite User', 'Users']
-		var row = null, text = ''
-		for (var i = 0; i < labels.length && !row; i++) {
-			var leaf = Array.prototype.filter.call(dlg.querySelectorAll('*'), function (e) { return !e.children.length && e.textContent.trim() === translated(labels[i]) })[0]
-			var r = leaf && leaf.closest('button, a, [role="button"]')
-			if (r && r.parentElement && r.parentElement.children.length > 1) { row = r; text = leaf.textContent.trim() }
-		}
-		if (!row) return
-		var el = row.cloneNode(true)
-		el.setAttribute('data-cra', 'settings-entry')
-		el.removeAttribute('id'); el.removeAttribute('aria-current')
-		;['bg-surface-selected', 'shadow-sm', 'hover:bg-surface-selected'].forEach(function (k) { el.classList.remove(k) })
-		var lab = Array.prototype.filter.call(el.querySelectorAll('*'), function (e) { return !e.children.length && e.textContent.trim() === text })[0]
-		if (lab) lab.textContent = 'Team and access'
-		var oldIcon = el.querySelector('svg, [class*="lucide"], i')
-		var icon = svg('shield-check')
-		icon.setAttribute('style', 'width:16px;height:16px;flex:none')
-		if (oldIcon) oldIcon.replaceWith(icon)
-		else el.insertBefore(icon, el.firstChild)
-		el.title = 'Who sees what: presets and changes per person'
-		el.addEventListener('click', function (e) {
-			e.preventDefault(); e.stopPropagation()
-			// close CRM's window first (a page of ours would open under it), then open ours
-			document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-			setTimeout(function () { openAccess() }, 160)
-		})
-		row.parentNode.insertBefore(el, row.nextSibling)
-	}
-
 	// ---- tabs on the Lead page --------------------------------------------------------------------------------
 	var TABS = [
 		{ key: 'meetings', label: 'Meetings', icon: 'calendar', render: renderMeetings },
@@ -1332,7 +1296,7 @@
 		timer = null
 		openPageFromUrl()
 		if (/^\/crm(\/|$)/.test(location.pathname)) {
-			config().then(function (c) { hideCrmParts(c); ensureSidebar(c); applyMenuLayout(c); ensureSettingsEntry(c) }).catch(function () { /* not signed in: nothing to hide */ })
+			config().then(function (c) { hideCrmParts(c); ensureSidebar(c); applyMenuLayout(c)}).catch(function () { /* not signed in: nothing to hide */ })
 		}
 		var r = route()
 		if (!r) {
