@@ -481,6 +481,14 @@ def ensure_default_email_templates():
 	if not frappe.db.exists("DocType", "CRM Campaign Email Template") or frappe.db.get_default("crm_addons_default_email_templates") == dt.VERSION:
 		return
 	for name, subject, category, description, builder_json, body_html in dt.default_templates():
+		old = next((o for o, n in dt.RENAMED.items() if n == name), None)
+		if old and frappe.db.exists("CRM Campaign Email Template", old) and not frappe.db.exists("CRM Campaign Email Template", name):
+			frappe.rename_doc("CRM Campaign Email Template", old, name, force=True)  # the booking rules that use it follow
+			doc = frappe.get_doc("CRM Campaign Email Template", name)
+			if (doc.modified - doc.creation).total_seconds() < 120:  # not edited since it was seeded: bring the new wording too
+				doc.update({"subject": subject, "description": description, "builder_json": builder_json, "body_html": body_html})
+				doc.save(ignore_permissions=True)
+			continue
 		if frappe.db.exists("CRM Campaign Email Template", name):
 			continue
 		frappe.get_doc(

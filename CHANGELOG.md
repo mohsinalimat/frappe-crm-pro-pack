@@ -400,7 +400,7 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
 
 ## Unreleased - ready-made demo messages
 - **Default templates for every demo message.** Seven email templates are added to the campaign template library (Transactional, editable like any other):
-  *Demo confirmed*, *Demo rescheduled*, *Demo cancelled*, and reminders for *24 hours*, *1 hour*, *30 minutes* and *Demo starting now*. A new demo type picks
+  *Booking confirmed*, *Booking rescheduled*, *Booking cancelled*, and reminders for *24 hours*, *1 hour*, *30 minutes* and *Booking starting now*. A new demo type picks
   them automatically and has email switched on, so nobody has to open the template window just to turn a message on. Switching email on for a rule that has no
   template also takes the ready-made one.
 - **Ready-made WhatsApp (Utility) templates** for the same seven messages (`demos/defaults.py`). WhatsApp needs Meta's approval, so they are definitions: on a rule

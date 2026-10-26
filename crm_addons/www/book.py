@@ -43,7 +43,7 @@ def get_context(context):
 	context.no_sidebar = 1
 	context.show_sidebar = 0
 	context.sitemap = 0
-	context.title = "Book a demo"
+	context.title = "Book a time"
 	context.version = crm_addons.__version__
 	# A person who is logged in to the CRM in the same browser has a session, and Frappe then rejects a POST without its CSRF token
 	# ("Invalid Request"). Guests have none. no_cache is on, so the token never reaches anyone else.

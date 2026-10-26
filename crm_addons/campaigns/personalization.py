@@ -46,7 +46,7 @@ COMPUTED = {
 # Filled in by the demo-booking messages (crm_addons/demos/messaging.py). In a normal campaign they are empty, so a template can be
 # written once and used in both places. Listed as "computed" so the template editor offers them with the others.
 DEMO_VARIABLES = {
-	"demo_title": "Demo: name of the demo",
+	"demo_title": "Booking: name of the booking page",
 	"demo_date": "Demo: date, in the visitor's time zone",
 	"demo_time": "Demo: start time, in the visitor's time zone",
 	"demo_datetime": "Demo: date and time with the time zone name",
@@ -124,7 +124,7 @@ def sample_context(campaign_owner=None):
 	context["sender_name"] = context["sender_name"] or "Siddharth Singh"
 	base = frappe.utils.get_url()
 	context.update(
-		demo_title="Product demo", demo_date="Tuesday, 3 November 2026", demo_time="4:30 PM IST", demo_datetime="Tue, 3 Nov 2026, 4:30 PM IST",
+		demo_title="Intro session", demo_date="Tuesday, 3 November 2026", demo_time="4:30 PM IST", demo_datetime="Tue, 3 Nov 2026, 4:30 PM IST",
 		demo_duration="30 minutes", meet_link="https://meet.google.com/abc-defg-hij", host_name=context["owner_name"], host_names=context["owner_name"],
 		booking_link=f"{base}/book/manage/sample", reschedule_link=f"{base}/book/manage/sample?action=reschedule", cancel_link=f"{base}/book/manage/sample?action=cancel",
 	)
