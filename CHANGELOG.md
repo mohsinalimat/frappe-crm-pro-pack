@@ -377,13 +377,13 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
   changes and the page never observes itself.
 - The Campaign Manager now shows the reason on screen (and a Reload button) if it cannot start, instead of a blank page.
 
-## 1.5.0 - 2026-10-26 - menu support for older CRM versions
+### Part of 1.5.0: menu support for older CRM versions
 - The left-menu shortcuts and the "page inside the CRM" layout now also work with CRM versions that draw their side menu as plain buttons
   (for example CRM 1.74), not only as links. Before, such a CRM showed no shortcuts and opened every Pro Pack screen as a pop-up, because the
   add-on could not find where CRM's menu ends. The menu is found by its own page labels (Dashboard, Leads, ...) when there are no links.
 - Clicking one of CRM's own menu rows while a Pro Pack page is open no longer sends CRM back to the previous address.
 
-## 1.5.0 - 2026-10-26 - visual email builder
+### Part of 1.5.0: visual email builder
 - **Social links now show real icons** (round, brand coloured) instead of text pills. 40 networks (Facebook, Instagram, LinkedIn,
   YouTube, X, WhatsApp, Telegram, TikTok, Pinterest, Threads, Snapchat, Discord, GitHub, Reddit, Medium, Spotify, Slack, Google reviews, Google Play,
   App Store, Blog / RSS, Phone, Location, Website, Email and more) in a searchable list, plus **Custom**: your own icon image (upload or address) and name for
@@ -398,7 +398,7 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
   "Email style" and the row's tools (shown only for a selected block) never appeared. Now clicking an empty column selects it and the panel offers **Delete the whole
   row**; an empty row also shows a **Delete row** button on the canvas, and the **Delete** key removes the selected block or an empty selected row.
 
-## 1.5.0 - 2026-10-26 - ready-made demo messages
+### Part of 1.5.0: ready-made demo messages
 - **Default templates for every demo message.** Seven email templates are added to the campaign template library (Transactional, editable like any other):
   *Booking confirmed*, *Booking rescheduled*, *Booking cancelled*, and reminders for *24 hours*, *1 hour*, *30 minutes* and *Booking starting now*. A new demo type picks
   them automatically and has email switched on, so nobody has to open the template window just to turn a message on. Switching email on for a rule that has no
@@ -410,7 +410,7 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
 - Existing demo types: **Use ready-made messages** fills the empty messages in one click (never replaces a choice).
 - Manager API: `demos.admin.default_messages`, `demos.admin.create_default_whatsapp_template(event, minutes_before)`.
 
-## 1.5.0 - 2026-10-26 - Team and access
+### Part of 1.5.0: Team and access
 - **Team and access** page (System Managers): every CRM person with their roles, who they report to (from CRM's Sales Hierarchy) and their access. Each person gets a
   **preset** and any **changes on top**; presets (Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer, Demo Host) are editable and can be copied.
   Opened from the CRM menu / Dashboard header (**Team and access**) or at `/team-access`.

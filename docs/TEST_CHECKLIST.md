@@ -1,4 +1,4 @@
-# Test list by role (release 1.4.0)
+# Test list by role (release 1.5.0)
 
 Use three real users: **Sales User** (call them Asha), a second **Sales User** (Ben) who owns different leads, a **Campaign Manager** (Cara, with the Sales User role too) and a **Sales Manager** (Meera). Give Asha and Ben at least one lead, one logged call, one follow-up and one note each. Hard-refresh the CRM (Ctrl/Cmd + Shift + R) once before you start.
 
