@@ -36,7 +36,7 @@ from crm_addons.campaigns.common import (
 	whatsapp_installed,
 )
 from crm_addons.team_access import access
-from crm_addons.utils import is_campaign_manager, system_timezone
+from crm_addons.utils import system_timezone
 
 SALES_ROLES = {"System Manager", "Sales Manager", "Sales User", "Campaign Manager"}
 CAMPAIGN_FIELDS = (
@@ -61,9 +61,23 @@ def _check_user():
 
 
 def _require_manager(what):
-	"""Looking is for every sales user; creating and changing is for managers and Campaign Managers."""
-	if not is_campaign_manager():
-		frappe.throw(_("Only Sales Managers, Campaign Managers and administrators can {0}.").format(what), frappe.PermissionError)
+	"""Creating and changing campaigns needs the "Create and send campaigns" switch (Team and access); managers and the Campaign Manager role have it by default."""
+	if not access.allows("campaign_create", 1):
+		frappe.throw(_("You do not have access to {0}.").format(what), frappe.PermissionError)
+
+
+def _need(feature, minimum, what):
+	access.require(feature, minimum, _("You do not have access to {0}.").format(what))
+
+
+def _need_any(what, *pairs):
+	"""Allowed when any of the (feature, minimum) pairs is: for example the template library is for people who edit templates or build campaigns."""
+	if not any(access.allows(f, m) for f, m in pairs):
+		frappe.throw(_("You do not have access to {0}.").format(what), frappe.PermissionError)
+
+
+def _sees_others_campaigns():
+	return access.level("campaigns") in (access.R.TEAM, access.R.ALL)
 
 
 def _json(value):
@@ -89,7 +103,7 @@ def get_config():
 		"email": {"ready": not email_account_problem(), "problem": email_account_problem(), "open_tracking": analytics.email_open_tracking_enabled()},
 		"consent_mode": cfg.get("whatsapp_consent_mode") or "Require opt-in",
 		"default_country_code": cfg.get("default_country_code") or "",
-		"is_manager": is_campaign_manager(),
+		"is_manager": access.allows("campaign_create", 1),  # kept for older screens: may create and send campaigns
 		"lead_statuses": frappe.get_all("CRM Lead Status", pluck="name", order_by="position asc") if frappe.db.exists("DocType", "CRM Lead Status") else [],
 		"automation_events": list(automation.EVENTS),
 		"rule_events": list(rules.EVENTS),
@@ -113,6 +127,7 @@ def get_config():
 def get_audience_fields():
 	"""Real Lead fields (for filters and variables) and the saved segments the user may use."""
 	_check_user()
+	_need_any(_("audiences"), ("audiences", "view"), ("campaign_create", 1))
 	segments = frappe.get_all(
 		"CRM View Settings",
 		filters={"dt": LEAD},
@@ -268,11 +283,11 @@ def save_campaign(data, name=None):
 	else:
 		doc = frappe.new_doc(CAMPAIGN)
 		doc.campaign_owner = frappe.session.user
-	if not is_campaign_manager() and data.get("campaign_owner") not in (None, frappe.session.user):
+	if not _sees_others_campaigns() and data.get("campaign_owner") not in (None, frappe.session.user):
 		frappe.throw(_("Only a manager can assign a campaign to someone else."), frappe.PermissionError)
 	_apply(doc, data)
 	_validate_attachments(doc)
-	doc.save()
+	doc.save(ignore_permissions=True)  # the access check above is what decides; Sales Users have no write permission on the doctype itself
 	return get_campaign(doc.name)
 
 
@@ -281,7 +296,7 @@ def delete_campaign(name):
 	doc = _get(name, "delete")
 	if "delete" not in engine.allowed_actions(doc):
 		frappe.throw(_("A {0} campaign cannot be deleted.").format(doc.status))
-	frappe.delete_doc(CAMPAIGN, name)
+	frappe.delete_doc(CAMPAIGN, name, ignore_permissions=True)
 	return True
 
 
@@ -303,33 +318,34 @@ def duplicate_campaign(name, new_name=None):
 		doc.append("steps", {k: step.get(k) for k in STEP_FIELDS})
 	for rule in src.rules:
 		doc.append("rules", {k: rule.get(k) for k in RULE_FIELDS})
-	doc.insert()
+	doc.insert(ignore_permissions=True)
 	return get_campaign(doc.name)
 
 
 @frappe.whitelist()
 def save_as_template(name, template_name, description=""):
 	doc = _get(name)
-	if not is_campaign_manager():
-		frappe.throw(_("Only managers can save campaign templates."), frappe.PermissionError)
+	_require_manager(_("save campaign templates"))
 	config = {f: doc.get(f) for f in ("campaign_type", "audience_mode", "audience_filters", "selected_records", "saved_view", "consent_confirmed", "stop_on_reply", "batch_size", "rate_per_minute", "max_retries", "track_clicks", "window_enabled", "window_start", "window_end", "window_weekdays_only")}
 	config["steps"] = [{k: s.get(k) for k in STEP_FIELDS} for s in doc.steps]
 	config["rules"] = [{k: r.get(k) for k in RULE_FIELDS} for r in doc.rules]
 	tpl = frappe.get_doc(
 		{"doctype": "CRM Campaign Template", "template_name": template_name, "description": description, "channels": ", ".join(engine.channels_of(doc)), "config": json.dumps(config, default=str)}
-	).insert()
+	).insert(ignore_permissions=True)
 	return tpl.name
 
 
 @frappe.whitelist()
 def list_campaign_templates():
 	_check_user()
+	_need("campaign_create", 1, _("campaign templates"))
 	return frappe.get_all("CRM Campaign Template", fields=["name", "template_name", "description", "channels"], order_by="template_name asc")
 
 
 @frappe.whitelist()
 def create_from_template(template, campaign_name):
 	_check_user()
+	_need("campaign_create", 1, _("create campaigns"))
 	tpl = frappe.get_doc("CRM Campaign Template", template)
 	tpl.check_permission("read")
 	config = json.loads(tpl.config or "{}")
@@ -347,6 +363,7 @@ def create_from_template(template, campaign_name):
 def preview_audience(definition, start=0, page_length=20):
 	"""Matching count and a page of real recipients for an *unsaved* definition."""
 	_check_user()
+	_need_any(_("audiences"), ("audiences", "view"), ("campaign_create", 1))
 	definition = _json(definition)
 	return {"count": audience.count(definition), "rows": audience.sample(definition, start, page_length)}
 
@@ -362,6 +379,7 @@ def _audience_summary(definition, channels, consent_confirmed):
 def audience_summary(definition, channels, consent_confirmed=0):
 	"""Eligibility numbers shown before launch (total, eligible, missing, invalid, opted out, duplicates)."""
 	_check_user()
+	_need_any(_("audiences"), ("audiences", "view"), ("campaign_create", 1))
 	channels = [c for c in _json(channels) if c in CHANNELS]
 	return _audience_summary(_json(definition), channels, consent_confirmed)
 
@@ -373,6 +391,7 @@ def audience_summary(definition, channels, consent_confirmed=0):
 def list_templates(channel=None, search=None, active=None):
 	"""Email templates (ours) and WhatsApp templates (read from frappe_whatsapp, never copied)."""
 	_check_user()
+	_need_any(_("the template library"), ("email_templates", "view"), ("campaign_create", 1))
 	out = []
 	if channel in (None, "", "Email"):
 		filters = {}
@@ -410,6 +429,7 @@ def _template_usage(name):
 @frappe.whitelist()
 def get_email_template(name):
 	_check_user()
+	_need_any(_("the template library"), ("email_templates", "view"), ("campaign_create", 1))
 	doc = frappe.get_doc(EMAIL_TEMPLATE, name)
 	doc.check_permission("read")
 	data = doc.as_dict()
@@ -422,6 +442,7 @@ def get_email_template(name):
 def list_email_templates(search=None, category=None, enabled=None):
 	"""The shared email template library, with the HTML (for thumbnails) and how often each is used."""
 	_check_user()
+	_need_any(_("the template library"), ("email_templates", "view"), ("campaign_create", 1))
 	filters = {}
 	if category:
 		filters["category"] = category
@@ -449,8 +470,7 @@ def save_email_template(data, name=None):
 	"""Create or update a shared email template. ``attachments`` (a list of file urls) replaces the files
 	attached to the template; ``body_html`` is always what gets sent."""
 	_check_user()
-	if not is_campaign_manager():
-		frappe.throw(_("Only managers can manage templates."), frappe.PermissionError)
+	_need("email_templates", "edit", _("create or edit email templates"))
 	data = _json(data)
 	if data.get("editor_mode") not in (None, "") + EDITOR_MODES:
 		frappe.throw(_("Unknown editor type."))
@@ -464,7 +484,7 @@ def save_email_template(data, name=None):
 		doc.builder_json = data["builder_json"] if isinstance(data["builder_json"], str) else json.dumps(data["builder_json"])
 	if not name and frappe.db.exists(EMAIL_TEMPLATE, doc.template_name):
 		frappe.throw(_("A template named {0} already exists. Choose another name.").format(frappe.bold(doc.template_name)))
-	doc.save()
+	doc.save(ignore_permissions=True)  # the "Email templates" access check above decides (the doctype itself is read-only for Sales Users)
 	if "attachments" in data:
 		urls = parse_url_list(data["attachments"])
 		files = files_for_urls(urls)
@@ -489,6 +509,7 @@ def list_image_files(search=None, limit=60):
 	"""Public images already on this site (newest first), for "insert an image" in the email editors. Only public files:
 	a recipient's mail app could not open a private one."""
 	_check_user()
+	_need_any(_("the template library"), ("email_templates", "edit"), ("campaign_create", 1))
 	rows = frappe.get_list(
 		"File",
 		filters={"is_folder": 0, "is_private": 0, "file_url": ["is", "set"]},
@@ -506,8 +527,7 @@ def list_image_files(search=None, limit=60):
 @frappe.whitelist()
 def duplicate_email_template(name):
 	_check_user()
-	if not is_campaign_manager():
-		frappe.throw(_("Only managers can manage templates."), frappe.PermissionError)
+	_need("email_templates", "edit", _("create or edit email templates"))
 	src = frappe.get_doc(EMAIL_TEMPLATE, name)
 	doc = frappe.new_doc(EMAIL_TEMPLATE)
 	doc.update({f: src.get(f) for f in ("subject", "body_html", "body_text", "description", "category", "editor_mode", "builder_json")})
@@ -516,7 +536,7 @@ def duplicate_email_template(name):
 	while frappe.db.exists(EMAIL_TEMPLATE, title):
 		title, n = f"{base} {n}", n + 1
 	doc.template_name = title
-	doc.insert()
+	doc.insert(ignore_permissions=True)
 	return doc.as_dict()
 
 
@@ -524,12 +544,11 @@ def duplicate_email_template(name):
 def delete_email_template(name):
 	"""Delete a template nobody uses. A template used by a campaign cannot be deleted: archive it (enabled = 0)."""
 	_check_user()
-	if not is_campaign_manager():
-		frappe.throw(_("Only managers can manage templates."), frappe.PermissionError)
+	_need("email_templates", "edit", _("create or edit email templates"))
 	used = _template_usage(name)
 	if used:
 		frappe.throw(_("This template is used by {0} campaign(s), so it cannot be deleted. Archive it instead.").format(len(used)))
-	frappe.delete_doc(EMAIL_TEMPLATE, name)
+	frappe.delete_doc(EMAIL_TEMPLATE, name, ignore_permissions=True)
 	return True
 
 
@@ -547,6 +566,7 @@ def _sample_or_lead(lead, owner=None):
 def render_email_preview(subject="", html="", lead=None):
 	"""Fill a (possibly unsaved) subject and HTML with a lead's values or realistic sample data."""
 	_check_user()
+	_need_any(_("the template library"), ("email_templates", "view"), ("campaign_create", 1))
 	ctx, info = _sample_or_lead(lead)
 	unknown = personalization.unknown_variables(subject, html)
 	return {
@@ -560,6 +580,7 @@ def render_email_template(name, lead=None):
 	"""Subject and HTML of a shared template for one lead (or sample data). Also for follow-up mails."""
 	tpl = frappe.get_doc(EMAIL_TEMPLATE, name)
 	_check_user()
+	_need_any(_("the template library"), ("email_templates", "view"), ("campaign_create", 1))
 	tpl.check_permission("read")
 	return render_email_preview(tpl.subject, tpl.body_html, lead) | {"template": tpl.name}
 
@@ -610,6 +631,7 @@ def send_test_email(emails, subject=None, html=None, email_template=None, attach
 	It is filled with a sample lead (or ``lead``), the subject is prefixed ``[Test]``, no recipient row and no
 	Communication is created, and the budget is limited per user."""
 	_check_user()
+	_need_any(_("test emails"), ("email_templates", "edit"), ("campaign_create", 1))
 	addresses = _addresses(emails)
 	tpl = None
 	if email_template:
@@ -656,6 +678,7 @@ def send_test_whatsapp(step, number, lead=None):
 	The message is a normal ``WhatsApp Message`` (so it also shows in frappe_whatsapp), no campaign
 	recipient row is created and opt-outs are not touched. It is billed by Meta like any template message."""
 	_check_user()
+	_need_any(_("test WhatsApp messages"), ("whatsapp_templates", "create"), ("campaign_create", 1))
 	step = frappe._dict(_json(step))
 	if step.get("channel") != "WhatsApp":
 		frappe.throw(_("Choose a WhatsApp template first."))
@@ -693,6 +716,7 @@ def send_test_whatsapp(step, number, lead=None):
 def list_whatsapp_templates(search=None, category=None, status=None):
 	"""Templates from frappe_whatsapp with everything needed to draw them. Read-only."""
 	_check_user()
+	_need_any(_("WhatsApp templates"), ("whatsapp_templates", "view"), ("campaign_create", 1))
 	if not whatsapp_installed():
 		return {"installed": False, "rows": [], "can_sync": False}
 	filters = {}
@@ -728,7 +752,7 @@ def list_whatsapp_templates(search=None, category=None, status=None):
 			}
 		)
 	languages = frappe.get_all("Language", filters={"enabled": 1}, pluck="name", order_by="name asc") or ["en"]
-	return {"installed": True, "rows": out, "can_sync": is_campaign_manager(), "can_create": is_campaign_manager(), "account": default_whatsapp_account(), "languages": languages}
+	return {"installed": True, "rows": out, "can_sync": access.allows("whatsapp_templates", "create"), "can_create": access.allows("whatsapp_templates", "create"), "account": default_whatsapp_account(), "languages": languages}
 
 
 @frappe.whitelist()
@@ -736,8 +760,7 @@ def sync_whatsapp_templates():
 	"""Pull templates and their approval status from Meta using frappe_whatsapp's own fetch (managers only).
 	Nothing is created or edited in Meta."""
 	_check_user()
-	if not is_campaign_manager():
-		frappe.throw(_("Only managers can sync WhatsApp templates."), frappe.PermissionError)
+	_need("whatsapp_templates", "create", _("sync WhatsApp templates"))
 	if not whatsapp_installed():
 		frappe.throw(_("The frappe_whatsapp app is not installed on this site."))
 	try:
@@ -857,6 +880,7 @@ def _wa_name_status(name, language):
 def check_whatsapp_template_name(template_name=None, language=None):
 	"""Live name check for the Create template dialog."""
 	_check_user()
+	_need("whatsapp_templates", "create", _("create WhatsApp templates"))
 	if not whatsapp_installed():
 		return {"ok": None, "message": ""}
 	return _wa_name_status(template_name, language)
@@ -867,7 +891,7 @@ def create_whatsapp_template(data):
 	"""Create a template with frappe_whatsapp's own ``WhatsApp Templates`` document. Inserting it is what submits it to Meta
 	(its ``after_insert`` makes the call), so there is no Meta code here. The template starts as Pending. Managers only."""
 	_check_user()
-	_require_manager("create WhatsApp templates")
+	_need("whatsapp_templates", "create", _("create WhatsApp templates"))
 	if not whatsapp_installed():
 		frappe.throw(_("The frappe_whatsapp app is not installed on this site."))
 	if not default_whatsapp_account():
@@ -905,6 +929,7 @@ def _friendly_filters(view):
 def list_segments(with_counts=1):
 	"""Saved Lead filters (the saved views of the Leads list) the user may use as an audience."""
 	_check_user()
+	_need_any(_("audiences"), ("audiences", "view"), ("campaign_create", 1))
 	rows = frappe.get_all(
 		"CRM View Settings", filters={"dt": LEAD, "type": ["in", ["list", "", None]]},
 		or_filters=[["public", "=", 1], ["user", "=", frappe.session.user]],
@@ -928,6 +953,7 @@ def list_segments(with_counts=1):
 def save_segment(label, filters, public=0):
 	"""Save the current filter rules as a segment (a CRM saved view of the Leads list)."""
 	_check_user()
+	_need("audiences", "edit", _("save audiences"))
 	rows = audience.clean_filters(filters)
 	if not cstr(label).strip():
 		frappe.throw(_("Give the segment a name."))
@@ -939,7 +965,7 @@ def save_segment(label, filters, public=0):
 	doc.update(
 		{
 			"label": cstr(label).strip(), "dt": LEAD, "type": "list", "user": frappe.session.user,
-			"public": 1 if (cint(public) and is_campaign_manager()) else 0, "filters": json.dumps({r[1]: [r[2], r[3]] for r in rows}),
+			"public": 1 if (cint(public) and access.level("campaigns") == access.R.ALL) else 0, "filters": json.dumps({r[1]: [r[2], r[3]] for r in rows}),
 		}
 	)
 	doc.insert()
@@ -949,10 +975,11 @@ def save_segment(label, filters, public=0):
 @frappe.whitelist()
 def delete_segment(name):
 	_check_user()
+	_need("audiences", "edit", _("delete audiences"))
 	view = frappe.db.get_value("CRM View Settings", name, ["dt", "user", "public"], as_dict=True)
 	if not view or view.dt != LEAD:
 		frappe.throw(_("The saved segment was not found."))
-	if view.user != frappe.session.user and not is_campaign_manager():
+	if view.user != frappe.session.user and access.level("campaigns") != access.R.ALL:
 		frappe.throw(_("You can only delete your own segments."), frappe.PermissionError)
 	if frappe.db.exists(CAMPAIGN, {"saved_view": name, "status": ["in", ["Scheduled", "Queued", "Running", "Paused"]]}):
 		frappe.throw(_("A running or scheduled campaign uses this segment."))
@@ -965,6 +992,7 @@ def audience_insight(definition, channels=None, consent_confirmed=0, start=0, pa
 	"""Everything the audience step shows: the matching count, a page of real leads with a per-channel
 	verdict and the reason when excluded, and (optionally) the eligibility totals for the whole audience."""
 	_check_user()
+	_need_any(_("audiences"), ("audiences", "view"), ("campaign_create", 1))
 	definition = _json(definition)
 	chans = [c for c in (_json(channels) if channels else list(CHANNELS)) if c in CHANNELS] or list(CHANNELS)
 	count = audience.count(definition)
@@ -984,6 +1012,7 @@ def audience_insight(definition, channels=None, consent_confirmed=0, start=0, pa
 def search_field_values(fieldname, txt="", limit=10):
 	"""Suggestions for a Link field of the Lead (owner, source...), through Frappe's own permission-aware search."""
 	_check_user()
+	_need_any(_("audiences"), ("audiences", "view"), ("campaign_create", 1))
 	field = frappe.get_meta(LEAD).get_field(fieldname)
 	if not field or field.fieldtype != "Link" or not field.options:
 		return []
@@ -997,6 +1026,7 @@ def preview_step(step, lead=None, campaign_owner=None, sample=0):
 	"""Render one step for one real lead (resolved on the server with the lead's real data), or with realistic
 	sample data when ``sample`` is set or the site has no lead to preview with."""
 	_check_user()
+	_need_any(_("previews"), ("email_templates", "view"), ("campaign_create", 1))
 	step = _json(step)
 	if step.get("channel") not in CHANNELS:
 		frappe.throw(_("Choose a channel."))
@@ -1020,6 +1050,7 @@ def preview_step(step, lead=None, campaign_owner=None, sample=0):
 @frappe.whitelist()
 def search_leads(txt=""):
 	_check_user()
+	_need_any(_("audiences"), ("audiences", "view"), ("campaign_create", 1))
 	return frappe.get_list(LEAD, filters=[["lead_name", "like", f"%{txt}%"]] if txt else None, fields=["name", "lead_name", "email", "mobile_no"], order_by="modified desc", limit_page_length=10)
 
 
@@ -1082,8 +1113,7 @@ def get_calendar(from_date, to_date):
 
 def _manager_only():
 	_check_user()
-	if not is_campaign_manager():
-		frappe.throw(_("Only managers can edit the clean-up list."), frappe.PermissionError)
+	_need("list_cleanup", 1, _("the clean-up list"))
 
 
 @frappe.whitelist()
@@ -1179,8 +1209,7 @@ def lead_campaign_history(lead):
 def opt_out_recipient(recipient):
 	"""Add a recipient's address to the opt-out list (manager action from the recipient report)."""
 	_check_user()
-	if not is_campaign_manager():
-		frappe.throw(_("Only managers can edit the opt-out list."), frappe.PermissionError)
+	_need("campaign_create", 1, _("the opt-out list"))
 	rec = frappe.get_doc(RECIPIENT, recipient)
 	rec.check_permission("read")
 	value = rec.email if rec.channel == "Email" else rec.whatsapp_number

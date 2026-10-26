@@ -734,6 +734,13 @@
 	// The same shortcuts are offered in the Dashboard header and in CRM's side menu.
 	// Order: the Sales Dashboard first (it also holds the Lead Nurturing view, so that has no link of its own), then
 	// Follow-ups, Meetings and the Campaign Manager.
+	// anything in the Campaign Manager that the person's access settings allow (the shortcut is pointless otherwise)
+	function hasCampaignAccess(c) {
+		var a = c.access
+		if (!a) return true
+		return ['campaigns', 'automations', 'email_templates', 'whatsapp_templates', 'audiences'].some(function (k) { return a[k] !== undefined && a[k] !== 'none' }) || !!Number(a.campaign_reports) || !!Number(a.list_cleanup) || !!Number(a.campaign_create)
+	}
+
 	function shortcuts(c) {
 		var list = [{ key: 'dashboard', label: 'Sales Dashboard', icon: 'chart-column', title: 'Sales Dashboard (sales, calls, meetings and lead nurturing)', run: function () { openDashboard() } }]
 		if (c.follow_ups_enabled) list.push({ key: 'followups', label: 'Follow-ups', icon: 'phone-call', title: 'Follow-ups', run: function () { openQueue('CRM Lead') } })
@@ -741,7 +748,7 @@
 			key: 'meetings', label: 'Meetings', icon: 'calendar', title: 'Meetings',
 			run: function () { bridge().then(function (b) { b.openCalendar({ reference_doctype: 'CRM Lead', view: 'agenda' }) }).catch(function (err) { toast(err.message, true) }) },
 		})
-		if (c.campaigns_enabled && c.show_campaigns_shortcut) list.push({ key: 'campaigns', label: 'Campaigns', icon: 'send', title: 'Campaign Manager', run: function () { openCampaigns() } })
+		if (c.campaigns_enabled && c.show_campaigns_shortcut && hasCampaignAccess(c)) list.push({ key: 'campaigns', label: 'Campaigns', icon: 'send', title: 'Campaign Manager', run: function () { openCampaigns() } })
 		// lead assignment: System Managers only (the server checks as well)
 		if (c.can_assign) list.push({ key: 'assignment', label: 'Assignment', icon: 'users', title: 'Lead assignment rules, assigning and moving leads', run: function () { openAssignment() } })
 		// Demos: everyone whose access allows demos, widgets or the report (the server checks as well); hidden when the server says the feature is off

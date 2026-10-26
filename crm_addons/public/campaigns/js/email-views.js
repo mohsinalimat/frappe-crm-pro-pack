@@ -13,7 +13,7 @@
 	]
 	const SAMPLE = { first_name: 'Siddharth', last_name: 'Singh', lead_name: 'Siddharth Singh', email: 'siddharth.singh@example.com', organization: 'Acme Learning', sender_name: 'Siddharth Singh', owner_name: 'Siddharth Singh', mobile_no: '+91 98765 43210', today: new Date().toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }) }
 	CM.sampleFill = (s) => String(s || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k) => SAMPLE[k] ?? '')
-	const isManager = () => !!(CM.shared.config && CM.shared.config.is_manager)
+	const isManager = () => CM.can('email_templates', 'edit')
 	const favs = ref(CM.store.json('cm-fav-email', []))
 	watch(favs, (v) => CM.store.set('cm-fav-email', JSON.stringify(v)), { deep: true })
 	const toggleFav = (n) => { const i = favs.value.indexOf(n); i >= 0 ? favs.value.splice(i, 1) : favs.value.push(n) }

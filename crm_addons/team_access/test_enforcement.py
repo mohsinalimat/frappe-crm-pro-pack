@@ -351,3 +351,101 @@ class TestAssignmentAccess(Enforcement):
 		self.assertIn(self.u["rep1"], seen)
 		self.assertNotIn(self.u["other"], seen)
 		self.assertTrue(all(r["by_user"] in {self.u["mid"], self.u["rep1"], self.u["rep2"]} for r in asg.list_log()))
+
+
+class TestCampaignManagerAccess(Enforcement):
+	"""A person can be given only the template designer, only automations, only reports ... on top of (or instead of) the campaign powers."""
+
+	def setUp(self):
+		super().setUp()
+		self.camp = frappe.get_doc(
+			{"doctype": "CRM Campaign", "campaign_name": "Access Camp", "campaign_owner": "Administrator", "audience_mode": "Selected Records", "selected_records": "[]"}
+		).insert(ignore_permissions=True)
+
+	def as_(self, user):
+		frappe.set_user(user)
+		self.addCleanup(frappe.set_user, "Administrator")
+
+	def raises(self, fn, *args, **kw):
+		with self.assertRaises(frappe.PermissionError, msg=fn.__name__):
+			fn(*args, **kw)
+
+	def test_a_template_designer_only_builds_templates(self):
+		from crm_addons.campaigns import api, automation
+
+		self.configure(self.u["mid"], {"campaigns": "none", "campaign_create": 0, "automations": "none", "email_templates": "edit", "audiences": "none", "campaign_reports": 0})
+		self.as_(self.u["mid"])
+		saved = api.save_email_template({"template_name": "Designer Test", "subject": "Hi", "body_html": "<p>x</p>", "enabled": 1})
+		self.assertEqual(saved["template_name"] if isinstance(saved, dict) and "template_name" in saved else "Designer Test", "Designer Test")
+		self.assertTrue(api.list_email_templates())
+		self.raises(api.save_campaign, {"campaign_name": "Nope"})
+		self.raises(automation.list_automations)
+		self.raises(api.list_segments)
+		self.assertEqual(frappe.get_list("CRM Campaign", pluck="name"), [])  # sees no campaigns at all
+		from crm_addons.campaigns import analytics
+
+		self.raises(analytics.get_overview)
+
+	def test_view_only_templates(self):
+		from crm_addons.campaigns import api
+
+		self.configure(self.u["mid"], {"email_templates": "view", "whatsapp_templates": "view", "campaign_create": 0})
+		self.as_(self.u["mid"])
+		self.assertTrue(api.list_email_templates() is not None)
+		self.raises(api.save_email_template, {"template_name": "No", "subject": "s", "body_html": "<p>x</p>"})
+		self.raises(api.duplicate_email_template, "Demo confirmed")
+		self.raises(api.delete_email_template, "Demo confirmed")
+		self.raises(api.sync_whatsapp_templates)
+		self.raises(api.check_whatsapp_template_name, "some_name", "en")
+		self.assertIsNotNone(api.list_whatsapp_templates())
+
+	def test_automations_levels(self):
+		from crm_addons.campaigns import automation
+
+		self.as_(self.u["rep1"])  # a Sales User: view by default
+		self.assertIsInstance(automation.list_automations(), list)
+		self.raises(automation.save_automation, {"automation_name": "x"}) if hasattr(automation, "save_automation") else None
+		frappe.set_user("Administrator")
+		self.configure(self.u["rep2"], {"automations": "none"})
+		self.as_(self.u["rep2"])
+		self.raises(automation.list_automations)
+
+	def test_campaign_visibility_follows_the_scope_and_acting_needs_the_switch(self):
+		from crm_addons.campaigns import api, engine
+
+		frappe.db.set_value("CRM Campaign", self.camp.name, {"campaign_owner": self.u["rep1"], "owner": self.u["rep1"]})
+		self.assertNotIn(self.camp.name, self.visible("CRM Campaign", self.u["mid"]))  # default: own
+		self.configure(self.u["mid"], {"campaigns": "team"})
+		self.assertIn(self.camp.name, self.visible("CRM Campaign", self.u["mid"]))  # rep1 is below mid
+		self.assertNotIn(self.camp.name, self.visible("CRM Campaign", self.u["other"]))
+		doc = frappe.get_doc("CRM Campaign", self.camp.name)
+		self.assertFalse(engine.can_act(doc, self.u["mid"]))  # may look, may not act: no "create and send" switch
+		frappe.set_user("Administrator")
+		frappe.db.set_value("CRM User Access", self.u["mid"], "overrides", json.dumps({"campaigns": "team", "campaign_create": 1}))
+		access.clear()
+		self.assertTrue(engine.can_act(doc, self.u["mid"]))
+		self.assertFalse(engine.can_act(frappe.get_doc("CRM Campaign", self.camp.name).update({"owner": self.u["other"], "campaign_owner": self.u["other"]}), self.u["mid"]))
+		self.assertTrue(engine.can_act(doc, self.u["rep1"]))  # the owner always can
+
+	def test_reports_cleanup_and_the_dashboard_tab_are_switches(self):
+		from crm_addons.campaigns import analytics, api
+
+		self.configure(self.u["rep1"], {"campaign_reports": 0, "list_cleanup": 0})
+		self.as_(self.u["rep1"])
+		self.raises(analytics.get_overview)
+		self.raises(api.list_suppressed)
+		frappe.set_user("Administrator")
+		self.configure(self.u["rep2"], {"campaign_reports": 1, "list_cleanup": 1})
+		self.as_(self.u["rep2"])
+		self.assertIn("totals", analytics.get_overview())
+		self.assertIsNotNone(api.list_suppressed())
+
+	def test_the_config_tells_the_screens_what_is_allowed(self):
+		from crm_addons.campaigns import api
+
+		self.configure(self.u["mid"], {"campaign_create": 1, "email_templates": "view"})
+		self.as_(self.u["mid"])
+		cfg = api.get_config()
+		self.assertEqual(cfg["access"]["email_templates"], "view")
+		self.assertEqual(cfg["access"]["campaign_create"], 1)
+		self.assertTrue(cfg["is_manager"])

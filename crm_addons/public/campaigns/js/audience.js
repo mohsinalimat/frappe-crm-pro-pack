@@ -288,7 +288,7 @@
 			const saveOpen = ref(false); const seg = reactive({ label: '', public: false }); const saving = ref(false)
 			const definition = computed(() => A.definition(props.a))
 			const ready = computed(() => A.ready(props.a))
-			const isManager = computed(() => CM.shared.config && CM.shared.config.is_manager)
+			const isManager = computed(() => CM.can('audiences', 'edit'))
 			const names = computed(() => props.a.selected)
 			async function saveSeg() {
 				if (!seg.label.trim()) return CM.toast('Give the segment a name.', 'warn')
@@ -356,7 +356,7 @@
 			}
 			const a = reactive({ mode: 'CRM Filters', rules: [], saved_view: '', selected: [] })
 			const seg = reactive({ label: '', public: false }); const saving = ref(false)
-			const isManager = computed(() => CM.shared.config && CM.shared.config.is_manager)
+			const isManager = computed(() => CM.can('audiences', 'edit'))
 			function openCreate() { a.rules.splice(0); seg.label = ''; seg.public = false; createOpen.value = true }
 			async function create() {
 				if (!seg.label.trim()) return CM.toast('Give the segment a name.', 'warn')

@@ -75,6 +75,26 @@ enforced on the server. A lead counts as theirs when they own it or are assigned
 Campaign Managers keep full access; Campaign results on the dashboard are company-wide for everyone. Only Sales Managers and
 System Managers can customize a dashboard.
 
+## Team and access (who sees what)
+
+Open **Team and access** from the CRM menu or the Dashboard header (System Managers only), or go to `/team-access`.
+
+- **People** lists everyone with a Sales User, Sales Manager, System Manager or Campaign Manager role: their roles, who they report to (from CRM's **Sales Hierarchy**, in CRM's own
+  Settings under User Management) and their access. Click a person to give them a **preset** and change anything on top of it. Add and invite people, and the hierarchy itself, stay in CRM's Settings;
+  the person's panel can send a password reset email (Frappe's own reset, it needs an outgoing email account).
+- **Presets** are ready-made sets of access: Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer and Demo Host. Edit them, copy them, make your own. Changing a preset changes everyone using it.
+- Every part of Pro Pack is one line with a value:
+  - **Whose data** (Meetings, Follow-ups, Demos, Sales Dashboard numbers, Campaigns, moving leads, assignment history): *No access / Own only / My team / Everyone*. **My team** is the person and everyone below them in the Sales Hierarchy.
+    Someone who is not in the hierarchy only sees themselves.
+  - **What they can do** (demo widgets, assignment rules, automations, email templates, WhatsApp templates, audiences): *None / View / Create and edit*.
+  - **Switches** (create and send campaigns, campaign reports, list clean-up, the demo report, the Demos tab inside Meetings, the Campaigns tab of the Sales Dashboard).
+- **Nothing changes for people you do not configure.** Managers, the Campaign Manager role and Sales Users keep exactly what they had; System Managers always have everything (they cannot be limited, so nobody locks themselves out).
+  A person's value is: their own change, else their preset, else what their role gave them before.
+- It is checked on the server for every list, report, export and action. Hiding a menu entry is only the convenience on top.
+
+Examples: a manager who should see only their team's follow-ups: *Follow-ups: My team*. Someone who may only build templates: the **Template Designer** preset. A host who only takes demos: **Demo Host**
+(*Demos: Own only* = the demos they host or are invited to). A Sales User who also runs campaigns: the **Campaign Executive** preset, or just switch on *Create and send campaigns*.
+
 ## Testing as a new sales user
 
 Sales users never authorize Google. To see exactly what they will see:
