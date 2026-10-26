@@ -121,6 +121,8 @@ window.SETUP_SCHEMA = [
 		items: [
 			{ k: 'campaigns_enabled', t: 'switch', label: 'Use the Campaign Manager',
 				info: { what: 'Shows the Campaigns buttons and the Campaign Manager page. Off hides them. Campaigns you already made are kept.' } },
+			{ k: 'meta_usage', t: 'metausage', label: 'What Meta says about your WhatsApp number', when: 'campaigns_enabled',
+				info: { what: 'Your daily messaging limit and quality rating, and what Meta charged for messages recently, read from the WhatsApp account connected here. Anything Meta does not give is shown as not available.', note: 'Needs the business account id and a token that is allowed to read analytics. Nothing is saved from this card.' } },
 			{ h: 'Sending speed' },
 			{ k: 'campaign_batch_size', t: 'num', label: 'Messages per batch', unit: 'messages', min: 1, max: 5000, when: 'campaigns_enabled',
 				info: { what: 'How many messages are handed to the background workers in one go, per campaign. Every minute the scheduler hands over another batch.', eg: '100 with a limit of 300 a minute means up to 100 each minute.' } },

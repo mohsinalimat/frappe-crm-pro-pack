@@ -200,3 +200,5 @@ h1, h2, h3 { font-stretch: 90%; }
 .watpl { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; max-width: 460px; }
 .wa-card { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); display: flex; flex-direction: column; gap: 6px; }
 .wa-body { white-space: pre-wrap; padding: 8px 10px; border-radius: 8px 8px 8px 2px; background: var(--green-soft); color: var(--text); font-size: 13px; }
+
+.metabox { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; } .metadl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; text-align: left; } .metadl dt { color: var(--soft); } .metadl dd { margin: 0; } .metarow { display: block; }
