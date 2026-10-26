@@ -173,3 +173,49 @@ def send_password_reset(user):
 		frappe.clear_messages()
 		frappe.throw(_("The reset email could not be sent: {0}").format(frappe.utils.strip_html(cstr(exc))[:200]))
 	return {"sent_to": user}
+
+
+@frappe.whitelist()
+def add_person(email, first_name, last_name="", role="Sales User", preset=None, send_invite=1):
+	"""Add a person to the CRM: a System User with a CRM role, an optional preset, and (by default) the welcome email with the link to set a password.
+
+	An existing user (for example a website user, or someone without a CRM role) is given the role instead of being created again."""
+	_admin()
+	email = cstr(email).strip().lower()
+	first_name, last_name = cstr(first_name).strip(), cstr(last_name).strip()
+	if not frappe.utils.validate_email_address(email):
+		frappe.throw(_("{0} is not a valid email address.").format(frappe.bold(email or "-")))
+	if role not in ("Sales User", "Sales Manager"):
+		frappe.throw(_("Choose Sales User or Sales Manager."))
+	if preset and not frappe.db.exists("CRM Access Preset", cstr(preset)):
+		frappe.throw(_("Preset {0} was not found.").format(frappe.bold(cstr(preset))))
+	created = False
+	if frappe.db.exists("User", email):
+		if email in ("Administrator", "Guest"):
+			frappe.throw(_("That user cannot be changed here."))
+		doc = frappe.get_doc("User", email)
+		if not doc.enabled:
+			frappe.throw(_("{0} is disabled. Enable the user first.").format(frappe.bold(email)))
+		if role not in [r.role for r in doc.roles]:
+			doc.add_roles(role)
+	else:
+		if not first_name:
+			frappe.throw(_("Enter the first name."))
+		doc = frappe.get_doc(
+			{"doctype": "User", "email": email, "first_name": first_name, "last_name": last_name, "user_type": "System User", "send_welcome_email": 0, "roles": [{"role": role}]}
+		)
+		doc.insert(ignore_permissions=True)
+		created = True
+	if preset:
+		save_user_access(email, preset, {})
+	invited, problem = False, ""
+	if created and cint(send_invite):
+		try:
+			doc.reload()
+			doc.send_welcome_mail_to_user()
+			invited = True
+		except Exception as exc:
+			frappe.clear_messages()
+			problem = frappe.utils.strip_html(cstr(exc))[:200]
+	access.clear()
+	return {"user": email, "created": created, "invited": invited, "invite_problem": problem}
