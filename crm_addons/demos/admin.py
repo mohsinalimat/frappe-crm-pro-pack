@@ -14,7 +14,7 @@ from frappe.utils import cint, cstr, get_url_to_form
 
 from crm_addons.campaigns import personalization
 from crm_addons.campaigns.common import date_range, email_account_problem, whatsapp_installed
-from crm_addons.demos import booking, common, messaging, report, slots
+from crm_addons.demos import booking, common, defaults, messaging, report, slots
 from crm_addons.demos.common import ACTIVE, BOOKING, DEMO_TYPE, LEAD, MESSAGE
 from crm_addons.demos.permissions import involved_sql
 from frappe.utils import get_url
@@ -386,3 +386,46 @@ def my_demos(from_date=None, to_date=None, scope="mine", page=1, page_size=100):
 	for r in rows:
 		r["lead_title"] = leads.get(r.get("lead")) or r.get("name_")
 	return rows
+
+
+@frappe.whitelist()
+def default_messages():
+	"""The ready-made message for every rule (demos/defaults.py): the library email template and the Utility WhatsApp template with
+	its state on this site (NOT CREATED, PENDING, APPROVED ...). The Messages tab fills empty rules from this."""
+	_manager()
+	from crm_addons.campaigns import api as campaign_api
+	from crm_addons.install import ensure_default_email_templates
+
+	ensure_default_email_templates()  # a site that has not run migrate yet still gets them
+	on_site = {}
+	if whatsapp_installed():
+		for r in campaign_api.list_whatsapp_templates().get("rows", []):
+			on_site[cstr(r.get("actual_name") or r.get("template_name")).lower()] = r
+	out = []
+	for key in defaults.ORDER:
+		spec, row = defaults.WHATSAPP[key], on_site.get(defaults.WHATSAPP[key]["template_name"])
+		out.append(
+			{
+				"event": key[0], "minutes_before": key[1], "email_template": defaults.EMAIL[key],
+				"email_exists": bool(frappe.db.exists("CRM Campaign Email Template", defaults.EMAIL[key])),
+				"whatsapp": {
+					"template_name": spec["template_name"], "category": spec["category"], "body": spec["template"], "samples": spec["sample_values"],
+					"variable_map": spec["variable_map"], "state": (row or {}).get("state") or "NOT CREATED", "approved": bool(row and row.get("approved")),
+					"name": (row or {}).get("name") or "", "whatsapp_account": (row or {}).get("whatsapp_account") or "",
+				},
+			}
+		)
+	return out
+
+
+@frappe.whitelist()
+def create_default_whatsapp_template(event, minutes_before=0):
+	"""Submit the ready-made Utility template of a rule to Meta (through frappe_whatsapp, like the campaign template creator). It stays
+	Pending until Meta approves it; then it can be chosen in the rule. Managers only."""
+	_manager()
+	from crm_addons.campaigns import api as campaign_api
+
+	spec = defaults.WHATSAPP.get(defaults.key_of(event, minutes_before))
+	if not spec:
+		frappe.throw(_("There is no ready-made WhatsApp template for this message."))
+	return campaign_api.create_whatsapp_template(json.loads(json.dumps(spec)))

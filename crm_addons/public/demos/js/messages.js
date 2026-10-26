@@ -22,7 +22,19 @@
 			const tpl = ref(null)
 			async function loadTpl() { tpl.value = rule.email_template ? await CM.getEmailTemplate(rule.email_template) : null }
 			watch(() => rule.email_template, loadTpl); onMounted(() => { loadTpl(); if (rule.send_whatsapp) DM.loadWa() })
-			watch(() => rule.send_whatsapp, (v) => v && DM.loadWa())
+			watch(() => rule.send_whatsapp, (v) => { if (v) { DM.loadWa(); DM.loadDefaults().then(() => { if (!rule.wa_template) DM.applyDefault(rule) }) } })
+			// switching email on with no template chosen takes the ready-made one instead of asking
+			watch(() => rule.send_email, (v) => { if (v && !rule.email_template) DM.loadDefaults().then(() => { const d = DM.defaultFor(rule); if (d && d.email_exists && !rule.email_template) rule.email_template = d.email_template }) })
+			onMounted(() => DM.loadDefaults())
+			const suggestion = computed(() => { const d = DM.defaultFor(rule); return d ? d.whatsapp : null })
+			const submitting = ref(false)
+			async function submitDefault() {
+				submitting.value = true
+				try { const r = await DM.api('create_default_whatsapp_template', { event: rule.event, minutes_before: rule.minutes_before }); CM.toast((r && r.message) || 'Submitted to Meta. It is Pending until Meta approves it.'); await Promise.all([DM.loadDefaults(true), DM.loadWa(true)]) } catch (e) { CM.toast(e.message, 'err') } finally { submitting.value = false }
+			}
+			async function refreshSuggestion() { await Promise.all([DM.loadDefaults(true), DM.loadWa(true)]) }
+			function useSuggestion() { const s = suggestion.value; if (s && s.name) pickWa(s.name) }
+			const sugVals = computed(() => (suggestion.value ? suggestion.value.samples : []))
 			const wa = DM.waTemplates
 			const waTpl = computed(() => wa.rows.find((t) => t.name === rule.wa_template))
 			const waOptions = computed(() => wa.rows.slice().sort((x, y) => Number(y.approved) - Number(x.approved) || x.template_name.localeCompare(y.template_name)).map((t) => ({ value: t.name, label: t.template_name, sub: t.approved ? (t.category || '').toLowerCase() + ' - ' + (t.language_code || 'en') : 'Not approved: ' + CM.waState.label(t.state), disabled: !t.approved, icon: 'whatsapp', badge: t.approved ? undefined : CM.waState.label(t.state) })))
@@ -57,7 +69,7 @@
 				const on = []; if (rule.send_email) on.push('Email'); if (rule.send_whatsapp) on.push('WhatsApp'); return on
 			})
 			const incomplete = computed(() => (rule.send_email && !rule.email_template) || (rule.send_whatsapp && !rule.wa_template))
-			return { open, tpl, wa, waTpl, waOptions, map, pickWa, missing, vals, insert, title, sub, emailReady, waReady, test, testing, canTest, status, incomplete, meta: EVENT_META, DM, CM, loadWa: DM.loadWa }
+			return { suggestion, submitting, submitDefault, refreshSuggestion, useSuggestion, sugVals, open, tpl, wa, waTpl, waOptions, map, pickWa, missing, vals, insert, title, sub, emailReady, waReady, test, testing, canTest, status, incomplete, meta: EVENT_META, DM, CM, loadWa: DM.loadWa }
 		},
 		template: `
 		<article class="card rule" :class="{ on: status.length, open }">
@@ -99,6 +111,13 @@
 							</div>
 							<div class="wa-side"><WaBubble :header="waTpl.header" :header-type="waTpl.header_type" :body="waTpl.template" :footer="waTpl.footer" :buttons="waTpl.buttons" :values="vals" compact /></div>
 						</div>
+						<div v-else-if="suggestion" class="wa-sug">
+							<div class="wa-sug-h"><Ico name="sparkles" /><div class="grow"><b>Ready-made message: {{ suggestion.template_name }}</b><div class="small muted">A Utility template written for this message. WhatsApp needs Meta's approval before it can be sent.</div></div>
+								<span v-if="suggestion.state === 'NOT CREATED'" class="badge nodot">Not submitted yet</span><span v-else-if="suggestion.approved" class="badge green nodot">Approved</span><span v-else-if="suggestion.state === 'REJECTED'" class="badge red nodot">Rejected</span><span v-else class="badge amber nodot">{{ suggestion.state === 'PENDING' ? 'Waiting for Meta' : suggestion.state }}</span></div>
+							<div class="wa-grid"><div class="col" style="gap:10px"><div class="small muted">The variables are filled from the booking automatically: {{ Object.keys(suggestion.variable_map).map($wa).join(', ') }}. You can change the wording after it is submitted by creating a new template in WhatsApp templates.</div>
+								<div class="row wrap" style="gap:8px"><Btn v-if="suggestion.approved" variant="primary" icon="check" @click="useSuggestion">Use this template</Btn><Btn v-else-if="suggestion.state === 'NOT CREATED'" variant="primary" icon="send" :loading="submitting" :disabled="!waReady" :title="waReady ? '' : 'Set up an active WhatsApp account first'" @click="submitDefault">Create and send to Meta for approval</Btn><Btn v-else icon="refresh" :loading="wa.loading" @click="refreshSuggestion">Check the approval status</Btn></div></div>
+								<div class="wa-side"><WaBubble header="" header-type="" :body="suggestion.body" footer="" :buttons="[]" :values="sugVals" compact /></div></div>
+						</div>
 						<div v-else class="wa-ph"><Ico name="whatsapp" size="xl" /><span>Pick a template to see the message</span></div>
 					</template>
 				</div>
@@ -113,7 +132,10 @@
 			const pickFor = ref(null); const editTpl = reactive({ open: false, name: '', mode: '', rule: null }); const previewTpl = ref(null)
 			const events = computed(() => DM.EVENTS.map((e) => doc.messages.find((m) => m.event === e)).filter(Boolean))
 			const reminders = computed(() => doc.messages.filter((m) => m.event === 'Reminder').sort((a, b) => b.minutes_before - a.minutes_before))
-			onMounted(() => { CM.loadShared(); DM.loadVars() })
+			onMounted(() => { CM.loadShared(); DM.loadVars(); DM.loadDefaults() })
+			// rules with a channel on but no template, or no channel at all while a ready-made message exists
+			const fillable = computed(() => DM.defaults.loaded && doc.messages.some((r) => { const d = DM.defaultFor(r); return d && ((!r.email_template && d.email_exists) || (!r.wa_template && d.whatsapp.approved)) }))
+			function fillDefaults() { let n = 0; doc.messages.forEach((r) => { n += DM.applyDefault(r).length }); CM.toast(n ? 'Filled ' + n + ' empty message' + (n === 1 ? '' : 's') + ' with the ready-made ones. Save to keep them.' : 'Nothing to fill.') }
 			// every event the demo type should have exists, even on a document saved before it was added
 			DM.EVENTS.forEach((e) => { if (!doc.messages.some((m) => m.event === e)) doc.messages.push(DM.defaultMessages().find((m) => m.event === e)) })
 			const custom = reactive({ open: false, value: 2, unit: 'hours' })
@@ -139,7 +161,7 @@
 			const preview = computed(() => (previewTpl.value ? CM.tplCache[previewTpl.value] || {} : {}))
 			watch(previewTpl, (n) => n && CM.getEmailTemplate(n))
 			const summary = computed(() => { const on = doc.messages.filter((m) => m.send_email || m.send_whatsapp).length; return on + ' of ' + doc.messages.length + ' messages on' })
-			return { events, reminders, pickFor, editTpl, previewTpl, custom, menuItems, addCustom, customMin, removeReminder, cfg, createTemplate, editTemplate, tplSaved, picked, preview, summary, DM, CM }
+			return { fillable, fillDefaults, events, reminders, pickFor, editTpl, previewTpl, custom, menuItems, addCustom, customMin, removeReminder, cfg, createTemplate, editTemplate, tplSaved, picked, preview, summary, DM, CM }
 		},
 		template: `
 		<div class="col tabcol">
@@ -147,6 +169,7 @@
 			<div v-if="errs.messages" class="alert err" role="alert"><Ico name="alert" /><div class="grow">{{ errs.messages }}</div></div>
 			<div v-if="cfg && !cfg.email.ready" class="alert warn"><Ico name="alert" /><div class="grow"><b>No outgoing email account.</b> {{ cfg.email.problem }}</div></div>
 			<div v-if="cfg && !cfg.whatsapp.ready" class="alert warn"><Ico name="alert" /><div class="grow"><b>WhatsApp account missing.</b> No active WhatsApp account is set up in frappe_whatsapp, so WhatsApp messages cannot be sent yet.</div></div>
+			<div v-if="fillable" class="alert info"><Ico name="sparkles" /><div class="grow"><b>Ready-made messages are available.</b> Fill the empty messages with them (confirmation, reschedule, cancel and the reminders). You can edit every template afterwards.</div><Btn variant="primary" size="sm" @click="fillDefaults">Use ready-made messages</Btn></div>
 			<h3 class="grp">When a booking changes</h3>
 			<MsgRule v-for="m in events" :key="m.event" :rule="m" :doc="doc" :saved-name="savedName" :dirty="dirty" :is-new="isNew" @pick-email="pickFor = m" @create-email="createTemplate(m)" @edit-email="editTemplate(m)" @preview-email="previewTpl = m.email_template" />
 			<div class="row grp-row"><h3 class="grp grow">Reminders</h3><Menu :items="menuItems" label="Add a reminder"><Btn icon="plus" size="sm">Add a reminder</Btn></Menu></div>

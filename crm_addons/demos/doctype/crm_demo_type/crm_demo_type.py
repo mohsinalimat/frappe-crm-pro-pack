@@ -35,7 +35,7 @@ class CRMDemoType(Document):
 			self.seed_defaults()
 
 	def seed_defaults(self):
-		"""A new demo type starts with sensible hours, the usual form and the message rules (all switched off until templates are chosen)."""
+		"""A new demo type starts with sensible hours, the usual form and the message rules (ready-made templates are chosen where they exist)."""
 		if not self.hours:
 			for day in WEEKDAYS[:5]:
 				self.append("hours", {"weekday": day, "from_time": "10:00:00", "to_time": "18:00:00"})
@@ -47,8 +47,31 @@ class CRMDemoType(Document):
 				self.append("messages", {"event": event})
 			for minutes in DEFAULT_REMINDERS:
 				self.append("messages", {"event": "Reminder", "minutes_before": minutes})
+		self.use_default_messages()  # also for rules the admin screen sent empty: only empty rules are filled
 		if not self.consent_text:
 			self.consent_text = _("Send me updates about this demo on WhatsApp.")
+
+	def use_default_messages(self):
+		"""Fill the rules that have no template yet with the ready-made ones (demos/defaults.py): the email template from the
+		library, and a WhatsApp template only when Meta has approved the default one on this site. Never overwrites a choice."""
+		import json
+
+		from crm_addons.demos import defaults
+
+		approved = {}
+		if frappe.db.exists("DocType", "WhatsApp Templates"):
+			for r in frappe.get_all("WhatsApp Templates", filters={"status": "APPROVED"}, fields=["name", "actual_name", "template_name", "whatsapp_account"]):
+				approved[cstr(r.actual_name or r.template_name).lower()] = r
+		for row in self.messages:
+			key = defaults.key_of(row.event, row.minutes_before)
+			email = defaults.EMAIL.get(key)
+			if email and not row.email_template and frappe.db.exists("CRM Campaign Email Template", email):
+				row.send_email, row.email_template = 1, email
+			spec = defaults.WHATSAPP.get(key)
+			wa = approved.get(spec["template_name"]) if spec else None
+			if wa and not row.wa_template:
+				row.send_whatsapp, row.wa_template, row.wa_account = 1, wa.name, wa.whatsapp_account or ""
+				row.wa_variables = json.dumps(spec["variable_map"])
 
 	def validate(self):
 		self.slug = cstr(self.slug).strip().lower()

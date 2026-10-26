@@ -212,3 +212,12 @@ Everything below is implemented defensively on the UI side (a missing piece degr
   `Content-Security-Policy: frame-ancestors 'self' <allowed origins>` and no `X-Frame-Options`; an unknown slug answers `frame-ancestors 'self'` plus `X-Frame-Options: SAMEORIGIN`.
 - Migration: `bench migrate` adds the module, the doctypes, the CRM Meeting fields, the Lead first-touch fields and the indexes. No data is seeded.
 
+
+## Ready-made messages (defaults)
+- `demos/defaults.py` is the single list: for each message rule (Confirmed, Rescheduled, Cancelled, Reminder 24 h / 1 h / 30 min / at the start) it names the library
+  email template (added by `campaigns/default_templates.py`, category Transactional) and holds the Utility WhatsApp template definition (name, body with {{1}}..., sample values,
+  variable map to the demo variables).
+- A new demo type (`CRM Demo Type.use_default_messages`) fills every *empty* rule: email template + email on; WhatsApp only when the default template is APPROVED on this site.
+  Existing demo types: the Messages tab offers **Use ready-made messages**. A choice already made is never replaced.
+- WhatsApp: `admin.default_messages()` returns each rule's default with its state (NOT CREATED / PENDING / APPROVED / REJECTED); `admin.create_default_whatsapp_template(event, minutes_before)`
+  submits it through `campaigns.api.create_whatsapp_template` (frappe_whatsapp sends it to Meta). Managers only.

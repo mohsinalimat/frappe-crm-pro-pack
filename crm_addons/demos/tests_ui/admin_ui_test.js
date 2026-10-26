@@ -119,12 +119,15 @@ const toast = (page, re) => page.waitForFunction((src) => [...document.querySele
 		// messages
 		await page.click('.tab:has-text("Messages")'); await settle(page, 400)
 		await page.click('.rule-h:has-text("Confirmed")'); await settle(page, 200)
-		await page.click('.chan:has(.ch.Email) .switch'); await settle(page, 200)
-		await page.click('.pick-empty button:has-text("Choose")'); await page.waitForSelector('.tcard, .modal .empty', { timeout: 15000 })
+		await page.click('.chan:has(.ch.Email) .switch'); await settle(page, 900)
+		// the ready-made template is chosen as soon as the email is switched on (no template window to open just to turn a message on)
+		const readyMade = (await page.locator('.tsel').count()) === 1
+		check('messages: switching email on takes the ready-made template', readyMade || 'skip')
+		await page.click('.tsel button:has-text("Change")'); await page.waitForSelector('.tcard, .modal .empty', { timeout: 15000 })
 		const tcards = await page.locator('.tcard').count()
 		check('messages: the campaign template picker opens', tcards > 0 || (await page.locator('.empty').count()) > 0)
 		if (tcards) { await page.locator('.tcard').first().click(); await settle(page, 400); check('messages: a template is chosen and shown', (await page.locator('.tsel').count()) === 1) }
-		else { await page.keyboard.press('Escape'); await page.click('.chan:has(.ch.Email) .switch'); check('messages: no email templates on this site', 'skip') }
+		else { await page.keyboard.press('Escape'); check('messages: no email templates on this site', 'skip') }
 		await page.click('.rule:has-text("Confirmed") .chan:has(.ch.WhatsApp) .switch'); await settle(page, 400)
 		check('messages: WhatsApp block shows the Meta note and Refresh', (await page.locator('.chan .hint', { hasText: 'approve templates in Meta' }).count()) >= 1 && (await page.locator('.chan button:has-text("Refresh")').count()) >= 1)
 		await page.click('.rule:has-text("Confirmed") .chan:has(.ch.WhatsApp) .switch'); await settle(page, 200) // off again: no approved template is needed for this test

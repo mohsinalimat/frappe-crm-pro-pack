@@ -209,7 +209,14 @@ class TestManagerApi(ApiCase):
 		self.assertEqual([f["key"] for f in d["fields"]][:3], ["name", "email", "phone"])  # defaults seeded
 		self.assertEqual(len(d["hours"]), 5)
 		self.assertEqual([(m["event"], m["minutes_before"]) for m in d["messages"] if m["event"] == "Reminder"], [("Reminder", 1440), ("Reminder", 60), ("Reminder", 30), ("Reminder", 0)])
-		self.assertFalse(any(m["send_email"] or m["send_whatsapp"] for m in d["messages"]))  # off until templates are picked
+		# the ready-made email templates are chosen where they exist (a site that has them), WhatsApp stays off until Meta approves one
+		self.assertFalse(any(m["send_whatsapp"] for m in d["messages"]))
+		for m in d["messages"]:
+			from crm_addons.demos import defaults
+
+			expect = defaults.EMAIL[defaults.key_of(m["event"], m.get("minutes_before"))]
+			if frappe.db.exists("CRM Campaign Email Template", expect):
+				self.assertEqual((m["send_email"], m["email_template"]), (1, expect))
 		self.assertEqual(d["allowed_origins"], "https://site.example.com\nhttps://other.example.com")
 
 		d["title"] = "Renamed"

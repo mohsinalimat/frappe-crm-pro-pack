@@ -391,3 +391,15 @@ First public release. Built and tested on Frappe v15 with Frappe CRM 1.x.
 - **Fixed: an empty row (or column) could not be removed in the visual email builder.** Clicking an empty column selected nothing, so the side panel stayed on
   "Email style" and the row's tools (shown only for a selected block) never appeared. Now clicking an empty column selects it and the panel offers **Delete the whole
   row**; an empty row also shows a **Delete row** button on the canvas, and the **Delete** key removes the selected block or an empty selected row.
+
+## Unreleased - ready-made demo messages
+- **Default templates for every demo message.** Seven email templates are added to the campaign template library (Transactional, editable like any other):
+  *Demo confirmed*, *Demo rescheduled*, *Demo cancelled*, and reminders for *24 hours*, *1 hour*, *30 minutes* and *Demo starting now*. A new demo type picks
+  them automatically and has email switched on, so nobody has to open the template window just to turn a message on. Switching email on for a rule that has no
+  template also takes the ready-made one.
+- **Ready-made WhatsApp (Utility) templates** for the same seven messages (`demos/defaults.py`). WhatsApp needs Meta's approval, so they are definitions: on a rule
+  with no template the Messages tab shows the message in a phone bubble with **Create and send to Meta for approval** (through frappe_whatsapp, like the template
+  creator); once Meta approves it, **Use this template** picks it with its variables already mapped (first name, demo title, date, time, Meet link, reschedule link).
+  A new demo type uses an approved one automatically.
+- Existing demo types: **Use ready-made messages** fills the empty messages in one click (never replaces a choice).
+- Manager API: `demos.admin.default_messages`, `demos.admin.create_default_whatsapp_template(event, minutes_before)`.
