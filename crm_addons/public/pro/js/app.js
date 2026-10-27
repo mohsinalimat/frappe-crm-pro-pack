@@ -19,6 +19,7 @@
 		const campaignAccess = ['campaigns', 'automations', 'email_templates', 'whatsapp_templates', 'audiences'].some((k) => a[k] !== undefined && a[k] !== 'none') || !!Number(a.campaign_reports) || !!Number(a.list_cleanup)
 		const rows = [
 			{ key: 'notifications', label: 'Notifications', icon: 'bell', native: true, badge: true },
+			{ key: 'leads', label: 'Leads', icon: 'users', native: true },
 			{ key: 'dashboard', label: 'Sales Dashboard', icon: 'chart' },
 		]
 		if (c.follow_ups_enabled !== 0) rows.push({ key: 'followups', label: 'Follow-ups', icon: 'phone' })
@@ -63,7 +64,7 @@
 			watch(active, () => { document.title = (current.value.label || 'Suite Pro') + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			// the unread count stays fresh while the page is open
 			let t; onMounted(() => { t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000) }); onBeforeUnmount(() => clearInterval(t))
-			return { items, active, current, collapsed, toggleRail, PRO, FRAMES }
+			return { r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
@@ -79,6 +80,8 @@
 				<div v-if="PRO.shell.error" class="page"><Empty icon="alert" title="Could not start" :text="PRO.shell.error"><a class="btn primary" href="/login?redirect-to=/crm-pro">Log in</a></Empty></div>
 				<div v-else-if="!PRO.shell.loaded" class="page"><Skel h="40" r="10" /><Skel h="300" r="12" /></div>
 				<Notifications v-else-if="active === 'notifications'" :key="'n'" />
+				<Lead v-else-if="active === 'leads' && r.parts[1]" :key="'l' + r.parts[1]" :name="r.parts[1]" />
+				<Leads v-else-if="active === 'leads'" :key="'ls'" />
 				<Frame v-else :page="active" :key="active" />
 			</main>
 			<Toasts /><ConfirmHost />
