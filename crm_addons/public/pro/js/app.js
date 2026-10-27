@@ -20,6 +20,7 @@
 		const rows = [
 			{ key: 'notifications', label: 'Notifications', icon: 'bell', native: true, badge: true },
 			{ key: 'leads', label: 'Leads', icon: 'users', native: true },
+			{ key: 'organizations', label: 'Organizations', icon: 'building', native: true },
 			{ key: 'dashboard', label: 'Sales Dashboard', icon: 'chart' },
 		]
 		if (c.follow_ups_enabled !== 0) rows.push({ key: 'followups', label: 'Follow-ups', icon: 'phone' })
@@ -82,6 +83,8 @@
 				<Notifications v-else-if="active === 'notifications'" :key="'n'" />
 				<Lead v-else-if="active === 'leads' && r.parts[1]" :key="'l' + r.parts[1]" :name="r.parts[1]" />
 				<Leads v-else-if="active === 'leads'" :key="'ls'" />
+				<Organization v-else-if="active === 'organizations' && r.parts[1]" :key="'o' + r.parts[1]" :name="r.parts[1]" />
+				<Organizations v-else-if="active === 'organizations'" :key="'os'" />
 				<Frame v-else :page="active" :key="active" />
 			</main>
 			<Toasts /><ConfirmHost />
