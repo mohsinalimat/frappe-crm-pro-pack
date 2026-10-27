@@ -68,3 +68,41 @@ class TestProLeads(AccessCase):
 			leads.list_leads()
 		with self.assertRaises(frappe.PermissionError):
 			lead.get_lead("x")
+
+	def test_create_lead_and_export(self):
+		frappe.set_user("Administrator")
+		name = leads.create_lead(json.dumps({"first_name": "Zq", "last_name": "=cmd", "mobile_no": "+911234567890"}))
+		self.addCleanup(frappe.delete_doc, "CRM Lead", name, force=True, ignore_permissions=True)
+		self.assertEqual(frappe.db.get_value("CRM Lead", name, "lead_owner"), "Administrator")
+		with self.assertRaises(frappe.ValidationError):
+			leads.create_lead(json.dumps({"first_name": "x", "converted": 1}))
+		with self.assertRaises(frappe.ValidationError):
+			leads.create_lead(json.dumps({"last_name": "no first name"}))
+		csv = leads.export_csv(search="Zq")
+		self.assertIn("Zq", csv)
+		self.assertIn("+911234567890", csv)  # a phone keeps its plus sign
+		self.assertEqual(leads._safe("lead_name", "=SUM(A1)"), "'=SUM(A1)")
+
+	def test_quick_filters(self):
+		frappe.set_user("Administrator")
+		doc = self.make_lead("Administrator", mobile_no="+911111111111")
+		names = lambda f: {r.name for r in leads.list_leads(filters=json.dumps(f), page_length=200)["rows"]}  # noqa: E731
+		self.assertIn(doc.name, names({"never_called": 1}))
+		self.assertNotIn(doc.name, names({"has_meeting": 1}))
+		self.assertNotIn(doc.name, names({"has_followup": 1}))
+		self.assertIn(doc.name, names({"followup": "none"}))
+
+	def test_board_more_pages_one_column(self):
+		frappe.set_user("Administrator")
+		a = self.make_lead(None, status="Contacted")
+		rows = leads.board_more("Contacted", start=0, page_length=100)
+		self.assertIn(a.name, {r.name for r in rows})
+
+	def test_activity_merges_followups_and_hides_auto_comments(self):
+		frappe.set_user("Administrator")
+		doc = self.make_lead("Administrator")
+		lead.log_followup(doc.name, json.dumps({"mode": "Call", "call_status": "Connected", "outcome": "Interested", "remark": "talked"}))
+		kinds = [e["kind"] for e in lead.get_activity(doc.name)]
+		self.assertIn("followup", kinds)
+		self.assertFalse(any(e["kind"] == "comment" and e["text"][:1] == "\U0001F4DE" for e in lead.get_activity(doc.name)))
+		self.addCleanup(lambda: [frappe.delete_doc("CRM Follow Up", n, force=1, ignore_permissions=True) for n in frappe.get_all("CRM Follow Up", filters={"reference_docname": doc.name}, pluck="name")])

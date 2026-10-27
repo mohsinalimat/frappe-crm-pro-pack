@@ -176,3 +176,200 @@ def get_timeline(name):
 	out.sort(key=lambda r: str(r["creation"]), reverse=True)
 	return out[:150]
 
+
+
+# ---------------------------------------------------------------- the other tabs
+
+
+def _clip(text, n=140):
+	text = " ".join(strip_html(cstr(text)).split())
+	return text if len(text) <= n else text[: n - 1] + "…"
+
+
+@frappe.whitelist()
+def get_emails(name):
+	_lead(name)
+	rows = frappe.get_all(
+		"Communication", filters={"reference_doctype": LEAD, "reference_name": name, "communication_type": "Communication", "communication_medium": "Email"},
+		fields=["name", "subject", "content", "sender", "recipients", "sent_or_received", "communication_date", "creation", "delivery_status"], order_by="creation desc", limit_page_length=100,
+	)
+	for r in rows:
+		r["preview"] = _clip(r.content, 220)
+	return rows
+
+
+@frappe.whitelist()
+def send_email(name, recipients, subject, content):
+	"""Send an email from the lead page. It is stored on the lead like any CRM email."""
+	doc = _lead(name, "write")
+	recipients, subject, content = cstr(recipients).strip(), cstr(subject).strip(), cstr(content).strip()
+	if not recipients or not subject or not content:
+		frappe.throw(_("Add the address, a subject and a message."))
+	from frappe.core.doctype.communication.email import make
+	from frappe.utils import escape_html
+
+	body = escape_html(content).replace("\n", "<br>")
+	make(doctype=LEAD, name=doc.name, content=body, subject=subject, recipients=recipients, sender=frappe.db.get_value("User", frappe.session.user, "email"), communication_medium="Email", send_email=True, sent_or_received="Sent")
+	return True
+
+
+@frappe.whitelist()
+def followup_options():
+	meta = frappe.get_meta("CRM Follow Up")
+
+	def opts(f):
+		return [o for o in (meta.get_field(f).options or "").split("\n") if o]
+
+	return {"modes": opts("mode"), "call_statuses": opts("call_status"), "outcomes": opts("outcome")}
+
+
+@frappe.whitelist()
+def get_followups(name):
+	_lead(name)
+	rows = frappe.get_all(
+		"CRM Follow Up", filters={"reference_doctype": LEAD, "reference_docname": name},
+		fields=["name", "followed_up_on", "mode", "assigned_to", "call_status", "attempt_no", "outcome", "remark", "next_follow_up_on", "next_closed", "creation"], order_by="followed_up_on desc, creation desc", limit_page_length=200,
+	)
+	for r in rows:
+		r["by"] = _person(r.assigned_to)
+	return rows
+
+
+@frappe.whitelist()
+def log_followup(name, data):
+	"""Log a follow-up (mode, outcome, remark, next date, and optionally a new lead status) through the add-on's own follow-up rules."""
+	_lead(name, "write")
+	from crm_addons import followups
+
+	data = data if isinstance(data, dict) else json.loads(data or "{}")
+	allowed = ("followed_up_on", "mode", "call_status", "outcome", "remark", "next_follow_up_on", "lead_status", "assigned_to")
+	clean = {k: v for k, v in data.items() if k in allowed}
+	clean.update({"reference_doctype": LEAD, "reference_docname": name})
+	followups.save_follow_up(json.dumps(clean))
+	return True
+
+
+@frappe.whitelist()
+def complete_followup(name, followup):
+	_lead(name, "write")
+	from crm_addons import followups
+
+	followups.complete_follow_up(followup)
+	return True
+
+
+@frappe.whitelist()
+def get_meetings(name):
+	_lead(name)
+	rows = frappe.get_all(
+		"CRM Meeting", filters={"reference_doctype": LEAD, "reference_docname": name},
+		fields=["name", "subject", "status", "starts_on", "ends_on", "google_meet_link", "description", "meeting_outcome", "organizer", "creation"], order_by="starts_on desc", limit_page_length=100,
+	)
+	for r in rows:
+		r["by"] = _person(r.organizer)
+	return rows
+
+
+@frappe.whitelist()
+def schedule_meeting(name, subject, starts_on, ends_on, video=0, description="", invite=1):
+	doc = _lead(name, "write")
+	from crm_addons import api as meetings
+
+	if not cstr(subject).strip() or not starts_on or not ends_on:
+		frappe.throw(_("Add a subject, a start and an end."))
+	attendees = [{"email": doc.email, "full_name": doc.lead_name}] if cint(invite) and doc.email else []
+	data = {"reference_doctype": LEAD, "reference_docname": name, "subject": cstr(subject).strip(), "starts_on": starts_on, "ends_on": ends_on, "add_video_conferencing": cint(video), "description": description, "attendees": attendees}
+	meetings.save_meeting(json.dumps(data), "all" if attendees else "none")
+	return True
+
+
+@frappe.whitelist()
+def get_campaigns(name):
+	"""What the lead went through in campaigns: one row per step sent or planned."""
+	_lead(name)
+	rows = frappe.get_all(
+		"CRM Campaign Recipient", filters={"recipient_type": LEAD, "recipient_id": name},
+		fields=["name", "campaign", "step_idx", "channel", "status", "due_at", "sent_at", "delivered_at", "read_at", "clicked_at", "click_count", "failure_reason", "skip_reason", "creation"], order_by="creation desc", limit_page_length=200,
+	)
+	titles = {c.name: c.get("campaign_name") or c.name for c in frappe.get_all("CRM Campaign", filters={"name": ["in", list({r.campaign for r in rows}) or [""]]}, fields=["name", "campaign_name"])} if frappe.get_meta("CRM Campaign").has_field("campaign_name") else {}
+	for r in rows:
+		r["campaign_title"] = titles.get(r.campaign) or r.campaign
+	return rows
+
+
+@frappe.whitelist()
+def get_whatsapp(name):
+	"""The lead's WhatsApp chat, read through Frappe CRM's own WhatsApp (the ``frappe_whatsapp`` app)."""
+	_lead(name)
+	if not frappe.db.exists("DocType", "WhatsApp Message"):
+		return {"installed": False, "messages": []}
+	msgs = frappe.get_attr("crm.api.whatsapp.get_whatsapp_messages")(LEAD, name)
+	out = [{k: m.get(k) for k in ("name", "type", "message", "creation", "status", "content_type", "attach", "template", "is_reply", "reply_to_message_id")} for m in (msgs or [])]
+	return {"installed": True, "messages": out, "number": frappe.db.get_value(LEAD, name, "mobile_no")}
+
+
+@frappe.whitelist()
+def send_whatsapp(name, message):
+	doc = _lead(name, "write")
+	text = cstr(message).strip()
+	if not text:
+		frappe.throw(_("Write a message first."))
+	if not doc.mobile_no:
+		frappe.throw(_("This lead has no phone number."))
+	frappe.get_attr("crm.api.whatsapp.create_whatsapp_message")(LEAD, name, text, doc.mobile_no, "", "", "text")
+	return True
+
+
+@frappe.whitelist()
+def get_data(name):
+	"""Every field of the lead (custom ones too) that has a value, grouped the way the CRM lays them out."""
+	doc = _lead(name)
+	sections, current = [], {"label": _("Details"), "fields": []}
+	skip = {"Column Break", "Tab Break", "HTML", "Table", "Table MultiSelect", "Button", "Image", "Attach Image"}
+	for df in frappe.get_meta(LEAD).fields:
+		if df.fieldtype == "Section Break":
+			if current["fields"]:
+				sections.append(current)
+			current = {"label": df.label or "", "fields": []}
+			continue
+		if df.fieldtype in skip or df.hidden:
+			continue
+		value = doc.get(df.fieldname)
+		if value in (None, "", 0) and df.fieldtype != "Check":
+			continue
+		current["fields"].append({"label": df.label or df.fieldname, "value": ("Yes" if value else "No") if df.fieldtype == "Check" else cstr(value)})
+	if current["fields"]:
+		sections.append(current)
+	return sections
+
+
+@frappe.whitelist()
+def get_activity(name):
+	"""One stream, newest first: changes, comments, assignments, follow-ups, meetings, calls, notes, emails, WhatsApp and campaign steps."""
+	_lead(name)
+	# the add-on posts a comment for each follow-up and meeting; they are shown from their own records below
+	rows = [r for r in get_timeline(name) if not (r["kind"] == "comment" and r["text"][:1] in ("\U0001F4DE", "\U0001F4C5"))]
+
+	def add(kind, icon, title, detail, by, creation):
+		rows.append({"kind": kind, "icon": icon, "title": title, "detail": detail, "by": by, "creation": creation})
+
+	for f in get_followups(name):
+		add("followup", "phone", "Follow-up: " + " - ".join(x for x in (f.mode, f.call_status or f.outcome) if x), _clip(f.remark), f.by, f.followed_up_on or f.creation)
+	for m in get_meetings(name):
+		add("meeting", "calendar", "Meeting: " + cstr(m.subject) + " (" + cstr(m.status) + ")", frappe.utils.format_datetime(m.starts_on, "d MMM yyyy, h:mm a") if m.starts_on else "", m.by, m.creation)
+	for c in get_calls(name):
+		add("call", "phone", cstr(c.type) + " call - " + cstr(c.status), "", c.by, c.start_time or frappe.utils.now())
+	for n in get_notes(name):
+		add("note", "file-text", "Note: " + cstr(n.title), _clip(n.content), n.by, n.creation)
+	for e in get_emails(name):
+		add("email", "mail", ("Email sent: " if e.sent_or_received == "Sent" else "Email received: ") + cstr(e.subject), e.preview, None, e.creation)
+	if frappe.db.exists("DocType", "WhatsApp Message"):
+		for w in get_whatsapp(name)["messages"][-30:]:
+			add("whatsapp", "whatsapp", "WhatsApp " + ("received" if w.type == "Incoming" else "sent"), _clip(w.message), None, w.creation)
+	for r in get_campaigns(name):
+		if r.sent_at or r.status in ("Failed", "Skipped"):
+			add("campaign", "send", cstr(r.campaign_title) + " - " + cstr(r.channel) + " " + cstr(r.status).lower(), _clip(r.failure_reason or r.skip_reason), None, r.sent_at or r.creation)
+	for r in rows:
+		r["creation"] = cstr(r["creation"])
+	rows.sort(key=lambda r: r["creation"], reverse=True)
+	return rows[:250]

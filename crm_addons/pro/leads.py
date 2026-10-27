@@ -12,7 +12,7 @@ FIELDS = [
 	"name", "lead_name", "first_name", "last_name", "organization", "mobile_no", "phone", "email", "status", "source", "territory", "lead_owner",
 	"addons_score", "next_follow_up_on", "next_meeting_on", "creation", "modified", "image", "job_title",
 ]
-SORTS = ("creation", "modified", "lead_name", "status", "organization", "next_follow_up_on")
+SORTS = ("creation", "modified", "lead_name", "status", "organization", "next_follow_up_on", "addons_score", "source", "lead_owner")
 PAGE_MAX = 200
 
 
@@ -71,6 +71,15 @@ def _conditions(filters, search, scope):
 		out.append([LEAD, "next_follow_up_on", "<=", frappe.utils.now_datetime()])
 	elif cstr(f.get("followup")) == "none":
 		out.append([LEAD, "next_follow_up_on", "is", "not set"])
+	quick = cstr(f.get("followup"))
+	if f.get("has_followup") and quick != "none":
+		out.append([LEAD, "next_follow_up_on", "is", "set"])
+	if f.get("never_called"):
+		out.append([LEAD, "addons_last_outcome", "is", "not set"])
+	if f.get("stale"):
+		out.append([LEAD, "modified", "<", frappe.utils.add_days(frappe.utils.now_datetime(), -7)])
+	if f.get("has_meeting"):
+		out.append([LEAD, "next_meeting_on", "is", "set"])
 	term = cstr(search).strip()
 	search_or = None
 	if term:
@@ -115,7 +124,7 @@ def _decorate(rows):
 
 
 @frappe.whitelist()
-def board(filters=None, search=None, scope="all", per_column=30):
+def board(filters=None, search=None, scope="all", per_column=20):
 	"""Kanban data: for each status, its first leads and its total count."""
 	_check()
 	flt, or_flt, search_or = _conditions(filters, search, scope)
@@ -135,6 +144,21 @@ def board(filters=None, search=None, scope="all", per_column=30):
 	return out
 
 
+@frappe.whitelist()
+def board_more(status, filters=None, search=None, scope="all", start=0, page_length=20):
+	"""The next leads of one board column."""
+	_check()
+	flt, or_flt, search_or = _conditions(filters, search, scope)
+	if search_or and or_flt:
+		names = _get_list(fields=["name"], filters=flt, or_filters=or_flt, limit_page_length=0, pluck="name")
+		flt = flt + [[LEAD, "name", "in", names or [""]]]
+		or_flt = search_or
+	elif search_or:
+		or_flt = search_or
+	rows = _get_list(fields=FIELDS, filters=flt + [[LEAD, "status", "=", status]], or_filters=or_flt, order_by="modified desc", limit_start=max(0, cint(start)), limit_page_length=max(1, min(cint(page_length) or 20, 100)))
+	return _decorate(rows)
+
+
 def _statuses():
 	return frappe.get_all("CRM Lead Status", fields=["name", "color", "type", "position"], order_by="position asc, name asc")
 
@@ -143,7 +167,7 @@ def _statuses():
 def filter_options():
 	"""What the filter bar can pick from: statuses (with their colour), sources, territories, organizations and the people who own leads."""
 	_check()
-	owners = frappe.get_all("User", filters={"enabled": 1, "name": ["not in", ["Administrator", "Guest"]]}, fields=["name", "full_name", "user_image"], order_by="full_name asc", limit_page_length=500)
+	owners = frappe.get_all("User", filters={"enabled": 1, "name": ["not in", ["Guest"]]}, fields=["name", "full_name", "user_image"], order_by="full_name asc", limit_page_length=500)
 	return {
 		"statuses": _statuses(),
 		"sources": frappe.get_all("CRM Lead Source", pluck="name", order_by="name asc") if frappe.db.exists("DocType", "CRM Lead Source") else [],
@@ -215,3 +239,55 @@ def bulk_delete(names):
 		except Exception as e:
 			failed.append({"name": n, "reason": strip_html(cstr(e))[:140]})
 	return {"done": done, "failed": failed}
+
+
+CREATE_FIELDS = ("salutation", "first_name", "last_name", "email", "mobile_no", "phone", "organization", "website", "job_title", "territory", "source", "status", "lead_owner")
+
+
+@frappe.whitelist()
+def create_lead(values):
+	"""A new lead from the form: only the fields in CREATE_FIELDS. Returns its name."""
+	_check()
+	frappe.has_permission(LEAD, "create", throw=True)
+	values = values if isinstance(values, dict) else json.loads(values or "{}")
+	bad = [k for k in values if k not in CREATE_FIELDS]
+	if bad:
+		frappe.throw(_("Cannot set: {0}").format(", ".join(bad)))
+	data = {k: v for k, v in values.items() if cstr(v).strip()}
+	if not cstr(data.get("first_name")).strip():
+		frappe.throw(_("First name is needed."))
+	data.setdefault("lead_owner", frappe.session.user)
+	doc = frappe.get_doc({"doctype": LEAD, **data}).insert()
+	return doc.name
+
+
+def _safe(column, value):
+	"""A spreadsheet runs a cell that starts with = + - or @ as a formula: those cells get a leading quote (phone numbers may start with +)."""
+	text = cstr(value)
+	return "'" + text if text.startswith(("=", "@", "-")) or (text.startswith("+") and column != "mobile_no") else text
+
+
+EXPORT_COLUMNS = (("name", "ID"), ("lead_name", "Name"), ("organization", "Organization"), ("mobile_no", "Phone"), ("email", "Email"), ("status", "Status"), ("source", "Source"), ("territory", "Territory"), ("lead_owner", "Assigned to"), ("next_follow_up_on", "Next follow-up"), ("creation", "Added"))
+
+
+@frappe.whitelist()
+def export_csv(filters=None, search=None, scope="all"):
+	"""Up to 5000 leads of the current filters as CSV text."""
+	_check()
+	import csv
+	import io
+
+	flt, or_flt, search_or = _conditions(filters, search, scope)
+	if search_or and or_flt:
+		names = _get_list(fields=["name"], filters=flt, or_filters=or_flt, limit_page_length=0, pluck="name")
+		flt = flt + [[LEAD, "name", "in", names or [""]]]
+		or_flt = search_or
+	elif search_or:
+		or_flt = search_or
+	rows = _get_list(fields=[c for c, _l in EXPORT_COLUMNS], filters=flt, or_filters=or_flt, order_by="creation desc", limit_page_length=5000)
+	buf = io.StringIO()
+	w = csv.writer(buf)
+	w.writerow([label for _c, label in EXPORT_COLUMNS])
+	for r in rows:
+		w.writerow([_safe(c, r.get(c)) for c, _l in EXPORT_COLUMNS])
+	return buf.getvalue()
