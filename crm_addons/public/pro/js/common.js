@@ -1,0 +1,36 @@
+/* Suite Pro app: shared helpers on top of the Campaign Manager's core (window.CM). Everything lives on window.PRO. */
+(() => {
+	const { reactive } = Vue
+	const CM = window.CM
+	const PRO = (window.PRO = { views: {} })
+	// icons the shell needs that the Campaign Manager's set does not have
+	Object.assign(CM.ICONS, {
+		bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+		grid2: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+		house: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+	})
+	PRO.api = (m, a) => CM.call('crm_addons.pro.api.' + m, a)
+	PRO.shell = reactive({ loaded: false, user: '', full_name: '', image: '', brand: { name: '', logo: '' }, unread: 0, config: null, error: '' })
+	PRO.loadShell = async () => {
+		try {
+			const [s, c] = await Promise.all([PRO.api('get_shell', {}), CM.call('crm_addons.api.get_client_config', {})])
+			Object.assign(PRO.shell, s, { config: c, loaded: true })
+		} catch (e) { PRO.shell.error = e.message || 'This did not load.' }
+	}
+	/** "5 min ago", "Yesterday", or the date. */
+	PRO.ago = (s) => {
+		if (!s) return ''
+		const d = new Date(String(s).replace(' ', 'T')); if (isNaN(d)) return ''
+		const sec = Math.round((Date.now() - d.getTime()) / 1000)
+		if (sec < 60) return 'just now'
+		if (sec < 3600) return Math.floor(sec / 60) + ' min ago'
+		if (sec < 86400) return Math.floor(sec / 3600) + ' h ago'
+		if (sec < 172800) return 'Yesterday'
+		return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' })
+	}
+	/** The CRM address of a record. */
+	PRO.crmUrl = (doctype, name) => {
+		const route = { 'CRM Lead': 'leads', 'CRM Deal': 'deals', 'Contact': 'contacts', 'CRM Organization': 'organizations', 'CRM Task': 'tasks', 'FCRM Note': 'notes' }[doctype]
+		return route && name ? '/crm/' + route + '/' + encodeURIComponent(name) : ''
+	}
+})()
