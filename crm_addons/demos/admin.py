@@ -233,7 +233,7 @@ def list_bookings(filters=None, search=None, from_date=None, to_date=None, page=
 
 @frappe.whitelist()
 def booking_log(from_date=None, to_date=None, demo_type=None, status=None, search=None, page=1, page_size=25):
-	"""Every booking in the order it was made, with where it came from and (administrators only) the visitor's IP address."""
+	"""Every booking in the order it was made, with where it came from."""
 	_demos()
 	start, end = date_range(from_date, to_date)
 	where, values = [scope_sql(frappe.session.user, "b") or "1 = 1"], {}
@@ -258,17 +258,14 @@ def booking_log(from_date=None, to_date=None, demo_type=None, status=None, searc
 	total = frappe.db.sql(f"select count(*) from `tab{BOOKING}` b where {w}", values)[0][0]
 	rows = frappe.db.sql(
 		f"""select b.name, b.creation, b.status, b.demo_type, b.name_, b.email, b.phone, b.lead, b.utm_source, b.utm_medium, b.utm_campaign,
-		b.starts_utc, b.rescheduled_from, b.ip_address, t.title as demo_title from `tab{BOOKING}` b left join `tab{DEMO_TYPE}` t on t.name = b.demo_type
+		b.starts_utc, b.rescheduled_from, t.title as demo_title from `tab{BOOKING}` b left join `tab{DEMO_TYPE}` t on t.name = b.demo_type
 		where {w} order by b.creation desc limit %(limit)s offset %(offset)s""",
 		{**values, "limit": size, "offset": (page - 1) * size}, as_dict=True,
 	)
-	admin = common.is_admin()
 	for r in rows:
 		r["creation"] = str(r["creation"])
 		r["starts_utc"] = str(r["starts_utc"]) if r.get("starts_utc") else ""
-		r["ip"] = r.pop("ip_address") if admin else None
-		r.pop("ip_address", None)
-	return {"rows": rows, "total": total, "page": page, "page_size": size, "show_ip": admin}
+	return {"rows": rows, "total": total, "page": page, "page_size": size}
 
 
 def _booking_admin(name):

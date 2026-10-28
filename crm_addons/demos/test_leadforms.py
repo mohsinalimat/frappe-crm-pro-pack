@@ -125,13 +125,14 @@ class TestLeadForms(FrappeTestCase):
 		self.submit()
 		self.assertEqual(frappe.db.get_value("CRM Lead", {"email": "asha.rao.lf@example.org"}, "lead_owner"), "Administrator")
 
-	def test_the_log_lists_form_entries_with_the_ip_for_administrators(self):
+	def test_the_log_lists_form_entries_and_never_an_ip_address(self):
 		from crm_addons.demos import activity_log
 
 		leadforms.log_entry(self.form.name, "Blocked", {"first_name": "Zed", "email": "zed.log@example.org"}, reason="Test")
 		out = activity_log.get_log(kind="forms", result="Blocked")
 		self.assertTrue(out["rows"] and all(r["kind"] == "form" for r in out["rows"]))
-		self.assertTrue(out["show_ip"])
+		self.assertNotIn("show_ip", out)
+		self.assertTrue(all("ip" not in r and "ip_address" not in r for r in out["rows"]))
 		self.assertEqual(activity_log.get_log(kind="all", search="zed.log")["total"], 1)
 
 	def test_the_report_counts_what_came_in(self):

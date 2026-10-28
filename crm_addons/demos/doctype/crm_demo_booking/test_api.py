@@ -158,6 +158,8 @@ class TestGuestApi(ApiCase):
 		stored = self.row(frappe.db.get_value(BOOKING, {"token": token}, "name"))
 		self.assertEqual(stored.ip_hash, spam.ip_hash("198.51.100.23"))
 		self.assertNotIn("198.51.100.23", json.dumps(stored.as_dict(), default=str))
+		for dt in (BOOKING, "CRM Lead Form Entry"):
+			self.assertFalse(frappe.get_meta(dt).has_field("ip_address"), "a plain IP address must not be stored")
 
 	def test_get_slots_is_throttled_per_address(self):
 		demo = self.make_demo()

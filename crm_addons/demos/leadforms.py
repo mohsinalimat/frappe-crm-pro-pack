@@ -234,7 +234,7 @@ def log_entry(form, result, answers=None, reason="", lead=None, matched_by="", u
 		"name_": " ".join(p for p in (cstr(answers.get("first_name")), cstr(answers.get("last_name"))) if p)[:140],
 		"email": cstr(answers.get("email"))[:140], "phone": cstr(answers.get("mobile_no"))[:40],
 		"values_json": json.dumps(answers), "first_touch": json.dumps(first_touch) if first_touch else None,
-		"landing_url": cstr(landing_url)[:500], "referrer": cstr(referrer)[:500], "ip_hash": spam.ip_hash(getattr(frappe.local, "request_ip", None)), "ip_address": cstr(getattr(frappe.local, "request_ip", None))[:45], "user_agent": cstr(agent)[:300],
+		"landing_url": cstr(landing_url)[:500], "referrer": cstr(referrer)[:500], "ip_hash": spam.ip_hash(getattr(frappe.local, "request_ip", None)), "user_agent": cstr(agent)[:300],
 		**{k: cstr(utm.get(k))[:140] for k in ("utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content") if utm.get(k)},
 	})
 	doc.insert(ignore_permissions=True)
@@ -568,16 +568,13 @@ def list_entries(form=None, result=None, search=None, from_date=None, to_date=No
 	size = max(1, min(cint(page_size) or 25, 100))
 	rows = frappe.get_all(
 		ENTRY, filters=filters, or_filters=or_filters, order_by="creation desc", limit_start=(max(1, cint(page)) - 1) * size, limit_page_length=size,
-		fields=["name", "form", "result", "reason", "lead", "matched_by", "applied", "name_", "email", "phone", "utm_source", "utm_medium", "utm_campaign", "landing_url", "referrer", "creation", "ip_address"],
+		fields=["name", "form", "result", "reason", "lead", "matched_by", "applied", "name_", "email", "phone", "utm_source", "utm_medium", "utm_campaign", "landing_url", "referrer", "creation"],
 	)
 	titles = {r.name: r.title for r in frappe.get_all(FORM, fields=["name", "title"], limit_page_length=300)}
-	admin = is_admin()
 	for r in rows:
 		r["form_title"] = titles.get(r["form"], r["form"])
-		r["ip"] = r.pop("ip_address") if admin else None
-		r.pop("ip_address", None)
 	total = cint(frappe.get_all(ENTRY, fields=["count(name) as n"], filters=filters, or_filters=or_filters)[0].n)
-	return {"rows": rows, "total": total, "page": cint(page), "page_size": size, "show_ip": admin}
+	return {"rows": rows, "total": total, "page": cint(page), "page_size": size}
 
 
 def _count_by(column, where, values, none):

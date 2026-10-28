@@ -1,5 +1,5 @@
 /* Bookings admin: the Log. Website bookings and lead form entries together, newest first, paged on the server. The page header and the
- * table's column header stay put; the rows scroll. Administrators also see the visitor's IP address. */
+ * table's column header stay put; the rows scroll. */
 (() => {
 	const { ref, reactive, computed, watch, onMounted, onBeforeUnmount } = Vue
 	const CM = window.CM
@@ -15,12 +15,12 @@
 	V.ActivityLog = {
 		setup() {
 			const kind = ref(CM.store.get('dm-log-kind') || 'all'); const result = ref([]); const source = ref(''); const sources = ref([]); const card = ref(null); const search = ref(''); const range = CM.useRange('dm-log-range', 'any'); const page = ref(1)
-			const log = reactive({ rows: [], total: 0, loading: true, error: '', showIp: false })
+			const log = reactive({ rows: [], total: 0, loading: true, error: '' })
 			let seq = 0, timer = null
 			const args = (p, size) => ({ ...CM.rangeArgs(range.value), kind: kind.value, result: result.value.length ? result.value.join(',') : undefined, source: source.value || undefined, search: search.value || undefined, page: p, page_size: size })
 			async function load() {
 				const my = ++seq; log.loading = true; log.error = ''
-				try { const r = await CM.call('crm_addons.demos.activity_log.get_log', args(page.value, SIZE)); if (my === seq) { log.rows = r.rows; log.total = r.total; log.showIp = !!r.show_ip } } catch (e) { if (my === seq) log.error = DM.friendly(e) } finally { if (my === seq) log.loading = false }
+				try { const r = await CM.call('crm_addons.demos.activity_log.get_log', args(page.value, SIZE)); if (my === seq) { log.rows = r.rows; log.total = r.total } } catch (e) { if (my === seq) log.error = DM.friendly(e) } finally { if (my === seq) log.loading = false }
 			}
 			function fit() { const el = card.value; if (el) el.style.height = Math.max(320, window.innerHeight - el.getBoundingClientRect().top - 16) + 'px' }
 			onMounted(async () => { load(); fit(); window.addEventListener('resize', fit); try { sources.value = (await CM.call('crm_addons.demos.activity_log.get_sources', {})) || [] } catch (e) { /* the filter stays empty */ } setTimeout(fit, 300) }); onBeforeUnmount(() => { clearTimeout(timer); window.removeEventListener('resize', fit) })
@@ -35,10 +35,10 @@
 			const filtered = computed(() => !!(result.value.length || source.value || search.value || range.value.preset !== 'any'))
 			async function exportCsv() {
 				try {
-					const out = [['When', 'Type', 'Booking page / form', 'Result', 'Name', 'Email', 'Phone', 'Source', 'Medium', 'Campaign', 'CRM lead', ...(log.showIp ? ['IP address'] : []), 'Note']]
+					const out = [['When', 'Type', 'Booking page / form', 'Result', 'Name', 'Email', 'Phone', 'Source', 'Medium', 'Campaign', 'CRM lead', 'Note']]
 					for (let p = 1; p <= 40; p++) {
 						const r = await CM.call('crm_addons.demos.activity_log.get_log', args(p, 200))
-						r.rows.forEach((e) => out.push([e.creation, (TYPE[e.kind] || TYPE.booking)[0], e.thing, LABEL[e.result] || e.result, e.name_, e.email, e.phone, e.utm_source, e.utm_medium, e.utm_campaign, e.lead, ...(log.showIp ? [e.ip] : []), e.reason]))
+						r.rows.forEach((e) => out.push([e.creation, (TYPE[e.kind] || TYPE.booking)[0], e.thing, LABEL[e.result] || e.result, e.name_, e.email, e.phone, e.utm_source, e.utm_medium, e.utm_campaign, e.lead, e.reason]))
 						if (p * 200 >= r.total) break
 					}
 					CM.csv(out, 'log.csv')
@@ -58,7 +58,7 @@
 				<ErrorState v-if="log.error" :message="log.error" @retry="load" />
 				<div v-else-if="log.loading && !log.rows.length" style="padding:18px"><Skel h="200" r="10" /></div>
 				<Empty v-else-if="!log.rows.length" icon="file" title="Nothing logged" :text="filtered ? 'No entry matches. Clear the filters.' : 'Nothing has been logged yet.'"><Btn v-if="filtered" @click="result = []; source = ''; search = ''; range = { preset: 'any', from: '', to: '' }">Clear filters</Btn></Empty>
-				<div v-else class="table-wrap logscroll" :style="{ opacity: log.loading ? .6 : 1 }"><table class="tbl"><thead><tr><th>When</th><th>Type</th><th>Result</th><th>Who</th><th>Source</th><th>CRM lead</th><th v-if="log.showIp">IP address</th></tr></thead>
+				<div v-else class="table-wrap logscroll" :style="{ opacity: log.loading ? .6 : 1 }"><table class="tbl"><thead><tr><th>When</th><th>Type</th><th>Result</th><th>Who</th><th>Source</th><th>CRM lead</th></tr></thead>
 					<tbody><tr v-for="e in log.rows" :key="e.kind + e.name">
 						<td class="nowrap small">{{ CM.fmt(e.creation) }}</td>
 						<td><div class="logtype"><span class="logic" :class="(TYPE[e.kind] || TYPE.booking)[2]" :title="(TYPE[e.kind] || TYPE.booking)[0]"><Ico :name="(TYPE[e.kind] || TYPE.booking)[1]" size="sm" /></span><div style="min-width:0"><b class="ellipsis" style="display:block;max-width:170px" :title="e.thing">{{ e.thing }}</b><span class="small muted">{{ (TYPE[e.kind] || TYPE.booking)[0] }}</span></div></div></td>
@@ -66,7 +66,7 @@
 						<td><b>{{ e.name_ || '-' }}</b><div class="small muted">{{ e.email }}<template v-if="e.email && e.phone"> - </template>{{ e.phone }}</div></td>
 						<td class="small"><template v-if="e.utm_source">{{ e.utm_source }}<span v-if="e.utm_medium" class="muted"> / {{ e.utm_medium }}</span></template><span v-else class="faint">direct</span><div v-if="e.utm_campaign" class="muted">{{ e.utm_campaign }}</div></td>
 						<td><a v-if="e.lead" :href="CM.leadUrl(e.lead)" target="_blank" rel="noopener" class="mono small">{{ e.lead }}</a><span v-else class="faint">-</span></td>
-						<td v-if="log.showIp" class="mono small">{{ e.ip || '-' }}</td>
+						
 					</tr></tbody></table></div>
 				<Pager v-if="log.rows.length" v-model:page="page" :size="SIZE" :total="log.total" />
 			</div>

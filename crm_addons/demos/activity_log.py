@@ -37,18 +37,18 @@ def get_log(kind="all", result=None, search=None, source=None, from_date=None, t
 		w = [scope_sql(frappe.session.user, "b") or "1 = 1"]
 		parts.append(
 			f"""select 'booking' as kind, b.demo_type as source, b.name, b.creation, b.status as result, coalesce(t.title, b.demo_type) as thing, b.name_, b.email, b.phone, b.lead,
-			b.utm_source, b.utm_medium, b.utm_campaign, if(b.rescheduled_from is null or b.rescheduled_from = '', '', 'Moved from an earlier booking') as reason, b.ip_address
+			b.utm_source, b.utm_medium, b.utm_campaign, if(b.rescheduled_from is null or b.rescheduled_from = '', '', 'Moved from an earlier booking') as reason
 			from `tab{BOOKING}` b left join `tab{DEMO_TYPE}` t on t.name = b.demo_type where {' and '.join(w)}"""
 		)
 	if "forms" in which:
 		parts.append(
 			f"""select 'form' as kind, e.form as source, e.name, e.creation, e.result, coalesce(f.title, e.form) as thing, e.name_, e.email, e.phone, e.lead,
-			e.utm_source, e.utm_medium, e.utm_campaign, e.reason, e.ip_address from `tab{ENTRY}` e left join `tab{FORM}` f on f.name = e.form"""
+			e.utm_source, e.utm_medium, e.utm_campaign, e.reason from `tab{ENTRY}` e left join `tab{FORM}` f on f.name = e.form"""
 		)
 	if "meta" in which:
 		parts.append(
 			f"""select 'meta' as kind, e.form as source, e.name, e.creation, e.result, coalesce(nullif(e.form_name, ''), 'Meta lead form') as thing, e.person_name as name_, e.email, e.phone, e.lead,
-			e.source as utm_source, concat_ws(' / ', nullif(e.adset_name, ''), nullif(e.ad_name, '')) as utm_medium, e.campaign_name as utm_campaign, e.error as reason, null as ip_address from `tab{META_LOG}` e"""
+			e.source as utm_source, concat_ws(' / ', nullif(e.adset_name, ''), nullif(e.ad_name, '')) as utm_medium, e.campaign_name as utm_campaign, e.error as reason from `tab{META_LOG}` e"""
 		)
 	outer = ["1 = 1"]
 	if start:
@@ -76,12 +76,9 @@ def get_log(kind="all", result=None, search=None, source=None, from_date=None, t
 		f"select u.* from ({union}) u where {where} order by u.creation desc limit %(limit)s offset %(offset)s",
 		{**values, "limit": size, "offset": (page - 1) * size}, as_dict=True,
 	)
-	admin = common.is_admin()
 	for r in rows:
 		r["creation"] = str(r["creation"])
-		r["ip"] = r.pop("ip_address") if admin else None
-		r.pop("ip_address", None)
-	return {"rows": rows, "total": total, "page": page, "page_size": size, "show_ip": admin, "kinds": which}
+	return {"rows": rows, "total": total, "page": page, "page_size": size, "kinds": which}
 
 
 @frappe.whitelist()
