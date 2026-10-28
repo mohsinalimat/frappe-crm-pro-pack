@@ -19,16 +19,16 @@
 		const campaignAccess = ['campaigns', 'automations', 'email_templates', 'whatsapp_templates', 'audiences'].some((k) => a[k] !== undefined && a[k] !== 'none') || !!Number(a.campaign_reports) || !!Number(a.list_cleanup)
 		const rows = [
 			{ key: 'notifications', label: 'Notifications', icon: 'bell', native: true, badge: true },
-			{ key: 'leads', label: 'Leads', icon: 'users', native: true },
-			{ key: 'organizations', label: 'Organizations', icon: 'building', native: true },
 			{ key: 'dashboard', label: 'Sales Dashboard', icon: 'chart' },
+			{ key: 'leads', label: 'Leads', icon: 'users', native: true },
 		]
 		if (c.follow_ups_enabled !== 0) rows.push({ key: 'followups', label: 'Follow-ups', icon: 'phone' })
+		rows.push({ key: 'organizations', label: 'Organizations', icon: 'building', native: true })
 		rows.push({ key: 'meetings', label: 'Meetings', icon: 'calendar' })
 		if (c.campaigns_enabled !== 0 && campaignAccess) rows.push({ key: 'campaigns', label: 'Campaigns', icon: 'send' })
 		if (c.can_assign) rows.push({ key: 'assignment', label: 'Assignment', icon: 'users' })
 		if (c.demos_enabled !== 0 && (a.demos !== 'none' || (a.demo_widgets || 'none') !== 'none' || Number(a.demo_report))) rows.push({ key: 'bookings', label: 'Bookings', icon: 'target' })
-		if (c.can_manage_access) { rows.push({ key: 'access', label: 'Team and access', icon: 'shield' }); rows.push({ key: 'settings', label: 'Settings', icon: 'settings' }); rows.push({ key: 'leadsetup', label: 'Leads setup', icon: 'list', native: true }) }
+		if (c.can_manage_access) { rows.push({ key: 'access', label: 'Team and access', icon: 'shield' }); rows.push({ key: 'settings', label: 'Settings', icon: 'settings', native: true }) }
 		return rows
 	}
 
@@ -50,6 +50,21 @@
 			return { src, el, tidy }
 		},
 		template: `<iframe ref="el" class="pro-frame" :src="src" :title="page" @load="tidy"></iframe>`,
+	}
+
+	/** Settings: the existing setup page, and the Leads screen setup beside it. */
+	V.SettingsPage = {
+		props: { tab: String },
+		setup(props) {
+			const TABS = [{ value: 'general', label: 'General' }, { value: 'leads', label: 'Leads screen' }]
+			const cur = computed(() => (props.tab === 'leads' ? 'leads' : 'general'))
+			return { TABS, cur, go: (t) => { location.hash = t === 'leads' ? '#/settings/leads' : '#/settings' } }
+		},
+		template: `
+		<div class="settings-wrap">
+			<div class="settings-tabs"><Seg :modelValue="cur" :options="TABS" @update:modelValue="go" /></div>
+			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><Frame v-else page="settings" key="settings" /></div>
+		</div>`,
 	}
 
 	const App = {
@@ -76,7 +91,6 @@
 				<div class="brand"><img v-if="PRO.shell.brand.logo" :src="PRO.shell.brand.logo" alt="" class="brand-img" /><span v-else class="brand-ico" aria-hidden="true"><Ico name="grid2" /></span><div class="brand-txt"><b>{{ PRO.shell.brand.name || 'Suite Pro' }}</b><span>{{ PRO.shell.full_name }}</span></div></div>
 				<a v-for="n in items" :key="n.key" :href="'#/' + n.key" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></a>
 				<div class="rail-foot">
-					<a class="nav" href="/crm" :title="collapsed ? 'Frappe CRM' : null" aria-label="Open the CRM"><Ico name="house" /><span class="nav-l">Open the CRM</span></a>
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
 				</div>
 			</nav>
@@ -91,7 +105,7 @@
 				<Leads v-else-if="active === 'leads'" :key="'ls'" />
 				<Organization v-else-if="active === 'organizations' && r.parts[1]" :key="'o' + r.parts[1]" :name="r.parts[1]" />
 				<Organizations v-else-if="active === 'organizations'" :key="'os'" />
-				<LeadSetup v-else-if="active === 'leadsetup'" :key="'cfg'" />
+				<SettingsPage v-else-if="active === 'settings'" :tab="r.parts[1]" />
 				<Frame v-else :page="active" :key="active" />
 			</main>
 			<Toasts /><ConfirmHost />
