@@ -26,6 +26,7 @@
   "landing_url",
   "referrer",
   "ip_hash",
+  "ip_address",
   "user_agent"
  ],
  "fields": [
@@ -150,6 +151,13 @@
    "fieldname": "ip_hash",
    "fieldtype": "Data",
    "label": "Ip Hash"
+  },
+  {
+   "fieldname": "ip_address",
+   "fieldtype": "Data",
+   "label": "IP address",
+   "read_only": 1,
+   "description": "Shown to administrators only."
   },
   {
    "fieldname": "user_agent",

@@ -231,6 +231,46 @@ def list_bookings(filters=None, search=None, from_date=None, to_date=None, page=
 	return {"rows": rows, "total": total, "page": page, "page_size": page_size}
 
 
+@frappe.whitelist()
+def booking_log(from_date=None, to_date=None, demo_type=None, status=None, search=None, page=1, page_size=25):
+	"""Every booking in the order it was made, with where it came from and (administrators only) the visitor's IP address."""
+	_demos()
+	start, end = date_range(from_date, to_date)
+	where, values = [scope_sql(frappe.session.user, "b") or "1 = 1"], {}
+	if start:
+		where.append("b.creation >= %(start)s")
+		values["start"] = start
+	if end:
+		where.append("b.creation < %(end)s")
+		values["end"] = end
+	if demo_type:
+		where.append("b.demo_type = %(demo_type)s")
+		values["demo_type"] = demo_type
+	if status:
+		where.append("b.status = %(status)s")
+		values["status"] = status
+	txt = cstr(search).strip()
+	if txt:
+		where.append("(b.name_ like %(q)s or b.email like %(q)s or b.phone like %(q)s or b.utm_campaign like %(q)s or b.utm_source like %(q)s)")
+		values["q"] = f"%{txt}%"
+	w = " and ".join(where)
+	page, size = max(1, cint(page)), min(max(1, cint(page_size) or 25), 100)
+	total = frappe.db.sql(f"select count(*) from `tab{BOOKING}` b where {w}", values)[0][0]
+	rows = frappe.db.sql(
+		f"""select b.name, b.creation, b.status, b.demo_type, b.name_, b.email, b.phone, b.lead, b.utm_source, b.utm_medium, b.utm_campaign,
+		b.starts_utc, b.rescheduled_from, b.ip_address, t.title as demo_title from `tab{BOOKING}` b left join `tab{DEMO_TYPE}` t on t.name = b.demo_type
+		where {w} order by b.creation desc limit %(limit)s offset %(offset)s""",
+		{**values, "limit": size, "offset": (page - 1) * size}, as_dict=True,
+	)
+	admin = common.is_admin()
+	for r in rows:
+		r["creation"] = str(r["creation"])
+		r["starts_utc"] = str(r["starts_utc"]) if r.get("starts_utc") else ""
+		r["ip"] = r.pop("ip_address") if admin else None
+		r.pop("ip_address", None)
+	return {"rows": rows, "total": total, "page": page, "page_size": size, "show_ip": admin}
+
+
 def _booking_admin(name):
 	if not frappe.db.exists(BOOKING, name):
 		frappe.throw(_("Booking {0} was not found.").format(name), frappe.DoesNotExistError)
@@ -249,7 +289,7 @@ def _booking_admin(name):
 			{k: (str(m.get(k)) if k in ("due_at", "sent_at") and m.get(k) else m.get(k)) for k in ("name", "event", "minutes_before", "channel", "status", "due_at", "sent_at", "error", "reference")}
 			for m in sorted(messages, key=lambda m: m.get("idx") or 0)
 		],
-		"lead_url": get_url(f"/crm/leads/{doc.lead}") if doc.lead else "",
+		"lead_url": get_url(f"/crm-pro#/leads/{doc.lead}") if doc.lead else "",
 		"meeting_url": get_url_to_form("CRM Meeting", doc.meeting) if doc.meeting else "",
 		"sync_status": (meeting or {}).get("sync_status") or "",
 		"sync_error": (meeting or {}).get("sync_error") or "",

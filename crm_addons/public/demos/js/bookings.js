@@ -191,11 +191,11 @@
 			}
 			const layout = CM.useLayout('crm_bookings_layout', 'list')
 			const chips = [['', 'All'], ...DM.STATUSES.map((s) => [s, s])]
-			return { notify, layout, rows, total, loading, busy, error, page, SIZE, q, status, demoType, owner, range, typeOpts, ownerOpts, typeTitle, view, closeDrawer, open, load, filtered, clear, menu, exportCsv, exporting, chips, leadUrl, meetLink, meetIcon, DM, CM }
+			return { notify, layout, rows, total, loading, busy, error, page, SIZE, q, status, demoType, owner, range, typeOpts, ownerOpts, typeTitle, view, closeDrawer, open, load, filtered, clear, menu, exportCsv, exporting, chips, leadUrl, meetLink, meetIcon, DM, CM, go: CM.go }
 		},
 		template: `
 		<div class="page wide">
-			<div class="pg-head"><div class="grow"><h1>Bookings</h1><p>Everyone who booked, where they came from, and how it went.</p></div><div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
+			<div class="pg-head"><div class="grow"><h1>Bookings</h1><p>Everyone who booked, where they came from, and how it went.</p></div><div class="actions"><Btn icon="list" @click="go('/bookings/log')">Log</Btn><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
 			<HdrSlot><LayoutSwitch v-model="layout" /></HdrSlot>
 			<div class="row wrap tools">
 				<div class="chips" role="group" aria-label="Status"><button v-for="c in chips" :key="c[0]" type="button" class="fchip" :class="{ on: status === c[0] }" :aria-pressed="status === c[0]" @click="status = c[0]">{{ c[1] }}</button></div>

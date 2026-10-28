@@ -131,7 +131,7 @@ def effective(kind):
 		rows = [{"fieldname": r["fieldname"], "reqd": cint(r.get("reqd"))} for r in legacy] if legacy else None
 	if not rows:
 		return None
-	return [{"fieldname": r["fieldname"], "label": cstr(r.get("label")), "reqd": cint(r.get("reqd")), "hide": list(r.get("hide") or [])} for r in rows if r.get("fieldname")]
+	return [{"fieldname": r["fieldname"], "label": cstr(r.get("label")), "reqd": cint(r.get("reqd")), "hidden": cint(r.get("hidden")), "full": cint(r.get("full")), "hide": list(r.get("hide") or [])} for r in rows if r.get("fieldname")]
 
 
 def clean(kind, rows):
@@ -156,10 +156,13 @@ def clean(kind, rows):
 		reqd = 1 if spec["locked"] or cint(r.get("reqd")) else 0
 		if kind == "person" and reqd and not spec["locked"] and not spec.get("requirable"):
 			reqd = 0
-		out.append({"fieldname": name, "label": cstr(r.get("label")).strip()[:80], "reqd": reqd, "hide": hide if len(hide) < len(spec["values"]) else []})  # a dropdown is never left empty
+		hidden = 0 if spec["locked"] else (1 if cint(r.get("hidden")) else 0)  # kept on the form's list, but not asked (a preset value); never one the CRM insists on
+		if hidden:
+			reqd = 0
+		out.append({"fieldname": name, "label": cstr(r.get("label")).strip()[:80], "reqd": reqd, "hidden": hidden, "full": 1 if cint(r.get("full")) else 0, "hide": hide if len(hide) < len(spec["values"]) else []})  # a dropdown is never left empty
 	for name, spec in have.items():  # what the CRM insists on is always there
 		if spec["locked"] and name not in seen and (kind != "lead" or spec["fieldname"] != "name"):
-			out.append({"fieldname": name, "label": "", "reqd": 1, "hide": []})
+			out.append({"fieldname": name, "label": "", "reqd": 1, "hidden": 0, "full": 0, "hide": []})
 	return out
 
 
@@ -204,13 +207,13 @@ def runtime(kind):
 	"""``{custom, fields: [{fieldname, label, fieldtype, reqd, values, link}]}`` in the order to show: the admin's arrangement, or the CRM's own form."""
 	kind = _kind(kind)
 	chosen = effective(kind)
-	rows = chosen if chosen is not None else [{**r, "label": "", "hide": []} for r in default_rows(kind)]
+	rows = chosen if chosen is not None else [{**r, "label": "", "hide": [], "hidden": 0, "full": 0} for r in default_rows(kind)]
 	have = {p["fieldname"]: p for p in pool(kind)}
 	fields = []
 	for r in rows:
 		spec = have.get(r["fieldname"])
-		if spec:
-			fields.append({**spec, "label": r["label"] or spec["label"], "reqd": 1 if r["reqd"] or spec["locked"] else 0, "values": [v for v in spec["values"] if v not in r["hide"]]})
+		if spec and not cint(r.get("hidden")):  # a hidden field is not asked
+			fields.append({**spec, "label": r["label"] or spec["label"], "reqd": 1 if r["reqd"] or spec["locked"] else 0, "full": cint(r.get("full")), "values": [v for v in spec["values"] if v not in r["hide"]]})
 	return {"custom": chosen is not None, "fields": fields}
 
 
@@ -225,4 +228,4 @@ def required_labels(kind):
 	"""``{fieldname: label}`` of what the admin made required on a form (to check on the server too)."""
 	rows = effective(kind) or []
 	have = {p["fieldname"]: p for p in pool(kind)}
-	return {r["fieldname"]: (r["label"] or have[r["fieldname"]]["label"]) for r in rows if r["reqd"] and r["fieldname"] in have}
+	return {r["fieldname"]: (r["label"] or have[r["fieldname"]]["label"]) for r in rows if r["reqd"] and not cint(r.get("hidden")) and r["fieldname"] in have}

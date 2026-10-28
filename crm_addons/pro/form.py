@@ -96,8 +96,10 @@ def _apply_create_config(secs):
 	fields = []
 	for r in chosen:
 		spec = known.get(r["fieldname"]) or allowed.get(r["fieldname"])
+		if spec and r.get("hidden") and not spec["reqd"]:  # kept in the list but not asked
+			continue
 		if spec:
-			spec = {**spec, "reqd": 1 if (spec["reqd"] or r.get("reqd")) else 0}
+			spec = {**spec, "reqd": 1 if (spec["reqd"] or r.get("reqd")) else 0, "full": 1 if r.get("full") else 0}
 			if r.get("label"):
 				spec["label"] = r["label"]
 			if r.get("hide") and isinstance(spec.get("options"), list):

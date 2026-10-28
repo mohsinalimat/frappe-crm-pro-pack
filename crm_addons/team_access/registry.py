@@ -34,6 +34,7 @@ def _level(*pairs):
 
 FEATURES = [
 	_f("leads", "crm", "Leads", "scope", (ALL, ALL, ALL), "Whose leads the person sees on the Leads page. No access hides the page."),
+	_f("lead_delete", "crm", "Delete leads", "switch", (1, 0, 0), "Allow the person to delete leads, one by one or in bulk. Editing a lead is always allowed; every edit is kept in the lead's activity."),
 	_f("organizations", "crm", "Organizations", "switch", (1, 1, 1), "Show the Organizations page."),
 	_f("team", "team", "Team page", "level", ("none", "none", "none"), "View only shows the Team page. Add and edit people also lets them add and edit people, presets and the hierarchy, but never a System Manager. Settings stay with System Managers.", _level(("none", "No access"), ("view", "View only"), ("manage", "Add and edit people"))),
 	_f("meetings", "sales", "Meetings", "scope", (ALL, OWN, OWN), "Whose meetings the person sees in Meetings."),

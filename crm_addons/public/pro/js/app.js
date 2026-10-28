@@ -32,6 +32,54 @@
 		return rows
 	}
 
+
+	/** The signed-in person at the bottom of the left menu: a small card with Profile, a theme choice and Log out. */
+	V.ProfileMenu = {
+		props: { collapsed: Boolean },
+		setup() {
+			const open = ref(false); const dlg = ref(false); const busy = ref(false); const err = ref('')
+			const theme = ref((() => { try { return localStorage.getItem('crm_addons_theme_pref') || 'auto' } catch (e) { return 'auto' } })())
+			const p = reactive({ first_name: '', last_name: '', mobile_no: '', email: '' }); const pw = reactive({ old: '', n1: '', n2: '' })
+			function setTheme(t) {
+				theme.value = t
+				const eff = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t
+				try { localStorage.setItem('crm_addons_theme_pref', t); if (t === 'auto') { localStorage.removeItem('theme'); localStorage.removeItem('crm_addons_theme') } else { localStorage.setItem('theme', t); localStorage.setItem('crm_addons_theme', t) } } catch (e) { /* not remembered */ }
+				document.documentElement.setAttribute('data-theme', eff)
+			}
+			async function openProfile() { open.value = false; err.value = ''; dlg.value = true; try { Object.assign(p, await PRO.api('get_profile', {})) } catch (e) { err.value = e.message } }
+			async function save() { busy.value = true; err.value = ''; try { const r = await PRO.api('update_profile', { first_name: p.first_name, last_name: p.last_name, mobile_no: p.mobile_no }); PRO.shell.full_name = r.full_name; CM.toast('Profile saved') } catch (e) { err.value = e.message } finally { busy.value = false } }
+			async function changePw() {
+				if (pw.n1 !== pw.n2) { err.value = 'The two new passwords are not the same.'; return }
+				busy.value = true; err.value = ''
+				try { await PRO.api('change_password', { old_password: pw.old, new_password: pw.n1 }); pw.old = pw.n1 = pw.n2 = ''; CM.toast('Password changed') } catch (e) { err.value = e.message } finally { busy.value = false }
+			}
+			const logout = () => { location.href = '/api/method/logout' }
+			const onDoc = (e) => { if (open.value && !(e.target.closest && e.target.closest('.pf-wrap'))) open.value = false }
+			onMounted(() => document.addEventListener('click', onDoc)); onBeforeUnmount(() => document.removeEventListener('click', onDoc))
+			return { open, dlg, busy, err, theme, setTheme, p, pw, openProfile, save, changePw, logout, PRO }
+		},
+		template: `
+		<div class="pf-wrap">
+			<div v-if="open" class="pf-card">
+				<div class="pf-me"><Avatar :name="PRO.shell.full_name || PRO.shell.user" :size="36" /><div style="min-width:0"><b class="ellipsis" style="display:block">{{ PRO.shell.full_name }}</b><span class="small muted ellipsis" style="display:block">{{ PRO.shell.user }}</span></div></div>
+				<button type="button" class="pf-i" @click="openProfile"><Ico name="user" /> My profile</button>
+				<div class="pf-th" role="group" aria-label="Theme"><button v-for="t in [['light', 'Light', 'sun'], ['dark', 'Dark', 'moon'], ['auto', 'Auto', 'monitor']]" :key="t[0]" type="button" :class="{ on: theme === t[0] }" :aria-pressed="theme === t[0]" @click="setTheme(t[0])"><Ico :name="t[2]" size="sm" />{{ t[1] }}</button></div>
+				<button type="button" class="pf-i" @click="logout"><Ico name="log-out" /> Log out</button>
+			</div>
+			<button type="button" class="nav pf-btn" :title="collapsed ? PRO.shell.full_name : null" aria-haspopup="menu" :aria-expanded="open" @click.stop="open = !open"><Avatar :name="PRO.shell.full_name || PRO.shell.user" :size="24" /><span class="nav-l ellipsis">{{ PRO.shell.full_name || PRO.shell.user }}</span><Ico name="chevron-up" size="sm" class="nav-l" style="margin-left:auto" /></button>
+			<Modal v-if="dlg" size="md" title="My profile" subtitle="Your own details. Your role and access are set by an administrator." @close="dlg = false" @submit="save">
+				<div class="col" style="gap:14px">
+					<div v-if="err" class="alert err" role="alert"><Ico name="alert" /><div class="grow">{{ err }}</div></div>
+					<div class="g2"><Field label="First name" required><Inp v-model="p.first_name" aria-label="First name" /></Field><Field label="Last name"><Inp v-model="p.last_name" aria-label="Last name" /></Field></div>
+					<div class="g2"><Field label="Email" hint="Your login. An administrator changes it."><Inp :modelValue="p.email" disabled aria-label="Email" /></Field><Field label="Contact number"><Inp v-model="p.mobile_no" aria-label="Contact number" /></Field></div>
+					<div class="pf-pw"><b>Change password</b><div class="g3"><Field label="Current password"><Inp v-model="pw.old" type="password" aria-label="Current password" /></Field><Field label="New password" hint="At least 8 characters."><Inp v-model="pw.n1" type="password" aria-label="New password" /></Field><Field label="New password again"><Inp v-model="pw.n2" type="password" aria-label="New password again" /></Field></div>
+						<Btn size="sm" :loading="busy" :disabled="!pw.old || !pw.n1" @click="changePw">Change password</Btn></div>
+				</div>
+				<template #foot><Btn @click="dlg = false">Close</Btn><Btn variant="primary" :loading="busy" @click="save">Save</Btn></template>
+			</Modal>
+		</div>`,
+	}
+
 	V.Frame = {
 		props: { page: String, tab: String },
 		setup(props) {
@@ -56,12 +104,14 @@
 
 	// The settings, sorted into a few groups for the menu on the left
 	const LF = 'Leads and sales'
+	const SALES = ['followups', 'insights', 'dashboard'] // one menu entry: Follow-ups, Scoring and stale leads, Sales Dashboard counts
+	const tabOf = (t) => (SALES.includes(t) ? 'sales' : t)
 	const GROUP_OF = { branding: 'General', ui: 'General', views: 'General', leads: LF, orgs: LF, forms: LF, meetings: LF, followups: LF, insights: LF, dashboard: LF, campaigns: 'Campaigns', alerts: 'Campaigns', prices: 'Campaigns' }
 	const GROUP_ICON = { General: 'settings', [LF]: 'briefcase', Campaigns: 'send', Other: 'settings' }
-	const SHORT = { start: 'Checklist', branding: 'Branding', ui: 'Screen', views: 'Default views', leads: 'Leads', orgs: 'Organizations', forms: 'Forms' } // the short names on the tabs
-	const TAB_ICON = { start: 'list', branding: 'palette', ui: 'monitor', views: 'columns', leads: 'users', orgs: 'building', forms: 'rows', meetings: 'calendar', followups: 'phone', insights: 'chart', dashboard: 'chart', campaigns: 'send', alerts: 'alert', prices: 'hash' }
+	const SHORT = { start: 'Checklist', branding: 'Branding', ui: 'Screen', views: 'Default views', leads: 'Lead page', orgs: 'Organization page', forms: 'Forms', sales: 'Sales' } // the short names on the tabs
+	const TAB_ICON = { start: 'list', branding: 'palette', ui: 'monitor', views: 'columns', leads: 'users', orgs: 'building', forms: 'rows', sales: 'chart', meetings: 'calendar', followups: 'phone', insights: 'chart', dashboard: 'chart', campaigns: 'send', alerts: 'alert', prices: 'hash' }
 	PRO.settingsGroups = () => {
-		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Leads screen', group: LF }, { value: 'orgs', label: 'Organizations screen', group: LF }, { value: 'forms', label: 'Add forms', group: LF }].map((x) => ({ ...x, short: SHORT[x.value] || x.label, icon: TAB_ICON[x.value] || 'settings' }))
+		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).filter((g) => !SALES.includes(g.key)).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Lead page', group: LF }, { value: 'orgs', label: 'Organization page', group: LF }, { value: 'forms', label: 'Add forms', group: LF }, { value: 'sales', label: 'Follow-ups, scoring and sales', group: LF }].map((x) => ({ ...x, short: SHORT[x.value] || x.label, icon: TAB_ICON[x.value] || 'settings' }))
 		return ['General', LF, 'Campaigns', 'Other'].map((t) => ({ title: t, icon: GROUP_ICON[t], items: all.filter((x) => x.group === t) })).filter((g) => g.items.length)
 	}
 	// one search over every setting: each option, and the pages that have no list of options (Branding, Default views, Leads screen)
@@ -72,13 +122,13 @@
 		const out = []
 		const page = (tab, label, words) => { if (hit(label + ' ' + words)) out.push({ tab, label, sub: groupOf(tab) }) }
 		page('start', 'Setup checklist', 'checklist ready connect google calendar')
-		page('leads', 'Leads screen', 'columns list view filters card fields quick filters sort top row search')
+		page('leads', 'Lead page', 'columns list view filters card fields quick filters sort top row search')
 		page('forms', 'Add forms', 'add lead organization person user form fields required options dropdown source industry territory customise')
-		page('orgs', 'Organizations screen', 'organizations filters industry territory top row')
+		page('orgs', 'Organization page', 'organizations filters industry territory top row')
 		for (const g of window.SETUP_SCHEMA || []) {
 			if (g.custom) page(g.key, g.title, (g.desc || '') + ' ' + (g.words || ''))
-			else if (hit(g.title)) out.push({ tab: g.key, label: g.title, sub: groupOf(g.key) })
-			for (const it of g.items) { if (it.k && (hit(it.label) || hit(it.info && (it.info.what + ' ' + (it.info.eg || '') + ' ' + (it.info.note || ''))))) out.push({ tab: g.key, field: it.k, label: it.label, sub: g.title + ' \u00b7 ' + groupOf(g.key) }) }
+			else if (hit(g.title)) out.push({ tab: tabOf(g.key), label: g.title, sub: groupOf(tabOf(g.key)) })
+			for (const it of g.items) { if (it.k && (hit(it.label) || hit(it.info && (it.info.what + ' ' + (it.info.eg || '') + ' ' + (it.info.note || ''))))) out.push({ tab: tabOf(g.key), field: it.k, label: it.label, sub: g.title + ' \u00b7 ' + groupOf(tabOf(g.key)) }) }
 		}
 		return out.slice(0, 12)
 	}
@@ -88,7 +138,7 @@
 		props: { tab: String },
 		setup(props) {
 			const TABS = computed(() => PRO.settingsGroups().flatMap((g) => g.items.map((i) => ({ ...i, group: g.title }))))
-			const cur = computed(() => (TABS.value.some((t) => t.value === props.tab) ? props.tab : 'start'))
+			const cur = computed(() => { const t = tabOf(props.tab); return TABS.value.some((x) => x.value === t) ? t : 'start' })
 			const first = props.tab && props.tab !== 'leads' && props.tab !== 'orgs' && props.tab !== 'forms' ? props.tab : 'start'
 			const frameTab = ref(first); watch(cur, (t) => { if (t !== 'leads' && t !== 'orgs' && t !== 'forms') frameTab.value = t })
 			const native = (t) => t === 'leads' || t === 'orgs' || t === 'forms'
@@ -123,6 +173,11 @@
 			window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.source === 'crm-addons' && e.data.type === 'pro-send' && e.data.names && e.data.names.length) { Object.assign(sendRun, { busy: false, finished: false, done: 0, total: 0, failed: [] }); sendDlg.value = { kind: e.data.kind, names: e.data.names } } })
 			async function runSend({ kind, payload }) { if (await PRO.bulkExec(sendRun, kind, payload, sendDlg.value.names) && !sendRun.failed.length) sendDlg.value = null }
 			window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.source === 'crm-addons' && e.data.type === 'pro-open-lead' && e.data.name) location.hash = '#/leads/' + encodeURIComponent(e.data.name) })
+			window.addEventListener('message', (e) => { // a frame asks the app to open a record: a lead is our own page, anything else goes where it says
+				if (e.origin !== location.origin || !e.data || e.data.source !== 'crm-addons' || e.data.type !== 'navigate' || !e.data.url) return
+				const m = String(e.data.url).match(/#\/leads\/([^?]+)/)
+				if (m) location.hash = '#/leads/' + m[1]; else location.href = e.data.url
+			})
 			if (!location.hash) CM.replace('/dashboard')   // the shared router starts on Campaigns; this app starts on the Sales Dashboard
 			const items = computed(() => menu(PRO.shell.config))
 			const active = computed(() => { const k = r.parts[0] && r.parts[0] !== 'notifications' ? r.parts[0] : 'dashboard'; return items.value.some((i) => i.key === k) ? k : (items.value[0] ? items.value[0].key : 'notifications') })
@@ -151,6 +206,7 @@
 									<div v-if="setOpen && !collapsed" class="nav-sub"><a v-for="g in settingsMenu" :key="g.title" :href="'#/settings/' + g.items[0].value" class="nav-sub-i" :class="{ on: active === 'settings' && g.items.some((t) => t.value === (r.parts[1] || 'start')) }"><Ico :name="g.icon" size="sm" />{{ g.title }}</a></div></div>
 								<a v-else :href="'#/' + n.key" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></a></template>
 				<div class="rail-foot">
+					<ProfileMenu :collapsed="collapsed" />
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
 				</div>
 			</nav>

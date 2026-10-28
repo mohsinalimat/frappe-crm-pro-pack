@@ -47,6 +47,6 @@
 	/** The sections of a CRM layout as a form. ``values`` is one object edited in place. */
 	V.FormFields = {
 		props: { sections: Array, values: Object },
-		template: `<div><section v-for="(s, i) in sections" :key="i" class="fsec"><h4 v-if="s.label" class="dh">{{ s.label }}</h4><div class="grid2"><FormField v-for="f in s.fields" :key="f.fieldname" :spec="f" :modelValue="values[f.fieldname]" @update:modelValue="(v) => (values[f.fieldname] = v)" /></div></section></div>`,
+		template: `<div><section v-for="(s, i) in sections" :key="i" class="fsec"><h4 v-if="s.label" class="dh">{{ s.label }}</h4><div class="grid2"><FormField v-for="f in s.fields" :key="f.fieldname" :style="f.full ? 'grid-column:1/-1' : null" :spec="f" :modelValue="values[f.fieldname]" @update:modelValue="(v) => (values[f.fieldname] = v)" /></div></section></div>`,
 	}
 })()

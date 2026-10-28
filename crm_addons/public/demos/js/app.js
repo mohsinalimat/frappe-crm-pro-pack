@@ -10,7 +10,8 @@
 		{ key: 'bookings', label: 'Website Bookings', icon: 'users', path: '/bookings', show: (s) => s.demos !== 'none' },
 		{ key: 'types', label: 'Widgets', icon: 'calendar', path: '/types', show: (s) => s.widgets !== 'none' },
 		{ key: 'forms', label: 'Lead forms', icon: 'file', path: '/forms', show: (s) => s.widgets !== 'none' },
-		{ key: 'report', label: 'Report', icon: 'chart', path: '/report', show: (s) => s.report },
+		{ key: 'report', label: 'Booking report', icon: 'chart', path: '/report', show: (s) => s.report },
+		{ key: 'leadreport', label: 'Lead form report', icon: 'chart', path: '/report/forms', show: (s) => s.report },
 	]
 
 	const App = {
@@ -23,14 +24,15 @@
 						if (p[1]) return { comp: 'DemoEditor', key: 'ed' + p[1], props: { name: p[1], tab: p[2] || 'details' } }
 						return { comp: 'DemoTypes', key: 'types' }
 					case 'forms':
+						if (p[1] === 'log') return { comp: 'ActivityLog', key: 'lflog', props: { kind: 'forms' } }
 						if (p[1]) return { comp: 'LeadFormEditor', key: 'lf' + p[1], props: { name: p[1], tab: p[2] || 'details' } }
 						return { comp: 'LeadForms', key: 'forms' }
-					case 'bookings': return { comp: 'Bookings', key: 'bk' }
+					case 'bookings': return p[1] === 'log' ? { comp: 'ActivityLog', key: 'bklog', props: { kind: 'bookings' } } : { comp: 'Bookings', key: 'bk' }
 					case 'report': return p[1] === 'forms' ? { comp: 'LeadFormReport', key: 'lfrep' } : { comp: 'Report', key: 'rep' }
 					default: return DM.session.demos !== 'none' || DM.session.widgets === 'none' ? { comp: 'Bookings', key: 'bk' } : { comp: 'DemoTypes', key: 'types' }
 				}
 			})
-			const active = computed(() => (r.parts[0] === 'types' ? 'types' : r.parts[0] === 'forms' ? 'forms' : r.parts[0] === 'report' ? 'report' : 'bookings'))
+			const active = computed(() => (r.parts[0] === 'types' ? 'types' : r.parts[0] === 'forms' ? 'forms' : r.parts[0] === 'report' ? (r.parts[1] === 'forms' ? 'leadreport' : 'report') : 'bookings'))
 			onMounted(() => { DM.loadSession(); CM.loadShared() })
 			let saved = false; try { saved = localStorage.getItem('dm_rail_collapsed') === '1' } catch (e) { /* storage blocked */ }
 			const collapsed = ref(saved)

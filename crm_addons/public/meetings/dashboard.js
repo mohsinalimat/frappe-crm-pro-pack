@@ -759,8 +759,8 @@
 		<div class="dash-brand"><span class="brand-ico"><ico name="chart" size="lg" /></span><div><h1>Sales Dashboard</h1></div></div>
 		<div class="seg dash-tabs" role="tablist" aria-label="Dashboard" v-if="nurturingOn || leadsOn">
 			<button role="tab" :aria-selected="view === 'sales'" :class="{ on: view === 'sales' }" @click="setView('sales')">Sales</button>
-			<button role="tab" v-if="leadsOn" :aria-selected="view === 'leads'" :class="{ on: view === 'leads' }" @click="setView('leads')">Leads</button>
 			<button role="tab" v-if="nurturingOn" :aria-selected="view === 'nurturing'" :class="{ on: view === 'nurturing' }" @click="setView('nurturing')">Campaigns</button>
+			<button role="tab" v-if="leadsOn" :aria-selected="view === 'leads'" :class="{ on: view === 'leads' }" @click="setView('leads')">Leads</button>
 		</div>
 		<div class="dash-controls">
 			<range-picker v-model="range" />

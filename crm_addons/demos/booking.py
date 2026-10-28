@@ -384,6 +384,7 @@ def create_booking(demo, start, tz_name, answers=None, guests=None, consent=0, u
 				"referrer": cstr(referrer)[:500] or None,
 				"first_touch": json.dumps(first_touch) if first_touch else None,
 				"ip_hash": hashed,
+				"ip_address": cstr(ip)[:45] or None,
 				"user_agent": cstr(user_agent)[:250] or None,
 				**utm_now,
 			}

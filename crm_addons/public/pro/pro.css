@@ -436,3 +436,45 @@ html[data-theme="dark"] .wx-menu, html[data-theme="dark"] .wx-reaction, html[dat
 .wx-stage { flex: 1; min-height: 280px; background-color: #efeae2; background-image: radial-gradient(rgba(0,0,0,.045) 1px, transparent 1px); background-size: 18px 18px; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; justify-content: flex-start; }
 .wx-stage .wx-bub { max-width: 420px; }
 html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
+
+/* Settings, Forms: setup on the left, a live picture of the form on the right */
+.fs-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start }
+.fs-pv { position: sticky; top: 8px }
+.fs-row { flex: 1; display: grid; gap: 8px; min-width: 0 }
+.fs-in { display: flex; gap: 8px; align-items: center; min-width: 0 }
+.fs-in .inp { flex: 1 1 0; min-width: 0 }
+.fs-tg { display: flex; gap: 16px; flex-wrap: wrap }
+.fs-row.off { opacity: .6 }
+.fs-opt { flex: 1 1 0; justify-content: space-between; min-width: 0 }
+.fs-t { display: inline-flex; align-items: center; gap: 6px; cursor: pointer }
+.fm { border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--surface, #fff) }
+.fm-t { font-weight: 700; font-size: 16px; margin-bottom: 12px }
+.fm-g { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+.fm-f { display: grid; gap: 4px; min-width: 0 }
+.fm-l { font-size: 12px; color: var(--text-muted) }
+.fm-i { height: 34px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg, #f6f7f9); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; color: var(--text-faint) }
+.fm-i.tall { height: 64px; align-items: flex-start; padding-top: 8px }
+.fm-sw { width: 34px; height: 18px; border-radius: 9px; background: var(--border-strong, #cbd5e1) }
+.fm-b { display: flex; justify-content: flex-end; gap: 12px; align-items: center; margin-top: 16px; font-size: 13px }
+.fm-b b { background: var(--accent, #2563eb); color: #fff; padding: 7px 16px; border-radius: 8px }
+@media (max-width: 1100px) { .fs-split { grid-template-columns: 1fr } .fs-pv { position: static } }
+
+/* Lead activity: an edit lists every field it changed, old value to new value */
+.chg { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px }
+.chg li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; background: var(--bg, #f6f7f9); border-radius: 8px; padding: 5px 9px }
+.chg-f { color: var(--text-muted); min-width: 90px; font-weight: 600 }
+.chg-o { color: var(--text-faint); text-decoration: line-through; overflow-wrap: anywhere }
+.chg-n { overflow-wrap: anywhere }
+
+/* Profile at the bottom of the left menu */
+.pf-wrap { position: relative }
+.pf-btn { width: 100%; text-align: left }
+.pf-card { position: absolute; bottom: calc(100% + 6px); left: 0; right: 0; background: var(--surface, #fff); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .15); padding: 8px; z-index: 50; display: flex; flex-direction: column; gap: 4px; height: auto !important; max-height: none !important; overflow: visible }
+.pf-me { display: flex; align-items: center; gap: 10px; padding: 6px 8px 10px; border-bottom: 1px solid var(--border); margin-bottom: 4px }
+.pf-i { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; background: none; border-radius: 8px; cursor: pointer; font: inherit; color: inherit; text-align: left }
+.pf-i:hover { background: var(--bg, #f3f4f6) }
+.pf-th { display: flex; gap: 4px; padding: 4px; background: var(--bg, #f3f4f6); border-radius: 10px }
+.pf-th button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 0; background: none; padding: 6px 4px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 12px; color: inherit }
+.pf-th button.on { background: var(--surface, #fff); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); font-weight: 650 }
+.pf-pw { display: grid; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border) }
+.rail.collapsed .pf-btn .nav-l, nav.collapsed .pf-btn .nav-l { display: none }

@@ -21,7 +21,7 @@ MESSAGE = "CRM Demo Booking Message"
 LEAD = "CRM Lead"
 
 ACTIVE = ("Confirmed", "Rescheduled")  # statuses that hold a slot
-RESERVED_SLUGS = ("manage", "embed", "api")
+RESERVED_SLUGS = ("manage", "embed", "api", "log", "new")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$")
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 UTM_KEYS = ("utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "fbclid")
@@ -232,3 +232,8 @@ def clean_lead_defaults(raw):
 				value = value[:500]
 		out.append({"field": field, "value": value})
 	return out
+
+
+def is_admin(user=None):
+	"""Administrators (System Manager) may see visitors' IP addresses in the logs; nobody else."""
+	return "System Manager" in frappe.get_roles(user or frappe.session.user)

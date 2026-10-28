@@ -184,8 +184,14 @@ def filter_options():
 		"owners": [{"name": o.name, "full_name": o.full_name or o.name, "image": o.user_image} for o in owners],
 		"can_write": bool(frappe.has_permission(LEAD, "write")),
 		"can_create": bool(frappe.has_permission(LEAD, "create")),
-		"can_delete": bool(frappe.has_permission(LEAD, "delete")),
+		"can_delete": bool(_may_delete()),
 	}
+
+
+def _may_delete():
+	from crm_addons.pro.lead import _may_delete as allowed
+
+	return allowed()
 
 
 def _names(names):
@@ -267,10 +273,13 @@ def bulk_edit(names, values):
 @frappe.whitelist()
 def bulk_delete(names):
 	_check()
+	if not _may_delete():
+		frappe.throw(_("You are not allowed to delete leads. An administrator can allow it in Team and access."), frappe.PermissionError)
 	done, failed = 0, []
 	for n in _names(names):
 		try:
-			frappe.delete_doc(LEAD, n)
+			frappe.get_doc(LEAD, n).check_permission("read")
+			frappe.delete_doc(LEAD, n, ignore_permissions=True)
 			done += 1
 		except Exception as e:
 			failed.append({"name": n, "reason": strip_html(cstr(e))[:140]})

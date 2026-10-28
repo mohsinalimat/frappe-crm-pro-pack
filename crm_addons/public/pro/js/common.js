@@ -34,6 +34,7 @@
 	/** The CRM address of a record. */
 	PRO.crmUrl = (doctype, name) => {
 		const route = { 'CRM Lead': 'leads', 'CRM Deal': 'deals', 'Contact': 'contacts', 'CRM Organization': 'organizations', 'CRM Task': 'tasks', 'FCRM Note': 'notes' }[doctype]
+		if (doctype === 'CRM Lead' && name) return '/crm-pro#/leads/' + encodeURIComponent(name)
 		return route && name ? '/crm/' + route + '/' + encodeURIComponent(name) : ''
 	}
 })()

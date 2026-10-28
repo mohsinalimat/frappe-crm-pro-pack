@@ -135,8 +135,10 @@
 				else if (e.data.type === 'resize' && e.data.height) ovl.height = Math.min(e.data.height + 2, window.innerHeight - 120)
 				else if (e.data.type === 'saved') { const k = ovl.kind; ovl.open = false; delete data.activity; reload(k).then(load); CM.toast(k === 'followups' ? 'Follow-up saved' : 'Meeting scheduled') }
 			}
-			onMounted(() => window.addEventListener('message', onMessage))
-			onBeforeUnmount(() => window.removeEventListener('message', onMessage))
+			// a click anywhere else closes the emoji picker, the attach menu and a message's menu
+			function closeChatPops(e) { if (!wa.emoji && !wa.menu && !wa.menuFor) return; if (e.target.closest && e.target.closest('.wx-emoji, .wx-attach, .wx-ib, .wx-more, .wx-menu')) return; wa.emoji = false; wa.menu = false; wa.menuFor = '' }
+			onMounted(() => { window.addEventListener('message', onMessage); document.addEventListener('click', closeChatPops) })
+			onBeforeUnmount(() => { window.removeEventListener('message', onMessage); document.removeEventListener('click', closeChatPops) })
 			async function doneFollowup(f) { try { await call('complete_followup', { name: props.name, followup: f.name }); delete data.activity; await reload('followups'); load() } catch (e) { CM.toast(e.message, 'err') } }
 			async function dropFollowup(f) {
 				if (!(await CM.confirm({ title: 'Delete this follow-up?', confirmText: 'Delete', danger: true }))) return
@@ -286,7 +288,7 @@
 								<ul v-else class="list tline"><li v-for="(e, i) in data.activity" :key="i" class="li row act" style="gap:12px;align-items:flex-start">
 									<span class="act-ico"><Ico :name="e.icon || ICON[e.kind] || 'clock'" size="sm" /></span>
 									<div class="grow">
-										<div v-if="e.kind === 'change'"><b>{{ e.by ? e.by.full_name : 'System' }}</b> changed <b>{{ e.field }}</b><template v-if="e.old"> from {{ e.old }}</template> to <b>{{ e.new || 'empty' }}</b></div>
+										<div v-if="e.kind === 'change'"><b>{{ e.by ? e.by.full_name : 'System' }}</b> edited {{ (e.changes || []).length > 1 ? (e.changes || []).length + ' fields' : 'a field' }}<ul class="chg"><li v-for="(c, ci) in (e.changes || [{ field: e.field, old: e.old, new: e.new }])" :key="ci"><span class="chg-f">{{ c.field }}</span><span class="chg-o">{{ c.old || 'empty' }}</span><Ico name="arrow-right" size="sm" /><b class="chg-n">{{ c.new || 'empty' }}</b></li></ul></div>
 										<div v-else-if="e.kind === 'assigned'" class="muted">{{ e.text }}</div>
 										<div v-else-if="e.kind === 'comment' && e.form_entry"><b>Lead form</b> - someone who is already a lead tried to register<div class="cbub" v-html="e.html"></div>
 											<div v-if="lead.can_write" class="row" style="gap:8px;margin-top:6px"><Btn v-if="!e.form_entry.applied" size="sm" variant="primary" icon="refresh" @click="applyEntry(e)">Update details</Btn><span v-else class="small muted">Details updated</span></div></div>

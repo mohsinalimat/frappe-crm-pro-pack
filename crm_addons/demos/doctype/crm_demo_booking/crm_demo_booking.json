@@ -42,6 +42,7 @@
   "referrer",
   "first_touch",
   "ip_hash",
+  "ip_address",
   "user_agent",
   "sb_messages",
   "messages"
@@ -258,6 +259,13 @@
    "label": "IP (hashed)",
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "ip_address",
+   "fieldtype": "Data",
+   "label": "IP address",
+   "read_only": 1,
+   "description": "Shown to administrators only."
   },
   {
    "fieldname": "user_agent",

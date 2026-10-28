@@ -31,6 +31,45 @@ def get_shell():
 	}
 
 
+@frappe.whitelist()
+def get_profile():
+	"""The signed-in person's own basic profile."""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in."), frappe.PermissionError)
+	u = frappe.db.get_value("User", frappe.session.user, ["first_name", "last_name", "email", "mobile_no", "full_name", "user_image"], as_dict=True)
+	return {**u, "user": frappe.session.user}
+
+
+@frappe.whitelist()
+def update_profile(first_name, last_name=None, mobile_no=None):
+	"""Their own name and number; nothing else about the account."""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in."), frappe.PermissionError)
+	if not cstr(first_name).strip():
+		frappe.throw(_("Enter your first name."))
+	doc = frappe.get_doc("User", frappe.session.user)
+	doc.first_name, doc.last_name, doc.mobile_no = cstr(first_name).strip()[:60], cstr(last_name).strip()[:60], cstr(mobile_no).strip()[:20]
+	doc.save(ignore_permissions=True)
+	return get_profile()
+
+
+@frappe.whitelist()
+def change_password(old_password, new_password):
+	"""They prove the current password, then choose a new one."""
+	from frappe.utils.password import check_password, update_password
+
+	if frappe.session.user in ("Guest", "Administrator"):
+		frappe.throw(_("This account's password is changed in the Frappe desk."))
+	if len(cstr(new_password)) < 8:
+		frappe.throw(_("Use at least 8 characters."))
+	try:
+		check_password(frappe.session.user, old_password)
+	except frappe.AuthenticationError:
+		frappe.throw(_("The current password is not right."))
+	update_password(frappe.session.user, new_password)
+	return {"ok": True}
+
+
 def unread_count():
 	if frappe.session.user == "Guest" or not frappe.db.exists("DocType", NOTIFICATION):
 		return 0

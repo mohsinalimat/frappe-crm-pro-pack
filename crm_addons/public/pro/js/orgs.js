@@ -32,7 +32,7 @@
 		template: `
 		<Modal :title="editing ? 'Edit organization' : 'New organization'" @close="$emit('close')" @submit="save">
 			<div class="grid2">
-				<Field v-for="f in fields" :key="f.fieldname" :label="f.label" :required="!!f.reqd" :style="kind(f) === 'area' ? 'grid-column:1/-1' : ''">
+				<Field v-for="f in fields" :key="f.fieldname" :label="f.label" :required="!!f.reqd" :style="kind(f) === 'area' || f.full ? 'grid-column:1/-1' : ''">
 					<Dd v-if="kind(f) === 'list'" v-model="v[f.fieldname]" :options="pick(f)" searchable :aria-label="f.label" />
 					<Switch v-else-if="kind(f) === 'check'" :modelValue="!!Number(v[f.fieldname])" :label="f.label" @update:modelValue="(x) => (v[f.fieldname] = x ? 1 : 0)" />
 					<textarea v-else-if="kind(f) === 'area'" class="inp" rows="3" v-model="v[f.fieldname]" :aria-label="f.label"></textarea>

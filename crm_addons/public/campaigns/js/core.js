@@ -181,7 +181,13 @@
 	CM.pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : 0)
 	CM.pctText = (a, b) => (b ? (Math.round((a / b) * 1000) / 10).toString().replace(/\.0$/, '') + '%' : '-')
 	CM.size = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB')
-	CM.leadUrl = (name) => '/crm/leads/' + encodeURIComponent(name)
+	CM.leadUrl = (name) => '/crm-pro#/leads/' + encodeURIComponent(name) // our own Leads page
+	// inside the Suite Pro app a lead link moves the app itself, never the frame
+	document.addEventListener('click', (e) => {
+		const a = e.target.closest && e.target.closest('a[href*="/crm-pro#/leads/"]')
+		if (!a || !CM.pro || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return
+		e.preventDefault(); CM.post('pro-open-lead', { name: decodeURIComponent(a.getAttribute('href').split('#/leads/')[1] || '') })
+	}, true)
 	CM.initials = (s) => String(s || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('') || '?'
 	CM.escape = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 	CM.debounce = (fn, ms) => { let t; const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) }; d.cancel = () => clearTimeout(t); return d }
@@ -219,6 +225,7 @@
 	CM.openCrm = (e, url) => {
 		if (e && (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1)) return // let the browser open its own tab
 		if (e) e.preventDefault()
+		if (CM.pro && /#\/leads\//.test(url)) return CM.post('pro-open-lead', { name: decodeURIComponent(url.split('#/leads/')[1]) })
 		if (CM.embed) CM.post('navigate', { url })
 		else window.open(url, '_blank', 'noopener')
 	}
@@ -254,6 +261,8 @@
 
 	// ------------------------------------------------------------------ icons (24px grid, stroke)
 	CM.ICONS = {
+		'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+		moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
 		briefcase: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
 		building: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>',
 		gmeet: '<path fill="#fff" stroke="none" d="M6 9.5h9.5v5H6z"/><path fill="#ea4335" stroke="none" d="M6 6v3.5H2z"/><path fill="#2684fc" stroke="none" d="M2 9.5h4v5H2z"/><path fill="#0066da" stroke="none" d="M2 14.5h4V18H4a2 2 0 0 1-2-2z"/><path fill="#ffba00" stroke="none" d="M6 6h7.5a2 2 0 0 1 2 2v1.5H6z"/><path fill="#00ac47" stroke="none" d="M6 14.5h9.5V16a2 2 0 0 1-2 2H6z"/><path fill="#00832d" stroke="none" d="m15.5 10.8 5.1-3.6a.6.6 0 0 1 .9.5v8.6a.6.6 0 0 1-.9.5l-5.1-3.6z"/>',

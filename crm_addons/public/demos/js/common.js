@@ -16,7 +16,7 @@
 	DM.WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 	DM.SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' }
 	DM.longDay = (d) => DM.WEEKDAYS.find((w) => w === d || DM.SHORT[w] === d) || d // the server stores Mon..Sun
-	DM.RESERVED = ['manage', 'embed', 'api']
+	DM.RESERVED = ['manage', 'embed', 'api', 'log', 'new']
 	DM.EVENTS = ['Confirmed', 'Rescheduled', 'Cancelled']
 	DM.STATUSES = ['Confirmed', 'Rescheduled', 'Cancelled', 'Completed', 'No Show']
 	CM.STATUS_TONE = Object.assign(CM.STATUS_TONE, { Confirmed: 'blue', Rescheduled: 'amber', 'No Show': 'red', Failed: 'red', Sent: 'green', Skipped: 'amber', Pending: 'neutral', Sending: 'blue' })

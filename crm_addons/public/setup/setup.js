@@ -426,7 +426,8 @@
 				const customHit = !!g.custom && !!term.value && (g.title + ' ' + (g.desc || '') + ' ' + (g.words || '')).toLowerCase().includes(term.value)
 				return { ...g, shown: term.value ? kept : g.items, count: real.length + (customHit ? 1 : 0), changed: g.items.filter((it) => it.k && dirtyKeys.value.includes(it.k)).length }
 			}))
-			const visible = computed(() => (term.value ? groups.value.filter((g) => g.count) : groups.value.filter((g) => g.key === tab.value)))
+			const SALES_TABS = ['followups', 'insights', 'dashboard']
+			const visible = computed(() => (term.value ? groups.value.filter((g) => g.count) : groups.value.filter((g) => g.key === tab.value || (tab.value === 'sales' && SALES_TABS.includes(g.key)))))
 			const noResults = computed(() => term.value && !visible.value.length)
 
 			// ---- saving

@@ -53,17 +53,21 @@ def get_lead(name):
 	return out
 
 
-def _may_delete(doc):
-	"""Only System Managers (super admins) may delete a lead, and only where CRM's own permission allows it."""
-	return bool(("System Manager" in frappe.get_roles() or frappe.session.user == "Administrator") and doc.has_permission("delete"))
+def _may_delete(doc=None):
+	"""System Managers always; anybody else only when Team and access gives them "Delete leads"."""
+	from crm_addons.team_access import access
+
+	if "System Manager" in frappe.get_roles() or frappe.session.user == "Administrator":
+		return True
+	return access.allows("lead_delete", 1)
 
 
 @frappe.whitelist()
 def delete_lead(name):
-	doc = _lead(name, "delete")
+	doc = _lead(name)
 	if not _may_delete(doc):
-		frappe.throw(_("Only a System Manager can delete a lead."), frappe.PermissionError)
-	frappe.delete_doc(LEAD, name)
+		frappe.throw(_("You are not allowed to delete leads. An administrator can allow it in Team and access."), frappe.PermissionError)
+	frappe.delete_doc(LEAD, name, ignore_permissions=True)
 	return True
 
 
@@ -197,11 +201,14 @@ def get_timeline(name):
 			data = json.loads(v.data or "{}")
 		except ValueError:
 			continue
-		for f, old, new in (data.get("changed") or [])[:6]:
+		changes = []
+		for f, old, new in (data.get("changed") or [])[:40]:
 			if f in ("modified", "modified_by", "status_change_log", "rolling_responses", "last_response_time", "last_responded_on"):
 				continue
 			label = frappe.get_meta(LEAD).get_label(f) or f
-			out.append({"kind": "change", "field": label, "old": cstr(old), "new": cstr(new), "by": _person(v.owner), "creation": v.creation})
+			changes.append({"field": label, "old": _clip(old, 120), "new": _clip(new, 120)})
+		if changes:  # one entry per edit, with every field it changed
+			out.append({"kind": "change", "changes": changes, "field": changes[0]["field"], "old": changes[0]["old"], "new": changes[0]["new"], "by": _person(v.owner), "creation": v.creation})
 	out.sort(key=lambda r: str(r["creation"]), reverse=True)
 	return out[:150]
 
