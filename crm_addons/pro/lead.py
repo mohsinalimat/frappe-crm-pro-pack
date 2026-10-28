@@ -43,6 +43,7 @@ def get_lead(name):
 	out["lead_owner_info"] = _person(d.get("lead_owner"))
 	out["created_by"] = _person(d.get("owner"))
 	out["can_write"] = bool(doc.has_permission("write"))
+	out["can_delete"] = _may_delete(doc)
 	out["counts"] = {
 		"notes": frappe.db.count("FCRM Note", {"reference_doctype": LEAD, "reference_docname": name}),
 		"tasks": frappe.db.count("CRM Task", {"reference_doctype": LEAD, "reference_docname": name}),
@@ -50,6 +51,20 @@ def get_lead(name):
 	}
 	out["statuses"] = frappe.get_all("CRM Lead Status", fields=["name", "color", "type", "position"], order_by="position asc, name asc")
 	return out
+
+
+def _may_delete(doc):
+	"""Only System Managers (super admins) may delete a lead, and only where CRM's own permission allows it."""
+	return bool(("System Manager" in frappe.get_roles() or frappe.session.user == "Administrator") and doc.has_permission("delete"))
+
+
+@frappe.whitelist()
+def delete_lead(name):
+	doc = _lead(name, "delete")
+	if not _may_delete(doc):
+		frappe.throw(_("Only a System Manager can delete a lead."), frappe.PermissionError)
+	frappe.delete_doc(LEAD, name)
+	return True
 
 
 def _display(spec, value):
@@ -147,10 +162,12 @@ def get_calls(name):
 @frappe.whitelist()
 def add_comment(name, content):
 	doc = _lead(name, "write")
+	from frappe.utils.html_utils import clean_html
+
 	text = cstr(content).strip()
-	if not text:
+	if not strip_html(text).strip():
 		frappe.throw(_("Write something first."))
-	doc.add_comment("Comment", text)
+	doc.add_comment("Comment", clean_html(text))
 	return True
 
 
@@ -158,9 +175,11 @@ def add_comment(name, content):
 def get_timeline(name):
 	"""Newest first: comments, assignments, and what changed on the lead (from CRM's version history)."""
 	_lead(name)
+	from frappe.utils.html_utils import clean_html
+
 	out = []
 	for c in frappe.get_all("Comment", filters={"reference_doctype": LEAD, "reference_name": name, "comment_type": ["in", ["Comment", "Assigned"]]}, fields=["name", "comment_type", "content", "owner", "creation"], limit_page_length=200):
-		out.append({"kind": "comment" if c.comment_type == "Comment" else "assigned", "text": strip_html(c.content or ""), "by": _person(c.owner), "creation": c.creation})
+		out.append({"kind": "comment" if c.comment_type == "Comment" else "assigned", "text": strip_html(c.content or ""), "html": clean_html(c.content or "") if c.comment_type == "Comment" else "", "by": _person(c.owner), "creation": c.creation})
 	for v in frappe.get_all("Version", filters={"ref_doctype": LEAD, "docname": name}, fields=["data", "owner", "creation"], order_by="creation desc", limit_page_length=100):
 		try:
 			data = json.loads(v.data or "{}")
@@ -189,10 +208,13 @@ def get_emails(name):
 	_lead(name)
 	rows = frappe.get_all(
 		"Communication", filters={"reference_doctype": LEAD, "reference_name": name, "communication_type": "Communication", "communication_medium": "Email"},
-		fields=["name", "subject", "content", "sender", "recipients", "sent_or_received", "communication_date", "creation", "delivery_status"], order_by="creation desc", limit_page_length=100,
+		fields=["name", "subject", "content", "sender", "sender_full_name", "recipients", "cc", "sent_or_received", "communication_date", "creation", "delivery_status", "read_by_recipient"], order_by="creation desc", limit_page_length=100,
 	)
+	from frappe.utils.html_utils import clean_html
+
 	for r in rows:
 		r["preview"] = _clip(r.content, 220)
+		r["body"] = clean_html(r.pop("content") or "")
 	return rows
 
 
@@ -225,7 +247,7 @@ def _addresses(value, label):
 
 
 @frappe.whitelist()
-def send_email(name, recipients, subject, content, cc=None, bcc=None, html=0):
+def send_email(name, recipients, subject, content, cc=None, bcc=None, html=0, attachments=None):
 	"""Send an email from the lead page. It is stored on the lead like any CRM email. ``html`` means the message is already HTML (from the editor)."""
 	doc = _lead(name, "write")
 	recipients, subject, content = _addresses(recipients, _("To")), cstr(subject).strip(), cstr(content).strip()
@@ -237,7 +259,8 @@ def send_email(name, recipients, subject, content, cc=None, bcc=None, html=0):
 	from frappe.utils.html_utils import clean_html
 
 	body = clean_html(content) if cint(html) else escape_html(content).replace("\n", "<br>")
-	make(doctype=LEAD, name=doc.name, content=body, subject=subject, recipients=recipients, cc=cc, bcc=bcc, sender=frappe.db.get_value("User", frappe.session.user, "email"), communication_medium="Email", send_email=True, sent_or_received="Sent")
+	files = [n for n in (json.loads(attachments) if isinstance(attachments, str) and attachments else attachments or []) if frappe.db.exists("File", {"name": n, "owner": frappe.session.user})]
+	make(doctype=LEAD, name=doc.name, content=body, subject=subject, recipients=recipients, cc=cc, bcc=bcc, sender=frappe.db.get_value("User", frappe.session.user, "email"), communication_medium="Email", send_email=True, sent_or_received="Sent", attachments=[{"fid": n} for n in files])
 	return True
 
 
@@ -253,14 +276,19 @@ def followup_options():
 
 @frappe.whitelist()
 def get_followups(name):
+	"""The lead's follow-ups with the same summary the CRM shows (next one, calls not picked in a row, calls logged, score)."""
 	_lead(name)
-	rows = frappe.get_all(
-		"CRM Follow Up", filters={"reference_doctype": LEAD, "reference_docname": name},
-		fields=["name", "followed_up_on", "mode", "assigned_to", "call_status", "attempt_no", "outcome", "remark", "next_follow_up_on", "next_closed", "creation"], order_by="followed_up_on desc, creation desc", limit_page_length=200,
-	)
-	for r in rows:
-		r["by"] = _person(r.assigned_to)
-	return rows
+	from crm_addons import followups
+
+	return followups.list_follow_ups(LEAD, name)
+
+
+@frappe.whitelist()
+def delete_followup(name, followup):
+	_lead(name, "write")
+	from crm_addons import followups
+
+	return followups.delete_follow_up(followup)
 
 
 @frappe.whitelist()
@@ -325,26 +353,41 @@ def get_campaigns(name):
 	return rows
 
 
+WINDOW_HOURS = 24
+
+
 @frappe.whitelist()
 def get_whatsapp(name):
-	"""The lead's WhatsApp chat, read through Frappe CRM's own WhatsApp (the ``frappe_whatsapp`` app)."""
+	"""The lead's WhatsApp chat, read through Frappe CRM's own WhatsApp (the ``frappe_whatsapp`` app).
+
+	WhatsApp only allows free text and media within 24 hours of the lead's last message; after that only an approved template can be sent, so ``window_open`` says which it is."""
 	_lead(name)
 	if not frappe.db.exists("DocType", "WhatsApp Message"):
 		return {"installed": False, "messages": []}
 	msgs = frappe.get_attr("crm.api.whatsapp.get_whatsapp_messages")(LEAD, name)
 	out = [{k: m.get(k) for k in ("name", "type", "message", "creation", "status", "content_type", "attach", "template", "is_reply", "reply_to_message_id")} for m in (msgs or [])]
-	return {"installed": True, "messages": out, "number": frappe.db.get_value(LEAD, name, "mobile_no")}
+	last_in = max((m["creation"] for m in out if m.get("type") == "Incoming"), default=None)
+	open_until = None
+	if last_in:
+		from frappe.utils import add_to_date, get_datetime, now_datetime
+
+		until = add_to_date(get_datetime(last_in), hours=WINDOW_HOURS)
+		open_until = until if until > now_datetime() else None
+	return {"installed": True, "messages": out, "number": frappe.db.get_value(LEAD, name, "mobile_no"), "window_open": bool(open_until), "window_until": open_until, "last_incoming": last_in}
 
 
 @frappe.whitelist()
-def send_whatsapp(name, message):
+def send_whatsapp(name, message="", attach="", content_type="text"):
 	doc = _lead(name, "write")
-	text = cstr(message).strip()
-	if not text:
+	text, attach = cstr(message).strip(), cstr(attach).strip()
+	content_type = content_type if content_type in ("text", "image", "video", "document", "audio") else "text"
+	if not text and not attach:
 		frappe.throw(_("Write a message first."))
 	if not doc.mobile_no:
 		frappe.throw(_("This lead has no phone number."))
-	frappe.get_attr("crm.api.whatsapp.create_whatsapp_message")(LEAD, name, text, doc.mobile_no, "", "", "text")
+	if not get_whatsapp(name)["window_open"]:
+		frappe.throw(_("The lead has not written in the last 24 hours, so WhatsApp only allows a template. Send a template first."))
+	frappe.get_attr("crm.api.whatsapp.create_whatsapp_message")(LEAD, name, text, doc.mobile_no, attach, "", content_type)
 	return True
 
 
@@ -381,8 +424,8 @@ def get_activity(name):
 	def add(kind, icon, title, detail, by, creation):
 		rows.append({"kind": kind, "icon": icon, "title": title, "detail": detail, "by": by, "creation": creation})
 
-	for f in get_followups(name):
-		add("followup", "phone", "Follow-up: " + " - ".join(x for x in (f.mode, f.call_status or f.outcome) if x), _clip(f.remark), f.by, f.followed_up_on or f.creation)
+	for f in get_followups(name)["items"]:
+		add("followup", "phone", "Follow-up: " + " - ".join(x for x in (f.get("mode"), f.get("call_status") or f.get("outcome")) if x), _clip(f.get("remark")), {"full_name": f.get("by")} if f.get("by") else None, f.get("followed_up_on") or f.get("creation"))
 	for m in get_meetings(name):
 		add("meeting", "calendar", "Meeting: " + cstr(m.subject) + " (" + cstr(m.status) + ")", frappe.utils.format_datetime(m.starts_on, "d MMM yyyy, h:mm a") if m.starts_on else "", m.by, m.creation)
 	for c in get_calls(name):

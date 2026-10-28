@@ -373,3 +373,4 @@ html.pro .row.tool:not(:has(*)), html.pro .row.tools:not(:has(*)) { display: non
 .cl-av{width:34px;height:34px;border-radius:50%;background:var(--bg-soft,#eef2f5);display:grid;place-items:center;font-size:12px;font-weight:600}
 .cl-n{width:110px;text-align:right}
 @media (max-width:900px){.mv{grid-template-columns:1fr}}
+.dd-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }

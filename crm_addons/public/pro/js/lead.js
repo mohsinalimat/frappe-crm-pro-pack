@@ -1,4 +1,4 @@
-/* Suite Pro: the lead page. Activity, emails, comments, data, meetings, follow-ups, campaigns, WhatsApp, of one lead, with its details beside them. */
+/* Suite Pro: the lead page. Activity, emails, comments, data, meetings, follow-ups, campaigns and WhatsApp of one lead, with its details beside them. */
 (() => {
 	const { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } = Vue
 	const CM = window.CM
@@ -6,17 +6,48 @@
 	const V = PRO.views
 	const call = (m, a) => CM.call('crm_addons.pro.lead.' + m, a)
 	const day = (s) => { if (!s) return ''; const d = new Date(String(s).replace(' ', 'T')); return isNaN(d) ? '' : d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) + (String(s).length > 10 ? ', ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '') }
-	const digits = (s) => String(s || '').replace(/[^\d]/g, '')
-	const local = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':00'
+	const clock = (s) => { const d = new Date(String(s || '').replace(' ', 'T')); return isNaN(d) ? '' : d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }
+	const dayKey = (s) => String(s || '').slice(0, 10)
+	const dayLabel = (s) => { const d = new Date(dayKey(s) + 'T00:00:00'); if (isNaN(d)) return ''; const t = new Date(); t.setHours(0, 0, 0, 0); const diff = Math.round((t - d) / 864e5); return diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: d.getFullYear() === t.getFullYear() ? undefined : 'numeric' }) }
 	const TABS = [
 		{ id: 'activity', label: 'Activity', icon: 'clock' }, { id: 'emails', label: 'Emails', icon: 'mail' }, { id: 'comments', label: 'Comments', icon: 'message' }, { id: 'data', label: 'Data', icon: 'list' },
 		{ id: 'meetings', label: 'Meetings', icon: 'calendar' }, { id: 'followups', label: 'Follow-ups', icon: 'phone' }, { id: 'campaigns', label: 'Campaign', icon: 'send' }, { id: 'whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
 	]
 	const LOADERS = { activity: 'get_activity', emails: 'get_emails', comments: 'get_timeline', data: 'get_data', meetings: 'get_meetings', followups: 'get_followups', campaigns: 'get_campaigns', whatsapp: 'get_whatsapp' }
+	const HEX = { gray: '#94a3b8', blue: '#3b82f6', green: '#22c55e', teal: '#14b8a6', red: '#ef4444', orange: '#f97316', yellow: '#eab308', purple: '#a855f7', pink: '#ec4899', cyan: '#06b6d4' }
+	const EMOJI = ['😀', '😊', '😂', '🙂', '😉', '😍', '🤝', '👍', '🙏', '👋', '🎉', '✅', '⭐', '🔥', '💡', '📞', '📅', '📎', '📍', '💬', '❤️', '😅', '🤔', '😢']
 
 	V.Fact = {
-		props: { label: String, value: [String, Number] },
-		template: `<div class="fact"><span class="fact-l">{{ label }}</span><span class="fact-v"><slot>{{ value || '-' }}</slot></span></div>`,
+		props: { label: String, value: [String, Number], link: String },
+		template: `<div class="fact"><span class="fact-l">{{ label }}</span><span class="fact-v"><slot><a v-if="link && value" :href="link" target="_blank" rel="noopener">{{ value }}</a><template v-else>{{ value || '-' }}</template></slot></span></div>`,
+	}
+
+	/** A text box with a formatting bar (headings, bold, italic, underline, lists, quote, alignment, colour, link). Its value is HTML. */
+	V.RichEditor = {
+		props: { modelValue: { type: String, default: '' }, placeholder: { type: String, default: 'Write here' }, minHeight: { type: Number, default: 150 }, label: { type: String, default: 'Message' } },
+		emits: ['update:modelValue'],
+		setup(props, { emit }) {
+			const el = ref(null)
+			onMounted(() => { el.value.innerHTML = props.modelValue || '' })
+			watch(() => props.modelValue, (v) => { if (el.value && (v || '') !== el.value.innerHTML) el.value.innerHTML = v || '' })
+			const sync = () => { const h = el.value.innerHTML; emit('update:modelValue', !el.value.textContent.trim() && !/<(img|a|li)/.test(h) ? '' : h) }
+			function run(cmd, val) { el.value.focus(); document.execCommand(cmd, false, val); sync() }
+			function link() { const u = window.prompt('Link address', 'https://'); if (u) run('createLink', u) }
+			const BAR = [
+				[{ t: 'P', tip: 'Paragraph', f: () => run('formatBlock', 'P') }, { t: 'H2', tip: 'Heading 2', f: () => run('formatBlock', 'H2') }, { t: 'H3', tip: 'Heading 3', f: () => run('formatBlock', 'H3') }, { t: 'H4', tip: 'Heading 4', f: () => run('formatBlock', 'H4') }],
+				[{ i: 'bold', tip: 'Bold', f: () => run('bold') }, { i: 'italic', tip: 'Italic', f: () => run('italic') }, { i: 'underline', tip: 'Underline', f: () => run('underline') }, { t: 'S', tip: 'Strikethrough', f: () => run('strikeThrough'), s: 'text-decoration:line-through' }],
+				[{ i: 'list', tip: 'Bulleted list', f: () => run('insertUnorderedList') }, { i: 'list-ol', tip: 'Numbered list', f: () => run('insertOrderedList') }, { t: '❝', tip: 'Quote', f: () => run('formatBlock', 'BLOCKQUOTE') }],
+				[{ i: 'align-left', tip: 'Align left', f: () => run('justifyLeft') }, { i: 'align-center', tip: 'Align centre', f: () => run('justifyCenter') }, { i: 'align-right', tip: 'Align right', f: () => run('justifyRight') }],
+				[{ i: 'link', tip: 'Add a link', f: link }, { t: 'Tx', tip: 'Clear formatting', f: () => run('removeFormat') }],
+			]
+			const colour = (e) => run('foreColor', e.target.value)
+			return { el, sync, BAR, colour, run }
+		},
+		template: `<div class="rte">
+			<div class="rte-bar" role="toolbar" aria-label="Formatting"><template v-for="(g, gi) in BAR" :key="gi"><span v-if="gi" class="rte-sep"></span><button v-for="b in g" :key="b.tip" type="button" class="rte-b" :title="b.tip" :aria-label="b.tip" @mousedown.prevent @click="b.f"><Ico v-if="b.i" :name="b.i" size="sm" /><span v-else :style="b.s">{{ b.t }}</span></button></template>
+				<span class="rte-sep"></span><label class="rte-b rte-c" title="Text colour"><Ico name="palette" size="sm" /><input type="color" aria-label="Text colour" @input="colour" /></label></div>
+			<div ref="el" class="rte-body" contenteditable="true" role="textbox" aria-multiline="true" :aria-label="label" :data-ph="placeholder" :style="{ minHeight: minHeight + 'px' }" @input="sync"></div>
+		</div>`,
 	}
 
 	V.Lead = {
@@ -48,7 +79,7 @@
 				return { i, n: list.length, prev: i > 0 ? list[i - 1] : '', next: i >= 0 && i < list.length - 1 ? list[i + 1] : '' }
 			})
 			const step = (n) => { if (n) location.hash = '#/leads/' + encodeURIComponent(n) }
-			const statusOpts = computed(() => (lead.value ? lead.value.statuses.map((s) => ({ value: s.name, label: s.name })) : []))
+			const statusOpts = computed(() => (lead.value ? lead.value.statuses.map((s) => ({ value: s.name, label: s.name, dot: HEX[s.color] || HEX.gray })) : []))
 			const ownerOpts = computed(() => {
 				const l = owners.value.map((o) => ({ value: o.name, label: o.full_name })); const cur = lead.value && lead.value.lead_owner_info
 				if (cur && !l.some((o) => o.value === cur.name)) l.unshift({ value: cur.name, label: cur.full_name })
@@ -62,6 +93,10 @@
 			const title = computed(() => (lead.value ? lead.value.lead_name || lead.value.organization || lead.value.name : ''))
 			watch(title, (t) => { if (t) document.title = t + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			const copy = async (t) => { try { await navigator.clipboard.writeText(t); CM.toast('Copied') } catch (e) { CM.toast('Could not copy', 'err') } }
+			async function dropLead() {
+				if (!(await CM.confirm({ title: 'Delete ' + title.value + '?', text: 'The lead and everything on it will be removed. This cannot be undone.', confirmText: 'Delete', danger: true }))) return
+				try { await call('delete_lead', { name: props.name }); CM.toast('Lead deleted'); back() } catch (e) { CM.toast(e.message, 'err') }
+			}
 
 			// edit: every writable field, laid out as CRM lays it out
 			const edit = reactive({ open: false, v: {}, sections: [], busy: false, error: '' })
@@ -73,16 +108,16 @@
 			async function saveEdit() { edit.busy = true; edit.error = ''; try { lead.value = await call('update_lead', { name: props.name, values: JSON.stringify(edit.v) }); delete data.activity; delete data.comments; delete data.data; edit.open = false; CM.toast('Saved') } catch (e) { edit.error = e.message } finally { edit.busy = false } }
 
 			// comments
-			const comment = ref('')
-			async function addComment() { try { await call('add_comment', { name: props.name, content: comment.value }); comment.value = ''; delete data.activity; await loadTab('comments', true) } catch (e) { CM.toast(e.message, 'err') } }
+			const comment = ref(''); const commenting = ref(false)
+			async function addComment() { commenting.value = true; try { await call('add_comment', { name: props.name, content: comment.value }); comment.value = ''; delete data.activity; await loadTab('comments', true) } catch (e) { CM.toast(e.message, 'err') } finally { commenting.value = false } }
 			const comments = computed(() => (data.comments || []).filter((e) => e.kind === 'comment'))
 
 			// follow-ups and meetings: the same forms as the Meetings page, shown over this page
 			const ovl = reactive({ open: false, src: '', title: '', height: 560, kind: '' })
-			function openOverlay(kind) {
+			function openOverlay(kind, followup) {
 				const q = new URLSearchParams({ embed: '1', mode: kind === 'followups' ? 'followup' : 'editor', reference_name: props.name, theme: document.documentElement.getAttribute('data-theme') || '', v: String(Date.now()) })
-				if (kind !== 'followups') { q.set('reference_doctype', 'CRM Lead'); q.set('reference_title', title.value) }
-				Object.assign(ovl, { open: true, kind, title: kind === 'followups' ? 'Log a follow-up' : 'Schedule a meeting', src: '/assets/crm_addons/meetings/index.html?' + q.toString(), height: 560 })
+				if (kind !== 'followups') { q.set('reference_doctype', 'CRM Lead'); q.set('reference_title', title.value) } else if (followup) q.set('followup', followup)
+				Object.assign(ovl, { open: true, kind, title: kind === 'followups' ? (followup ? 'Edit follow-up' : 'Add follow-up') : 'Schedule a meeting', src: '/assets/crm_addons/meetings/index.html?' + q.toString(), height: 560 })
 			}
 			const frame = ref(null)
 			function onMessage(e) {
@@ -95,55 +130,93 @@
 			onMounted(() => window.addEventListener('message', onMessage))
 			onBeforeUnmount(() => window.removeEventListener('message', onMessage))
 			async function doneFollowup(f) { try { await call('complete_followup', { name: props.name, followup: f.name }); delete data.activity; await reload('followups'); load() } catch (e) { CM.toast(e.message, 'err') } }
+			async function dropFollowup(f) {
+				if (!(await CM.confirm({ title: 'Delete this follow-up?', confirmText: 'Delete', danger: true }))) return
+				try { await call('delete_followup', { name: props.name, followup: f.name }); delete data.activity; await reload('followups'); load() } catch (e) { CM.toast(e.message, 'err') }
+			}
+			const fu = computed(() => data.followups || null)
+			const overdue = (s) => !!s && new Date(String(s).replace(' ', 'T')) < new Date()
+			const attemptTone = (f) => {
+				const o = String(f.outcome || '').toLowerCase()
+				if (/not interested|lost|wrong/.test(o)) return 'red'
+				if (f.mode === 'Call' && f.call_status && f.call_status !== 'Connected') return 'red'
+				if (/meeting|interested|won|demo/.test(o)) return 'green'
+				return 'blue'
+			}
+			const bandTone = (b) => (b === 'Hot' ? 'red' : b === 'Warm' ? 'amber' : 'neutral')
 
 			// emails: write one, or start from one of the app's templates and edit it before it goes
-			const em = reactive({ open: false, busy: false, loading: false, v: {}, error: '', tpl: '', info: null, cc: false, bcc: false })
-			const body = ref(null)
+			const em = reactive({ open: false, busy: false, loading: false, v: {}, error: '', tpl: '', info: null, cc: false, bcc: false, files: [], upBusy: false })
+			const opened = reactive({})
 			async function openEmail() {
-				em.v = { recipients: lead.value.email || '', cc: '', bcc: '', subject: '', content: '' }; em.tpl = ''; em.error = ''; em.cc = false; em.bcc = false; em.open = true; em.loading = true
+				em.v = { recipients: lead.value.email || '', cc: '', bcc: '', subject: '', content: '' }; em.tpl = ''; em.error = ''; em.cc = false; em.bcc = false; em.files = []; em.open = true; em.loading = true
 				try { em.info = await call('email_templates', { name: props.name }) } catch (e) { em.error = e.message } finally { em.loading = false }
 			}
 			const tplOpts = computed(() => [{ value: '', label: 'No template - write my own' }, ...((em.info && em.info.templates) || []).map((t) => ({ value: t.name, label: t.label }))])
 			function pickTemplate(v) {
 				em.tpl = v; const t = ((em.info && em.info.templates) || []).find((x) => x.name === v)
 				if (!t) return
-				em.v.subject = t.subject; em.v.content = t.body; if (body.value) body.value.innerHTML = t.body
+				em.v.subject = t.subject; em.v.content = t.body
 			}
-			const typed = (e) => { em.v.content = e.target.innerHTML }
-			function format(cmd) { if (body.value) body.value.focus(); if (cmd === 'link') { const u = window.prompt('Link address', 'https://'); if (u) document.execCommand('createLink', false, u) } else document.execCommand(cmd); if (body.value) em.v.content = body.value.innerHTML }
-			async function sendEmail() { em.busy = true; em.error = ''; try { await call('send_email', { name: props.name, ...em.v, html: 1 }); em.open = false; delete data.activity; await reload('emails'); CM.toast('Email queued to send') } catch (e) { em.error = e.message } finally { em.busy = false } }
+			async function attach(e) {
+				const picked = [...e.target.files]; e.target.value = ''; em.upBusy = true
+				try { for (const f of picked) em.files.push(await CM.upload(f, { isPrivate: true })) } catch (x) { em.error = x.message } finally { em.upBusy = false }
+			}
+			async function sendEmail() { em.busy = true; em.error = ''; try { await call('send_email', { name: props.name, ...em.v, html: 1, attachments: JSON.stringify(em.files.map((f) => f.name)) }); em.open = false; delete data.activity; await reload('emails'); CM.toast('Email queued to send') } catch (e) { em.error = e.message } finally { em.busy = false } }
+			const mailState = (e) => (e.sent_or_received === 'Received' ? 'Received' : e.read_by_recipient ? 'Read' : e.delivery_status || 'Sent')
 
-			// whatsapp
-			const wa = reactive({ text: '', busy: false }); const chat = ref(null)
+			// whatsapp: shaped like the app, with the 24-hour rule of the WhatsApp Business platform
+			const wa = reactive({ text: '', busy: false, emoji: false }); const chat = ref(null); const upload = ref(null)
 			const waTemplate = () => window.postMessage({ source: 'crm-addons', type: 'pro-send', kind: 'whatsapp', names: [props.name] }, location.origin)
 			const waMessages = computed(() => (data.whatsapp ? data.whatsapp.messages : []))
-			watch(waMessages, () => nextTick(() => { if (chat.value) chat.value.scrollTop = chat.value.scrollHeight }))
-			async function sendWa() { wa.busy = true; try { await call('send_whatsapp', { name: props.name, message: wa.text }); wa.text = ''; delete data.activity; await reload('whatsapp') } catch (e) { CM.toast(e.message, 'err') } finally { wa.busy = false } }
+			const waDays = computed(() => { const out = []; for (const m of waMessages.value) { const k = dayKey(m.creation); const last = out[out.length - 1]; if (last && last.key === k) last.items.push(m); else out.push({ key: k, label: dayLabel(m.creation), items: [m] }) } return out })
+			watch(() => data.whatsapp, () => nextTick(() => { if (chat.value) chat.value.scrollTop = chat.value.scrollHeight }))
+			const mediaOf = (m) => { const a = m.attach; if (!a) return ''; const t = m.content_type; if (t === 'image' || /\.(png|jpe?g|gif|webp)$/i.test(a)) return 'image'; if (t === 'video' || /\.(mp4|3gp|mov)$/i.test(a)) return 'video'; if (t === 'audio' || /\.(mp3|ogg|opus|m4a|aac|amr)$/i.test(a)) return 'audio'; return 'document' }
+			const fileName = (u) => decodeURIComponent(String(u || '').split('/').pop().split('?')[0])
+			const caption = (m) => (m.message && m.message !== m.attach ? m.message : '')
+			const bubbleText = (m) => caption(m) || (!m.attach ? (m.message || (m.template ? 'Template: ' + m.template : '[' + (m.content_type || 'message') + ']')) : '')
+			const tick = (m) => (m.status === 'read' || m.status === 'Read' ? 'read' : m.status === 'delivered' || m.status === 'Delivered' ? 'delivered' : m.status === 'failed' || m.status === 'Failed' ? 'failed' : 'sent')
+			async function sendWa(file) {
+				wa.busy = true
+				try {
+					let attachUrl = ''; let type = 'text'
+					if (file) { const up = await CM.upload(file, { isPrivate: false }); attachUrl = up.file_url; type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : 'document' }
+					await call('send_whatsapp', { name: props.name, message: wa.text, attach: attachUrl, content_type: type }); wa.text = ''; wa.emoji = false; delete data.activity; await reload('whatsapp')
+				} catch (e) { CM.toast(e.message, 'err'); reload('whatsapp') } finally { wa.busy = false }
+			}
+			function pickFile(e) { const f = e.target.files[0]; e.target.value = ''; if (f) sendWa(f) }
+			const addEmoji = (x) => { wa.text += x }
 
 			const ICON = { change: 'edit', comment: 'message', assigned: 'users' }
-			return { lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, edit, openEdit, saveEdit, comment, addComment, comments, ovl, openOverlay, frame, doneFollowup, em, openEmail, tplOpts, pickTemplate, typed, format, body, sendEmail, wa, waTemplate, sendWa, chat, waMessages, ICON, day, digits, load, PRO, CM }
+			return { lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, dropLead, edit, openEdit, saveEdit, comment, commenting, addComment, comments, ovl, openOverlay, frame, doneFollowup, dropFollowup, fu, overdue, attemptTone, bandTone, em, opened, openEmail, tplOpts, pickTemplate, attach, sendEmail, mailState, wa, waTemplate, sendWa, pickFile, upload, addEmoji, EMOJI, chat, waMessages, waDays, mediaOf, fileName, caption, bubbleText, tick, clock, ICON, day, load, PRO, CM }
 		},
 		template: `
 		<div class="page lead-page">
-			<div class="row lead-nav"><button type="button" class="btn ghost sm back" @click="back"><Ico name="chevron-left" /> Leads</button><span class="grow"></span>
-				<template v-if="around.i >= 0"><span class="small muted">{{ around.i + 1 }} of {{ around.n }}</span><button type="button" class="btn icon sm" aria-label="Previous lead" title="Previous lead" :disabled="!around.prev" @click="step(around.prev)"><Ico name="chevron-up" /></button><button type="button" class="btn icon sm" aria-label="Next lead" title="Next lead" :disabled="!around.next" @click="step(around.next)"><Ico name="chevron-down" /></button></template></div>
 			<ErrorState v-if="error" :message="error" @retry="load" />
 			<div v-else-if="loading && !lead" class="card"><Skel h="60" /><Skel h="200" /></div>
 			<template v-else-if="lead">
 				<header class="lead-head card">
-					<Pic :name="title" :image="lead.image" :size="52" />
-					<div class="grow" style="min-width:0">
-						<h1 class="ellipsis">{{ title }}</h1>
-						<div class="row wrap small muted" style="gap:14px">
-							<span v-if="lead.mobile_no" class="row" style="gap:6px"><Ico name="phone" size="sm" /> {{ lead.mobile_no }} <button type="button" class="btn ghost icon sm" aria-label="Copy phone number" @click="copy(lead.mobile_no)"><Ico name="copy" size="sm" /></button></span>
-							<span v-if="lead.email" class="row" style="gap:6px"><Ico name="mail" size="sm" /> {{ lead.email }}</span>
-							<span v-if="lead.organization">{{ lead.organization }}</span>
-						</div>
+					<div class="lh-top">
+						<button type="button" class="btn ghost sm back" @click="back"><Ico name="chevron-left" /> Leads</button>
+						<span class="lead-id" title="Lead ID">{{ lead.name }}</span>
+						<span class="grow"></span>
+						<template v-if="around.i >= 0"><span class="small muted">{{ around.i + 1 }} of {{ around.n }}</span><button type="button" class="btn icon sm" aria-label="Previous lead" title="Previous lead" :disabled="!around.prev" @click="step(around.prev)"><Ico name="chevron-left" /></button><button type="button" class="btn icon sm" aria-label="Next lead" title="Next lead" :disabled="!around.next" @click="step(around.next)"><Ico name="chevron-right" /></button></template>
 					</div>
-					<div class="head-dd"><Dd :modelValue="lead.status" :options="statusOpts" :disabled="!lead.can_write" aria-label="Status" @update:modelValue="setStatus" /></div>
-					<div class="head-dd"><Dd :modelValue="lead.lead_owner || ''" :options="ownerOpts" searchable :disabled="!lead.can_write" aria-label="Assigned to" @update:modelValue="setOwner" /></div>
-					<a v-if="lead.mobile_no" class="btn" :href="'tel:' + lead.mobile_no"><Ico name="phone" /> Call</a>
-					<Btn v-if="lead.can_write" icon="edit" @click="openEdit">Edit</Btn>
+					<div class="lh-main">
+						<Pic :name="title" :image="lead.image" :size="52" />
+						<div class="grow" style="min-width:0">
+							<h1 class="ellipsis">{{ title }}</h1>
+							<div class="row wrap small muted" style="gap:14px">
+								<span v-if="lead.organization" class="row" style="gap:6px"><Ico name="building" size="sm" /> {{ lead.organization }}</span>
+								<span v-if="lead.mobile_no" class="row" style="gap:6px"><Ico name="phone" size="sm" /> {{ lead.mobile_no }} <button type="button" class="btn ghost icon sm" aria-label="Copy phone number" @click="copy(lead.mobile_no)"><Ico name="copy" size="sm" /></button></span>
+								<span v-if="lead.email" class="row" style="gap:6px"><Ico name="mail" size="sm" /> {{ lead.email }}</span>
+							</div>
+						</div>
+						<div class="head-dd"><Dd :modelValue="lead.status" :options="statusOpts" :disabled="!lead.can_write" aria-label="Status" @update:modelValue="setStatus" /></div>
+						<div class="head-dd"><Dd :modelValue="lead.lead_owner || ''" :options="ownerOpts" searchable :disabled="!lead.can_write" aria-label="Assigned to" @update:modelValue="setOwner" /></div>
+						<Btn v-if="lead.can_write" icon="edit" @click="openEdit">Edit</Btn>
+						<Btn v-if="lead.can_delete" icon="trash" class="danger-o" aria-label="Delete lead" title="Delete lead" @click="dropLead" />
+					</div>
 				</header>
 
 				<div class="lead-layout">
@@ -154,57 +227,72 @@
 							<template v-if="tab === 'activity'">
 								<Skel v-if="!data.activity" h="40" />
 								<Empty v-else-if="!data.activity.length" icon="clock" title="No activity yet" text="Everything that happens with this lead shows up here." />
-								<ul v-else class="list"><li v-for="(e, i) in data.activity" :key="i" class="li row act" style="gap:12px;align-items:flex-start">
+								<ul v-else class="list tline"><li v-for="(e, i) in data.activity" :key="i" class="li row act" style="gap:12px;align-items:flex-start">
 									<span class="act-ico"><Ico :name="e.icon || ICON[e.kind] || 'clock'" size="sm" /></span>
 									<div class="grow">
 										<div v-if="e.kind === 'change'"><b>{{ e.by ? e.by.full_name : 'System' }}</b> changed <b>{{ e.field }}</b><template v-if="e.old"> from {{ e.old }}</template> to <b>{{ e.new || 'empty' }}</b></div>
 										<div v-else-if="e.kind === 'assigned'" class="muted">{{ e.text }}</div>
-										<div v-else-if="e.kind === 'comment'"><b>{{ e.by ? e.by.full_name : 'System' }}</b> commented<div class="note-body">{{ e.text }}</div></div>
+										<div v-else-if="e.kind === 'comment'"><b>{{ e.by ? e.by.full_name : 'System' }}</b> commented<div class="cbub">{{ e.text }}</div></div>
 										<div v-else><b>{{ e.title }}</b><span v-if="e.by" class="muted"> - {{ e.by.full_name }}</span><div v-if="e.detail" class="small muted">{{ e.detail }}</div></div>
 									</div><span class="small muted nowrap">{{ PRO.ago(e.creation) }}</span></li></ul>
 							</template>
 
 							<template v-else-if="tab === 'emails'">
-								<div class="row" style="justify-content:space-between"><h3>Emails</h3><Btn v-if="lead.can_write" size="sm" icon="mail" @click="openEmail">New email</Btn></div>
+								<div class="tab-head"><h3 class="row" style="gap:8px"><Ico name="mail" /> Emails</h3><Btn v-if="lead.can_write" variant="primary" icon="plus" @click="openEmail">New email</Btn></div>
 								<Skel v-if="!data.emails" h="40" />
 								<Empty v-else-if="!data.emails.length" icon="mail" title="No emails yet" text="Emails sent to or received from this lead show here." />
-								<ul v-else class="list"><li v-for="e in data.emails" :key="e.name" class="li"><div class="row" style="justify-content:space-between;gap:10px"><b>{{ e.subject || '(no subject)' }}</b><span class="small muted nowrap">{{ PRO.ago(e.communication_date || e.creation) }}</span></div>
-									<div class="small muted">{{ e.sent_or_received === 'Sent' ? 'To ' + (e.recipients || '') : 'From ' + (e.sender || '') }}<template v-if="e.delivery_status"> - {{ e.delivery_status }}</template></div>
-									<div class="small" style="margin-top:4px">{{ e.preview }}</div></li></ul>
+								<div v-else class="mails"><article v-for="e in data.emails" :key="e.name" class="mail" :class="e.sent_or_received === 'Sent' ? 'out' : 'in'">
+									<Pic :name="e.sender_full_name || e.sender" :size="34" />
+									<div class="mail-card">
+										<div class="row" style="gap:8px;align-items:flex-start"><div class="grow" style="min-width:0"><b>{{ e.sender_full_name || e.sender }}</b> <span class="small muted">&lt;{{ e.sender }}&gt;</span></div><span class="badge nodot" :class="mailState(e) === 'Read' ? 'blue' : mailState(e) === 'Received' ? 'neutral' : /fail|error/i.test(mailState(e)) ? 'red' : 'green'">{{ mailState(e) }}</span><span class="small muted nowrap">{{ PRO.ago(e.communication_date || e.creation) }}</span></div>
+										<div class="mail-sub">{{ e.subject || '(no subject)' }}</div>
+										<div class="small muted">To: {{ e.recipients }}<template v-if="e.cc"> - CC: {{ e.cc }}</template></div>
+										<div class="mail-view" :class="{ open: opened[e.name] }" v-html="e.body"></div>
+										<button v-if="(e.body || '').length > 400" type="button" class="btn ghost sm" @click="opened[e.name] = !opened[e.name]">{{ opened[e.name] ? 'Show less' : 'Show more' }}</button>
+									</div></article></div>
 							</template>
 
 							<template v-else-if="tab === 'comments'">
-								<h3>Comments</h3>
-								<form v-if="lead.can_write" class="row" style="gap:8px;margin-bottom:14px" @submit.prevent="addComment"><div class="grow"><Inp v-model="comment" placeholder="Write a comment" aria-label="Comment" /></div><Btn type="submit" variant="primary" :disabled="!comment.trim()">Comment</Btn></form>
+								<div class="tab-head"><h3 class="row" style="gap:8px"><Ico name="message" /> Comments</h3></div>
+								<div v-if="lead.can_write" class="comment-box"><RichEditor v-model="comment" placeholder="Write a comment" label="Comment" :min-height="90" /><div class="row" style="justify-content:flex-end;margin-top:8px"><Btn variant="primary" icon="send" :loading="commenting" :disabled="!comment" @click="addComment">Comment</Btn></div></div>
 								<Skel v-if="!data.comments" h="40" />
 								<Empty v-else-if="!comments.length" icon="message" title="No comments yet" text="Leave a note for your team." />
-								<ul v-else class="list"><li v-for="(e, i) in comments" :key="i" class="li row" style="gap:12px;align-items:flex-start"><Pic :name="e.by && e.by.full_name" :image="e.by && e.by.image" :size="30" /><div class="grow"><div><b>{{ e.by ? e.by.full_name : 'System' }}</b> <span class="small muted">{{ PRO.ago(e.creation) }}</span></div><div class="note-body">{{ e.text }}</div></div></li></ul>
+								<ul v-else class="list"><li v-for="(e, i) in comments" :key="i" class="li row" style="gap:12px;align-items:flex-start"><Pic :name="e.by && e.by.full_name" :image="e.by && e.by.image" :size="32" /><div class="grow"><div><b>{{ e.by ? e.by.full_name : 'System' }}</b> <span class="small muted">{{ PRO.ago(e.creation) }}</span></div><div class="cbub" v-html="e.html || e.text"></div></div></li></ul>
 							</template>
 
 							<template v-else-if="tab === 'data'">
-								<h3>Data</h3>
+								<div class="tab-head"><h3 class="row" style="gap:8px"><Ico name="list" /> Data</h3></div>
 								<Skel v-if="!data.data" h="40" />
 								<Empty v-else-if="!data.data.length" icon="list" title="No data" text="This lead has no filled-in fields." />
-								<div v-else v-for="(s, i) in data.data" :key="i" class="dsec"><h4 v-if="s.label" class="dh">{{ s.label }}</h4><div class="facts"><Fact v-for="f in s.fields" :key="f.label" :label="f.label" :value="f.value" /></div></div>
+								<div v-else class="dcards"><section v-for="(s, i) in data.data" :key="i" class="dcard"><h4 class="dh">{{ s.label || 'Details' }}</h4><div class="facts two"><Fact v-for="f in s.fields" :key="f.label" :label="f.label" :value="f.value" /></div></section></div>
 							</template>
 
 							<template v-else-if="tab === 'meetings'">
-								<div class="row" style="justify-content:space-between"><h3>Meetings</h3><Btn v-if="lead.can_write" size="sm" icon="plus" @click="openOverlay('meetings')">Schedule meeting</Btn></div>
+								<div class="tab-head"><h3 class="row" style="gap:8px"><Ico name="calendar" /> Meetings</h3><Btn v-if="lead.can_write" variant="primary" icon="plus" @click="openOverlay('meetings')">Schedule meeting</Btn></div>
 								<Skel v-if="!data.meetings" h="40" />
 								<Empty v-else-if="!data.meetings.length" icon="calendar" title="No meetings" text="Schedule a meeting or a demo with this lead." />
 								<ul v-else class="list"><li v-for="m in data.meetings" :key="m.name" class="li row" style="gap:12px"><Ico name="calendar" /><div class="grow"><b>{{ m.subject }}</b><div class="small muted">{{ day(m.starts_on) }}<template v-if="m.by"> - {{ m.by.full_name }}</template></div><div v-if="m.meeting_outcome" class="small">{{ m.meeting_outcome }}</div></div><a v-if="m.google_meet_link" class="btn sm" :href="m.google_meet_link" target="_blank" rel="noopener">Join</a><span class="badge nodot" :class="m.status === 'Completed' ? 'green' : m.status === 'Cancelled' ? 'red' : 'blue'">{{ m.status }}</span></li></ul>
 							</template>
 
 							<template v-else-if="tab === 'followups'">
-								<div class="row" style="justify-content:space-between"><h3>Follow-ups</h3><Btn v-if="lead.can_write" size="sm" icon="plus" @click="openOverlay('followups')">Log follow-up</Btn></div>
-								<Skel v-if="!data.followups" h="40" />
-								<Empty v-else-if="!data.followups.length" icon="phone" title="No follow-ups yet" text="Log each call or visit so the next step is never missed." />
-								<ul v-else class="list"><li v-for="f in data.followups" :key="f.name" class="li row" style="gap:12px;align-items:flex-start"><Ico name="phone" /><div class="grow"><b>{{ [f.mode, f.call_status, f.outcome].filter(Boolean).join(' - ') }}</b><span class="small muted"> attempt {{ f.attempt_no }}</span><div v-if="f.remark" class="small">{{ f.remark }}</div><div class="small muted">{{ day(f.followed_up_on) }}<template v-if="f.by"> - {{ f.by.full_name }}</template></div>
-									<div v-if="f.next_follow_up_on && !f.next_closed" class="small" style="margin-top:4px"><Ico name="calendar" size="sm" /> Next: <b>{{ day(f.next_follow_up_on) }}</b> <Btn v-if="lead.can_write" size="sm" variant="ghost" @click="doneFollowup(f)">Mark done</Btn></div></div></li></ul>
+								<div class="tab-head"><h3 class="row" style="gap:8px"><Ico name="phone" /> Follow-ups</h3><Btn v-if="lead.can_write" variant="primary" icon="plus" @click="openOverlay('followups')">Add follow-up</Btn></div>
+								<Skel v-if="!fu" h="40" />
+								<template v-else>
+									<div v-if="fu.summary.next" class="fu-next" :class="{ late: overdue(fu.summary.next.next_follow_up_on) }"><Ico :name="overdue(fu.summary.next.next_follow_up_on) ? 'alert' : 'clock'" /><div class="grow"><b>{{ overdue(fu.summary.next.next_follow_up_on) ? 'Follow-up overdue' : 'Next follow-up' }}: {{ day(fu.summary.next.next_follow_up_on) }}</b><div v-if="fu.summary.next.remark" class="small">{{ fu.summary.next.remark }}</div></div><Btn v-if="lead.can_write" icon="check" @click="doneFollowup(fu.summary.next)">Mark done</Btn></div>
+									<div v-if="fu.items.length" class="chips"><span v-if="fu.summary.streak" class="badge nodot amber">{{ fu.summary.streak }} call{{ fu.summary.streak === 1 ? '' : 's' }} in a row not picked / connected</span><span class="badge nodot neutral">{{ fu.summary.calls }} call{{ fu.summary.calls === 1 ? '' : 's' }} logged</span><span v-if="fu.score !== null" class="badge nodot" :class="bandTone(fu.score_band)">Score {{ fu.score }} - {{ fu.score_band }}</span></div>
+									<Empty v-if="!fu.items.length" icon="phone" title="No follow-ups yet" text="Log each call or visit so the next step is never missed." />
+									<div v-else class="fcards"><article v-for="f in fu.items" :key="f.name" class="fcard">
+										<div class="row" style="gap:8px;align-items:flex-start"><span class="badge nodot big" :class="attemptTone(f)">Attempt {{ f.attempt_no }} - {{ f.outcome || f.call_status || f.mode }}</span><span class="grow"></span>
+											<button v-if="f.can_edit" type="button" class="btn ghost icon sm" aria-label="Edit follow-up" title="Edit" @click="openOverlay('followups', f.name)"><Ico name="edit" /></button>
+											<button v-if="fu.can_delete" type="button" class="btn ghost icon sm" aria-label="Delete follow-up" title="Delete" @click="dropFollowup(f)"><Ico name="trash" /></button></div>
+										<div v-if="f.remark" class="fremark">{{ f.remark }}</div>
+										<div class="small muted fmeta"><span>{{ day(f.followed_up_on) }}</span><span v-if="f.by">by {{ f.by }}</span><span v-if="f.mode && f.mode !== 'Call'">{{ f.mode }}</span><span v-if="f.next_follow_up_on">Next: {{ day(f.next_follow_up_on) }}<template v-if="f.next_closed"> (done)</template></span></div>
+									</article></div>
+								</template>
 							</template>
 
 							<template v-else-if="tab === 'campaigns'">
-								<h3>Campaign</h3>
+								<div class="tab-head"><h3 class="row" style="gap:8px"><Ico name="send" /> Campaign</h3></div>
 								<Skel v-if="!data.campaigns" h="40" />
 								<Empty v-else-if="!data.campaigns.length" icon="send" title="Not in any campaign" text="Campaign emails and WhatsApp messages sent to this lead show here." />
 								<ul v-else class="list"><li v-for="r in data.campaigns" :key="r.name" class="li row" style="gap:12px"><Ico :name="r.channel === 'WhatsApp' ? 'whatsapp' : 'mail'" /><div class="grow"><b>{{ r.campaign_title }}</b><span class="small muted"> step {{ (r.step_idx || 0) + 1 }} - {{ r.channel }}</span>
@@ -212,17 +300,33 @@
 							</template>
 
 							<template v-else-if="tab === 'whatsapp'">
-								<div class="row" style="justify-content:space-between"><h3>WhatsApp</h3><Btn v-if="lead.can_write && lead.mobile_no && data.whatsapp && data.whatsapp.installed" size="sm" icon="send" @click="waTemplate">Send a template</Btn></div>
+								<div class="tab-head"><h3 class="row" style="gap:8px"><Ico name="whatsapp" /> WhatsApp</h3><Btn v-if="lead.can_write && lead.mobile_no && data.whatsapp && data.whatsapp.installed" icon="send" @click="waTemplate">Send a template</Btn></div>
 								<Skel v-if="!data.whatsapp" h="40" />
 								<Empty v-else-if="!data.whatsapp.installed" icon="whatsapp" title="WhatsApp is not set up" text="Install and connect the Frappe WhatsApp app to chat with leads here." />
-								<template v-else>
-									<div ref="chat" class="chat"><p v-if="!waMessages.length" class="muted small" style="text-align:center">No messages yet.</p>
-										<div v-for="m in waMessages" :key="m.name" class="bub" :class="m.type === 'Incoming' ? 'in' : 'out'"><div>{{ m.message || (m.template ? 'Template: ' + m.template : '[' + (m.content_type || 'message') + ']') }}</div><div class="small muted" style="text-align:right">{{ PRO.ago(m.creation) }}<template v-if="m.type !== 'Incoming' && m.status"> - {{ m.status }}</template></div></div></div>
-									<form v-if="lead.can_write && lead.mobile_no" class="row" style="gap:8px;margin-top:12px" @submit.prevent="sendWa"><div class="grow"><Inp v-model="wa.text" placeholder="Type a message" aria-label="WhatsApp message" /></div><Btn type="submit" variant="primary" icon="send" :loading="wa.busy" :disabled="!wa.text.trim()">Send</Btn></form>
-									<p v-else-if="!lead.mobile_no" class="small muted">Add a phone number to message this lead.</p>
-								</template>
+								<div v-else class="wa">
+									<div class="wa-head"><Pic :name="title" :image="lead.image" :size="38" /><div class="grow"><b>{{ title }}</b><div class="small">{{ lead.mobile_no || 'No phone number' }}</div></div>
+										<span class="wa-win" :class="{ on: data.whatsapp.window_open }">{{ data.whatsapp.window_open ? 'Chat open until ' + day(data.whatsapp.window_until) : 'Template needed' }}</span></div>
+									<div ref="chat" class="wa-chat"><p v-if="!waMessages.length" class="wa-note">No messages yet. Start with a template.</p>
+										<template v-for="d in waDays" :key="d.key"><div class="wa-day"><span>{{ d.label }}</span></div>
+											<div v-for="m in d.items" :key="m.name" class="wa-row" :class="m.type === 'Incoming' ? 'in' : 'out'"><div class="wa-bub">
+												<template v-if="mediaOf(m) === 'image'"><a :href="m.attach" target="_blank" rel="noopener"><img class="wa-img" :src="m.attach" alt="Image" loading="lazy" /></a></template>
+												<video v-else-if="mediaOf(m) === 'video'" class="wa-img" :src="m.attach" controls preload="metadata"></video>
+												<audio v-else-if="mediaOf(m) === 'audio'" :src="m.attach" controls preload="metadata"></audio>
+												<a v-else-if="mediaOf(m) === 'document'" class="wa-doc" :href="m.attach" target="_blank" rel="noopener"><Ico name="file" /><span class="ellipsis">{{ fileName(m.attach) }}</span><Ico name="download" size="sm" /></a>
+												<div v-if="bubbleText(m)" class="wa-text">{{ bubbleText(m) }}</div>
+												<div class="wa-meta">{{ clock(m.creation) }}<template v-if="m.type !== 'Incoming'"> <span class="wa-tick" :class="tick(m)" :title="m.status || 'Sent'">{{ tick(m) === 'failed' ? '!' : tick(m) === 'sent' ? '✓' : '✓✓' }}</span></template></div></div></div></template></div>
+									<div v-if="!lead.mobile_no" class="wa-lock">Add a phone number to message this lead.</div>
+									<div v-else-if="!data.whatsapp.window_open" class="wa-lock"><div><b>Send a template first.</b> The lead has not written in the last 24 hours, so WhatsApp only allows an approved template. Once they reply, you can chat freely here.</div><Btn v-if="lead.can_write" variant="primary" icon="send" @click="waTemplate">Send a template</Btn></div>
+									<form v-else-if="lead.can_write" class="wa-compose" @submit.prevent="sendWa()">
+										<div v-if="wa.emoji" class="wa-emoji"><button v-for="x in EMOJI" :key="x" type="button" :aria-label="'Emoji ' + x" @click="addEmoji(x)">{{ x }}</button></div>
+										<button type="button" class="wa-ib" aria-label="Emoji" title="Emoji" @click="wa.emoji = !wa.emoji">😊</button>
+										<button type="button" class="wa-ib" aria-label="Attach a photo, video or document" title="Attach a photo, video or document" :disabled="wa.busy" @click="upload.click()"><Ico name="paperclip" /></button>
+										<input ref="upload" type="file" hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" @change="pickFile" />
+										<input class="wa-in" v-model="wa.text" placeholder="Type a message" aria-label="WhatsApp message" />
+										<button type="submit" class="wa-send" aria-label="Send" :disabled="wa.busy || !wa.text.trim()"><Ico name="send" /></button>
+									</form>
+								</div>
 							</template>
-
 						</section>
 					</div>
 
@@ -232,7 +336,7 @@
 						</section>
 						<section class="card"><h3>Added</h3><div class="facts one"><Fact label="Added on" :value="day(lead.creation)" /><Fact label="Added by" :value="lead.created_by && lead.created_by.full_name" /></div></section>
 						<section class="card"><h3>Follow-up</h3>
-							<div class="facts one"><Fact label="Next follow-up"><span :class="{ overdue: lead.next_follow_up_on && new Date(lead.next_follow_up_on.replace(' ', 'T')) < new Date() }">{{ day(lead.next_follow_up_on) || '-' }}</span></Fact><Fact label="Next meeting" :value="day(lead.next_meeting_on)" /><Fact label="Last call" :value="lead.addons_last_outcome" /><Fact label="Call attempts" :value="lead.addons_call_attempts" /><Fact label="Score" :value="lead.addons_score" /></div>
+							<div class="facts one"><Fact label="Next follow-up"><span :class="{ overdue: overdue(lead.next_follow_up_on) }">{{ day(lead.next_follow_up_on) || '-' }}</span></Fact><Fact label="Next meeting" :value="day(lead.next_meeting_on)" /><Fact label="Last call" :value="lead.addons_last_outcome" /><Fact label="Call attempts" :value="lead.addons_call_attempts" /><Fact label="Score" :value="lead.addons_score" /></div>
 						</section>
 						<section v-if="lead.crm_demo_first_utm_source || lead.crm_demo_first_utm_medium || lead.crm_demo_first_utm_campaign" class="card"><h3>Where they came from</h3>
 							<div class="facts one"><Fact label="UTM source" :value="lead.crm_demo_first_utm_source" /><Fact label="UTM medium" :value="lead.crm_demo_first_utm_medium" /><Fact label="UTM campaign" :value="lead.crm_demo_first_utm_campaign" /></div>
@@ -245,18 +349,20 @@
 					<div v-if="edit.error" class="err" role="alert" style="margin-top:10px">{{ edit.error }}</div>
 					<template #foot><Btn @click="edit.open = false">Cancel</Btn><Btn variant="primary" :loading="edit.busy" @click="saveEdit">Save</Btn></template>
 				</Modal>
-					<div v-if="ovl.open" class="ovl" role="dialog" aria-modal="true" :aria-label="ovl.title" @click.self="ovl.open = false"><div class="ovl-box"><iframe ref="frame" :src="ovl.src" :title="ovl.title" :style="{ height: ovl.height + 'px' }"></iframe></div></div>
-					<Modal v-if="em.open" title="New email" size="lg" @close="em.open = false">
-						<div v-if="em.info && em.info.problem" class="err" role="alert" style="margin-bottom:10px">{{ em.info.problem }}</div>
-						<Field label="Template"><Dd :modelValue="em.tpl" :options="tplOpts" searchable aria-label="Email template" @update:modelValue="pickTemplate" /></Field>
-						<Field label="To"><div class="row" style="gap:8px"><div class="grow"><Inp v-model="em.v.recipients" aria-label="To" /></div><button v-if="!em.cc" type="button" class="btn ghost sm" @click="em.cc = true">CC</button><button v-if="!em.bcc" type="button" class="btn ghost sm" @click="em.bcc = true">BCC</button></div></Field>
-						<Field v-if="em.cc" label="CC"><Inp v-model="em.v.cc" placeholder="Separate addresses with commas" aria-label="CC" /></Field>
-						<Field v-if="em.bcc" label="BCC"><Inp v-model="em.v.bcc" placeholder="Separate addresses with commas" aria-label="BCC" /></Field>
-						<Field label="Subject"><Inp v-model="em.v.subject" aria-label="Subject" /></Field>
-						<Field label="Message"><div class="mail-ed"><div class="mail-bar"><button type="button" class="btn ghost sm" aria-label="Bold" @click="format('bold')"><b>B</b></button><button type="button" class="btn ghost sm" aria-label="Italic" @click="format('italic')"><i>I</i></button><button type="button" class="btn ghost sm" aria-label="Add a link" @click="format('link')">Link</button></div><div ref="body" class="mail-body" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message" @input="typed"></div></div></Field>
-						<div v-if="em.error" class="err" role="alert">{{ em.error }}</div>
-						<template #foot><Btn @click="em.open = false">Cancel</Btn><Btn variant="primary" icon="send" :loading="em.busy" :disabled="em.loading" @click="sendEmail">Send</Btn></template>
-					</Modal>
+				<div v-if="ovl.open" class="ovl" role="dialog" aria-modal="true" :aria-label="ovl.title" @click.self="ovl.open = false"><div class="ovl-box"><iframe ref="frame" :src="ovl.src" :title="ovl.title" :style="{ height: ovl.height + 'px' }"></iframe></div></div>
+				<Modal v-if="em.open" title="New email" size="lg" @close="em.open = false">
+					<div v-if="em.info && em.info.problem" class="err" role="alert" style="margin-bottom:10px">{{ em.info.problem }}</div>
+					<Field label="Template"><Dd :modelValue="em.tpl" :options="tplOpts" searchable aria-label="Email template" @update:modelValue="pickTemplate" /></Field>
+					<Field label="To"><div class="row" style="gap:8px"><div class="grow"><Inp v-model="em.v.recipients" aria-label="To" /></div><button v-if="!em.cc" type="button" class="btn ghost sm" @click="em.cc = true">CC</button><button v-if="!em.bcc" type="button" class="btn ghost sm" @click="em.bcc = true">BCC</button></div></Field>
+					<Field v-if="em.cc" label="CC"><Inp v-model="em.v.cc" placeholder="Separate addresses with commas" aria-label="CC" /></Field>
+					<Field v-if="em.bcc" label="BCC"><Inp v-model="em.v.bcc" placeholder="Separate addresses with commas" aria-label="BCC" /></Field>
+					<Field label="Subject"><Inp v-model="em.v.subject" aria-label="Subject" /></Field>
+					<Field label="Message"><RichEditor v-model="em.v.content" placeholder="Write your message" :min-height="200" /></Field>
+					<div class="row wrap" style="gap:8px"><label class="btn sm" :class="{ disabled: em.upBusy }"><Ico name="paperclip" size="sm" /> Attach files<input type="file" multiple hidden @change="attach" /></label>
+						<span v-for="f in em.files" :key="f.name" class="chip-file"><Ico name="file" size="sm" /> {{ f.file_name }}<button type="button" class="btn ghost icon sm" :aria-label="'Remove ' + f.file_name" @click="em.files = em.files.filter((x) => x !== f)"><Ico name="x" size="sm" /></button></span></div>
+					<div v-if="em.error" class="err" role="alert" style="margin-top:8px">{{ em.error }}</div>
+					<template #foot><Btn @click="em.open = false">Cancel</Btn><Btn variant="primary" icon="send" :loading="em.busy" :disabled="em.loading || em.upBusy" @click="sendEmail">Send</Btn></template>
+				</Modal>
 			</template>
 		</div>`,
 	}

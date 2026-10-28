@@ -160,6 +160,7 @@
 			<button ref="trig" type="button" class="dd-btn" :class="[size, { open, bad }]" :disabled="disabled" :aria-label="ariaLabel || placeholder" aria-haspopup="listbox" :aria-expanded="open" @click="toggle" @keydown="onKey">
 				<span v-if="prefix" class="pre">{{ prefix }}</span>
 				<Ico v-if="current && current.icon" :name="current.icon" />
+				<span v-if="current && current.dot" class="dd-dot" :style="{ background: current.dot }"></span>
 				<span class="lab" :class="{ ph: !current }">{{ current ? current.label : placeholder }}</span>
 				<Ico name="chevron-down" size="sm" class="chev" />
 			</button>
@@ -171,6 +172,7 @@
 							<div v-if="o.group" class="pop-head">{{ o.group }}</div>
 							<button type="button" class="opt" :class="{ on: o.value === modelValue, hi: i === hi, dis: o.disabled }" role="option" :aria-selected="o.value === modelValue" @mouseenter="hi = i" @click="pick(o)">
 								<Ico v-if="o.icon" :name="o.icon" />
+								<span v-if="o.dot" class="dd-dot" :style="{ background: o.dot }"></span>
 								<span class="grow"><span class="ellipsis" style="display:block">{{ o.label }}</span><span v-if="o.sub" class="sub">{{ o.sub }}</span></span>
 								<span v-if="o.badge" class="badge neutral nodot">{{ o.badge }}</span>
 								<Ico v-if="o.value === modelValue && o.value !== ''" name="check" size="sm" class="tick" />
