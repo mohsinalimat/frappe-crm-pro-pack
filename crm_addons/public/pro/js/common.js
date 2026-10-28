@@ -13,7 +13,7 @@
 		house: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
 	})
 	PRO.api = (m, a) => CM.call('crm_addons.pro.api.' + m, a)
-	PRO.shell = reactive({ loaded: false, user: '', full_name: '', image: '', brand: { name: '', logo: '' }, unread: 0, config: null, error: '' })
+	PRO.shell = reactive({ loaded: false, user: '', full_name: '', image: '', brand: { name: '', logo: '' }, unread: 0, waUnread: 0, config: null, error: '' })
 	PRO.loadShell = async () => {
 		try {
 			const [s, c] = await Promise.all([PRO.api('get_shell', {}), CM.call('crm_addons.api.get_client_config', {})])

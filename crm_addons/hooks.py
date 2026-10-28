@@ -55,7 +55,8 @@ doc_events = {
 	# a person's contact number (their default number in CRM) is set by a System Manager, not by the person
 	"User": {"validate": "crm_addons.team_access.profile.guard_mobile_no"},
 	"WhatsApp Message": {
-		"after_insert": ["crm_addons.campaigns.optout.on_whatsapp_message", "crm_addons.campaigns.rules.on_whatsapp_message"],
+		"validate": "crm_addons.pro.inbox.on_validate",
+		"after_insert": ["crm_addons.pro.inbox.on_message", "crm_addons.campaigns.optout.on_whatsapp_message", "crm_addons.campaigns.rules.on_whatsapp_message"],
 		"on_update": "crm_addons.campaigns.engine.on_whatsapp_message_update",
 	},
 	"Communication": {"after_insert": "crm_addons.campaigns.rules.on_communication"},
@@ -68,8 +69,9 @@ doc_events = {
 	"Email Template": {"on_update": "crm_addons.campaigns.email_sync.pull"},
 	"CRM Lead": {
 		# the assignment rules first, so a campaign that starts on a new lead already sees its owner
-		"after_insert": ["crm_addons.assignment.on_lead_insert", "crm_addons.campaigns.triggers.on_lead_insert"],
-		"on_update": "crm_addons.campaigns.triggers.on_lead_update",
+		"after_insert": ["crm_addons.assignment.on_lead_insert", "crm_addons.campaigns.triggers.on_lead_insert", "crm_addons.pro.inbox.on_lead_saved"],
+		"on_update": ["crm_addons.campaigns.triggers.on_lead_update", "crm_addons.pro.inbox.on_lead_saved"],
+		"on_trash": "crm_addons.pro.inbox.on_lead_deleted",
 	},
 }
 

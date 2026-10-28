@@ -19,6 +19,7 @@
 		const campaignAccess = ['campaigns', 'automations', 'email_templates', 'whatsapp_templates', 'audiences'].some((k) => a[k] !== undefined && a[k] !== 'none') || !!Number(a.campaign_reports) || !!Number(a.list_cleanup)
 		const shown = (k) => a[k] === undefined || (typeof a[k] === 'string' ? a[k] !== 'none' : !!Number(a[k])) // a page the person has no access to is hidden, not greyed out
 		const rows = [{ key: 'notifications', label: 'Notifications', icon: 'bell', native: true, badge: true }]
+		if (shown('whatsapp_inbox') && a.whatsapp_inbox !== undefined) rows.push({ key: 'whatsapp', label: 'WhatsApp', icon: 'whatsapp' })
 		if (shown('dashboard')) rows.push({ key: 'dashboard', label: 'Sales Dashboard', icon: 'chart' })
 		if (shown('leads')) rows.push({ key: 'leads', label: 'Leads', icon: 'users', native: true })
 		if (c.follow_ups_enabled !== 0 && shown('followups')) rows.push({ key: 'followups', label: 'Follow-ups', icon: 'phone' })
@@ -235,7 +236,7 @@
 			watch(() => r.parts[0], (v) => { if (v === 'notifications') { ntf.value = true; location.hash = '#/dashboard' } }, { immediate: true })
 			watch(active, () => { document.title = (current.value.label || 'Suite Pro') + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			// the unread count stays fresh while the page is open
-			let t; onMounted(() => { t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000) }); onBeforeUnmount(() => clearInterval(t))
+			let t, t2; onMounted(() => { t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000); if (items.value.some((i) => i.key === 'whatsapp')) { const wa = async () => { try { PRO.shell.waUnread = (await CM.call('crm_addons.pro.inbox.get_access')).unread } catch (e) { /* later */ } }; wa(); t2 = setInterval(() => { if (!document.hidden && active.value !== 'whatsapp') wa() }, 30000) } }); onBeforeUnmount(() => clearInterval(t))
 			const setOpen = ref(r.parts[0] === 'settings'); watch(() => r.parts[0], (v) => { if (v === 'settings') setOpen.value = true })
 			const settingsMenu = computed(() => PRO.settingsGroups())
 			return { setOpen, settingsMenu, sendDlg, sendRun, runSend, ntf, health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
@@ -247,7 +248,7 @@
 				<template v-for="n in items" :key="n.key"><button v-if="n.key === 'notifications'" type="button" class="nav" :class="{ on: ntf }" :aria-expanded="String(ntf)" :title="collapsed ? n.label : null" :aria-label="n.label" @click="ntf = !ntf"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></button>
 								<div v-else-if="n.key === 'settings'" class="nav-grp"><div class="nav-split"><a :href="'#/settings/' + (r.parts[0] === 'settings' && r.parts[1] ? r.parts[1] : 'start')" class="nav" :class="{ on: active === 'settings' }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === 'settings' ? 'page' : null" @click="setOpen = active === 'settings' ? !setOpen : true"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span></a><button v-if="!collapsed" type="button" class="nav-chev" :class="{ open: setOpen }" :aria-expanded="String(setOpen)" aria-label="Show the settings groups" @click="setOpen = !setOpen"><Ico name="chevron-down" size="sm" /></button></div>
 									<div v-if="setOpen && !collapsed" class="nav-sub"><a v-for="g in settingsMenu" :key="g.title" :href="'#/settings/' + g.items[0].value" class="nav-sub-i" :class="{ on: active === 'settings' && g.items.some((t) => t.value === (r.parts[1] || 'start')) }"><Ico :name="g.icon" size="sm" />{{ g.title }}</a></div></div>
-								<a v-else :href="'#/' + n.key" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></a></template>
+								<a v-else :href="'#/' + n.key" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span><span v-if="n.key === 'whatsapp' && PRO.shell.waUnread" class="pro-badge">{{ PRO.shell.waUnread > 99 ? '99+' : PRO.shell.waUnread }}</span></a></template>
 				<div class="rail-foot">
 					<ProfileMenu :collapsed="collapsed" />
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
@@ -264,6 +265,7 @@
 				<Organization v-else-if="active === 'organizations' && r.parts[1]" :key="'o' + r.parts[1]" :name="r.parts[1]" />
 				<Organizations v-else-if="active === 'organizations'" :key="'os'" />
 				<SettingsPage v-else-if="active === 'settings'" :tab="r.parts[1]" />
+				<Inbox v-else-if="active === 'whatsapp'" :key="'wa'" />
 				<Frame v-else :page="active" :key="active" />
 			</main>
 			<template v-if="ntf"><div class="ntf-back" @click="ntf = false"></div><aside class="ntf-panel" role="dialog" aria-label="Notifications" @keydown.esc="ntf = false"><Notifications panel @close="ntf = false" /></aside></template>

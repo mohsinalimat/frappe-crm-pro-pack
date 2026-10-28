@@ -21,6 +21,7 @@ GROUPS = [
 	("demos", "Bookings", "Website bookings, and the widgets (booking pages) that visitors book through."),
 	("assignment", "Lead assignment", "Moving leads between people, and the rules that do it automatically."),
 	("campaigns", "Campaign Manager", "Campaigns, automations, templates and audiences."),
+	("whatsapp", "WhatsApp inbox", "The WhatsApp inbox: every chat, including numbers that are not leads yet."),
 ]
 
 
@@ -61,6 +62,8 @@ FEATURES = [
 	_f("audiences", "campaigns", "Audiences (saved segments)", "level", ("edit", "edit", "edit"), "Saved lead filters used as audiences.",
 		_level(("none", "No access"), ("view", "View and use"), ("edit", "Create and edit"))),
 	_f("campaign_reports", "campaigns", "Campaign reports", "switch", (1, 1, 1), "The Reports page of the Campaign Manager."),
+	_f("whatsapp_inbox", "whatsapp", "WhatsApp inbox", "level", ("all", "none", "none"), "Own = the chats of leads they own, and the new numbers assigned to them. Everyone = all chats, the new numbers nobody has picked up yet, and assigning them.",
+		_level(("none", "No access"), ("own", "Own chats"), ("all", "All chats and assigning"))),
 	_f("list_cleanup", "campaigns", "List clean-up", "switch", (1, 1, 0), "Bounced emails and invalid numbers kept off future campaigns."),
 ]
 BY_KEY = {f["key"]: f for f in FEATURES}

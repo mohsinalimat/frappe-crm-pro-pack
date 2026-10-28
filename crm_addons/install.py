@@ -306,6 +306,7 @@ def run_all():
 	remove_deal_leftovers()
 	ensure_custom_fields()
 	ensure_meta_setup()
+	ensure_inbox_setup()
 	ensure_templates()
 	ensure_quick_entry_layout()
 	ensure_scripts()
@@ -628,6 +629,21 @@ def ensure_meta_setup():
 		for name in ("Facebook", "Instagram"):
 			if not frappe.db.exists("CRM Lead Source", name):
 				frappe.get_doc({"doctype": "CRM Lead Source", "source_name": name}).insert(ignore_permissions=True)
+
+
+def ensure_inbox_setup():
+	"""The chat key on every WhatsApp message (so a chat is found by index, not by scanning numbers), the WhatsApp lead source, and the chats of messages that already exist."""
+	if not frappe.db.exists("DocType", "WhatsApp Message"):
+		return
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+	create_custom_fields({"WhatsApp Message": [{"fieldname": "crm_chat_key", "fieldtype": "Data", "label": "CRM Chat Key", "hidden": 1, "read_only": 1, "search_index": 1, "insert_after": "type"}]}, ignore_validate=True)
+	if frappe.db.exists("DocType", "CRM Lead Source") and not frappe.db.exists("CRM Lead Source", "WhatsApp"):
+		frappe.get_doc({"doctype": "CRM Lead Source", "source_name": "WhatsApp"}).insert(ignore_permissions=True)
+	if frappe.db.exists("DocType", "CRM WhatsApp Chat") and not frappe.db.count("CRM WhatsApp Chat"):
+		from crm_addons.pro import inbox
+
+		inbox.rebuild()
 
 
 def ensure_custom_fields():

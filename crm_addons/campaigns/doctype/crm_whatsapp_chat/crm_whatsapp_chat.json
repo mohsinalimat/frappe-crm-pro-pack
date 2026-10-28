@@ -1,0 +1,109 @@
+{
+ "actions": [],
+ "autoname": "field:number_key",
+ "creation": "2026-10-29 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "number_key",
+  "number",
+  "contact_name",
+  "lead",
+  "assigned_to",
+  "status",
+  "last_message",
+  "last_at",
+  "last_direction",
+  "unread",
+  "last_incoming_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "number_key",
+   "fieldtype": "Data",
+   "label": "Number Key",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "number",
+   "fieldtype": "Data",
+   "label": "Number",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "contact_name",
+   "fieldtype": "Data",
+   "label": "Contact Name"
+  },
+  {
+   "fieldname": "lead",
+   "fieldtype": "Link",
+   "label": "Lead",
+   "options": "CRM Lead",
+   "search_index": 1
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "label": "Assigned To",
+   "options": "User",
+   "search_index": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Open\nNot a lead",
+   "default": "Open",
+   "search_index": 1
+  },
+  {
+   "fieldname": "last_message",
+   "fieldtype": "Small Text",
+   "label": "Last Message"
+  },
+  {
+   "fieldname": "last_at",
+   "fieldtype": "Datetime",
+   "label": "Last Message At",
+   "search_index": 1
+  },
+  {
+   "fieldname": "last_direction",
+   "fieldtype": "Select",
+   "label": "Last Direction",
+   "options": "\nIncoming\nOutgoing"
+  },
+  {
+   "fieldname": "unread",
+   "fieldtype": "Int",
+   "label": "Unread",
+   "default": "0"
+  },
+  {
+   "fieldname": "last_incoming_at",
+   "fieldtype": "Datetime",
+   "label": "Last Incoming At"
+  }
+ ],
+ "modified": "2026-10-29 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Campaigns",
+ "name": "CRM WhatsApp Chat",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
