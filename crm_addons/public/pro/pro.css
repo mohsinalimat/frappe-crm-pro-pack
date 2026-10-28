@@ -95,9 +95,23 @@
 .vp-x.on { color: var(--text, #111827); cursor: pointer }
 .vp-x.on:hover { background: var(--hover, #eef0f4) }
 .vp.on .dd-btn { border-color: var(--accent, #2563eb) }
-.vp-ops { display: flex; gap: 6px; padding: 8px 8px 0 }
-.vp-ops .btn.on { background: var(--accent-soft, #e8f0fe); border-color: var(--accent, #2563eb) }
+.vp-ops { display: flex; margin: 10px 10px 0; padding: 3px; border-radius: 10px; background: var(--hover, #e9edf1) }
+.vp-ops button { flex: 1; height: 34px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-weight: 600; color: var(--muted, #6b7280); cursor: pointer }
+.vp-ops button.on { background: var(--card, #fff); color: var(--text, #111827); box-shadow: 0 1px 2px rgba(0,0,0,.12) }
+.vp-search { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--muted, #6b7280) }
+.vp-search input { flex: 1; border: 0; outline: 0; background: transparent; font: inherit; color: var(--text, #111827) }
 .vp-pop { min-width: 260px }
 
 .btn.icon { position: relative }
 .btn.icon .n { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent, #2563eb); color: #fff; font-size: 11px; line-height: 16px; text-align: center }
+
+/* Leads setup */
+.prev { margin-top: 10px; padding: 12px; border: 1px dashed var(--border); border-radius: 10px }
+.pv { display: inline-flex; align-items: center; height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--card, #fff); color: var(--muted, #6b7280) }
+.pv.grow { flex: 1 1 200px }
+.pv.dash { border-style: dashed }
+.pv-tbl { display: flex; gap: 18px; margin-top: 12px; padding: 8px 10px; background: var(--bg, #f6f7f9); border-radius: 8px; font-size: 12px; font-weight: 600; flex-wrap: wrap }
+.dl .li { border-bottom: 1px solid var(--border) }
+
+.pv.grow { justify-content: flex-start }
+.pv.ico { white-space: nowrap }

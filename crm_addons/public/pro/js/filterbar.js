@@ -50,6 +50,8 @@
 			const trig = ref(null); const q = ref(''); const opts = ref([]); const busy = ref(false); let seq = 0, timer
 			const p = CM.usePop(() => trig.value, { width: 260 })
 			const vals = computed(() => props.modelValue.values || [])
+			const op = ref(props.modelValue.op || 'in')   // kept here too: with nothing picked yet the filter itself holds no operator
+			watch(() => props.modelValue, (m) => { if (m.values && m.values.length) op.value = m.op }, { deep: true })
 			async function load() {
 				const mine = ++seq; busy.value = true
 				try {
@@ -65,16 +67,16 @@
 				return [...picked, ...opts.value]
 			})
 			const has = (v) => vals.value.includes(v)
-			const set = (values, op) => emit('update:modelValue', { op: op || props.modelValue.op || 'in', values })
+			const set = (values, o) => { if (o) op.value = o; emit('update:modelValue', { op: op.value, values }) }
 			const flip = (v) => set(has(v) ? vals.value.filter((x) => x !== v) : [...vals.value, v])
 			const text = computed(() => {
 				const n = vals.value.length; if (!n) return props.field.label
-				const pre = props.modelValue.op === 'not in' ? 'not ' : ''
+				const pre = op.value === 'not in' ? 'not ' : ''
 				return props.field.label + ': ' + pre + label(props.field, vals.value[0]) + (n > 1 ? ' +' + (n - 1) : '')
 			})
 			function toggle() { if (!p.open.value) { q.value = ''; load() } p.toggle() }
 			watch(q, () => { clearTimeout(timer); timer = setTimeout(load, 250) })
-			return { ...p, trig, q, list, has, flip, text, toggle, vals, busy, set, clear: () => set([]) }
+			return { ...p, op, trig, q, list, has, flip, text, toggle, vals, busy, set, clear: () => set([]) }
 		},
 		template: `
 		<div class="vp dd" :class="{ on: vals.length }">
@@ -85,10 +87,10 @@
 			<Teleport to="body">
 				<div v-if="open" ref="pop" class="pop vp-pop" :style="style" role="dialog" :aria-label="field.label">
 					<div v-if="showOp" class="vp-ops" role="group" aria-label="Include or exclude">
-						<button type="button" class="btn sm" :class="{ on: modelValue.op !== 'not in' }" @click="set(vals, 'in')">Includes</button>
-						<button type="button" class="btn sm" :class="{ on: modelValue.op === 'not in' }" @click="set(vals, 'not in')">Does not include</button>
+						<button type="button" :class="{ on: op !== 'not in' }" :aria-pressed="op !== 'not in'" @click="set(vals, 'in')">Include</button>
+						<button type="button" :class="{ on: op === 'not in' }" :aria-pressed="op === 'not in'" @click="set(vals, 'not in')">Exclude</button>
 					</div>
-					<div class="pop-search"><input class="inp" style="height:32px" v-model="q" placeholder="Search" :aria-label="'Search ' + field.label" /></div>
+					<div class="vp-search"><Ico name="search" size="sm" /><input v-model="q" :placeholder="'Search ' + field.label.toLowerCase()" :aria-label="'Search ' + field.label" /></div>
 					<div class="pop-list" role="listbox" aria-multiselectable="true">
 						<button v-for="o in list" :key="String(o.value)" type="button" class="opt" :class="{ on: has(o.value) }" role="option" :aria-selected="has(o.value)" @click="flip(o.value)">
 							<span class="mp-box" :class="{ on: has(o.value) }"><Ico v-if="has(o.value)" name="check" size="sm" /></span>
@@ -135,7 +137,7 @@
 			const add = () => rows.value.push({ field: '', op: 'in', values: [], range: { ...NONE } })
 			if (!rows.value.length) add()
 			const fieldOpts = computed(() => fl.value.map((f) => ({ value: f.fieldname, label: f.label })))
-			const OPS = [{ value: 'in', label: 'Includes' }, { value: 'not in', label: 'Does not include' }]
+			const OPS = [{ value: 'in', label: 'Include' }, { value: 'not in', label: 'Exclude' }]
 			const spec = (r) => by.value[r.field]
 			function pick(r, f) { r.field = f; r.values = []; r.range = { ...NONE }; r.op = 'in' }
 			function apply() {
@@ -147,7 +149,7 @@
 		},
 		template: `
 		<Modal title="Custom filter" size="lg" @close="$emit('close')" @submit="apply">
-			<p class="small muted" style="margin:0 0 10px">Pick a field, then the values it should include, or should not include. Pick as many values as you need.</p>
+			<p class="small muted" style="margin:0 0 10px">Pick a field, then the values it should include, or should not include (Include / Exclude). Pick as many values as you need.</p>
 			<div v-for="(r, i) in rows" :key="i" class="frow">
 				<div style="width:210px"><Dd :modelValue="r.field" :options="fieldOpts" searchable placeholder="Field" aria-label="Field" @update:modelValue="(f) => pick(r, f)" /></div>
 				<template v-if="r.field && isDate(spec(r))"><div class="grow"><DateRange v-model="r.range" any one-month aria-label="Dates" /></div></template>

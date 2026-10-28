@@ -28,7 +28,7 @@
 		if (c.campaigns_enabled !== 0 && campaignAccess) rows.push({ key: 'campaigns', label: 'Campaigns', icon: 'send' })
 		if (c.can_assign) rows.push({ key: 'assignment', label: 'Assignment', icon: 'users' })
 		if (c.demos_enabled !== 0 && (a.demos !== 'none' || (a.demo_widgets || 'none') !== 'none' || Number(a.demo_report))) rows.push({ key: 'bookings', label: 'Bookings', icon: 'target' })
-		if (c.can_manage_access) { rows.push({ key: 'access', label: 'Team and access', icon: 'shield' }); rows.push({ key: 'settings', label: 'Settings', icon: 'settings' }) }
+		if (c.can_manage_access) { rows.push({ key: 'access', label: 'Team and access', icon: 'shield' }); rows.push({ key: 'settings', label: 'Settings', icon: 'settings' }); rows.push({ key: 'leadsetup', label: 'Leads setup', icon: 'list', native: true }) }
 		return rows
 	}
 
@@ -91,6 +91,7 @@
 				<Leads v-else-if="active === 'leads'" :key="'ls'" />
 				<Organization v-else-if="active === 'organizations' && r.parts[1]" :key="'o' + r.parts[1]" :name="r.parts[1]" />
 				<Organizations v-else-if="active === 'organizations'" :key="'os'" />
+				<LeadSetup v-else-if="active === 'leadsetup'" :key="'cfg'" />
 				<Frame v-else :page="active" :key="active" />
 			</main>
 			<Toasts /><ConfirmHost />
