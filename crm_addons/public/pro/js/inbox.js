@@ -108,16 +108,13 @@
 							</div>
 						</div>
 						<WaChat class="wi-chat" :messages="chat.messages" :window-open="chat.window_open" :window-until="chat.window_until" :can-write="chat.can_write" :can-template="chat.can_write" :title="chat.chat.title" :title-href="chat.chat.lead ? CM.leadUrl(chat.chat.lead.name) : ''" :subtitle="(chat.chat.lead && chat.chat.lead.organization ? chat.chat.lead.organization + ' \u00b7 ' : '') + fmtNum(chat.chat.number)" person="Contact" :send="sendWa" :react="reactWa" @template="openTpl">
-							<template #head>
-								<span class="wi-chipbtn static" :class="chat.chat.lead ? 'lead' : 'contact'">{{ chat.chat.lead ? 'Lead' : 'Contact' }}</span>
-								<button type="button" class="wx-tpl wi-back" @click="back"><Ico name="arrow-left" size="sm" /> Chats</button>
-								<a class="wx-tpl" :href="'#/whatsapp/' + cur" target="_blank" rel="noopener" title="Open this chat in a new tab" aria-label="Open this chat in a new tab"><Ico name="external-link" size="sm" /></a>
-								<span class="wi-pop wi-kwrap"><button type="button" class="wx-tpl" aria-label="More" @click="chat.chat.lead ? (info = !info) : (kmenu = !kmenu)"><Ico name="more" size="sm" /></button>
+							<template #head><span class="wi-chipbtn static" :class="chat.chat.lead ? 'lead' : 'contact'">{{ chat.chat.lead ? 'Lead' : 'Contact' }}</span><button type="button" class="wx-tpl wi-back" @click="back"><Ico name="arrow-left" size="sm" /> Chats</button></template>
+							<template #tools><a class="wx-tpl" :href="'#/whatsapp/' + cur" target="_blank" rel="noopener" title="Open this chat in a new tab" aria-label="Open this chat in a new tab"><Ico name="external-link" size="sm" /></a></template>
+							<template #end><span class="wi-pop wi-kwrap"><button type="button" class="wx-tpl wi-dots" aria-label="More" @click="chat.chat.lead ? (info = !info) : (kmenu = !kmenu)"><Ico name="more-vertical" size="sm" /></button>
 									<div v-if="info && chat.chat.lead" class="wi-card right"><b>{{ chat.chat.lead.lead_name }}</b><div class="small muted">{{ chat.chat.lead.name }}</div>
 										<dl><dt>Company</dt><dd>{{ chat.chat.lead.organization || '-' }}</dd><dt>Status</dt><dd>{{ chat.chat.lead.status || '-' }}</dd><dt>Owner</dt><dd>{{ chat.chat.lead.owner_name || '-' }}</dd><dt>Phone</dt><dd>{{ chat.chat.lead.mobile_no || '-' }}</dd><dt>Email</dt><dd>{{ chat.chat.lead.email || '-' }}</dd><dt>Source</dt><dd>{{ chat.chat.lead.source || '-' }}</dd></dl>
 										<a class="btn primary sm" :href="CM.leadUrl(chat.chat.lead.name)">Open lead</a></div>
-									<div v-if="kmenu && !chat.chat.lead" class="wi-menu right"><button v-if="chat.can_write && chat.chat.status !== 'Not a lead'" type="button" @click="kmenu = false; notALead(true)">Mark as not a lead</button><button v-if="chat.chat.status === 'Not a lead'" type="button" @click="kmenu = false; notALead(false)">Move back to inbox</button><button v-if="chat.manager" type="button" @click="kmenu = false; openAssign()">{{ chat.chat.assigned_to ? 'Reassign' : 'Assign to someone' }}</button><button v-if="chat.can_write" type="button" @click="kmenu = false; openCreate()">Create lead</button></div></span>
-							</template>
+									<div v-if="kmenu && !chat.chat.lead" class="wi-menu right"><button v-if="chat.can_write && chat.chat.status !== 'Not a lead'" type="button" @click="kmenu = false; notALead(true)">Mark as not a lead</button><button v-if="chat.chat.status === 'Not a lead'" type="button" @click="kmenu = false; notALead(false)">Move back to inbox</button><button v-if="chat.manager" type="button" @click="kmenu = false; openAssign()">{{ chat.chat.assigned_to ? 'Reassign' : 'Assign to someone' }}</button><button v-if="chat.can_write" type="button" @click="kmenu = false; openCreate()">Create lead</button></div></span></template>
 						</WaChat>
 					</template>
 				</section>

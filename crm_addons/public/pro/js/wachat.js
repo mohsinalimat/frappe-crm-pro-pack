@@ -76,7 +76,7 @@
 								<div class="wx">
 									<div class="wx-head"><Pic :name="title" :image="image" :size="30" /><div class="grow"><b><a v-if="titleHref" class="wx-tlink" :href="titleHref" title="Open the lead">{{ title }}</a><template v-else>{{ title }}</template></b><div class="small">{{ subtitle || 'No phone number' }}</div></div><slot name="head" />
 										<span class="wx-win" :class="{ on: windowOpen }" :title="windowOpen ? 'Free chat is open until ' + day(windowUntil) : 'They have not written in 24 hours'">{{ windowOpen ? 'Open till ' + shortTime(windowUntil) : 'Template needed' }}</span>
-										<button v-if="canTemplate && hasNumber" type="button" class="wx-tpl" @click="$emit('template')"><Ico name="send" size="sm" /> Template</button></div>
+										<slot name="tools" /><button v-if="canTemplate && hasNumber" type="button" class="wx-tpl" @click="$emit('template')"><Ico name="send" size="sm" /> Template</button><slot name="end" /></div>
 									<div ref="chat" class="wx-chat" @click="wa.menuFor = ''"><p v-if="!waMessages.length" class="wx-note">No messages yet. Start with a template.</p>
 										<template v-for="d in waDays" :key="d.key"><div class="wx-day"><span>{{ d.label }}</span></div>
 											<div v-for="(m, mi) in d.items" :key="m.name" class="wx-row" :class="[m.type === 'Incoming' ? 'in' : 'out', grouped(d, mi) ? 'cont' : 'first']"><div class="wx-bub" :class="{ reacted: m.reaction }">

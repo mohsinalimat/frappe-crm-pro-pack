@@ -296,6 +296,7 @@
 		'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
 		'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
 		'arrow-down': '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+		'more-vertical': '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
 		more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
 		star: '<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1Z"/>',
 		copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
