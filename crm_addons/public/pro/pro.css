@@ -79,3 +79,10 @@
 }
 
 @media (min-width: 701px) { .page.leads .listcard > .gridv { flex: 1 1 auto; min-height: 0; overflow: auto; align-content: start; } }
+
+/* lead list toolbar + columns reorder */
+.listcard > .lbar { padding: 8px 14px; border-bottom: 1px solid var(--border); align-items: center }
+.dragrow { cursor: grab; border-radius: 6px }
+.dragrow.over { box-shadow: 0 -2px 0 var(--accent, #2563eb) }
+.grip { display: inline-flex; color: var(--faint, #9ca3af) }
+.dr-tabs .btn.on { background: var(--accent-soft, #e8f0fe); border-color: var(--accent, #2563eb) }

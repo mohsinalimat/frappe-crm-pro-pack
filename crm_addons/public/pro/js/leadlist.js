@@ -123,7 +123,7 @@
 		</Modal>`,
 	}
 
-	/** Column settings: tick the fields to show, move them up or down. */
+	/** Column settings: tick the fields to show, drag to reorder. */
 	V.ColumnsDialog = {
 		props: { fields: Array, columns: Array },
 		emits: ['close', 'apply'],
@@ -132,15 +132,16 @@
 			const q = ref('')
 			const has = (k) => chosen.value.some((c) => c.key === k)
 			function flip(f) { if (has(f.fieldname)) chosen.value = chosen.value.filter((c) => c.key !== f.fieldname); else chosen.value.push({ label: f.label, type: f.fieldtype, key: f.fieldname, options: f.options, width: '10rem' }) }
-			function move(i, d) { const j = i + d; if (j < 0 || j >= chosen.value.length) return; const a = chosen.value; [a[i], a[j]] = [a[j], a[i]] }
+			const dragI = ref(-1); const overI = ref(-1)
+			function drop(j) { const i = dragI.value; dragI.value = overI.value = -1; if (i < 0 || i === j) return; const a = chosen.value; a.splice(j, 0, a.splice(i, 1)[0]) }
 			const shown = computed(() => props.fields.filter((f) => f.label.toLowerCase().includes(q.value.trim().toLowerCase())))
-			return { chosen, q, has, flip, move, shown, apply: () => emit('apply', chosen.value) }
+			return { chosen, q, has, flip, dragI, overI, drop, shown, apply: () => emit('apply', chosen.value) }
 		},
 		template: `
 		<Modal title="Columns" size="lg" @close="$emit('close')">
 			<div class="grid2" style="align-items:start">
 				<div><Inp v-model="q" icon="search" placeholder="Find a field" aria-label="Find a field" /><div class="colpick"><label v-for="f in shown" :key="f.fieldname" class="row" style="gap:8px;padding:5px 2px"><input type="checkbox" :checked="has(f.fieldname)" @change="flip(f)" /> {{ f.label }}</label></div></div>
-				<div><b class="small">Shown, in order</b><ul class="list"><li v-for="(c, i) in chosen" :key="c.key" class="row li" style="gap:6px;padding:6px 0"><span class="grow">{{ c.label }}</span><Btn size="sm" variant="ghost" icon="arrow-up" aria-label="Move up" :disabled="i === 0" @click="move(i, -1)" /><Btn size="sm" variant="ghost" icon="arrow-down" aria-label="Move down" :disabled="i === chosen.length - 1" @click="move(i, 1)" /><Btn size="sm" variant="ghost" icon="x" aria-label="Remove column" @click="chosen.splice(i, 1)" /></li></ul></div>
+				<div><b class="small">Shown, in order</b><ul class="list"><li v-for="(c, i) in chosen" :key="c.key" class="row li dragrow" :class="{ over: overI === i && dragI !== i }" style="gap:8px;padding:6px 0" draggable="true" @dragstart="dragI = i" @dragend="dragI = overI = -1" @dragover.prevent="overI = i" @drop.prevent="drop(i)"><span class="grip" aria-hidden="true"><Ico name="grip" /></span><span class="grow">{{ c.label }}</span></li></ul></div>
 			</div>
 			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" :disabled="!chosen.length" @click="apply">Apply</Btn></template>
 		</Modal>`,
@@ -154,7 +155,7 @@
 			const data = ref(null); const loading = ref(true); const error = ref(''); const meta = reactive({ statuses: [], owners: [], linkable: [], can_create: false, can_delete: false, can_write: false })
 			const view = reactive({ type: 'list', name: '', label: 'List' }) // the view being shown
 			const p = reactive({ filters: {}, orderBy: 'modified desc', columns: null, rows: null, groupBy: 'lead_owner', columnField: 'status', titleField: null, kanbanFields: null, kanbanColumns: null, pageLength: 20 })
-			const dirty = ref(false); const filterFields = ref([]); const sortFields = ref([]); const groupFields = ref([]); const quick = ref([])
+			const filterFields = ref([]); const sortFields = ref([]); const groupFields = ref([]); const quick = ref([])
 			const picked = ref([]); const dlg = ref(''); const busy = ref(false); const creating = ref(false); const importing = ref(false)
 			const quickVals = reactive({}); const search = ref(''); let seq = 0, timer
 
@@ -178,7 +179,8 @@
 					if (view.type === 'kanban') { p.columnField = r.column_field || p.columnField; p.titleField = r.title_field; p.kanbanFields = r.kanban_fields; p.kanbanColumns = r.kanban_columns.map((c) => ({ name: c.name, order: c.order, page_length: c.page_length || 20, column: c.column })) }
 				} catch (e) { if (mine === seq) error.value = e.message } finally { if (mine === seq) loading.value = false }
 			}
-			const change = () => { dirty.value = true; load() }
+			const prefs = () => PRO.leadUtil.store.set('prefs', { columns: p.columns, orderBy: p.orderBy })
+			const change = () => { prefs(); load() }
 
 			onMounted(async () => {
 				try {
@@ -187,18 +189,19 @@
 					meta.linkable = ['CRM Lead Status', 'CRM Lead Source', 'CRM Territory', 'CRM Industry', 'CRM Organization', 'User', 'Country', 'Salutation', 'Gender']
 					filterFields.value = ff; sortFields.value = sf; groupFields.value = gf; quick.value = qf
 				} catch (e) { error.value = e.message }
-				const saved = PRO.leadUtil.store.get('view', null)
-				if (saved) { view.type = saved.type; view.name = saved.name || ''; view.label = saved.label || view.label }
-				await load()
+								await load()
 				applyStored()
 			})
-			function applyStored() { const v = currentView.value; if (v) { applyView(v, true) } }
+			function applyStored() {
+				const v = currentView.value; if (v) applyView(v, true)
+				const pr = PRO.leadUtil.store.get('prefs', null)
+				if (pr) { if (pr.columns && pr.columns.length) { p.columns = pr.columns; p.rows = null } if (pr.orderBy) p.orderBy = pr.orderBy }
+				load(true)
+			}
 
 			// ---- views
 			const views = computed(() => (data.value ? data.value.views : []))
-			const customViews = computed(() => views.value.filter((v) => !v.is_standard && (v.public || v.user === PRO.shell.user)).sort((a, b) => (b.pinned || 0) - (a.pinned || 0)))
 			const currentView = computed(() => views.value.find((v) => (view.name ? v.name === view.name : v.is_standard && v.type === view.type)))
-			const viewOpts = computed(() => [...STD.map((s) => ({ value: 'std:' + s.type, label: s.label, icon: s.icon })), ...customViews.value.map((v) => ({ value: 'v:' + v.name, label: v.label, icon: (STD.find((s) => s.type === v.type) || STD[0]).icon, badge: v.public ? 'Public' : '' }))])
 			const grid = ref(PRO.leadUtil.store.get('grid', false))
 			const mode = computed(() => (view.type === 'kanban' ? 'kanban' : grid.value ? 'grid' : 'list'))
 			function setMode(m) {
@@ -209,52 +212,44 @@
 			}
 			function setGroup(f) { if (!f) { view.type = 'list'; load(true) } else { view.type = 'group_by'; p.groupBy = f; change() } }
 			const groupPick = computed(() => [{ value: '', label: 'None' }, ...groupOpts.value])
-			const savedOpts = computed(() => [{ value: 'std:' + view.type, label: 'Default' }, ...viewOpts.value.filter((o) => o.value.startsWith('v:'))])
-			const viewKey = computed(() => (view.name ? 'v:' + view.name : 'std:' + view.type))
 			function applyView(v, quiet) {
 				p.filters = jparse(v.filters, {}); p.orderBy = v.order_by || 'modified desc'
 				p.columns = jparse(v.columns, null); p.rows = jparse(v.rows, null)
 				p.groupBy = v.group_by_field || 'lead_owner'; p.columnField = v.column_field || 'status'; p.titleField = v.title_field || null
 				p.kanbanFields = jparse(v.kanban_fields, null); p.kanbanColumns = jparse(v.kanban_columns, null)
 				if (!p.columns || !p.columns.length) p.columns = null
-				if (!quiet) { dirty.value = false; load() } else if (!dirty.value) load(true)
+				if (!quiet) { const pr = PRO.leadUtil.store.get('prefs', null); if (pr && view.type !== 'kanban') { if (pr.columns && pr.columns.length) { p.columns = pr.columns; p.rows = null } if (pr.orderBy) p.orderBy = pr.orderBy } load() }
 			}
 			function pickView(key) {
 				picked.value = []
 				if (key.startsWith('std:')) { const t = key.slice(4); view.type = t; view.name = ''; view.label = STD.find((s) => s.type === t).label }
-				else { const v = views.value.find((x) => x.name === key.slice(2)); if (!v) return; view.type = v.type; view.name = v.name; view.label = v.label }
-				PRO.leadUtil.store.set('view', { type: view.type, name: view.name, label: view.label })
+				else return
 				const v = currentView.value
 				if (v) applyView(v)
-				else { Object.assign(p, { filters: {}, orderBy: 'modified desc', columns: null, rows: null, kanbanFields: null, kanbanColumns: null, titleField: null }); dirty.value = false; load() }
+				else { Object.assign(p, { filters: {}, orderBy: 'modified desc', columns: null, rows: null, kanbanFields: null, kanbanColumns: null, titleField: null }); load() }
 			}
-			const viewBody = (extra) => ({ doctype: DOC, type: view.type, filters: p.filters, order_by: p.orderBy, columns: JSON.stringify(p.columns || []), rows: JSON.stringify(data.value ? data.value.rows : []), group_by_field: typeof p.groupBy === 'string' ? p.groupBy : 'lead_owner', column_field: p.columnField, title_field: p.titleField, kanban_columns: JSON.stringify(p.kanbanColumns || []), kanban_fields: JSON.stringify(p.kanbanFields || []), ...extra })
-			async function saveChanges() {
-				busy.value = true
-				try {
-					const v = currentView.value
-					if (v && !v.is_standard) await api('crm.fcrm.doctype.crm_view_settings.crm_view_settings.update', { view: viewBody({ name: v.name, label: v.label, icon: v.icon }) })
-					else await api('crm.fcrm.doctype.crm_view_settings.crm_view_settings.create_or_update_standard_view', { view: viewBody({ label: view.label }) })
-					dirty.value = false; CM.toast('View saved'); await load(true)
-				} catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
-			}
-			const newView = reactive({ open: false, label: '', busy: false, error: '' })
-			async function createView() {
-				if (!newView.label.trim()) { newView.error = 'Give the view a name.'; return }
-				newView.busy = true; newView.error = ''
-				try { const doc = await api('crm.fcrm.doctype.crm_view_settings.crm_view_settings.create', { view: viewBody({ label: newView.label.trim() }) }); newView.open = false; newView.label = ''; dirty.value = false; view.name = doc.name; view.label = doc.label; PRO.leadUtil.store.set('view', { type: view.type, name: view.name, label: view.label }); await load(true); CM.toast('View created') } catch (e) { newView.error = e.message } finally { newView.busy = false }
-			}
-			async function dropView() {
-				const v = currentView.value; if (!v || v.is_standard) return
-				if (!(await CM.confirm({ title: 'Delete the view "' + v.label + '"?', confirmText: 'Delete', danger: true }))) return
-				try { await api('crm.fcrm.doctype.crm_view_settings.crm_view_settings.delete', { name: v.name }); pickView('std:' + v.type); CM.toast('View deleted') } catch (e) { CM.toast(e.message, 'err') }
-			}
-			async function flipPublic() { const v = currentView.value; try { await api('crm.fcrm.doctype.crm_view_settings.crm_view_settings.public', { name: v.name, value: v.public ? 0 : 1 }); await load(true) } catch (e) { CM.toast(e.message, 'err') } }
-			async function flipPin() { const v = currentView.value; try { await api('crm.fcrm.doctype.crm_view_settings.crm_view_settings.pin', { name: v.name, value: v.pinned ? 0 : 1 }); await load(true) } catch (e) { CM.toast(e.message, 'err') } }
-
 			// ---- filters, quick filters, sort, columns
 			const nFilters = computed(() => describe(p.filters))
-			function applyFilters(f) { p.filters = f; dlg.value = ''; for (const k of Object.keys(quickVals)) delete quickVals[k]; change() }
+			// the date control (Date added / Follow-up due) and the status picker work on the same filters as the dialog
+			const dateField = ref('creation'); const dateRange = ref({ preset: 'any', from: '', to: '' })
+			const DATE_FIELDS = [{ id: 'creation', label: 'Date added' }, { id: 'next_follow_up_on', label: 'Follow-up due' }]
+			function setDate(r, field) {
+				if (field) dateField.value = field
+				const f = { ...p.filters }; DATE_FIELDS.forEach((d) => delete f[d.id])
+				const x = CM.resolveRange(r); if (x.from) f[dateField.value] = ['BETWEEN', [x.from, x.to || x.from]]
+				p.filters = f; dateRange.value = r; change()
+			}
+			function syncDate() {
+				for (const d of DATE_FIELDS) { const v = p.filters[d.id]; if (Array.isArray(v) && String(v[0]).toLowerCase() === 'between') { dateField.value = d.id; dateRange.value = { preset: 'custom', from: String(v[1][0]).slice(0, 10), to: String(v[1][1]).slice(0, 10) }; return } }
+				dateRange.value = { preset: 'any', from: '', to: '' }
+			}
+			const statusSel = computed({
+				get: () => { const v = p.filters.status; return Array.isArray(v) && String(v[0]).toLowerCase() === 'in' ? v[1] : (typeof v === 'string' ? [v] : []) },
+				set: (vals) => { const f = { ...p.filters }; if (vals.length) f.status = ['IN', vals]; else delete f.status; p.filters = f; change() },
+			})
+			const statusOpts = computed(() => meta.statuses.map((s) => ({ value: s.name, label: s.name })))
+			function applyFilters(f) { p.filters = f; dlg.value = ''; for (const k of Object.keys(quickVals)) delete quickVals[k]; syncDate(); change() }
+			function clearAll() { p.filters = {}; search.value = ''; for (const k of Object.keys(quickVals)) delete quickVals[k]; dateRange.value = { preset: 'any', from: '', to: '' }; change() }
 			function quickSet(q, v) {
 				const f = { ...p.filters }
 				if (v === '' || v == null) delete f[q.fieldname]
@@ -343,7 +338,7 @@
 				} catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 			const sortDirOpts = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]
-			return { MODES, grid, mode, setMode, setGroup, groupPick, customViews, savedOpts, vt, data, loading, error, meta, view, p, dirty, picked, dlg, busy, creating, importing, quickVals, search, load, viewOpts, viewKey, pickView, currentView, saveChanges, newView, createView, dropView, flipPublic, flipPin, nFilters, applyFilters, quick, quickSet, quickFor, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
+			return { statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, quickVals, search, load, nFilters, applyFilters, quick, quickSet, quickFor, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
 		},
 		template: `
 		<div class="page leads">
@@ -358,22 +353,16 @@
 
 			<section class="card fbar">
 				<div class="row wrap" style="gap:8px">
-					<div v-if="customViews.length" style="width:200px"><Dd :modelValue="viewKey" :options="savedOpts" prefix="View:" aria-label="Saved view" @update:modelValue="pickView" /></div>
 					<div class="grow" style="min-width:200px"><Inp v-model="search" icon="search" placeholder="Search by name..." clearable aria-label="Search leads" /></div>
-					<button type="button" class="btn" :class="{ on: nFilters }" @click="dlg = 'filter'"><Ico name="filter" /> Filter<span v-if="nFilters" class="n">{{ nFilters }}</span></button>
-					<template v-if="view.type !== 'kanban'">
-						<div style="width:150px"><Dd :modelValue="sortParts.field" :options="sortOpts" searchable prefix="Sort:" aria-label="Sort by" @update:modelValue="(f) => setSort(f, sortParts.dir)" /></div>
-						<Btn :icon="sortParts.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :aria-label="sortParts.dir === 'asc' ? 'Ascending' : 'Descending'" @click="setSort(sortParts.field, sortParts.dir === 'asc' ? 'desc' : 'asc')" />
-					</template>
-					<div v-if="view.type !== 'kanban' && !grid" style="width:170px"><Dd :modelValue="view.type === 'group_by' ? groupName : ''" :options="groupPick" searchable prefix="Group:" aria-label="Group by" @update:modelValue="setGroup" /></div>
-					<Btn v-if="view.type !== 'kanban' && !grid" icon="list" @click="dlg = 'columns'">Columns</Btn>
-					<Btn icon="refresh" aria-label="Refresh" title="Refresh" @click="load(true)" />
-					<Btn v-if="dirty" variant="primary" :loading="busy" @click="saveChanges">Save changes</Btn>
-					<Btn v-if="dirty" @click="newView.open = true">Create view</Btn>
-					<Menu v-if="currentView && !currentView.is_standard" :items="[{ label: currentView.public ? 'Make private' : 'Make public', run: flipPublic }, { label: currentView.pinned ? 'Unpin' : 'Pin', run: flipPin }, { label: 'Delete view', danger: true, run: dropView }]" label="View options"><button type="button" class="btn icon" aria-label="View options"><Ico name="more" /></button></Menu>
+					<DateRange v-model="dateRange" any aria-label="Date" @change="(r) => setDate(r)">
+						<template #top><div class="dr-tabs row" style="gap:6px;padding:8px 12px 0"><button v-for="d in DATE_FIELDS" :key="d.id" type="button" class="btn sm" :class="{ on: dateField === d.id }" @click="dateField = d.id">{{ d.label }}</button></div></template>
+					</DateRange>
+					<div style="width:200px"><MultiPick v-model="statusSel" :options="statusOpts" label="Status" searchable /></div>
+					<button type="button" class="btn" :class="{ on: nFilters }" @click="dlg = 'filter'"><Ico name="filter" /> Filters<span v-if="nFilters" class="n">{{ nFilters }}</span></button>
+					<Btn v-if="nFilters || search" variant="ghost" @click="clearAll">Clear</Btn>
 				</div>
 				<div v-if="quick.length" class="row wrap fchips" style="gap:8px">
-					<template v-for="q in quick" :key="q.fieldname">
+					<template v-for="q in quick.filter((x) => x.fieldname !== 'status')" :key="q.fieldname">
 						<div v-if="q.fieldtype === 'Select'" style="width:150px"><Dd :modelValue="quickVals[q.fieldname] || ''" :options="quickFor(q)" :prefix="q.label + ':'" :aria-label="q.label" @update:modelValue="(v) => quickSet(q, v)" /></div>
 						<div v-else-if="q.fieldtype === 'Link' && ['CRM Lead Status', 'CRM Lead Source', 'CRM Territory', 'CRM Industry', 'User', 'CRM Organization'].includes(q.options)" style="width:170px"><LinkPick :modelValue="quickVals[q.fieldname] || ''" :doctype="q.options" :label="q.label" @update:modelValue="(v) => quickSet(q, v)" /></div>
 						<div v-else style="width:150px"><input class="inp" :placeholder="q.label" :value="quickVals[q.fieldname] || ''" :aria-label="q.label" @input="quickSet(q, $event.target.value)" /></div>
@@ -391,6 +380,16 @@
 			<div v-else-if="loading && !data" class="card" style="padding:0"><div v-for="n in 8" :key="n" style="padding:16px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div>
 
 			<section v-else-if="data" class="card listcard" :style="{ opacity: loading ? .6 : 1 }">
+				<div class="lbar row wrap" style="gap:8px">
+					<span class="small muted grow">{{ vt === 'kanban' ? total + (total === 1 ? ' lead' : ' leads') : (rows.length ? 'Showing 1\u2013' + rows.length + ' of ' + total + ' leads' : '0 leads') }}</span>
+					<Btn size="sm" icon="refresh" aria-label="Refresh" @click="load(true)">Refresh</Btn>
+					<template v-if="vt !== 'kanban'">
+						<div style="width:200px"><Dd :modelValue="sortParts.field" :options="sortOpts" searchable prefix="Sort by" aria-label="Sort by" @update:modelValue="(f) => setSort(f, sortParts.dir)" /></div>
+						<Btn size="sm" :icon="sortParts.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :aria-label="sortParts.dir === 'asc' ? 'Ascending' : 'Descending'" @click="setSort(sortParts.field, sortParts.dir === 'asc' ? 'desc' : 'asc')" />
+						<div v-if="!grid" style="width:170px"><Dd :modelValue="vt === 'group_by' ? groupName : ''" :options="groupPick" searchable prefix="Group:" aria-label="Group by" @update:modelValue="setGroup" /></div>
+						<Btn v-if="!grid" size="sm" icon="columns" title="Columns" aria-label="Columns" @click="dlg = 'columns'" />
+					</template>
+				</div>
 				<template v-if="vt !== 'kanban'">
 					<Empty v-if="!rows.length" icon="users" title="No leads here" :text="nFilters || search ? 'No lead matches these filters.' : 'There are no leads yet.'"><Btn v-if="nFilters || search" @click="applyFilters({}); search = ''">Clear filters</Btn></Empty>
 					<div v-else-if="grid" class="gridv"><div v-for="r in rows" :key="r.name" class="kcard" tabindex="0" @click="open(r.name)" @keydown.enter="open(r.name)">
@@ -442,8 +441,6 @@
 			<ColumnsDialog v-if="dlg === 'columns' && data" :fields="colQ" :columns="columns" @close="dlg = ''" @apply="applyColumns" />
 			<Modal v-if="dlg === 'assign'" title="Assign to" size="sm" @close="dlg = ''"><Field label="People"><MultiPick v-model="assignUsers" :options="assignOpts" label="Choose people" searchable /></Field>
 				<template #foot><Btn @click="dlg = ''">Cancel</Btn><Btn variant="primary" :loading="busy" :disabled="!assignUsers.length" @click="bulk('assign')">Assign</Btn></template></Modal>
-			<Modal v-if="newView.open" title="Create view" size="sm" @close="newView.open = false" @submit="createView"><Field label="Name"><Inp v-model="newView.label" aria-label="View name" /></Field><div v-if="newView.error" class="err" role="alert">{{ newView.error }}</div>
-				<template #foot><Btn @click="newView.open = false">Cancel</Btn><Btn variant="primary" :loading="newView.busy" @click="createView">Create</Btn></template></Modal>
 			<ImportLeads v-if="importing" @close="importing = false" @done="importing = false; load(true)" />
 			<NewLead v-if="creating" :opts="meta" @close="creating = false" @created="(n) => { creating = false; open(n) }" />
 		</div>`,

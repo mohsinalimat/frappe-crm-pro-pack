@@ -181,6 +181,7 @@
 						<button v-for="p in presets" :key="p[0]" type="button" class="opt" :class="{ on: modelValue && modelValue.preset === p[0] }" @click="choose(p[0])">{{ p[1] }}</button>
 					</div>
 					<div class="dr-main">
+						<slot name="top" :close="close" />
 						<div class="dr-cal" @keydown="calKey" @mouseleave="hover = ''">
 							<div class="dr-months">
 								<div v-for="(g, gi) in grids" :key="g.key" class="dr-month">
