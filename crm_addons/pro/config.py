@@ -83,7 +83,9 @@ def save_config(config):
 		frappe.throw(_("That sorting is not valid."))
 	out["sort"] = " ".join(sort)
 	cf = cfg.get("create_fields")
-	if cf:
+	if "create_fields" not in cfg:  # the new-lead form is arranged under Settings, Forms: saving this screen leaves it as it is
+		out["create_fields"] = load().get("create_fields")
+	elif cf:
 		writable = set(form.writable())
 		rows = []
 		for r in cf:

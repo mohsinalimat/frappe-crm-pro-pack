@@ -35,7 +35,10 @@ def _counts(names):
 @frappe.whitelist()
 def options():
 	_check()
+	from crm_addons.pro import forms_config
+
 	return {
+		"form": forms_config.runtime("organization"),
 		"industries": frappe.get_all("CRM Industry", pluck="name", order_by="name asc"), "territories": frappe.get_all("CRM Territory", pluck="name", order_by="name asc"),
 		"sizes": [o for o in (frappe.get_meta(ORG).get_field("no_of_employees").options or "").split("\n") if o],
 		"can_create": bool(frappe.has_permission(ORG, "create")), "can_write": bool(frappe.has_permission(ORG, "write")), "can_delete": bool(frappe.has_permission(ORG, "delete")),
@@ -70,6 +73,10 @@ def get_org(name):
 	doc = frappe.get_doc(ORG, name)
 	doc.check_permission("read")
 	out = {k: doc.get(k) for k in FIELDS}
+	from crm_addons.pro import forms_config
+
+	for p in forms_config.pool("organization"):  # fields the admin put on the form (Settings, Forms)
+		out.setdefault(p["fieldname"], doc.get(p["fieldname"]))
 	out.update(_counts([name])[name])
 	out["can_write"] = bool(doc.has_permission("write"))
 	out["can_delete"] = bool(doc.has_permission("delete"))
@@ -80,10 +87,21 @@ def get_org(name):
 
 def _clean(values):
 	values = values if isinstance(values, dict) else json.loads(values or "{}")
-	bad = [k for k in values if k not in EDITABLE]
+	from crm_addons.pro import forms_config
+
+	allowed = set(EDITABLE) | {p["fieldname"] for p in forms_config.pool("organization")}
+	bad = [k for k in values if k not in allowed]
 	if bad:
 		frappe.throw(_("Cannot set: {0}").format(", ".join(bad)))
 	return {k: (v if cstr(v).strip() != "" else None) for k, v in values.items()}
+
+
+def _required(data):
+	from crm_addons.pro import forms_config
+
+	for name, label in forms_config.required_labels("organization").items():  # what the admin made required on the form
+		if name != "organization_name" and data.get(name) in (None, ""):
+			frappe.throw(_("{0} is needed.").format(label))
 
 
 @frappe.whitelist()
@@ -92,6 +110,7 @@ def create_org(values):
 	data = _clean(values)
 	if not cstr(data.get("organization_name")).strip():
 		frappe.throw(_("Give the organization a name."))
+	_required(data)
 	return frappe.get_doc({"doctype": ORG, **data}).insert().name
 
 

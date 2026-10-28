@@ -136,7 +136,9 @@ def _people():
 def get_overview():
 	"""Everything the screen needs in one call."""
 	_viewer()
-	return {**_registry(), "can_manage": access.is_admin() or access.allows("team", "manage"), "presets": _presets(), "people": _people(), "hierarchy": access.hierarchy_info(), "me": frappe.session.user, "login_template": _login_template()}
+	from crm_addons.pro import forms_config
+
+	return {**_registry(), "can_manage": access.is_admin() or access.allows("team", "manage"), "presets": _presets(), "people": _people(), "hierarchy": access.hierarchy_info(), "me": frappe.session.user, "login_template": _login_template(), "person_form": forms_config.runtime("person")}
 
 
 @frappe.whitelist()
@@ -338,6 +340,13 @@ def add_person(email, first_name, last_name="", role="Sales User", preset=None, 
 	if preset and not frappe.db.exists("CRM Access Preset", cstr(preset)):
 		frappe.throw(_("Preset {0} was not found.").format(frappe.bold(cstr(preset))))
 	mobile_no = _clean_number(mobile_no)
+	if not frappe.db.exists("User", email):  # what the admin made required on the Add person form (Settings, Forms)
+		from crm_addons.pro import forms_config
+
+		given = {"last_name": last_name, "mobile_no": mobile_no, "designation": designation, "company": company}
+		for name, label in forms_config.required_labels("person").items():
+			if name in given and not cstr(given[name]).strip():
+				frappe.throw(_("{0} is needed.").format(label))
 	leader = _check_leader(email, reports_to)
 	created = False
 	if frappe.db.exists("User", email):

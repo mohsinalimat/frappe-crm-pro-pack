@@ -84,10 +84,11 @@ def writable():
 
 
 def _apply_create_config(secs):
-	"""The admin's choice of new-lead fields (Leads setup), in their order; fields CRM itself requires always stay."""
-	from crm_addons.pro import config
+	"""The admin's arrangement of the new-lead form (Settings, Forms): chosen fields in their order, their labels and required marks, and dropdown values
+	hidden. Fields CRM itself requires always stay. Nothing is added: every field and value already exists in the CRM."""
+	from crm_addons.pro import forms_config
 
-	chosen = config.load().get("create_fields")
+	chosen = forms_config.effective("lead")
 	if not chosen:
 		return secs
 	allowed = writable()
@@ -96,7 +97,14 @@ def _apply_create_config(secs):
 	for r in chosen:
 		spec = known.get(r["fieldname"]) or allowed.get(r["fieldname"])
 		if spec:
-			fields.append({**spec, "reqd": 1 if (spec["reqd"] or r.get("reqd")) else 0})
+			spec = {**spec, "reqd": 1 if (spec["reqd"] or r.get("reqd")) else 0}
+			if r.get("label"):
+				spec["label"] = r["label"]
+			if r.get("hide") and isinstance(spec.get("options"), list):
+				spec["options"] = [o for o in spec["options"] if o not in r["hide"]]
+			elif r.get("hide") and spec.get("fieldtype") == "Link":
+				spec["hide"] = list(r["hide"])
+			fields.append(spec)
 	have = {f["fieldname"] for f in fields}
 	fields += [f for f in known.values() if f["reqd"] and f["fieldname"] not in have]
 	return [{"label": "", "fields": fields}] if fields else secs
@@ -129,7 +137,7 @@ def get_form(kind="create"):
 
 
 @frappe.whitelist()
-def link_options(doctype, txt="", limit=20):
+def link_options(doctype, txt="", limit=20, exclude=None):
 	"""Choices for a Link field of the lead form (only doctypes the lead links to)."""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please log in."), frappe.PermissionError)
@@ -139,6 +147,9 @@ def link_options(doctype, txt="", limit=20):
 	title = frappe.get_meta(doctype).title_field
 	fields = ["name"] + ([title] if title and title != "name" else [])
 	flt = {}
+	hidden = json.loads(exclude) if isinstance(exclude, str) and exclude else (exclude or [])
+	if hidden:  # values the admin hid on this form (they stay in the CRM)
+		flt["name"] = ["not in", [cstr(h) for h in hidden]]
 	rows = frappe.get_list(doctype, fields=fields, or_filters=[[doctype, c, "like", f"%{cstr(txt).strip()}%"] for c in fields] if cstr(txt).strip() else None, filters=flt, order_by="modified desc", limit_page_length=max(1, min(cint(limit) or 20, 50)))
 	return [{"value": r.name, "label": (r.get(title) if title and title != "name" and r.get(title) else r.name)} for r in rows]
 

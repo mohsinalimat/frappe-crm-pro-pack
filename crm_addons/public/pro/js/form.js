@@ -9,11 +9,11 @@
 
 	/** A Link field: type to search the linked records; the list comes from the server as you type. */
 	V.LinkPick = {
-		props: { modelValue: String, doctype: String, label: String, disabled: Boolean },
+		props: { modelValue: String, doctype: String, label: String, disabled: Boolean, hide: Array },
 		emits: ['update:modelValue'],
 		setup(props, { emit }) {
 			const opts = ref([]); const id = 'lp' + Math.random().toString(36).slice(2, 8); let timer
-			async function search(txt) { try { opts.value = await CM.call('crm_addons.pro.form.link_options', { doctype: props.doctype, txt }) } catch (e) { opts.value = [] } }
+			async function search(txt) { try { opts.value = await CM.call('crm_addons.pro.form.link_options', { doctype: props.doctype, txt, exclude: props.hide && props.hide.length ? JSON.stringify(props.hide) : undefined }) } catch (e) { opts.value = [] } }
 			const input = (e) => { emit('update:modelValue', e.target.value); clearTimeout(timer); timer = setTimeout(() => search(e.target.value), 250) }
 			search('')
 			return { opts, id, input }
@@ -34,7 +34,7 @@
 		template: `
 		<Field :label="spec.label" :required="!!spec.reqd" :hint="spec.description || ''">
 			<Dd v-if="kind === 'select'" :modelValue="modelValue || ''" :options="opts" :disabled="disabled" :aria-label="spec.label" @update:modelValue="set" />
-			<LinkPick v-else-if="kind === 'link'" :modelValue="modelValue || ''" :doctype="spec.options" :label="spec.label" :disabled="disabled" @update:modelValue="set" />
+			<LinkPick v-else-if="kind === 'link'" :modelValue="modelValue || ''" :doctype="spec.options" :hide="spec.hide" :label="spec.label" :disabled="disabled" @update:modelValue="set" />
 			<Switch v-else-if="kind === 'check'" :modelValue="!!Number(modelValue)" :label="spec.label" @update:modelValue="(v) => set(v ? 1 : 0)" />
 			<input v-else-if="kind === 'date'" class="inp" type="date" :value="modelValue || ''" :disabled="disabled" :aria-label="spec.label" @input="set($event.target.value)" />
 			<input v-else-if="kind === 'datetime'" class="inp" type="datetime-local" :value="dt" :disabled="disabled" :aria-label="spec.label" @input="set($event.target.value ? $event.target.value.replace('T', ' ') + ':00' : '')" />

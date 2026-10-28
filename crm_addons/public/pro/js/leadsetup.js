@@ -109,13 +109,7 @@
 					<div class="row" style="gap:8px;margin-top:8px"><div style="width:240px"><Dd :modelValue="sortParts.f" :options="sortOpts" searchable aria-label="Sort by" @update:modelValue="(f) => (c.sort = f + ' ' + sortParts.d)" /></div>
 						<Btn :icon="sortParts.d === 'asc' ? 'arrow-up' : 'arrow-down'" :aria-label="sortParts.d === 'asc' ? 'Ascending' : 'Descending'" @click="c.sort = sortParts.f + ' ' + (sortParts.d === 'asc' ? 'desc' : 'asc')" /></div></section>
 
-				<section class="card" style="padding:16px 18px"><b>New lead form</b><p class="small muted" style="margin:2px 0 8px">The fields asked when someone adds a lead, in this order. {{ c.create_fields ? '' : 'Now following the quick-entry layout of Frappe CRM.' }}</p>
-					<DragList v-if="c.create_fields" v-model="fform" empty="">
-						<template #default="{ item: it }"><span class="small muted">Required</span><Switch :modelValue="!!it.reqd || it.locked" :label="'Required: ' + it.label" @update:modelValue="(v) => { if (!it.locked) { const r = c.create_fields.find((x) => x.fieldname === it.key); if (r) r.reqd = v ? 1 : 0 } }" /></template>
-					</DragList>
-					<div class="row" style="gap:8px;margin-top:8px"><Btn v-if="!c.create_fields" @click="startForm">Choose the fields myself</Btn>
-						<div v-else style="width:240px"><Dd modelValue="" :options="formAdd" searchable placeholder="Add a field" aria-label="Add a field to the form" @update:modelValue="addForm" /></div>
-						<Btn v-if="c.create_fields" size="sm" variant="ghost" @click="useCrmForm">Follow the CRM layout again</Btn></div></section>
+				<section class="card" style="padding:16px 18px"><b>New lead form</b><p class="small muted" style="margin:2px 0 0">The fields asked when someone adds a lead are arranged in <a href="#/settings/forms">Settings, Forms</a>, together with the Add organization and Add person forms.</p></section>
 			</template>
 		</div>`,
 	}

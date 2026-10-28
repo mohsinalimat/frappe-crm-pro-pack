@@ -12,22 +12,32 @@
 		emits: ['close', 'saved'],
 		setup(props, { emit }) {
 			const editing = !!props.org
-			const v = reactive({ organization_name: '', website: '', industry: '', territory: '', no_of_employees: '', annual_revenue: '', ...(props.org ? Object.fromEntries(['organization_name', 'website', 'industry', 'territory', 'no_of_employees', 'annual_revenue'].map((k) => [k, props.org[k] || ''])) : {}) })
+			// the fields come from Settings, Forms (the CRM's own fields; the admin chooses which and in what order)
+			const DEFAULTS = ['organization_name', 'website', 'industry', 'territory', 'no_of_employees', 'annual_revenue']
+			const fields = computed(() => (props.opts.form && props.opts.form.fields && props.opts.form.fields.length ? props.opts.form.fields : DEFAULTS.map((k) => ({ fieldname: k, label: k, fieldtype: 'Data', values: [], reqd: k === 'organization_name' ? 1 : 0 }))))
+			const v = reactive({})
+			fields.value.forEach((f) => { v[f.fieldname] = props.org && props.org[f.fieldname] != null ? props.org[f.fieldname] : (f.fieldtype === 'Check' ? 0 : '') })
 			const busy = ref(false); const error = ref('')
-			const pick = (list) => [{ value: '', label: 'Not set' }, ...list.map((x) => ({ value: x, label: x }))]
+			const NUM = ['Int', 'Float', 'Currency']; const TEXT = ['Small Text', 'Text', 'Long Text']
+			const kind = (f) => (f.fieldtype === 'Select' || f.fieldtype === 'Link' ? 'list' : f.fieldtype === 'Check' ? 'check' : NUM.includes(f.fieldtype) ? 'num' : TEXT.includes(f.fieldtype) ? 'area' : f.fieldtype === 'Date' ? 'date' : 'text')
+			const pick = (f) => [{ value: '', label: 'Not set' }, ...f.values.map((x) => ({ value: x, label: x }))]
 			async function save() {
-				if (!v.organization_name.trim()) { error.value = 'Give the organization a name.'; return }
+				const miss = fields.value.find((f) => f.reqd && (f.fieldtype === 'Check' ? false : !String(v[f.fieldname] == null ? '' : v[f.fieldname]).trim()))
+				if (miss) { error.value = (miss.fieldname === 'organization_name' ? 'Give the organization a name.' : miss.label + ' is needed.'); return }
 				busy.value = true; error.value = ''
 				try { const r = editing ? await call('update_org', { name: props.org.name, values: JSON.stringify(v) }) : await call('create_org', { values: JSON.stringify(v) }); CM.toast(editing ? 'Saved' : 'Organization added'); emit('saved', r) } catch (e) { error.value = e.message } finally { busy.value = false }
 			}
-			return { v, busy, error, save, pick, editing }
+			return { v, busy, error, save, pick, kind, fields, editing }
 		},
 		template: `
 		<Modal :title="editing ? 'Edit organization' : 'New organization'" @close="$emit('close')" @submit="save">
 			<div class="grid2">
-				<Field label="Name" required><Inp v-model="v.organization_name" :disabled="editing" aria-label="Name" /></Field><Field label="Website"><Inp v-model="v.website" aria-label="Website" /></Field>
-				<Field label="Industry"><Dd v-model="v.industry" :options="pick(opts.industries)" searchable aria-label="Industry" /></Field><Field label="Territory"><Dd v-model="v.territory" :options="pick(opts.territories)" searchable aria-label="Territory" /></Field>
-				<Field label="Number of employees"><Dd v-model="v.no_of_employees" :options="pick(opts.sizes)" aria-label="Number of employees" /></Field><Field label="Annual revenue"><Inp v-model="v.annual_revenue" type="number" aria-label="Annual revenue" /></Field>
+				<Field v-for="f in fields" :key="f.fieldname" :label="f.label" :required="!!f.reqd" :style="kind(f) === 'area' ? 'grid-column:1/-1' : ''">
+					<Dd v-if="kind(f) === 'list'" v-model="v[f.fieldname]" :options="pick(f)" searchable :aria-label="f.label" />
+					<Switch v-else-if="kind(f) === 'check'" :modelValue="!!Number(v[f.fieldname])" :label="f.label" @update:modelValue="(x) => (v[f.fieldname] = x ? 1 : 0)" />
+					<textarea v-else-if="kind(f) === 'area'" class="inp" rows="3" v-model="v[f.fieldname]" :aria-label="f.label"></textarea>
+					<Inp v-else v-model="v[f.fieldname]" :type="kind(f) === 'num' ? 'number' : kind(f) === 'date' ? 'date' : 'text'" :disabled="editing && f.fieldname === 'organization_name'" :aria-label="f.label" />
+				</Field>
 			</div>
 			<div v-if="error" class="err" role="alert" style="margin-top:10px">{{ error }}</div>
 			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" :loading="busy" @click="save">{{ editing ? 'Save' : 'Add organization' }}</Btn></template>

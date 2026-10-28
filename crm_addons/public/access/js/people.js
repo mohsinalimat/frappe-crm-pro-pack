@@ -162,10 +162,22 @@
 			const presetOptions = computed(() => [{ value: '', label: 'No preset (what their role gives them)' }, ...AX.data.presets.filter((p) => SHOWN.includes(p.name)).map((p) => ({ value: p.name, label: p.preset_name, sub: p.description }))])
 			const leaderOptions = computed(() => AX.leaderOptions(''))
 			const waReady = computed(() => !!(AX.data.login_template && AX.data.login_template.ready))
+			// which questions the form asks, in what order, and which are required: arranged in Settings, Forms (nothing there that is not part of adding a person)
+			const DEFAULT = ['image', 'first_name', 'last_name', 'email', 'mobile_no', 'designation', 'company', 'role', 'preset', 'reports_to', 'invite', 'whatsapp']
+			const fields = computed(() => {
+				const pf = AX.data.person_form
+				const list = pf && pf.custom && pf.fields.length ? pf.fields : DEFAULT.map((k) => ({ fieldname: k, label: '', reqd: k === 'first_name' || k === 'email' ? 1 : 0 }))
+				return list.filter((x) => x.fieldname !== 'reports_to' || AX.data.hierarchy.available)
+			})
+			const LABEL = { first_name: 'First name', last_name: 'Last name', email: 'Email', mobile_no: 'Contact number', designation: 'Designation', company: 'Company', role: 'Role in CRM', preset: 'Preset', reports_to: 'Team leader' }
+			const label = (x) => x.label || LABEL[x.fieldname] || x.fieldname
+			const FULL = ['image', 'role', 'invite', 'whatsapp']
+			const ICON = { first_name: 'user', last_name: 'user', email: 'mail', mobile_no: 'phone', designation: 'briefcase', company: 'building' }
 			async function submit() {
 				err.value = ''
+				const must = fields.value.find((x) => x.reqd && !['image', 'role', 'preset', 'reports_to', 'invite', 'whatsapp'].includes(x.fieldname) && !String(f[x.fieldname] || '').trim())
+				if (must) { err.value = must.fieldname === 'first_name' ? 'Enter the first name.' : label(must) + ' is needed.'; return }
 				if (!/^\S+@\S+\.\S+$/.test(f.email.trim())) { err.value = 'Enter a valid email address.'; return }
-				if (!f.first_name.trim()) { err.value = 'Enter the first name.'; return }
 				busy.value = true
 				try {
 					const r = await AX.api('add_person', { email: f.email.trim(), first_name: f.first_name.trim(), last_name: f.last_name.trim(), role: f.role, preset: f.preset || null, send_invite: f.invite ? 1 : 0, send_whatsapp: f.whatsapp ? 1 : 0, mobile_no: f.mobile_no, designation: f.designation, company: f.company, user_image: f.image, reports_to: f.reports_to || null })
@@ -175,21 +187,23 @@
 					emit('added', r.user)
 				} catch (e) { err.value = e.message } finally { busy.value = false }
 			}
-			return { f, busy, err, presetOptions, leaderOptions, waReady, submit, AX }
+			return { f, busy, err, presetOptions, leaderOptions, waReady, submit, AX, fields, label, FULL, ICON }
 		},
 		template: `
 		<Modal size="lg" title="Add a person" subtitle="They get a CRM login with the role below." @close="$emit('close')" @submit="submit">
 			<div class="col" style="gap:14px">
 				<div v-if="err" class="alert err"><Ico name="alert" /><div class="grow">{{ err }}</div></div>
-				<PhotoPick v-model="f.image" :name="(f.first_name + ' ' + f.last_name).trim() || f.email" />
-				<div class="ax-two"><Field label="First name" required><Inp icon="user" v-model="f.first_name" aria-label="First name" /></Field><Field label="Last name"><Inp icon="user" v-model="f.last_name" aria-label="Last name" /></Field></div>
-				<div class="ax-two"><Field label="Email" required><Inp icon="mail" v-model="f.email" placeholder="name@company.com" aria-label="Email" /></Field><Field label="Contact number" hint="Their default number in CRM."><Inp icon="phone" v-model="f.mobile_no" placeholder="+91 98765 43210" aria-label="Contact number" /></Field></div>
-				<div class="ax-two"><Field label="Designation"><Inp icon="briefcase" v-model="f.designation" placeholder="e.g. Sales Executive" aria-label="Designation" /></Field><Field label="Company"><Inp icon="building" v-model="f.company" aria-label="Company" /></Field></div>
-				<Field label="Role in CRM" hint="Sales Manager can also manage other people's leads in CRM. Sales User sees their own."><Seg v-model="f.role" :options="[{ value: 'Sales User', label: 'Sales User' }, { value: 'Sales Manager', label: 'Sales Manager' }]" /></Field>
-				<div class="ax-two"><Field label="Preset" hint="The ready-made access to start from."><Dd v-model="f.preset" :options="presetOptions" aria-label="Preset" /></Field>
-					<Field v-if="AX.data.hierarchy.available" label="Team leader" hint="They are added under this person in the Sales Hierarchy."><Dd v-model="f.reports_to" :options="leaderOptions" searchable allow-empty="Nobody" placeholder="Nobody" aria-label="Team leader" /></Field></div>
-				<label class="check"><input type="checkbox" v-model="f.invite" /> Email them an invitation to set a password</label>
-				<label class="check" :class="{ faint: !waReady }"><input type="checkbox" v-model="f.whatsapp" :disabled="!waReady || !f.mobile_no.trim()" /> Also send the login link on WhatsApp <span class="small muted">{{ !AX.data.login_template.exists ? '(create the WhatsApp template first)' : !waReady ? '(template waiting for Meta approval)' : !f.mobile_no.trim() ? '(needs a contact number)' : '' }}</span></label>
+				<div class="ax-two">
+					<template v-for="x in fields" :key="x.fieldname">
+						<div v-if="x.fieldname === 'image'" style="grid-column:1/-1"><PhotoPick v-model="f.image" :name="(f.first_name + ' ' + f.last_name).trim() || f.email" /></div>
+						<Field v-else-if="ICON[x.fieldname]" :label="label(x)" :required="!!x.reqd" :hint="x.fieldname === 'mobile_no' ? 'Their default number in CRM.' : ''"><Inp :icon="ICON[x.fieldname]" v-model="f[x.fieldname]" :placeholder="x.fieldname === 'email' ? 'name@company.com' : x.fieldname === 'mobile_no' ? '+91 98765 43210' : ''" :aria-label="label(x)" /></Field>
+						<Field v-else-if="x.fieldname === 'role'" :label="label(x)" hint="Sales Manager can also manage other people's leads in CRM. Sales User sees their own." style="grid-column:1/-1"><Seg v-model="f.role" :options="[{ value: 'Sales User', label: 'Sales User' }, { value: 'Sales Manager', label: 'Sales Manager' }]" /></Field>
+						<Field v-else-if="x.fieldname === 'preset'" :label="label(x)" hint="The ready-made access to start from."><Dd v-model="f.preset" :options="presetOptions" :aria-label="label(x)" /></Field>
+						<Field v-else-if="x.fieldname === 'reports_to'" :label="label(x)" hint="They are added under this person in the Sales Hierarchy."><Dd v-model="f.reports_to" :options="leaderOptions" searchable allow-empty="Nobody" placeholder="Nobody" :aria-label="label(x)" /></Field>
+						<label v-else-if="x.fieldname === 'invite'" class="check" style="grid-column:1/-1"><input type="checkbox" v-model="f.invite" /> {{ x.label || 'Email them an invitation to set a password' }}</label>
+						<label v-else-if="x.fieldname === 'whatsapp'" class="check" :class="{ faint: !waReady }" style="grid-column:1/-1"><input type="checkbox" v-model="f.whatsapp" :disabled="!waReady || !f.mobile_no.trim()" /> {{ x.label || 'Also send the login link on WhatsApp' }} <span class="small muted">{{ !AX.data.login_template.exists ? '(create the WhatsApp template first)' : !waReady ? '(template waiting for Meta approval)' : !f.mobile_no.trim() ? '(needs a contact number)' : '' }}</span></label>
+					</template>
+				</div>
 			</div>
 			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="plus" :loading="busy" :disabled="!AX.data.can_manage" @click="submit">Add person</Btn></template>
 		</Modal>`,

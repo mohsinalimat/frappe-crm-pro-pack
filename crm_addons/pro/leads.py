@@ -287,12 +287,12 @@ def create_lead(values):
 	data = {k: v for k, v in form.clean_values(values).items() if v is not None}
 	if not cstr(data.get("first_name")).strip():
 		frappe.throw(_("First name is needed."))
-	from crm_addons.pro import config
+	from crm_addons.pro import forms_config
 
 	labels = {f["fieldname"]: f["label"] for sec in form.get_form("create") for f in sec["fields"]}
-	for r in config.load().get("create_fields") or []:  # fields the admin made required on the form
-		if r.get("reqd") and r["fieldname"] in labels and data.get(r["fieldname"]) in (None, ""):
-			frappe.throw(_("{0} is needed.").format(labels[r["fieldname"]]))
+	for name, label in forms_config.required_labels("lead").items():  # fields the admin made required on the form
+		if name in labels and data.get(name) in (None, ""):
+			frappe.throw(_("{0} is needed.").format(labels[name]))
 	data.setdefault("lead_owner", frappe.session.user)
 	return frappe.get_doc({"doctype": LEAD, **data}).insert().name
 
