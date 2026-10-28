@@ -265,6 +265,25 @@ def send_email(name, recipients, subject, content, cc=None, bcc=None, html=0, at
 
 
 @frappe.whitelist()
+def whatsapp_templates(name):
+	"""The approved WhatsApp templates, each filled in for this lead the way it will be sent, so the person can look before sending."""
+	from crm_addons.campaigns import personalization
+	from crm_addons.campaigns.common import whatsapp_installed
+	from crm_addons.pro import bulk_send
+
+	doc = _lead(name)
+	if not whatsapp_installed():
+		return {"installed": False, "templates": []}
+	ctx = personalization.build_context(doc, frappe._dict(campaign_owner=frappe.session.user, owner=frappe.session.user))
+	out = []
+	for t in bulk_send.options()["whatsapp"]["templates"]:
+		row = frappe.db.get_value("WhatsApp Templates", t["name"], ["header", "footer", "crm_variable_map"] if frappe.get_meta("WhatsApp Templates").has_field("crm_variable_map") else ["header", "footer"], as_dict=True) or {}
+		params, missing = personalization.render_whatsapp_params({"variable_map": json.dumps(bulk_send._saved_map(row))}, ctx)
+		out.append({"name": t["name"], "label": t["label"], "language": t.get("language"), "header": cstr(row.get("header")), "footer": cstr(row.get("footer")), "body": personalization.fill_placeholders(t["body"], params), "missing": t.get("missing") or missing})
+	return {"installed": True, "templates": out, "number": doc.mobile_no}
+
+
+@frappe.whitelist()
 def render_reply(name, text):
 	"""A saved reply with its variables filled in for this lead. Nothing is sent: the person sees it in the message box first."""
 	from crm_addons.campaigns import personalization

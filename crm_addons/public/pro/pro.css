@@ -433,3 +433,6 @@ html[data-theme="dark"] .wx-menu, html[data-theme="dark"] .wx-reaction, html[dat
 .tpl-sub { display: flex; flex-direction: column; }
 .tpl-frame { flex: 1; width: 100%; min-height: 360px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
 @media (max-width: 720px) { .tpl-pick { grid-template-columns: 1fr; } .tpl-list { max-height: 160px; } }
+.wx-stage { flex: 1; min-height: 280px; background-color: #efeae2; background-image: radial-gradient(rgba(0,0,0,.045) 1px, transparent 1px); background-size: 18px 18px; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; justify-content: flex-start; }
+.wx-stage .wx-bub { max-width: 420px; }
+html[data-theme="dark"] .wx-stage { background-color: #0b141a; }

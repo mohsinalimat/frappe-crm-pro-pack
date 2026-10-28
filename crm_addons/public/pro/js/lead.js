@@ -10,8 +10,8 @@
 	const dayKey = (s) => String(s || '').slice(0, 10)
 	const dayLabel = (s) => { const d = new Date(dayKey(s) + 'T00:00:00'); if (isNaN(d)) return ''; const t = new Date(); t.setHours(0, 0, 0, 0); const diff = Math.round((t - d) / 864e5); return diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: d.getFullYear() === t.getFullYear() ? undefined : 'numeric' }) }
 	const TABS = [
-		{ id: 'activity', label: 'Activity', icon: 'clock' }, { id: 'emails', label: 'Emails', icon: 'mail' }, { id: 'comments', label: 'Comments', icon: 'message' }, { id: 'data', label: 'Data', icon: 'list' },
-		{ id: 'meetings', label: 'Meetings', icon: 'calendar' }, { id: 'followups', label: 'Follow-ups', icon: 'phone' }, { id: 'campaigns', label: 'Campaign', icon: 'send' }, { id: 'whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
+		{ id: 'activity', label: 'Activity', icon: 'clock' }, { id: 'followups', label: 'Follow-ups', icon: 'phone' }, { id: 'meetings', label: 'Meetings', icon: 'calendar' }, { id: 'emails', label: 'Emails', icon: 'mail' },
+		{ id: 'whatsapp', label: 'WhatsApp', icon: 'whatsapp' }, { id: 'comments', label: 'Comments', icon: 'message' }, { id: 'data', label: 'Data', icon: 'list' }, { id: 'campaigns', label: 'Campaign', icon: 'send' },
 	]
 	const LOADERS = { activity: 'get_activity', emails: 'get_emails', comments: 'get_timeline', data: 'get_data', meetings: 'get_meetings', followups: 'get_followups', campaigns: 'get_campaigns', whatsapp: 'get_whatsapp' }
 	const HEX = { gray: '#94a3b8', blue: '#3b82f6', green: '#22c55e', teal: '#14b8a6', red: '#ef4444', orange: '#f97316', yellow: '#eab308', purple: '#a855f7', pink: '#ec4899', cyan: '#06b6d4' }
@@ -182,7 +182,17 @@
 
 			// whatsapp: shaped like the app, with the 24-hour rule of the WhatsApp Business platform
 			const wa = reactive({ text: '', busy: false, emoji: false, cat: '😀', menu: false, replies: [], hi: 0, reply: null, pending: null, menuFor: '' }); const chat = ref(null); const pics = ref(null); const vids = ref(null); const docs = ref(null)
-			const waTemplate = () => window.postMessage({ source: 'crm-addons', type: 'pro-send', kind: 'whatsapp', names: [props.name] }, location.origin)
+			const wt = reactive({ open: false, loading: false, info: null, sel: '', busy: false, error: '' })
+			async function waTemplate() {
+				Object.assign(wt, { open: true, sel: '', error: '' }); if (wt.info) return
+				wt.loading = true
+				try { wt.info = await call('whatsapp_templates', { name: props.name }); if (wt.info.templates.length) wt.sel = wt.info.templates[0].name } catch (e) { wt.error = e.message } finally { wt.loading = false }
+			}
+			const wtSel = computed(() => (wt.info && wt.info.templates.find((t) => t.name === wt.sel)) || null)
+			async function sendTemplate() {
+				wt.busy = true; wt.error = ''
+				try { await CM.call('crm_addons.pro.bulk_send.send_whatsapp', { names: JSON.stringify([props.name]), template: wt.sel }); wt.open = false; wt.info = null; delete data.activity; await reload('whatsapp'); CM.toast('Template sent') } catch (e) { wt.error = e.message } finally { wt.busy = false }
+			}
 			const waMessages = computed(() => (data.whatsapp ? [...data.whatsapp.messages].sort((a, b) => String(a.creation).localeCompare(String(b.creation))) : []))
 			const waDays = computed(() => { const out = []; for (const m of waMessages.value) { const k = dayKey(m.creation); const last = out[out.length - 1]; if (last && last.key === k) last.items.push(m); else out.push({ key: k, label: dayLabel(m.creation), items: [m] }) } return out })
 			watch(() => data.whatsapp, () => nextTick(() => { if (chat.value) chat.value.scrollTop = chat.value.scrollHeight }))
@@ -226,7 +236,7 @@
 			const shortTime = (s) => { const d = new Date(String(s || '').replace(' ', 'T')); if (isNaN(d)) return ''; const t = new Date(); const sameDay = d.toDateString() === t.toDateString(); return (sameDay ? '' : d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ', ') + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }
 
 			const ICON = { change: 'edit', comment: 'message', assigned: 'users' }
-			return { openTemplates, selTemplate, useTemplate, lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, dropLead, edit, openEdit, saveEdit, comment, commenting, addComment, comments, ovl, openOverlay, frame, doneFollowup, dropFollowup, fu, overdue, attemptTone, bandTone, em, opened, openEmail, attach, sendEmail, mailState, wa, waTemplate, sendWa, pickFile, pics, vids, docs, addEmoji, EMOJI, EMOJI_TABS, REACTS, startReply, copyText, react, slash, useReply, onKeys, shortTime, grouped, chat, waMessages, waDays, mediaOf, fileName, caption, bubbleText, tick, clock, ICON, day, load, PRO, CM }
+			return { wt, wtSel, sendTemplate, openTemplates, selTemplate, useTemplate, lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, dropLead, edit, openEdit, saveEdit, comment, commenting, addComment, comments, ovl, openOverlay, frame, doneFollowup, dropFollowup, fu, overdue, attemptTone, bandTone, em, opened, openEmail, attach, sendEmail, mailState, wa, waTemplate, sendWa, pickFile, pics, vids, docs, addEmoji, EMOJI, EMOJI_TABS, REACTS, startReply, copyText, react, slash, useReply, onKeys, shortTime, grouped, chat, waMessages, waDays, mediaOf, fileName, caption, bubbleText, tick, clock, ICON, day, load, PRO, CM }
 		},
 		template: `
 		<div class="page lead-page">
@@ -411,6 +421,17 @@
 						<span v-for="f in em.files" :key="f.name" class="chip-file"><Ico name="file" size="sm" /> {{ f.file_name }}<button type="button" class="btn ghost icon sm" :aria-label="'Remove ' + f.file_name" @click="em.files = em.files.filter((x) => x !== f)"><Ico name="x" size="sm" /></button></span></div>
 					<div v-if="em.error" class="err" role="alert" style="margin-top:8px">{{ em.error }}</div>
 					<template #foot><Btn @click="em.open = false">Cancel</Btn><Btn variant="primary" icon="send" :loading="em.busy" :disabled="em.loading || em.upBusy" @click="sendEmail">Send</Btn></template>
+				</Modal>
+				<Modal v-if="wt.open" title="WhatsApp templates" size="xl" @close="wt.open = false">
+					<Skel v-if="wt.loading" h="120" />
+					<div v-else-if="wt.error && !wt.info" class="err" role="alert">{{ wt.error }}</div>
+					<Empty v-else-if="!wt.info || !wt.info.installed" icon="whatsapp" title="WhatsApp is not set up" text="Install and connect the Frappe WhatsApp app first." />
+					<Empty v-else-if="!wt.info.templates.length" icon="whatsapp" title="No approved templates yet" text="Create one under Campaigns, WhatsApp templates and wait for Meta to approve it." />
+					<div v-else class="tpl-pick"><ul class="tpl-list" role="listbox" aria-label="Templates"><li v-for="t in wt.info.templates" :key="t.name"><button type="button" role="option" :aria-selected="String(wt.sel === t.name)" :class="{ on: wt.sel === t.name }" @click="wt.sel = t.name"><b class="ellipsis">{{ t.label }}</b><span class="small muted ellipsis">{{ t.body }}</span></button></li></ul>
+						<div class="tpl-view"><div v-if="wtSel" class="wx-stage"><div class="wx-row out first"><div class="wx-bub"><div v-if="wtSel.header" class="wx-text"><b>{{ wtSel.header }}</b></div><div class="wx-text">{{ wtSel.body }}</div><div v-if="wtSel.footer" class="wx-foot-t">{{ wtSel.footer }}</div></div></div></div>
+							<div v-if="wtSel && wtSel.missing.length" class="err" role="alert">This template has variables with no value set up, so it cannot be sent yet. Map them under Campaigns, WhatsApp templates.</div>
+							<div v-if="wt.error" class="err" role="alert">{{ wt.error }}</div></div></div>
+					<template #foot><Btn @click="wt.open = false">Cancel</Btn><Btn variant="primary" icon="send" :loading="wt.busy" :disabled="!wtSel || (wtSel && wtSel.missing.length > 0) || !(wt.info && wt.info.number)" @click="sendTemplate">Send to {{ wt.info && wt.info.number }}</Btn></template>
 				</Modal>
 				<Modal v-if="em.pick" title="Email templates" size="xl" @close="em.pick = false">
 					<div v-if="em.info && em.info.problem" class="err" role="alert" style="margin-bottom:10px">{{ em.info.problem }}</div>
