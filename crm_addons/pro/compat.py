@@ -26,7 +26,9 @@ FUNCTIONS = {
 	"crm.api.whatsapp.create_whatsapp_message": "sending WhatsApp messages",
 	"crm.fcrm.doctype.crm_fields_layout.crm_fields_layout.get_fields_layout": "the lead form layout",
 }
-OPTIONAL_DOCTYPES = {"WhatsApp Message": "the WhatsApp tab"}
+OPTIONAL_DOCTYPES = {"WhatsApp Message": "the WhatsApp tab and the WhatsApp Business inbox"}
+# what Suite Pro itself adds and the inbox, Meta and Calendar pages rely on: doctype -> what stops working without it
+OURS = {"CRM WhatsApp Chat": "the WhatsApp Business inbox", "CRM Meta Settings": "the Meta lead-ad connection", "CRM Meta Form": "the Meta lead-ad connection", "CRM Meta Lead Log": "the Meta lead log"}
 
 
 def _snapshot():
@@ -70,6 +72,14 @@ def problems():
 	for dt, what in OPTIONAL_DOCTYPES.items():
 		if not frappe.db.exists("DocType", dt):
 			out.append({"level": "warn", "text": _("{0} is not installed; {1} is switched off.").format(dt, what)})
+	for dt, what in OURS.items():
+		if not frappe.db.exists("DocType", dt):
+			out.append({"level": "error", "text": _("{0} is missing; {1} will not work. Run bench migrate.").format(dt, what)})
+	if frappe.db.exists("DocType", "WhatsApp Message") and not frappe.get_meta("WhatsApp Message").has_field("crm_chat_key"):
+		out.append({"level": "error", "text": _("WhatsApp Message has no CRM Chat Key field; the WhatsApp Business inbox cannot match messages to chats. Run bench migrate.")})
+	hooks = frappe.get_hooks("doc_events").get("WhatsApp Message", {})
+	if "crm_addons.pro.inbox.on_validate" not in str(hooks.get("validate", [])):
+		out.append({"level": "warn", "text": _("The WhatsApp Business inbox hook is not registered; new messages will not reach the inbox.")})
 	from crm_addons.pro import form
 
 	meta = frappe.get_meta("CRM Lead")

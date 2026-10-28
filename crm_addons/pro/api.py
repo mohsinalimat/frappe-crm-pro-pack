@@ -169,7 +169,7 @@ def list_notifications(show="all", type=None, search=None, start=0, page_length=
 			"text": strip_html(cstr(r.notification_text or r.message))[:300],
 			"reference_doctype": r.reference_doctype, "reference_name": r.reference_name, "title": title,
 		})
-	total = cint(frappe.db.count(NOTIFICATION, filters)) if not or_filters else len(frappe.get_all(NOTIFICATION, filters=filters, or_filters=or_filters, pluck="name", limit_page_length=5000))
+	total = cint(frappe.db.count(NOTIFICATION, filters)) if not or_filters else cint(frappe.get_all(NOTIFICATION, fields=["count(name) as n"], filters=filters, or_filters=or_filters)[0].n)
 	return {"rows": out, "total": total, "unread": unread_count()}
 
 

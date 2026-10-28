@@ -256,6 +256,7 @@ def get_client_config():
 		"can_manage_access": 1 if _is_access_admin() else 0,
 		"meetings_scope": _meetings_scope(),
 		"access": _my_access(),
+		"whatsapp_ready": 1 if frappe.db.exists("DocType", "WhatsApp Message") else 0,  # the inbox needs the frappe_whatsapp app
 		"can_assign": 1 if _can_assign() else 0,  # the Assignment menu: anyone whose access allows rules, moving leads or the history
 		"show_campaigns_shortcut": 1 if campaigns_shortcut_visible(settings) else 0,
 		"deals_enabled": 0 if cint(settings.get("hide_deals_menu")) else 1,  # dashboards leave deal numbers out for a team that does not use Deals

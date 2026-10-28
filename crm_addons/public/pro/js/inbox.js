@@ -19,9 +19,16 @@
 			const onDoc = (e) => { if (!e.target.closest || !e.target.closest('.wi-pop')) { fmenu.value = false; kmenu.value = false; info.value = false } }
 			onMounted(() => document.addEventListener('click', onDoc)); onBeforeUnmount(() => document.removeEventListener('click', onDoc))
 			let tQ = null, seq = 0
-			async function loadList(quiet) {
+			async function loadList(quiet, append) {
 				const my = ++seq; if (!quiet) list.loading = true
-				try { const r = await call('list_chats', { view: list.view, search: list.q || undefined, page: 1, page_size: 40 * list.page }); if (my === seq) { list.rows = r.rows; list.total = r.total; list.counts = r.counts || {}; list.more = r.rows.length < r.total } } catch (e) { if (!quiet) CM.toast(e.message, 'err') } finally { if (my === seq) list.loading = false }
+				try {
+					const r = await call('list_chats', { view: list.view, search: list.q || undefined, page: append ? list.page : 1, page_size: 40 })
+					if (my === seq) {
+						const seen = new Set(r.rows.map((x) => x.name))
+						list.rows = append ? list.rows.concat(r.rows.filter((x) => !list.rows.some((y) => y.name === x.name))) : (quiet && list.page > 1 ? r.rows.concat(list.rows.filter((x) => !seen.has(x.name))) : r.rows) // a refresh renews the first page and keeps the pages already opened
+						list.total = r.total; list.counts = r.counts || {}; list.more = list.rows.length < r.total
+					}
+				} catch (e) { if (!quiet) CM.toast(e.message, 'err') } finally { if (my === seq) list.loading = false }
 			}
 			async function loadAcc() { try { acc.value = await call('get_access'); PRO.shell.waUnread = acc.value.unread } catch (e) { acc.value = { level: 'none', unread: 0 } } }
 			async function openChat(key, quiet) {
@@ -90,7 +97,7 @@
 									<span class="wi-bot"><span class="ellipsis wi-last"><svg v-if="r.last_direction === 'Outgoing'" class="wi-tk" viewBox="0 0 17 11" width="15" height="10"><path d="M1 5.8 4.2 9 10.5 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /><path d="M6 8.6 6.6 9 13 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>{{ r.last_message }}</span><span v-if="r.unread" class="wi-un">{{ r.unread }}</span></span>
 									<span class="wi-tags"><span v-if="!r.lead" class="wi-tag new">Contact</span><span v-else class="wi-tag lead">Lead</span><span class="wi-tag who">{{ r.owner ? r.owner_name : 'Unassigned' }}</span></span></span>
 							</button>
-							<button v-if="list.more" type="button" class="wi-more-btn" @click="list.page++; loadList()">Show more</button>
+							<button v-if="list.more" type="button" class="wi-more-btn" @click="list.page++; loadList(false, true)">Show more</button>
 						</template>
 					</div>
 				</aside>

@@ -14,6 +14,7 @@ from frappe.utils import add_to_date, cint, cstr, get_datetime, now_datetime
 from crm_addons.team_access import access
 
 CHAT = "CRM WhatsApp Chat"
+MESSAGES_SHOWN = 500
 MSG = "WhatsApp Message"
 LEAD = "CRM Lead"
 WINDOW_HOURS = 24
@@ -276,11 +277,12 @@ def _counts():
 
 
 def _messages(chat):
-	rows = frappe.get_all(MSG, filters={"crm_chat_key": chat.name}, fields=FIELDS, order_by="creation asc", limit_page_length=0)
+	rows = frappe.get_all(MSG, filters={"crm_chat_key": chat.name}, fields=FIELDS, order_by="creation desc", limit_page_length=MESSAGES_SHOWN)  # the latest ones: a very long chat opens fast
 	if chat.lead:
 		known = {r.name for r in rows}
-		rows += [r for r in frappe.get_all(MSG, filters={"reference_doctype": LEAD, "reference_name": chat.lead}, fields=FIELDS, order_by="creation asc", limit_page_length=0) if r.name not in known]
-		rows.sort(key=lambda r: cstr(r.creation))
+		rows += [r for r in frappe.get_all(MSG, filters={"reference_doctype": LEAD, "reference_name": chat.lead}, fields=FIELDS, order_by="creation desc", limit_page_length=MESSAGES_SHOWN) if r.name not in known]
+	rows.sort(key=lambda r: cstr(r.creation))
+	rows = rows[-MESSAGES_SHOWN:]
 	rows = [dict(r) for r in rows]
 	templates = {}
 	for m in rows:

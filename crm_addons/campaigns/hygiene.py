@@ -91,7 +91,7 @@ def list_suppressed(channel=None, source=None, search=None, start=0, page_length
 	leads = {l.name: l.lead_name for l in frappe.get_all("CRM Lead", filters={"name": ["in", list(names) or [""]]}, fields=["name", "lead_name"])}
 	for r in rows:
 		r["lead_name"] = leads.get(r.lead) or r.lead
-	total = frappe.db.count(OPT_OUT, filters) if not or_filters else len(frappe.get_all(OPT_OUT, filters=filters, or_filters=or_filters, pluck="name", limit_page_length=0))
+	total = frappe.db.count(OPT_OUT, filters) if not or_filters else cint(frappe.get_all(OPT_OUT, fields=["count(name) as n"], filters=filters, or_filters=or_filters)[0].n)
 	counts = {
 		row.channel: cint(row.n)
 		for row in frappe.db.sql("SELECT channel, COUNT(*) AS n FROM `tabCRM Campaign Opt Out` WHERE source IN %s GROUP BY channel", (SOURCES,), as_dict=True)

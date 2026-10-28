@@ -679,7 +679,7 @@ def get_leads(page=1, page_size=25, result=None, form=None, search=None):
 	if txt:
 		or_filters = [[LOG, f, "like", f"%{txt}%"] for f in ("person_name", "email", "phone", "campaign_name", "ad_name", "leadgen_id")]
 	page, size = max(1, cint(page)), min(max(1, cint(page_size) or 25), 100)
-	total = len(frappe.get_all(LOG, filters=filters, or_filters=or_filters, pluck="name", limit_page_length=100000))
+	total = cint(frappe.get_all(LOG, fields=["count(name) as n"], filters=filters, or_filters=or_filters)[0].n)
 	rows = frappe.get_all(LOG, filters=filters, or_filters=or_filters, fields=["name", "creation", "result", "via", "form_name", "platform", "source", "person_name", "email", "phone", "lead", "campaign_name", "adset_name", "ad_name", "error", "applied"],
 		order_by="creation desc", limit_start=(page - 1) * size, limit_page_length=size)
 	counts = {r: n for r, n in frappe.db.sql("select result, count(*) from `tabCRM Meta Lead Log` group by result")}
@@ -711,6 +711,7 @@ def set_sync(running):
 	_admin()
 	on = cint(running)
 	frappe.db.set_single_value(SETTINGS, "sync_paused", 0 if on else 1)
+	frappe.get_doc({"doctype": "Comment", "comment_type": "Info", "reference_doctype": SETTINGS, "reference_name": SETTINGS, "content": _("{0} {1} the automatic Meta lead import.").format(frappe.session.user, _("started") if on else _("stopped"))}).insert(ignore_permissions=True)
 	if on:
 		frappe.enqueue("crm_addons.pro.meta.run_sync", queue="short", enqueue_after_commit=True)
 	return sync_state()

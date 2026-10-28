@@ -576,7 +576,7 @@ def list_entries(form=None, result=None, search=None, from_date=None, to_date=No
 		r["form_title"] = titles.get(r["form"], r["form"])
 		r["ip"] = r.pop("ip_address") if admin else None
 		r.pop("ip_address", None)
-	total = len(frappe.get_all(ENTRY, filters=filters, or_filters=or_filters, pluck="name", limit_page_length=100000))
+	total = cint(frappe.get_all(ENTRY, fields=["count(name) as n"], filters=filters, or_filters=or_filters)[0].n)
 	return {"rows": rows, "total": total, "page": cint(page), "page_size": size, "show_ip": admin}
 
 

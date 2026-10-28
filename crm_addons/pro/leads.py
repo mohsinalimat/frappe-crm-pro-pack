@@ -101,6 +101,12 @@ def _get_list(**kw):
 	return frappe.get_list(LEAD, **kw)
 
 
+def _count(**kw):
+	"""How many leads match: counted by the database (get_list still applies the person's permissions), not by loading every name."""
+	rows = _get_list(fields=["count(name) as n"], **kw)
+	return cint(rows[0].n) if rows else 0
+
+
 @frappe.whitelist()
 def list_leads(filters=None, search=None, scope="all", order_by="creation", order_dir="desc", start=0, page_length=25):
 	"""One page of leads plus the total. ``scope`` is all, mine or team."""
@@ -116,7 +122,7 @@ def list_leads(filters=None, search=None, scope="all", order_by="creation", orde
 	direction = "asc" if cstr(order_dir).lower() == "asc" else "desc"
 	page = max(1, min(cint(page_length) or 25, PAGE_MAX))
 	rows = _get_list(fields=FIELDS, filters=flt, or_filters=or_flt, order_by=f"{col} {direction}", limit_start=max(0, cint(start)), limit_page_length=page)
-	total = len(_get_list(fields=["name"], filters=flt, or_filters=or_flt, limit_page_length=0, pluck="name"))
+	total = _count(filters=flt, or_filters=or_flt)
 	return {"rows": _decorate(rows), "total": total}
 
 
@@ -147,7 +153,7 @@ def board(filters=None, search=None, scope="all", per_column=20):
 	for s in statuses:
 		f = flt + [[LEAD, "status", "=", s["name"]]]
 		rows = _get_list(fields=FIELDS, filters=f, or_filters=or_flt, order_by="modified desc", limit_page_length=max(1, min(cint(per_column) or 30, 100)))
-		count = len(_get_list(fields=["name"], filters=f, or_filters=or_flt, limit_page_length=0, pluck="name"))
+		count = _count(filters=f, or_filters=or_flt)
 		out.append({**s, "count": count, "rows": _decorate(rows)})
 	return out
 
