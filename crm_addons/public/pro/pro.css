@@ -214,3 +214,5 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 .lp { line-height: 1; padding-top: 1px; text-align: left }
 .lp.ico { justify-content: center; padding: 1px 8px 0 }
 .lp .ico, .lp svg { display: block; margin: 0 }
+.settings-wrap .gs{width:230px}.settings-wrap .st-ctl{flex-wrap:nowrap}.settings-wrap > .subtabs .st-tabs{gap:20px}
+.settings-wrap .gs{width:190px}

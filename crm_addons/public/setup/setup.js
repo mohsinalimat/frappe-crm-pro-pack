@@ -235,7 +235,7 @@
 					<div class="br-f"><label>"Powered by" text</label><textarea class="inp wide area" rows="2" v-model="v.powered" maxlength="500" placeholder="Leave empty for the default"></textarea></div>
 					<div class="br-f"><label>Company address</label><textarea class="inp wide area" rows="2" v-model="v.address" maxlength="500"></textarea></div>
 				</div>
-				<h3 class="sub">Preview</h3>
+				<h3 class="sub keep">Preview</h3>
 				<div class="br-prev">
 					<div class="br-card"><div class="br-side"><img v-if="v.logo" :src="v.logo" alt="" class="br-pl" /><span v-else class="br-pl dflt"></span><b>{{ v.name || 'Frappe CRM' }}</b></div><div class="small muted">CRM menu</div></div>
 					<div class="br-card login"><img v-if="v.logo" :src="v.logo" alt="" class="br-pl big" /><span v-else class="br-pl big dflt"></span><b>Login to {{ v.name || 'Frappe CRM' }}</b><div class="br-fake"></div><div class="br-fake"></div><div class="small muted">{{ v.copyright || '' }}</div></div>
@@ -509,7 +509,7 @@
 					<!-- options -->
 					<section v-for="g in visible" :key="g.key" class="stack">
 						<div class="card pad">
-							<div class="row"><span class="g-i"><Ico :name="g.icon" :size="19" /></span><div class="grow"><h2>{{ g.title }}</h2><p class="muted">{{ g.desc }}</p></div></div>
+							<div class="row g-head"><span class="g-i"><Ico :name="g.icon" :size="19" /></span><div class="grow"><h2>{{ g.title }}</h2><p class="muted">{{ g.desc }}</p></div></div>
 							<ViewDefaults v-if="g.custom === 'views'" /><Branding v-if="g.custom === 'branding'" />
 							<template v-for="(it, i) in g.shown" :key="(it.k || it.h) + i">
 								<h3 v-if="it.h" class="sub">{{ it.h }}</h3>

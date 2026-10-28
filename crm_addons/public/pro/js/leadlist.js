@@ -189,7 +189,7 @@
 			const view = reactive({ type: 'list', name: '', label: 'List' }) // the view being shown
 			const p = reactive({ filters: {}, orderBy: 'modified desc', columns: null, rows: null, groupBy: 'lead_owner', columnField: 'status', titleField: null, kanbanFields: null, kanbanColumns: null, pageLength: 20 })
 			const filterFields = ref([]); const sortFields = ref([]); const groupFields = ref([])
-			const cfg = reactive({ default_view: 'list', show_date: 1, show_status: 1, filters: [], columns: null, sort: 'modified desc' })
+			const cfg = reactive({ default_view: 'list', show_date: 1, show_status: 1, filters: [], top_filters: [], columns: null, sort: 'modified desc' })
 			const showFilters = ref(PRO.leadUtil.store.get('showFilters', false))
 			const picked = ref([]); const selAll = ref(false); const page = ref(1); const pageSize = ref(PRO.leadUtil.store.get('pageSize', 20)); const dlg = ref(''); const busy = ref(false); const creating = ref(false); const importing = ref(false)
 			const search = ref(''); let seq = 0, timer
@@ -275,9 +275,11 @@
 			// the second row: the admin's default filters, plus any other filter that is switched on
 			const chips = computed(() => {
 				const by = Object.fromEntries(filterFields.value.map((f) => [f.fieldname, f]))
-				const keys = [...new Set([...(cfg.filters || []), ...PRO.filt.activeKeys(p.filters)])].filter((k) => !MAIN.includes(k) && by[k])
+				const keys = [...new Set([...(cfg.filters || []), ...PRO.filt.activeKeys(p.filters)])].filter((k) => !MAIN.includes(k) && !(cfg.top_filters || []).includes(k) && by[k])
 				return keys.map((k) => by[k])
 			})
+			// the fields the admin put in the top row, next to search
+			const topChips = computed(() => { const by = Object.fromEntries(filterFields.value.map((f) => [f.fieldname, f])); return (cfg.top_filters || []).filter((k) => by[k]).map((k) => by[k]) })
 			const anyFilter = computed(() => !!(PRO.filt.activeKeys(p.filters).length || search.value.trim()))
 			function flipFilters() { showFilters.value = !showFilters.value; PRO.leadUtil.store.set('showFilters', showFilters.value) }
 			const sortParts = computed(() => { const [f, d] = (p.orderBy || 'modified desc').split(' '); return { field: f, dir: d || 'desc' } })
@@ -387,7 +389,7 @@
 				} catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 			const sortDirOpts = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]
-			return { page, pageSize, pages, pageNums, range, setPage, setSize, SIZES, selAll, selectEvery, bulkRun, bulkStart, runBulk, openBulk, anyFilter, openExport, exportFields, exportStart, cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
+			return { topChips, page, pageSize, pages, pageNums, range, setPage, setSize, SIZES, selAll, selectEvery, bulkRun, bulkStart, runBulk, openBulk, anyFilter, openExport, exportFields, exportStart, cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
 		},
 		template: `
 		<div class="page leads">
@@ -407,6 +409,7 @@
 						<template #top><div class="dr-tabs row" style="gap:6px;padding:8px 12px 0"><button v-for="d in DATE_FIELDS" :key="d.id" type="button" class="btn sm" :class="{ on: dateField === d.id }" @click="dateField = d.id">{{ d.label }}</button></div></template>
 					</DateRange>
 					<div v-if="cfg.show_status" style="width:170px"><MultiPick v-model="statusSel" :options="statusOpts" label="Status" searchable /></div>
+					<FilterChip v-for="f in topChips" :key="f.fieldname" :field="f" :filters="p.filters" @change="setFilters" />
 					<button type="button" class="btn icon" :class="{ on: showFilters || nFilters }" :aria-expanded="showFilters" aria-label="Filters" title="Filters" @click="flipFilters"><Ico name="filter" /><span v-if="nFilters" class="n">{{ nFilters }}</span></button>
 					<button type="button" class="btn icon clr" :class="{ on: anyFilter }" :disabled="!anyFilter" aria-label="Clear all filters" title="Clear all filters" @click="clearAll"><Ico name="x" /></button>
 				</div>

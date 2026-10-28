@@ -37,23 +37,26 @@
 	V.Organizations = {
 		setup() {
 			const opts = reactive({ industries: [], territories: [], sizes: [], can_create: false })
-			const search = ref(''); const industry = ref(''); const territory = ref(''); const sort = reactive({ by: 'organization_name', dir: 'asc' })
+			const search = ref(''); const fv = reactive({ industry: '', territory: '', no_of_employees: '' }); const cfgFilters = ref(['industry', 'territory']); const sort = reactive({ by: 'organization_name', dir: 'asc' })
 			const rows = ref([]); const total = ref(0); const page = ref(1); const perPage = ref(25); const loading = ref(true); const error = ref(''); const creating = ref(false)
 			let timer, seq = 0
 			async function load() {
 				const mine = ++seq; loading.value = true; error.value = ''
-				try { const r = await call('list_orgs', { search: search.value || undefined, industry: industry.value || undefined, territory: territory.value || undefined, order_by: sort.by, order_dir: sort.dir, start: (page.value - 1) * perPage.value, page_length: perPage.value }); if (mine === seq) { rows.value = r.rows; total.value = r.total } } catch (e) { if (mine === seq) error.value = e.message } finally { if (mine === seq) loading.value = false }
+				try { const r = await call('list_orgs', { search: search.value || undefined, industry: fv.industry || undefined, territory: fv.territory || undefined, no_of_employees: fv.no_of_employees || undefined, order_by: sort.by, order_dir: sort.dir, start: (page.value - 1) * perPage.value, page_length: perPage.value }); if (mine === seq) { rows.value = r.rows; total.value = r.total } } catch (e) { if (mine === seq) error.value = e.message } finally { if (mine === seq) loading.value = false }
 			}
-			onMounted(async () => { try { Object.assign(opts, await call('options', {})) } catch (e) { error.value = e.message } load() })
-			watch([industry, territory, () => sort.by + sort.dir, perPage], () => { page.value = 1; load() })
+			onMounted(async () => { try { cfgFilters.value = (await CM.call('crm_addons.pro.config.get_orgs_config', {})).filters } catch (e) { /* the default two stay */ } try { Object.assign(opts, await call('options', {})) } catch (e) { error.value = e.message } load() })
+			watch([() => JSON.stringify(fv), () => sort.by + sort.dir, perPage], () => { page.value = 1; load() })
 			watch(search, () => { clearTimeout(timer); timer = setTimeout(() => { page.value = 1; load() }, 300) })
 			const pages = computed(() => Math.max(1, Math.ceil(total.value / perPage.value)))
 			const go = (n) => { page.value = Math.min(pages.value, Math.max(1, n)); load() }
 			const open = (n) => { location.hash = '#/organizations/' + encodeURIComponent(n) }
 			const sortOpts = [{ value: 'organization_name', label: 'Name' }, { value: 'creation', label: 'Added date' }, { value: 'annual_revenue', label: 'Annual revenue' }]
 			const pick = (list, all) => [{ value: '', label: all }, ...list.map((x) => ({ value: x, label: x }))]
-			const clear = () => { search.value = ''; industry.value = ''; territory.value = '' }
-			return { opts, search, industry, territory, sort, rows, total, page, perPage, loading, error, creating, load, pages, go, open, sortOpts, pick, clear, money }
+			const clear = () => { search.value = ''; Object.keys(fv).forEach((k) => (fv[k] = '')) }
+			const FILTERS = { industry: ['All industries', () => opts.industries], territory: ['All territories', () => opts.territories], no_of_employees: ['Any size', () => opts.sizes] }
+			const filterOpts = (k) => pick(FILTERS[k][1](), FILTERS[k][0])
+			const anyFv = computed(() => !!(search.value || Object.values(fv).some(Boolean)))
+			return { fv, cfgFilters, filterOpts, anyFv, opts, search, sort, rows, total, page, perPage, loading, error, creating, load, pages, go, open, sortOpts, pick, clear, money }
 		},
 		template: `
 		<div class="page leads">
@@ -61,9 +64,8 @@
 				<div class="actions"><Btn v-if="opts.can_create" variant="primary" icon="plus" @click="creating = true">Add organization</Btn></div></div>
 			<section class="card fbar"><div class="row wrap" style="gap:8px">
 				<div class="grow" style="min-width:220px"><Inp v-model="search" icon="search" placeholder="Search name or website..." clearable aria-label="Search organizations" /></div>
-				<div style="width:190px"><Dd v-model="industry" :options="pick(opts.industries, 'All industries')" searchable aria-label="Industry" /></div>
-				<div style="width:190px"><Dd v-model="territory" :options="pick(opts.territories, 'All territories')" searchable aria-label="Territory" /></div>
-				<button type="button" class="btn icon" :disabled="!search && !industry && !territory" title="Clear all filters" aria-label="Clear all filters" @click="clear"><Ico name="x" /></button>
+				<div v-for="k in cfgFilters" :key="k" style="width:190px"><Dd v-model="fv[k]" :options="filterOpts(k)" searchable :aria-label="k" /></div>
+				<button type="button" class="btn icon" :disabled="!anyFv" title="Clear all filters" aria-label="Clear all filters" @click="clear"><Ico name="x" /></button>
 			</div></section>
 			<ErrorState v-if="error" :message="error" @retry="load" />
 			<div v-else-if="loading && !rows.length" class="card" style="padding:0"><div v-for="n in 6" :key="n" style="padding:16px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div>
@@ -71,7 +73,7 @@
 				<div class="row wrap lbar" style="gap:10px"><span class="muted">Showing {{ total ? (page - 1) * perPage + 1 : 0 }}&ndash;{{ Math.min(total, page * perPage) }} of {{ total }}</span><div class="grow"></div>
 					<button type="button" class="btn sm icon" aria-label="Refresh" title="Refresh" @click="load"><Ico name="refresh" /></button><span class="small muted">Sort by</span><div style="width:150px"><Dd v-model="sort.by" :options="sortOpts" size="sm" aria-label="Sort by" /></div>
 					<Btn size="sm" :icon="sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :aria-label="sort.dir === 'asc' ? 'Ascending' : 'Descending'" @click="sort.dir = sort.dir === 'asc' ? 'desc' : 'asc'" /></div>
-				<Empty v-if="!rows.length" icon="users" title="No organizations" :text="search || industry || territory ? 'No organization matches these filters.' : 'Add your first organization.'" />
+				<Empty v-if="!rows.length" icon="users" title="No organizations"   :text="anyFv ? 'No organization matches these filters.' : 'Add your first organization.'" />
 				<div v-else class="table-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Website</th><th>Industry</th><th>Territory</th><th>Employees</th><th class="num">Leads</th><th class="num">Deals</th><th class="num">Annual revenue</th></tr></thead>
 					<tbody><tr v-for="r in rows" :key="r.name" class="click" tabindex="0" @click="open(r.name)" @keydown.enter="open(r.name)">
 						<td><div class="row" style="gap:10px"><Pic :name="r.organization_name" :image="r.organization_logo" :size="28" /><b>{{ r.organization_name }}</b></div></td>

@@ -30,6 +30,21 @@ class TestProConfig(AccessCase):
 		with self.assertRaises(frappe.ValidationError):
 			config.save_config(json.dumps({"create_fields": [{"fieldname": "creation"}]}))
 
+	def test_top_row_fields_leave_the_filter_list(self):
+		frappe.set_user("Administrator")
+		out = config.save_config(json.dumps({"top_filters": ["source", "status"], "filters": ["source", "territory"]}))
+		self.assertEqual(out["top_filters"], ["source"])
+		self.assertEqual(out["filters"], ["territory"])
+
+	def test_organizations_top_row(self):
+		frappe.set_user("Administrator")
+		old = frappe.db.get_default(config.ORG_KEY)
+		self.addCleanup(lambda: frappe.db.set_default(config.ORG_KEY, old or "{}"))
+		self.assertEqual(config.get_orgs_config()["filters"], ["industry", "territory"] if not old else config.load_orgs()["filters"])
+		self.assertEqual(config.save_orgs_config(json.dumps({"filters": ["territory"]}))["filters"], ["territory"])
+		with self.assertRaises(frappe.ValidationError):
+			config.save_orgs_config(json.dumps({"filters": ["creation"]}))
+
 	def test_only_admins_save(self):
 		frappe.set_user("Guest")
 		with self.assertRaises(frappe.PermissionError):

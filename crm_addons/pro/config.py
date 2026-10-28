@@ -15,6 +15,7 @@ DEFAULT = {
 	"show_date": 1,
 	"show_status": 1,
 	"filters": ["lead_owner", "source", "territory"],
+	"top_filters": [],  # fields that sit in the top row, next to search
 	"columns": None,  # None: CRM's own default columns
 	"sort": "modified desc",
 	"create_fields": None,  # None: CRM's quick entry layout; else [{"fieldname", "reqd"}]
@@ -73,7 +74,8 @@ def save_config(config):
 		out["default_view"] = cfg["default_view"]
 	out["show_date"] = cint(cfg.get("show_date", 1))
 	out["show_status"] = cint(cfg.get("show_status", 1))
-	out["filters"] = _fieldnames(cfg.get("filters") or [], allowed, "filter field")
+	out["top_filters"] = [f for f in _fieldnames(cfg.get("top_filters") or [], allowed, "top row field") if f not in ("status", "_assign", "name")]
+	out["filters"] = [f for f in _fieldnames(cfg.get("filters") or [], allowed, "filter field") if f not in out["top_filters"]]
 	cols = cfg.get("columns")
 	out["columns"] = [c for c in (_fieldnames([c if isinstance(c, str) else c.get("key") for c in cols], allowed, "column") or [])] if cols else None
 	sort = cstr(cfg.get("sort") or DEFAULT["sort"]).split()
@@ -109,3 +111,37 @@ def choices():
 		lst.append({"fieldname": k, "label": label, "fieldtype": df.fieldtype if df else "Data", "options": df.options if df else None})
 	forms = [{"fieldname": n, "label": s["label"], "fieldtype": s["fieldtype"], "reqd": s["reqd"]} for n, s in form.writable().items()]
 	return {"list": lst, "form": forms}
+
+
+# -- Organizations: only which filters sit in the top row ----------------------------------------------------------------------------------------
+
+ORG_KEY = "crm_pro_orgs_config"
+ORG_FILTERS = {"industry": "Industry", "territory": "Territory", "no_of_employees": "Number of employees"}
+
+
+def load_orgs():
+	try:
+		saved = json.loads(frappe.db.get_default(ORG_KEY) or "{}")
+	except ValueError:
+		saved = {}
+	got = saved.get("filters") if isinstance(saved, dict) else None
+	return {"filters": [f for f in got if f in ORG_FILTERS] if isinstance(got, list) else ["industry", "territory"]}
+
+
+@frappe.whitelist()
+def get_orgs_config():
+	_check()
+	return {**load_orgs(), "choices": [{"fieldname": k, "label": v} for k, v in ORG_FILTERS.items()]}
+
+
+@frappe.whitelist()
+def save_orgs_config(config):
+	"""System Managers only: which filters sit in the top row of the Organizations screen."""
+	_admin()
+	cfg = json.loads(config) if isinstance(config, str) else config
+	names = (cfg or {}).get("filters") if isinstance(cfg, dict) else None
+	if not isinstance(names, list) or any(n not in ORG_FILTERS for n in names):
+		frappe.throw(_("Choose the filters from the list."))
+	out = {"filters": list(dict.fromkeys(names))}
+	frappe.db.set_default(ORG_KEY, json.dumps(out))
+	return out

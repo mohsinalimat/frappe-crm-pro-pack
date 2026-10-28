@@ -55,12 +55,14 @@
 	}
 
 	// The settings, sorted into a few groups for the menu on the left
-	const GROUP_OF = { branding: 'General', ui: 'General', views: 'General', leads: 'Leads and sales', meetings: 'Leads and sales', followups: 'Leads and sales', insights: 'Leads and sales', dashboard: 'Leads and sales', campaigns: 'Campaigns', alerts: 'Campaigns', prices: 'Campaigns' }
-	const GROUP_ICON = { General: 'settings', 'Leads and sales': 'briefcase', Campaigns: 'send', Other: 'settings' }
-	const SHORT = { start: 'Checklist', branding: 'CRM', ui: 'Screen', views: 'Default views' } // the short names on the General tabs
+	const LF = 'Leads Follow-up Automation'
+	const GROUP_OF = { branding: 'General', ui: 'General', views: 'General', leads: LF, orgs: LF, meetings: LF, followups: LF, insights: LF, dashboard: LF, campaigns: 'Campaigns', alerts: 'Campaigns', prices: 'Campaigns' }
+	const GROUP_ICON = { General: 'settings', [LF]: 'briefcase', Campaigns: 'send', Other: 'settings' }
+	const SHORT = { start: 'Checklist', branding: 'Branding', ui: 'Screen', views: 'Default views', leads: 'Leads', orgs: 'Organizations' } // the short names on the tabs
+	const TAB_ICON = { start: 'list', branding: 'palette', ui: 'monitor', views: 'columns', leads: 'users', orgs: 'building', meetings: 'calendar', followups: 'phone', insights: 'chart', dashboard: 'chart', campaigns: 'send', alerts: 'alert', prices: 'hash' }
 	PRO.settingsGroups = () => {
-		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Leads screen', group: 'Leads and sales' }].map((x) => ({ ...x, short: SHORT[x.value] || x.label }))
-		return ['General', 'Leads and sales', 'Campaigns', 'Other'].map((t) => ({ title: t, icon: GROUP_ICON[t], items: all.filter((x) => x.group === t) })).filter((g) => g.items.length)
+		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Leads screen', group: LF }, { value: 'orgs', label: 'Organizations screen', group: LF }].map((x) => ({ ...x, short: SHORT[x.value] || x.label, icon: TAB_ICON[x.value] || 'settings' }))
+		return ['General', LF, 'Campaigns', 'Other'].map((t) => ({ title: t, icon: GROUP_ICON[t], items: all.filter((x) => x.group === t) })).filter((g) => g.items.length)
 	}
 	// one search over every setting: each option, and the pages that have no list of options (Branding, Default views, Leads screen)
 	PRO.settingsSearch = (term) => {
@@ -70,7 +72,8 @@
 		const out = []
 		const page = (tab, label, words) => { if (hit(label + ' ' + words)) out.push({ tab, label, sub: groupOf(tab) }) }
 		page('start', 'Setup checklist', 'checklist ready connect google calendar')
-		page('leads', 'Leads screen', 'columns list view filters card fields quick filters sort')
+		page('leads', 'Leads screen', 'columns list view filters card fields quick filters sort top row search')
+		page('orgs', 'Organizations screen', 'organizations filters industry territory top row')
 		for (const g of window.SETUP_SCHEMA || []) {
 			if (g.custom) page(g.key, g.title, (g.desc || '') + ' ' + (g.words || ''))
 			else if (hit(g.title)) out.push({ tab: g.key, label: g.title, sub: groupOf(g.key) })
@@ -85,10 +88,11 @@
 		setup(props) {
 			const TABS = computed(() => PRO.settingsGroups().flatMap((g) => g.items.map((i) => ({ ...i, group: g.title }))))
 			const cur = computed(() => (TABS.value.some((t) => t.value === props.tab) ? props.tab : 'start'))
-			const first = props.tab && props.tab !== 'leads' ? props.tab : 'start'
-			const frameTab = ref(first); watch(cur, (t) => { if (t !== 'leads') frameTab.value = t })
-			const seen = ref(cur.value === 'leads' ? false : true)   // the setup page loads when first needed, and then stays (its unsaved changes survive a visit to the other tab)
-			watch(cur, (t) => { if (t !== 'leads') seen.value = true })
+			const first = props.tab && props.tab !== 'leads' && props.tab !== 'orgs' ? props.tab : 'start'
+			const frameTab = ref(first); watch(cur, (t) => { if (t !== 'leads' && t !== 'orgs') frameTab.value = t })
+			const native = (t) => t === 'leads' || t === 'orgs'
+			const seen = ref(native(cur.value) ? false : true)   // the setup page loads when first needed, and then stays (its unsaved changes survive a visit to the other tab)
+			watch(cur, (t) => { if (!native(t)) seen.value = true })
 			const curItem = computed(() => TABS.value.find((t) => t.value === cur.value) || {})
 			const group = computed(() => PRO.settingsGroups().find((g) => g.title === curItem.value.group) || { title: 'Settings', items: [] })
 			const q = ref(''); const results = computed(() => PRO.settingsSearch(q.value))
@@ -102,10 +106,10 @@
 		template: `
 		<div class="settings-wrap">
 			<div class="subtabs"><div class="st-head"><b class="st-title">{{ group.title }}</b></div>
-				<nav class="st-tabs" :aria-label="group.title"><a v-for="t in group.items" :key="t.value" :href="'#/settings/' + t.value" class="st-tab" :class="{ on: cur === t.value }" :aria-current="cur === t.value ? 'page' : null">{{ t.short }}</a></nav>
-				<div class="st-ctl gs"><Inp v-model="q" icon="search" placeholder="Search all settings" clearable aria-label="Search all settings" />
-					<div v-if="q.trim()" class="gs-pop" role="listbox"><button v-for="(r, i) in results" :key="i" type="button" class="gs-i" role="option" @click="pick(r)"><b>{{ r.label }}</b><span class="small muted">{{ r.sub }}</span></button><div v-if="!results.length" class="small muted" style="padding:10px">No setting matches "{{ q.trim() }}".</div></div></div></div>
-			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><Frame v-if="seen" v-show="cur !== 'leads'" page="settings" :tab="frameTab" key="settings" /></div>
+				<nav class="st-tabs" :aria-label="group.title"><a v-for="t in group.items" :key="t.value" :href="'#/settings/' + t.value" class="st-tab" :class="{ on: cur === t.value }" :aria-current="cur === t.value ? 'page' : null"><Ico :name="t.icon" size="sm" />{{ t.short }}</a></nav>
+				<div id="hdr-ctl" class="st-ctl"><div class="gs"><Inp v-model="q" icon="search" placeholder="Search all settings" clearable aria-label="Search all settings" />
+					<div v-if="q.trim()" class="gs-pop" role="listbox"><button v-for="(r, i) in results" :key="i" type="button" class="gs-i" role="option" @click="pick(r)"><b>{{ r.label }}</b><span class="small muted">{{ r.sub }}</span></button><div v-if="!results.length" class="small muted" style="padding:10px">No setting matches "{{ q.trim() }}".</div></div></div></div></div>
+			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><OrgSetup v-else-if="cur === 'orgs'" :key="'orgcfg'" /><Frame v-if="seen" v-show="cur !== 'leads' && cur !== 'orgs'" page="settings" :tab="frameTab" key="settings" /></div>
 		</div>`,
 	}
 

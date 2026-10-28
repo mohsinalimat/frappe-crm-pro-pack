@@ -40,13 +40,15 @@ def options():
 
 
 @frappe.whitelist()
-def list_orgs(search=None, industry=None, territory=None, order_by="organization_name", order_dir="asc", start=0, page_length=25):
+def list_orgs(search=None, industry=None, territory=None, no_of_employees=None, order_by="organization_name", order_dir="asc", start=0, page_length=25):
 	_check()
 	flt = []
 	if industry:
 		flt.append([ORG, "industry", "=", industry])
 	if territory:
 		flt.append([ORG, "territory", "=", territory])
+	if no_of_employees:
+		flt.append([ORG, "no_of_employees", "=", no_of_employees])
 	term = cstr(search).strip()
 	or_flt = [[ORG, c, "like", f"%{term}%"] for c in ("organization_name", "website")] if term else None
 	col = order_by if order_by in SORTS else "organization_name"
