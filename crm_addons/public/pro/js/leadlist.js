@@ -198,6 +198,8 @@
 			const customViews = computed(() => views.value.filter((v) => !v.is_standard && (v.public || v.user === PRO.shell.user)).sort((a, b) => (b.pinned || 0) - (a.pinned || 0)))
 			const currentView = computed(() => views.value.find((v) => (view.name ? v.name === view.name : v.is_standard && v.type === view.type)))
 			const viewOpts = computed(() => [...STD.map((s) => ({ value: 'std:' + s.type, label: s.label, icon: s.icon })), ...customViews.value.map((v) => ({ value: 'v:' + v.name, label: v.label, icon: (STD.find((s) => s.type === v.type) || STD[0]).icon, badge: v.public ? 'Public' : '' }))])
+			const typeOpts = STD.map((s) => ({ value: s.type, label: s.label, icon: s.icon }))
+			const savedOpts = computed(() => [{ value: 'std:' + view.type, label: 'Default' }, ...viewOpts.value.filter((o) => o.value.startsWith('v:'))])
 			const viewKey = computed(() => (view.name ? 'v:' + view.name : 'std:' + view.type))
 			function applyView(v, quiet) {
 				p.filters = jparse(v.filters, {}); p.orderBy = v.order_by || 'modified desc'
@@ -331,12 +333,13 @@
 				} catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 			const sortDirOpts = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]
-			return { vt, data, loading, error, meta, view, p, dirty, picked, dlg, busy, creating, importing, quickVals, search, load, viewOpts, viewKey, pickView, currentView, saveChanges, newView, createView, dropView, flipPublic, flipPin, nFilters, applyFilters, quick, quickSet, quickFor, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
+			return { customViews, typeOpts, savedOpts, vt, data, loading, error, meta, view, p, dirty, picked, dlg, busy, creating, importing, quickVals, search, load, viewOpts, viewKey, pickView, currentView, saveChanges, newView, createView, dropView, flipPublic, flipPin, nFilters, applyFilters, quick, quickSet, quickFor, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
 		},
 		template: `
 		<div class="page leads">
 			<div class="pg-head"><div class="grow"><h1>Leads</h1><p class="muted small">{{ loading && !data ? '' : total + (total === 1 ? ' lead' : ' leads') }}</p></div>
 				<div class="actions">
+					<Seg :modelValue="view.type" :options="typeOpts" @update:modelValue="(t) => pickView('std:' + t)" />
 					<Btn icon="download" :loading="exporting" title="Download every field of the leads (the selected ones, or all of these filters) as CSV" aria-label="Export leads" @click="exportCsv" />
 					<Btn v-if="meta.can_create" icon="upload" title="Upload leads from a CSV file" aria-label="Upload leads" @click="importing = true" />
 					<Btn v-if="meta.can_create" variant="primary" icon="plus" @click="creating = true">Create</Btn>
@@ -345,7 +348,7 @@
 
 			<section class="card fbar">
 				<div class="row wrap" style="gap:8px">
-					<div style="width:190px"><Dd :modelValue="viewKey" :options="viewOpts" aria-label="View" @update:modelValue="pickView" /></div>
+					<div v-if="customViews.length" style="width:200px"><Dd :modelValue="viewKey" :options="savedOpts" prefix="View:" aria-label="Saved view" @update:modelValue="pickView" /></div>
 					<div class="grow" style="min-width:200px"><Inp v-model="search" icon="search" placeholder="Search by name..." clearable aria-label="Search leads" /></div>
 					<button type="button" class="btn" :class="{ on: nFilters }" @click="dlg = 'filter'"><Ico name="filter" /> Filter<span v-if="nFilters" class="n">{{ nFilters }}</span></button>
 					<template v-if="view.type !== 'kanban'">
