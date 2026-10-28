@@ -71,3 +71,14 @@
 :root[data-theme="dark"] { --lv0: #1a2540; --lv1: #14302b; --lv2: #261f42; --lv3: #3a2f16; --lv4: #3b1f27; }
 .hx-card.lv0 { background: var(--lv0); } .hx-card.lv1 { background: var(--lv1); } .hx-card.lv2 { background: var(--lv2); } .hx-card.lv3 { background: var(--lv3); } .hx-card.lv4 { background: var(--lv4); }
 .hx-card.over { background: var(--accent-soft); }
+
+/* the permissions list: a title bar with search, folding groups with an icon and a count, an icon on each row */
+.ax-ph { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; } .ax-ph h2 { margin: 0; font-size: 18px; } .ax-ph p { margin: 2px 0 0; }
+.ax-psearch { width: 340px; max-width: 100%; }
+.ax-gh { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 18px; border: 0; background: var(--bg-soft); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ax-gh .grow { display: flex; flex-direction: column; gap: 1px; } .ax-gh b { font-size: 14.5px; }
+.ax-group.shut .ax-gh { border-bottom: 0; } .ax-group:not(.shut) .ax-gh { border-bottom: 1px solid var(--border); }
+.ax-gi, .ax-ri { flex: none; display: grid; place-items: center; border-radius: 9px; background: var(--accent-soft); color: var(--accent-text); }
+.ax-gi { width: 36px; height: 36px; } .ax-ri { width: 30px; height: 30px; background: var(--bg-soft); color: var(--text-soft); }
+.ax-cnt { font-size: 12.5px; font-weight: 600; color: var(--accent-text); white-space: nowrap; }
+.ax-ph > .grow { flex: 0 0 auto; } .ax-psearch { flex: 1 1 220px; width: auto; min-width: 180px; } .ax-ph > .grow p { white-space: nowrap; }
