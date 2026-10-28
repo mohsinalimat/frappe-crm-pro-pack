@@ -183,31 +183,59 @@
 		</Panel>`,
 	}
 
-	// How many leads: all of them, a number, or a number for each person (reference: "I'll set the numbers")
+	// How many leads: all of them, a number, or a number for each person ("I'll set the numbers")
 	const newAmount = () => reactive({ mode: 'all', limit: 10, counts: {} })
 	const amountLimit = (a) => (a.mode === 'number' ? Math.max(0, parseInt(a.limit, 10) || 0) : 0)
-	const amountCounts = (a, people) => (a.mode === 'each' ? Object.fromEntries(people.map((u) => [u, Math.max(0, parseInt(a.counts[u], 10) || 0)])) : null)
+	const amountCounts = (a, people) => (a.mode === 'each' && people.length > 1 ? Object.fromEntries(people.map((u) => [u, Math.max(0, parseInt(a.counts[u], 10) || 0)])) : null)
 	const amountKey = (a) => a.mode + a.limit + JSON.stringify(a.counts)
+	const initials = (u) => nameOf(u).split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+
+	/** All leads / a certain number (the number of people is not asked here: that is "I'll set the numbers"). */
 	C.AmountField = {
-		props: { amount: Object, people: Array, available: Number, noun: { type: String, default: 'leads' } },
-		setup(props) {
-			const given = computed(() => props.people.reduce((n, u) => n + Math.max(0, parseInt(props.amount.counts[u], 10) || 0), 0))
-			function even() {
-				const n = props.people.length; const total = props.available || 0
-				props.people.forEach((u, i) => { props.amount.counts[u] = Math.floor(total / n) + (i < total % n ? 1 : 0) })
+		props: { amount: Object, available: Number, noun: { type: String, default: 'leads' } },
+		setup() { return { CM } },
+		template: `
+		<div class="row wrap" style="gap:10px;align-items:center">
+			<select class="inp amt-mode" :value="amount.mode" aria-label="How many leads" @change="amount.mode = $event.target.value"><option value="all">All {{ noun }}</option><option value="number">A certain number</option></select>
+			<template v-if="amount.mode === 'number'"><input class="inp limit-n" type="number" min="1" :max="available || null" v-model="amount.limit" aria-label="How many leads" /><span class="small muted" v-if="available != null">of {{ CM.num(available) }}</span></template>
+		</div>`,
+	}
+
+	/** How several people share the leads, as cards: take turns, least busy, everyone together, or "I'll set the numbers". Asked only when there is more than one person. */
+	C.ShareCards = {
+		props: { modelValue: String, amount: Object, count: Number },
+		emits: ['update:modelValue'],
+		setup(props, { emit }) {
+			const cards = [
+				{ value: 'Round robin', label: 'Take turns', hint: 'Each lead goes to the next person in the list.', icon: 'refresh' },
+				{ value: 'Least workload', label: 'Least busy', hint: 'Each lead goes to whoever has the fewest open leads and follow-ups to do.', icon: 'users' },
+				{ value: 'All of them', label: 'Everyone together', hint: 'Everyone gets every lead and can work it. The first person is the owner.', icon: 'users' },
+				{ value: 'each', label: "I'll set the numbers", hint: 'Say how many leads each person gets, like 10 for one and 20 for another.', icon: 'edit' },
+			]
+			const on = (v) => (props.amount.mode === 'each' ? v === 'each' : v === props.modelValue)
+			function pick(v) {
+				if (v === 'each') { props.amount.mode = 'each'; return }
+				if (props.amount.mode === 'each') props.amount.mode = 'all'
+				emit('update:modelValue', v)
 			}
-			return { given, even, CM, nameOf }
+			return { cards, on, pick }
+		},
+		template: `<div v-if="count > 1" class="share" role="radiogroup" aria-label="How are they shared"><button v-for="c in cards" :key="c.value" type="button" role="radio" class="share-c" :class="{ on: on(c.value) }" :aria-checked="on(c.value)" @click="pick(c.value)"><span class="share-i"><Ico :name="c.icon" /></span><span class="share-t"><b>{{ c.label }}</b><span>{{ c.hint }}</span></span><Ico v-if="on(c.value)" name="check" class="share-ok" /></button></div>`,
+	}
+
+	/** One number per person, with "Split evenly" and how many are left. */
+	C.CountList = {
+		props: { amount: Object, people: Array, available: Number },
+		setup(props) {
+			const total = computed(() => props.available || 0)
+			const given = computed(() => props.people.reduce((n, u) => n + Math.max(0, parseInt(props.amount.counts[u], 10) || 0), 0))
+			function even() { const n = props.people.length; props.people.forEach((u, i) => { props.amount.counts[u] = Math.floor(total.value / n) + (i < total.value % n ? 1 : 0) }) }
+			return { given, total, even, CM, nameOf, initials }
 		},
 		template: `
-		<div class="amount">
-			<div class="row wrap" style="gap:10px;align-items:center">
-				<select class="inp amt-mode" v-model="amount.mode" aria-label="How many leads"><option value="all">All {{ noun }}</option><option value="number">A certain number</option><option v-if="people.length > 1" value="each">A set number for each person</option></select>
-				<template v-if="amount.mode === 'number'"><input class="inp limit-n" type="number" min="1" :max="available || null" v-model="amount.limit" aria-label="How many leads" /><span class="small muted" v-if="available != null">of {{ CM.num(available) }}</span></template>
-			</div>
-			<div v-if="amount.mode === 'each'" class="amt-each">
-				<div v-for="u in people" :key="u" class="amt-row"><span class="grow">{{ nameOf(u) }}</span><input class="inp limit-n" type="number" min="0" v-model="amount.counts[u]" :aria-label="'Leads for ' + nameOf(u)" /></div>
-				<div class="row" style="gap:10px;align-items:center;margin-top:8px"><button type="button" class="btn sm" @click="even">Split evenly</button><span class="small" :class="given > (available || 0) ? 'err-text' : 'muted'">{{ CM.num(given) }} of {{ CM.num(available || 0) }} given out<template v-if="given <= (available || 0)">, {{ CM.num((available || 0) - given) }} will stay where they are</template><template v-else> (more than there are)</template></span></div>
-			</div>
+		<div v-if="amount.mode === 'each' && people.length > 1" class="cl">
+			<div class="cl-list"><div v-for="u in people" :key="u" class="cl-row"><span class="cl-av">{{ initials(u) }}</span><span class="grow">{{ nameOf(u) }}</span><input class="inp cl-n" type="number" min="0" v-model="amount.counts[u]" :aria-label="'Leads for ' + nameOf(u)" /></div></div>
+			<div class="row" style="gap:12px;align-items:center;margin-top:12px"><button type="button" class="btn" @click="even">Split evenly</button><span class="small" :class="given > total ? 'err-text' : 'muted'">{{ CM.num(given) }} of {{ CM.num(total) }} given out<template v-if="given <= total">, {{ CM.num(total - given) }} will stay where they are</template><template v-else> (more than there are)</template></span></div>
 		</div>`,
 	}
 
@@ -233,8 +261,9 @@
 			<StepHead n="1" title="Which leads?" /><WhenField :rules="m.rules" v-model:match-mode="m.match_mode" />
 			<label class="check" style="margin-top:10px"><input type="checkbox" v-model="m.takeOver" /><span>Include leads that already have an owner</span></label>
 			<StepHead n="2" title="Give them to" /><PeopleField v-model="m.assignees" placeholder="Choose who gets these leads" />
-			<HowField v-model="m.distribution" :count="m.assignees.length" />
-			<StepHead n="3" title="How many?" /><AmountField :amount="amt" :people="m.assignees" :available="pre ? (pre.available ?? pre.count) : null" noun="matching leads" />
+			<StepHead n="3" title="How are they shared?" /><ShareCards v-model="m.distribution" :amount="amt" :count="m.assignees.length" />
+			<CountList :amount="amt" :people="m.assignees" :available="pre ? (pre.available ?? pre.count) : null" />
+			<template v-if="amt.mode !== 'each'"><StepHead n="4" title="How many?" /><AmountField :amount="amt" :available="pre ? (pre.available ?? pre.count) : null" noun="matching leads" /></template>
 			<div v-if="pre" class="sumbox"><Ico name="check-circle" /><div class="grow"><b>{{ plural(pre.count, 'lead') }}</b> will go to <b>{{ join(m.assignees) }}</b>.</div></div><div v-if="pre" v-html="sample(pre.sample)"></div>
 			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="users" :loading="busy" :disabled="!pre || !pre.count" @click="go">Assign {{ pre ? plural(pre.count, 'lead') : '' }}</Btn></template>
 		</Panel>`,
@@ -248,6 +277,7 @@
 			const amt = newAmount()
 			const pre = ref(null); const busy = ref(false)
 			const ok = computed(() => t.from.length && t.to.length)
+			const avail = computed(() => (pre.value ? (pre.value.available ?? pre.value.count) : null))
 			const load = CM.debounce(async () => { if (!t.from.length) { pre.value = null; return } try { pre.value = await CM.apiA('preview_transfer', { from_users: t.from, scope: t.all ? 'all' : 'open', limit: amountLimit(amt), to_users: t.to, counts: amountCounts(amt, t.to) }) } catch (e) { pre.value = null } }, 400)
 			watch(() => [t.from.join(), t.to.join(), t.all, amountKey(amt)], load)
 			async function go() {
@@ -256,19 +286,29 @@
 				try { const res = await CM.apiA('transfer', { from_users: t.from, to_users: t.to, distribution: t.distribution, scope: t.all ? 'all' : 'open', limit: amountLimit(amt), counts: amountCounts(amt, t.to) }); CM.toast(doneText(res, 'Moving')); emit('done') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
 			const clash = computed(() => t.from.some((u) => t.to.includes(u)))
-			return { t, amt, pre, busy, ok, go, clash, plural, join, sample, CM, nameOf }
+			const over = computed(() => amt.mode === 'each' && t.to.length > 1 && pre.value && pre.value.count > avail.value)
+			return { t, amt, pre, avail, busy, ok, go, clash, over, plural, join, CM, nameOf }
 		},
 		template: `
-		<Panel @close="$emit('close')">
-			<StepHead n="1" title="Take leads from" /><PeopleField v-model="t.from" placeholder="Choose who to take leads from" />
-			<StepHead n="2" title="Give them to" /><PeopleField v-model="t.to" placeholder="Choose who gets them" />
-			<HowField v-model="t.distribution" :count="t.to.length" />
-			<StepHead n="3" title="How many?" /><AmountField :amount="amt" :people="t.to" :available="pre ? (pre.available ?? pre.count) : null" noun="their leads" />
-			<label class="check" style="margin-top:12px"><input type="checkbox" v-model="t.all" /><span>Include closed and converted leads (otherwise only open ones move)</span></label>
-			<div v-if="clash" class="alert err" style="margin-top:10px"><Ico name="alert" /><div class="grow">The same person is on both sides.</div></div>
-			<div v-else-if="pre" class="sumbox"><Ico name="check-circle" /><div class="grow"><b>{{ plural(pre.count, 'lead') }}</b> will move<template v-if="t.from.length > 1"> ({{ t.from.map((u) => nameOf(u) + ' ' + (pre.per_user[u] || 0)).join(', ') }})</template><template v-if="t.to.length"> to <b>{{ join(t.to) }}</b></template>.</div></div><div v-if="pre" v-html="sample(pre.sample)"></div>
-			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="arrow-right" :loading="busy" :disabled="!ok || clash || !pre || !pre.count" @click="go">Move {{ pre ? plural(pre.count, 'lead') : '' }}</Btn></template>
-		</Panel>`,
+		<div class="mv">
+			<div class="mv-main">
+				<section class="mv-card"><StepHead n="1" title="Take leads from" /><p class="small muted">Choose the people whose leads should move.</p><PeopleField v-model="t.from" placeholder="Choose who to take leads from" /></section>
+				<section class="mv-card"><StepHead n="2" title="Give them to" /><p class="small muted">Choose who gets them.</p><PeopleField v-model="t.to" placeholder="Choose who gets them" /></section>
+				<section v-if="t.to.length > 1" class="mv-card"><StepHead n="3" title="How are they shared?" /><ShareCards v-model="t.distribution" :amount="amt" :count="t.to.length" /><CountList :amount="amt" :people="t.to" :available="avail" /></section>
+			</div>
+			<aside class="mv-side">
+				<section class="mv-card"><h3 class="mv-h">Leads that will move</h3>
+					<Seg v-model="t.all" :options="[{ value: false, label: 'Open leads' }, { value: true, label: 'Every lead' }]" />
+					<div class="mv-big"><b>{{ pre ? CM.num(pre.count) : 0 }}</b> <span>{{ pre && pre.count === 1 ? 'lead' : 'leads' }}</span></div>
+					<div v-if="pre && t.from.length" class="mv-src"><div v-for="u in t.from" :key="u"><span>{{ nameOf(u) }}</span><b>{{ CM.num(pre.per_user[u] || 0) }}</b></div></div>
+					<div v-if="amt.mode !== 'each' || t.to.length < 2" style="margin-top:12px"><AmountField :amount="amt" :available="avail" noun="their leads" /></div>
+					<p class="small muted" style="margin:12px 0 0">{{ t.all ? 'Closed and converted leads move too.' : 'Closed and converted leads stay where they are.' }}</p>
+					<div v-if="clash" class="alert err" style="margin-top:10px"><Ico name="alert" /><div class="grow">The same person is on both sides.</div></div>
+					<div v-else-if="over" class="alert err" style="margin-top:10px"><Ico name="alert" /><div class="grow">More leads are given out than there are.</div></div>
+				</section>
+				<Btn variant="primary" icon="move-people" class="mv-go" :loading="busy" :disabled="!ok || clash || over || !pre || !pre.count" @click="go">Move {{ pre ? plural(pre.count, 'lead') : '0 leads' }}</Btn>
+			</aside>
+		</div>`,
 	}
 
 	// ------------------------------------------------------------------ the pages (same look as the Campaign Manager)
