@@ -162,3 +162,9 @@ fieldset.ro { border: 0; margin: 0; padding: 0; min-width: 0; }
 tr.off td{opacity:.62}
 
 .logseg button { padding: 5px 9px }
+
+/* Log: the page header stays, the rows scroll under a fixed column header */
+.logbar { padding: 12px 18px; gap: 10px; align-items: center }
+.logscroll { max-height: calc(100vh - 390px); overflow: auto }
+.logscroll thead th { position: sticky; top: 0; z-index: 2; background: var(--surface, #fff); box-shadow: 0 1px 0 var(--border) }
+.logcard { overflow: hidden }
