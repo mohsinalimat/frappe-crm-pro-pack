@@ -16,10 +16,13 @@
 		(function () {
 			var v = new URLSearchParams(location.search).get('v') || Date.now()
 			document.write('<script src="../debug.js?v=' + v + '"><\/script>')
+			document.write('<link rel="stylesheet" href="../shared/ui.css?v=' + v + '">')
 			document.write('<link rel="stylesheet" href="setup.css?v=' + v + '">')
+			document.write('<link rel="stylesheet" href="../shared/ui-theme.css?v=' + v + '">')
 			document.write('<script src="../meetings/vendor/vue.global.prod.js?v=' + v + '"><\/script>')
 			document.write('<script src="schema.js?v=' + v + '"><\/script>')
 			document.write('<script src="setup.js?v=' + v + '"><\/script>')
+			document.write('<script src="../shared/ui.js?v=' + v + '"><\/script>')
 		})()
 	</script>
 </body>

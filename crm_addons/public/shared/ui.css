@@ -1,0 +1,61 @@
+/* Frappe CRM Suite Pro - the pickers (calendar, time list, dropdown list). Works on every page: it borrows each page's own colour variables. */
+.pk-pop, .pk-sel, .pk-pop * {
+	--pk-surface: var(--surface, var(--card, #fff)); --pk-text: var(--text, var(--fg, #14161a)); --pk-soft: var(--text-soft, var(--soft, var(--muted, #4b5563))); --pk-faint: var(--text-faint, var(--faint, #8b93a1));
+	--pk-line: var(--border, var(--line, #dde1ec)); --pk-line2: var(--border-strong, var(--line-strong, #c5cbdc)); --pk-hover: var(--bg-hover, var(--hover, #f1f2f5));
+	--pk-accent: var(--accent, var(--ac-text, #2d36a3)); --pk-accent-soft: var(--accent-soft, color-mix(in srgb, var(--pk-accent) 14%, transparent)); --pk-accent-text: var(--accent-text, var(--pk-accent));
+	--pk-font: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+.pk-pop { position: fixed; z-index: 100000; box-sizing: border-box; max-width: calc(100vw - 16px); overflow: auto; background: var(--pk-surface); color: var(--pk-text); border: 1px solid var(--pk-line2); border-radius: 12px; box-shadow: 0 14px 34px -8px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .08); font: 13px/1.4 var(--pk-font); }
+.pk-pop button { font: inherit; color: inherit; cursor: pointer; }
+.pk-cal { padding: 12px; width: 280px; }
+.pk-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.pk-title { font-weight: 650; font-size: 14px; }
+.pk-nav { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--pk-soft); }
+.pk-nav:hover { background: var(--pk-hover); color: var(--pk-text); }
+.pk-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.pk-dow { text-align: center; font-size: 11.5px; font-weight: 600; color: var(--pk-faint); padding: 4px 0; }
+.pk-day { height: 34px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--pk-text); }
+.pk-day:hover:not(:disabled) { background: var(--pk-hover); }
+.pk-day.other { color: var(--pk-faint); }
+.pk-day.today { border-color: var(--pk-line2); font-weight: 650; }
+.pk-day.on, .pk-day.on:hover { background: var(--pk-accent); border-color: var(--pk-accent); color: #fff; font-weight: 650; }
+.pk-day:disabled { opacity: .35; cursor: not-allowed; }
+.pk-time { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--pk-line); }
+.pk-cal > .pk-time:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.pk-colon { font-weight: 650; color: var(--pk-faint); }
+.pk-col { display: flex; flex-direction: column; gap: 2px; width: 72px; height: 156px; padding: 2px; overflow-y: auto; border: 1px solid var(--pk-line); border-radius: 8px; scrollbar-width: thin; }
+.pk-opt { flex: none; height: 30px; border: 0; border-radius: 6px; background: transparent; }
+.pk-opt:hover { background: var(--pk-hover); }
+.pk-opt.on, .pk-opt.on:hover { background: var(--pk-accent); color: #fff; font-weight: 650; }
+.pk-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--pk-line); }
+.pk-foot-r { display: inline-flex; align-items: center; gap: 12px; }
+.pk-link { border: 0; background: transparent; padding: 4px 2px; color: var(--pk-accent-text); font-weight: 600; }
+.pk-link:hover { text-decoration: underline; }
+.pk-done { height: 30px; padding: 0 14px; border: 1px solid var(--pk-accent); border-radius: 8px; background: var(--pk-accent); color: #fff; font-weight: 600; }
+.pk-pop button:focus-visible { outline: 2px solid var(--pk-accent); outline-offset: 1px; }
+
+/* the dropdown that replaces a browser <select> */
+.pk-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; overflow: hidden !important; }
+.pk-sel { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left; cursor: pointer; font-family: inherit; }
+.pk-sel:not(.inp):not(.control) { height: 36px; padding: 0 10px 0 11px; border: 1px solid var(--pk-line2); border-radius: 8px; background: var(--pk-surface); color: var(--pk-text); }
+.pk-sel:disabled { opacity: .55; cursor: not-allowed; }
+.pk-sel.bad { border-color: var(--red, #c62828); }
+.pk-sel[aria-expanded="true"] { border-color: var(--pk-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pk-accent) 18%, transparent); }
+.pk-lab { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-lab.ph { color: var(--pk-faint); }
+.pk-chev { display: inline-flex; flex: none; color: var(--pk-faint); }
+.bk-select:has(.pk-sel) > svg { display: none; }
+.pk-list { padding: 4px; max-height: 288px; }
+.pk-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 34px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; text-align: left; color: var(--pk-text); }
+.pk-item.in-group { padding-left: 18px; }
+.pk-item:hover:not(:disabled), .pk-item.hot { background: var(--pk-hover); }
+.pk-item.on { color: var(--pk-accent-text); font-weight: 650; }
+.pk-item.off { opacity: .45; cursor: not-allowed; }
+.pk-item svg { flex: none; }
+.pk-group { padding: 8px 10px 3px; font-size: 11.5px; font-weight: 650; color: var(--pk-faint); }
+
+/* date and time fields: the calendar and clock icon replace the browser's own; typing a value still works */
+input[type="date"]:not(#pk), input[type="time"]:not(#pk), input[type="datetime-local"]:not(#pk) { padding-right: 34px; cursor: pointer; background-repeat: no-repeat; background-position: right 10px center; background-size: 16px 16px; -webkit-appearance: none; appearance: none; }
+input[type="date"]:not(#pk), input[type="datetime-local"]:not(#pk) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b93a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E"); }
+input[type="time"]:not(#pk) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b93a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E"); }
+input[type="date"]::-webkit-calendar-picker-indicator, input[type="time"]::-webkit-calendar-picker-indicator, input[type="datetime-local"]::-webkit-calendar-picker-indicator { display: none; }

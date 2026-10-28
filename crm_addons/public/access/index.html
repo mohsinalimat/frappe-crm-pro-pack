@@ -45,9 +45,9 @@
 		// One ?v= for every file (set by bridge.js), so a new release never mixes old and new scripts.
 		(function () {
 			var v = new URLSearchParams(location.search).get('v') || Date.now()
-			var css = ['../campaigns/campaigns.css', '../campaigns/views.css', 'access.css']
+			var css = ['../campaigns/campaigns.css', '../campaigns/views.css', 'access.css', '../shared/ui.css', '../shared/ui-theme.css']
 			var C = '../campaigns/js/'
-			var js = ['../debug.js', '../meetings/vendor/vue.global.prod.js', C + 'core.js', C + 'ui.js', 'js/common.js', 'js/grid.js', 'js/people.js', 'js/presets.js', 'js/hierarchy.js', 'js/app.js']
+			var js = ['../debug.js', '../meetings/vendor/vue.global.prod.js', C + 'core.js', C + 'ui.js', 'js/common.js', 'js/grid.js', 'js/people.js', 'js/presets.js', 'js/hierarchy.js', 'js/app.js', '../shared/ui.js']
 			css.forEach(function (f) { document.write('<link rel="stylesheet" href="' + f + '?v=' + v + '">') })
 			js.forEach(function (f) { document.write('<script src="' + f + '?v=' + v + '"><\/script>') })
 		})()

@@ -1,0 +1,42 @@
+/* Frappe CRM Suite Pro - one look across the add-on's own pages (Pro, Campaigns, Meetings, Bookings, Team, Settings).
+   Loaded last, so it settles what the separate stylesheets disagree on: the font, the corner radius, the control style, checkboxes and radio buttons. */
+:root {
+	--font-ui: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+	--r-ctl: 8px;   /* inputs, selects, date fields, buttons, dropdown buttons */
+	--r-card: 12px; /* cards, panels, popovers, dialogs */
+	--r-tag: 6px;   /* small chips and badges */
+	--ctl-h: 36px;
+}
+body, button, input, select, textarea { font-family: var(--font-ui); }
+code, pre, kbd, samp, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+/* controls */
+.inp, .control, .dd-btn, .pk-sel, .slugbox, .search { border-radius: var(--r-ctl); }
+.btn, .btn.primary, .btn.accent, .btn.danger, .btn.ghost { border-radius: var(--r-ctl); font-weight: 560; }
+.btn { height: 34px; } .btn.sm, .btn.small { height: 30px; } .btn.lg { height: 40px; } .btn.icon { width: 34px; } .btn.icon.sm, .btn.icon.small { width: 30px; }
+.inp, .control, .dd-btn, .pk-sel:not(.bk) { min-height: var(--ctl-h); }
+.control { height: var(--ctl-h); border: 1px solid var(--border-strong); background: var(--surface); }
+.control:hover { border-color: var(--ring, var(--border-strong)); background: var(--surface); }
+.control:focus, .control:focus-within { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.seg { border-radius: var(--r-ctl); } .seg button { border-radius: calc(var(--r-ctl) - 2px); }
+.card, .panel, .modal, .dlg, .pop, .menu { border-radius: var(--r-card); }
+.tag, .chip, .badge, .pill { border-radius: var(--r-tag); }
+
+/* checkboxes and radio buttons: the same box everywhere */
+input[type="checkbox"], input[type="radio"] { -webkit-appearance: none; appearance: none; display: inline-grid; place-content: center; flex: none; width: 17px; height: 17px; margin: 0; padding: 0; border: 1.5px solid var(--border-strong); border-radius: 5px; background: var(--surface); cursor: pointer; vertical-align: middle; transition: background .12s, border-color .12s, box-shadow .12s; }
+input[type="radio"] { border-radius: 50%; }
+input[type="checkbox"]:hover, input[type="radio"]:hover { border-color: var(--accent); }
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+input[type="checkbox"]:checked, input[type="radio"]:checked, input[type="checkbox"]:indeterminate { background: var(--primary, var(--accent)); border-color: var(--primary, var(--accent)); }
+input[type="checkbox"]:checked::after { content: ""; width: 11px; height: 11px; background: var(--primary-text, #fff); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat; }
+input[type="checkbox"]:indeterminate::after { content: ""; width: 9px; height: 2px; border-radius: 1px; background: var(--primary-text, #fff); }
+input[type="radio"]:checked::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--primary-text, #fff); }
+input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cursor: not-allowed; }
+input[type="color"] { border-radius: var(--r-ctl); }
+
+/* the two date fields inside a range picker are narrow: no icon, just the date */
+.cal-foot input[type="date"]:not(#pk), .dr-inputs input[type="date"]:not(#pk) { background-image: none; padding-right: 10px; font-size: 13px; }
+
+/* Meetings' filled grey picker buttons become the same outlined control as everywhere else */
+.pick-btn { border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--r-ctl); }
+.pick-btn:hover { border-color: var(--ring, var(--border-strong)); background: var(--surface); }

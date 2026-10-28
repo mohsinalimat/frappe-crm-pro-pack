@@ -8,6 +8,7 @@
 	<meta name="color-scheme" content="light dark">
 	<title>{{ title | e }}</title>
 	<link rel="stylesheet" href="/assets/crm_addons/book/book.css?v={{ version | e }}">
+	<link rel="stylesheet" href="/assets/crm_addons/shared/ui.css?v={{ version | e }}">
 	<link rel="stylesheet" href="/assets/crm_addons/book/lead-form.css?v={{ version | e }}">
 	<script>
 		(function () {
@@ -24,5 +25,6 @@
 	<script>window.CRM_LEAD_FORM = {{ {"slug": form_slug, "version": version, "csrf": csrf} | tojson }};</script>
 	<script src="/assets/crm_addons/meetings/vendor/vue.global.prod.js?v={{ version | e }}"></script>
 	<script src="/assets/crm_addons/book/lead-form.js?v={{ version | e }}"></script>
+	<script src="/assets/crm_addons/shared/ui.js?v={{ version | e }}"></script>
 </body>
 </html>

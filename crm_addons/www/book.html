@@ -8,6 +8,7 @@
 	<meta name="color-scheme" content="light dark">
 	<title>{{ title | e }}</title>
 	<link rel="stylesheet" href="/assets/crm_addons/book/book.css?v={{ version | e }}">
+	<link rel="stylesheet" href="/assets/crm_addons/shared/ui.css?v={{ version | e }}">
 	<script>
 		// First paint: pick the theme before anything renders, so there is no flash (the widget refines it later).
 		(function () {
@@ -24,5 +25,6 @@
 	<script>window.CRM_BOOK = {{ {"mode": mode, "value": value, "version": version, "theme": theme, "accent": accent, "brand": brand, "csrf": csrf} | tojson }};</script>
 	<script src="/assets/crm_addons/meetings/vendor/vue.global.prod.js?v={{ version | e }}"></script>
 	<script src="/assets/crm_addons/book/book.js?v={{ version | e }}"></script>
+	<script src="/assets/crm_addons/shared/ui.js?v={{ version | e }}"></script>
 </body>
 </html>
