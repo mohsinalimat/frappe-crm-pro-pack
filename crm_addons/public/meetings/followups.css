@@ -157,3 +157,11 @@ html.inline .dash-brand .brand-ico { display: none; }
 .fu-table th, .fu-table td { padding-left: 8px; padding-right: 8px; }
 .fu-table .remark, table.by-day .remark { width: 20%; min-width: 120px; }
 .fu-table td.act, .fu-table th.act { white-space: nowrap; width: 1%; }
+
+/* selection bar floats at the bottom, like on the Leads screen */
+.fu-panel { position: relative; }
+.fu-bulk { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 40; flex-wrap: nowrap; white-space: nowrap; gap: 10px; padding: 10px 14px 10px 16px; border: 1px solid var(--dash-line); border-radius: 12px; background: var(--dash-card); color: var(--text); box-shadow: 0 8px 28px rgba(16, 24, 40, .18); max-width: calc(100% - 32px); }
+.fu-bulk .spacer { display: none; }
+.fu-n { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; background: var(--accent); color: #fff; }
+.fu-n .ico { width: 13px; height: 13px; }
+.fu-sep { width: 1px; align-self: stretch; background: var(--dash-line); }

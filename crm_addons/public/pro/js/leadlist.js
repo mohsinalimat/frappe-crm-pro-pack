@@ -73,9 +73,35 @@
 		</Modal>`,
 	}
 
+	/** Runs one bulk action over lead names in batches, keeping `run` (busy / done / total / failed) up to date. Returns true when it ran. */
+	const chunks = (a, n) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n))
+	PRO.bulkRun = () => reactive({ busy: false, finished: false, done: 0, total: 0, failed: [] })
+	PRO.bulkExec = async function (run, kind, payload, all) {
+		const send = kind === 'email' || kind === 'whatsapp', n = all.length, leads = n === 1 ? ' lead' : ' leads'
+		if (kind === 'delete' && !(await CM.confirm({ title: 'Delete ' + n + leads + '?', message: 'This cannot be undone.', confirmText: 'Delete', danger: true }))) return false
+		if (send && !(await CM.confirm({ title: 'Send ' + (kind === 'email' ? 'this email' : 'this WhatsApp message') + ' to ' + n + leads + '?', message: 'It goes out right away and cannot be recalled.', confirmText: 'Send' }))) return false
+		Object.assign(run, { busy: true, finished: false, done: 0, total: n, failed: [] })
+		try {
+			for (const part of chunks(all, 100)) {
+				const names = JSON.stringify(part)
+				if (kind === 'delete') await api('crm.api.doc.delete_bulk_docs', { doctype: DOC, items: names, delete_linked: false })
+				else if (kind === 'email') { const r = await api('crm_addons.pro.bulk_send.send_email', { names, subject: payload.subject, content: payload.content }); run.failed.push(...r.skipped) }
+				else if (kind === 'whatsapp') { const r = await api('crm_addons.pro.bulk_send.send_whatsapp', { names, template: payload.template, variable_map: payload.variable_map }); run.failed.push(...r.skipped) }
+				else if (kind === 'clear') await api('frappe.desk.form.assign_to.remove_multiple', { doctype: DOC, names, ignore_permissions: true })
+				else if (kind === 'assign') await api('frappe.desk.form.assign_to.add_multiple', { doctype: DOC, name: names, assign_to: JSON.stringify(payload.users), bulk_assign: true, re_assign: true })
+				else { const r = await api('crm_addons.pro.leads.bulk_edit', { names, values: JSON.stringify(payload.values) }); run.failed.push(...r.failed) }
+				run.done += part.length
+			}
+			const ok = run.done - run.failed.length
+			CM.toast(ok + (ok === 1 ? ' lead' : ' leads') + (send ? ' sent' : ' updated') + (run.failed.length ? ', ' + run.failed.length + (send ? ' skipped' : ' could not be changed') : ''))
+			run.finished = true
+			return true
+		} catch (e) { CM.toast(e.message, 'err'); return false } finally { run.busy = false }
+	}
+
 	/** Bulk actions in a dialog in the middle of the screen: pick what to do on the left, set it up on the right. */
 	V.BulkDialog = {
-		props: { count: Number, canDelete: Boolean, owners: Array, statuses: Array, run: Object, start: String },
+		props: { count: Number, canDelete: Boolean, owners: Array, statuses: Array, run: Object, start: String, only: Array },
 		emits: ['close', 'go'],
 		setup(props, { emit }) {
 			const action = ref(props.start || 'assign')
@@ -98,6 +124,7 @@
 				{ key: 'field', label: 'Edit a field', icon: 'file-text', text: 'Set one field to the same value on all of them.' },
 				...(props.canDelete ? [{ key: 'delete', label: 'Delete', icon: 'trash', text: 'Remove the leads for good. This cannot be undone.', danger: true }] : []),
 			])
+			const shown = computed(() => (props.only ? ACTIONS.value.filter((a) => props.only.includes(a.key)) : ACTIONS.value))
 			const cur = computed(() => ACTIONS.value.find((a) => a.key === action.value))
 			async function loadFields() {
 				if (specs.value.length) return
@@ -117,12 +144,12 @@
 				emit('go', { kind: k, payload })
 			}
 			const pct = computed(() => (props.run.total ? Math.round((props.run.done / props.run.total) * 100) : 0))
-			return { send, tpl, tplOpts, preview, isSend, action, form, ACTIONS, cur, fieldOpts, spec, pick, ready, go, pct, ownerOpts: computed(() => [{ value: '', label: 'Nobody' }, ...props.owners.map((o) => ({ value: o.name, label: o.full_name }))]), assignOpts: computed(() => props.owners.map((o) => ({ value: o.name, label: o.full_name }))), statusOpts: computed(() => props.statuses.map((x) => ({ value: x.name, label: x.name }))) }
+			return { shown, send, tpl, tplOpts, preview, isSend, action, form, ACTIONS, cur, fieldOpts, spec, pick, ready, go, pct, ownerOpts: computed(() => [{ value: '', label: 'Nobody' }, ...props.owners.map((o) => ({ value: o.name, label: o.full_name }))]), assignOpts: computed(() => props.owners.map((o) => ({ value: o.name, label: o.full_name }))), statusOpts: computed(() => props.statuses.map((x) => ({ value: x.name, label: x.name }))) }
 		},
 		template: `
 		<Modal title="Bulk actions" :subtitle="count + (count === 1 ? ' lead selected' : ' leads selected')" size="lg" @close="run.busy ? null : $emit('close')">
 			<div class="bulk-grid">
-				<div class="bulk-list" role="listbox" aria-label="Actions"><button v-for="a in ACTIONS" :key="a.key" type="button" class="bulk-act" :class="{ on: action === a.key, danger: a.danger }" role="option" :aria-selected="action === a.key" :disabled="run.busy" @click="pick(a.key)"><Ico :name="a.icon" /><span>{{ a.label }}</span></button></div>
+				<div class="bulk-list" role="listbox" aria-label="Actions"><button v-for="a in shown" :key="a.key" type="button" class="bulk-act" :class="{ on: action === a.key, danger: a.danger }" role="option" :aria-selected="action === a.key" :disabled="run.busy" @click="pick(a.key)"><Ico :name="a.icon" /><span>{{ a.label }}</span></button></div>
 				<div class="bulk-form">
 					<b>{{ cur.label }}</b><p class="small muted" style="margin:2px 0 14px">{{ cur.text }}</p>
 					<template v-if="action === 'email'">
@@ -306,29 +333,9 @@
 					picked.value = r.data.map((x) => x.name); selAll.value = true
 				} catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
-			const bulkRun = reactive({ busy: false, finished: false, done: 0, total: 0, failed: [] })
-			const chunks = (a, n) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n))
+			const bulkRun = PRO.bulkRun()
 			async function runBulk({ kind, payload }) {
-				const all = [...picked.value]
-				if (kind === 'delete' && !(await CM.confirm({ title: 'Delete ' + all.length + (all.length === 1 ? ' lead?' : ' leads?'), message: 'This cannot be undone.', confirmText: 'Delete', danger: true }))) return
-				if ((kind === 'email' || kind === 'whatsapp') && !(await CM.confirm({ title: 'Send ' + (kind === 'email' ? 'this email' : 'this WhatsApp message') + ' to ' + all.length + (all.length === 1 ? ' lead?' : ' leads?'), message: 'It goes out right away and cannot be recalled.', confirmText: 'Send' }))) return
-				Object.assign(bulkRun, { busy: true, finished: false, done: 0, total: all.length, failed: [] })
-				try {
-					for (const part of chunks(all, 100)) {
-						const names = JSON.stringify(part)
-						if (kind === 'delete') await api('crm.api.doc.delete_bulk_docs', { doctype: DOC, items: names, delete_linked: false })
-						else if (kind === 'email') { const r = await api('crm_addons.pro.bulk_send.send_email', { names, subject: payload.subject, content: payload.content }); bulkRun.failed.push(...r.skipped) }
-						else if (kind === 'whatsapp') { const r = await api('crm_addons.pro.bulk_send.send_whatsapp', { names, template: payload.template, variable_map: payload.variable_map }); bulkRun.failed.push(...r.skipped) }
-						else if (kind === 'clear') await api('frappe.desk.form.assign_to.remove_multiple', { doctype: DOC, names, ignore_permissions: true })
-						else if (kind === 'assign') await api('frappe.desk.form.assign_to.add_multiple', { doctype: DOC, name: names, assign_to: JSON.stringify(payload.users), bulk_assign: true, re_assign: true })
-						else { const r = await api('crm_addons.pro.leads.bulk_edit', { names, values: JSON.stringify(payload.values) }); bulkRun.failed.push(...r.failed) }
-						bulkRun.done += part.length
-					}
-					const ok = bulkRun.done - bulkRun.failed.length
-					CM.toast(ok + (ok === 1 ? ' lead' : ' leads') + (kind === 'email' || kind === 'whatsapp' ? ' sent' : ' updated') + (bulkRun.failed.length ? ', ' + bulkRun.failed.length + (kind === 'email' || kind === 'whatsapp' ? ' skipped' : ' could not be changed') : ''))
-					bulkRun.finished = true; resetSel(); await load(true)
-					if (!bulkRun.failed.length) dlg.value = ''
-				} catch (e) { CM.toast(e.message, 'err') } finally { bulkRun.busy = false }
+				if (await PRO.bulkExec(bulkRun, kind, payload, [...picked.value])) { resetSel(); await load(true); if (!bulkRun.failed.length) dlg.value = '' }
 			}
 			const bulkStart = ref('')
 			function openBulk(kind) { Object.assign(bulkRun, { busy: false, finished: false, done: 0, total: 0, failed: [] }); bulkStart.value = typeof kind === 'string' ? kind : ''; dlg.value = 'bulk' }

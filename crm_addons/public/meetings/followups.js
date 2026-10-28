@@ -133,6 +133,8 @@
 		alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
 		inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>',
 		trend: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+		mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-10 6L2 7"/>',
+		whatsapp: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/>',
 	}
 	const Ico = {
 		props: { name: String, size: String },
@@ -575,6 +577,13 @@
 			}
 
 			// links open the lead in the CRM; inside the CRM overlay, the CRM page itself goes there
+			const PRO = params.get('pro') === '1'
+			// email / WhatsApp go through the Suite Pro shell, which owns the dialog
+			function sendTo(kind) {
+				const names = [...new Set(items.value.filter((i) => selected[i.name] && i.reference_doctype === 'CRM Lead').map((i) => i.reference_docname))]
+				if (!names.length) return toast('The selected follow-ups are not on leads.', 'err')
+				tellParent('pro-send', { kind, names })
+			}
 			function openLead(e, i) {
 				if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0) return // the browser's own "new tab" gestures
 				if (params.get('pro') === '1' && i.reference_doctype === 'CRM Lead') { e.preventDefault(); return tellParent('pro-open-lead', { name: i.reference_docname }) } // the Suite Pro app has its own lead page
@@ -608,7 +617,7 @@
 
 			return {
 				EMBED, TABS, data, items, loading, more, fatal, toasts, form, frame, busy, selected, tab, scope, scopeModel, owner, outcome, search, view, range, updatedAt, searchBox,
-				sortBy, SORTS, isManager, everyone, everyoneLabel, scopeOptions, ownerOptions, outcomeOptions, subtitle, filtered, clearFilters, cards, pickCard, rate, due, statusColor, outcomeTone,
+				PRO, sendTo, sortBy, SORTS, isManager, everyone, everyoneLabel, scopeOptions, ownerOptions, outcomeOptions, subtitle, filtered, clearFilters, cards, pickCard, rate, due, statusColor, outcomeTone,
 				rows, dayCount, canSelect, selectedNames, allSelected, toggleAll, toggle, markDone, reschedule, bulk, logFor, closeForm, openLead, closeSelf, openFull, emptyText,
 				hasMore, load, loadMore, num, plural,
 			}
@@ -653,12 +662,16 @@
 			</div>
 
 			<div class="fu-bulk" v-if="selectedNames.length">
-				<b>{{ selectedNames.length }} selected</b>
+				<span class="fu-n"><ico name="check" /></span><b>{{ selectedNames.length }} {{ selectedNames.length === 1 ? 'row' : 'rows' }} selected</b>
 				<button class="btn small primary" @click="bulk('done')"><ico name="check" /> Mark done</button>
 				<reschedule label="Reschedule" align="left" @pick="(w) => bulk('reschedule', w)" />
-				<span class="spacer"></span>
+				<template v-if="PRO">
+					<button class="btn icon small" @click="sendTo('email')" title="Send email to these leads" aria-label="Send email to these leads"><ico name="mail" /></button>
+					<button class="btn icon small" @click="sendTo('whatsapp')" title="Send WhatsApp to these leads" aria-label="Send WhatsApp to these leads"><ico name="whatsapp" /></button>
+				</template>
+				<span class="fu-sep"></span>
 				<button class="btn ghost small" @click="toggleAll" v-if="!allSelected">Select all {{ items.length }}</button>
-				<button class="btn ghost small" @click="Object.keys(selected).forEach((k) => delete selected[k])">Clear</button>
+				<button class="btn ghost icon small" @click="Object.keys(selected).forEach((k) => delete selected[k])" title="Clear selection" aria-label="Clear selection"><ico name="x" /></button>
 			</div>
 
 			<div class="table-wrap fu-wrap" v-if="rows.length">

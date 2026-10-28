@@ -77,6 +77,10 @@
 	const App = {
 		setup() {
 			const r = CM.route
+			// Follow-ups (in a frame) asks for an email / WhatsApp to the leads it has selected
+			const sendDlg = ref(null); const sendRun = PRO.bulkRun()
+			window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.source === 'crm-addons' && e.data.type === 'pro-send' && e.data.names && e.data.names.length) { Object.assign(sendRun, { busy: false, finished: false, done: 0, total: 0, failed: [] }); sendDlg.value = { kind: e.data.kind, names: e.data.names } } })
+			async function runSend({ kind, payload }) { if (await PRO.bulkExec(sendRun, kind, payload, sendDlg.value.names) && !sendRun.failed.length) sendDlg.value = null }
 			window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.source === 'crm-addons' && e.data.type === 'pro-open-lead' && e.data.name) location.hash = '#/leads/' + encodeURIComponent(e.data.name) })
 			if (!location.hash) CM.replace('/dashboard')   // the shared router starts on Campaigns; this app starts on the Sales Dashboard
 			const items = computed(() => menu(PRO.shell.config))
@@ -93,7 +97,7 @@
 			watch(active, () => { document.title = (current.value.label || 'Suite Pro') + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			// the unread count stays fresh while the page is open
 			let t; onMounted(() => { t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000) }); onBeforeUnmount(() => clearInterval(t))
-			return { ntf, health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
+			return { sendDlg, sendRun, runSend, ntf, health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
@@ -119,6 +123,7 @@
 				<Frame v-else :page="active" :key="active" />
 			</main>
 			<template v-if="ntf"><div class="ntf-back" @click="ntf = false"></div><aside class="ntf-panel" role="dialog" aria-label="Notifications" @keydown.esc="ntf = false"><Notifications panel @close="ntf = false" /></aside></template>
+			<BulkDialog v-if="sendDlg" :count="sendDlg.names.length" :only="['email', 'whatsapp']" :start="sendDlg.kind" :owners="[]" :statuses="[]" :run="sendRun" @close="sendDlg = null" @go="runSend" />
 			<Toasts /><ConfirmHost />
 		</div>`,
 	}
