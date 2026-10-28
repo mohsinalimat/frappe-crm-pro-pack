@@ -230,7 +230,7 @@
 				<div style="width:190px"><Dd v-model="q.category" :options="cats" placeholder="All categories" allow-empty="All categories" size="sm" /></div>
 				<button type="button" class="fchip" :class="{ on: q.fav }" @click="q.fav = !q.fav"><Ico name="star" size="sm" />Favourites</button>
 				<button type="button" class="fchip" :class="{ on: q.archived }" @click="q.archived = !q.archived"><Ico name="bookmark" size="sm" />Archived <span class="n">{{ archivedCount }}</span></button>
-				<div class="grow"></div><LayoutSwitch v-model="layout" />
+				<div class="grow"></div><HdrSlot><LayoutSwitch v-model="layout" /></HdrSlot>
 			</div>
 			<div v-if="loading" class="tgrid"><div v-for="n in 6" :key="n" class="card"><Skel h="190" r="12" /><div class="tcard-b"><Skel w="60%" h="14" /><Skel w="90%" h="12" /></div></div></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />

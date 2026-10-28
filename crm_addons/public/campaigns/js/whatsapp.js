@@ -140,7 +140,7 @@
  					<div class="chips"><button v-for="p in ['', 'System']" :key="p" type="button" class="fchip" :class="{ on: q.purpose === p }" :aria-pressed="q.purpose === p" @click="q.purpose = p">{{ p || 'All' }} <span class="n">{{ purposeCount(p) }}</span></button></div>
 					<div style="width:180px"><Dd v-model="q.category" :options="cats" placeholder="All categories" allow-empty="All categories" size="sm" /></div>
 					<div class="chips"><button v-for="s in STATUSES" :key="s[0]" type="button" class="fchip" :class="{ on: q.status === s[0] }" @click="q.status = s[0]">{{ s[1] }} <span class="n">{{ count(s[0]) }}</span></button></div>
-					<div class="grow"></div><LayoutSwitch v-model="layout" />
+					<div class="grow"></div><HdrSlot><LayoutSwitch v-model="layout" /></HdrSlot>
 				</div>
 				<div v-if="loading" class="wgrid"><div v-for="n in 6" :key="n" class="card pad"><Skel h="150" r="10" /><Skel w="60%" h="14" style="margin-top:12px" /></div></div>
 				<ErrorState v-else-if="error" :message="error" @retry="load" />
