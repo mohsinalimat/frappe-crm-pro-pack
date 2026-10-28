@@ -187,6 +187,7 @@
 	const newAmount = () => reactive({ mode: 'all', limit: 10, counts: {} })
 	const amountLimit = (a) => (a.mode === 'number' ? Math.max(0, parseInt(a.limit, 10) || 0) : 0)
 	const amountCounts = (a, people) => (a.mode === 'each' && people.length > 1 ? Object.fromEntries(people.map((u) => [u, Math.max(0, parseInt(a.counts[u], 10) || 0)])) : null)
+	const eachTotal = (a, people) => people.reduce((n, u) => n + Math.max(0, parseInt(a.counts[u], 10) || 0), 0)
 	const amountKey = (a) => a.mode + a.limit + JSON.stringify(a.counts)
 	const initials = (u) => nameOf(u).split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
@@ -254,19 +255,30 @@
 				busy.value = true
 				try { const res = await CM.apiA('assign_manual', { data: data() }); CM.toast(doneText(res, 'Assigning')); emit('done') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
-			return { m, amt, pre, busy, ok, go, plural, join, sample, CM }
+			const avail = computed(() => (pre.value ? (pre.value.available ?? pre.value.count) : null))
+			const over = computed(() => amt.mode === 'each' && m.assignees.length > 1 && pre.value && eachTotal(amt, m.assignees) > avail.value)
+			return { m, amt, pre, avail, over, busy, ok, go, plural, join, sample, CM }
 		},
 		template: `
-		<Panel @close="$emit('close')">
-			<StepHead n="1" title="Which leads?" /><WhenField :rules="m.rules" v-model:match-mode="m.match_mode" />
-			<label class="check" style="margin-top:10px"><input type="checkbox" v-model="m.takeOver" /><span>Include leads that already have an owner</span></label>
-			<StepHead n="2" title="Give them to" /><PeopleField v-model="m.assignees" placeholder="Choose who gets these leads" />
-			<StepHead n="3" title="How are they shared?" /><ShareCards v-model="m.distribution" :amount="amt" :count="m.assignees.length" />
-			<CountList :amount="amt" :people="m.assignees" :available="pre ? (pre.available ?? pre.count) : null" />
-			<template v-if="amt.mode !== 'each'"><StepHead n="4" title="How many?" /><AmountField :amount="amt" :available="pre ? (pre.available ?? pre.count) : null" noun="matching leads" /></template>
-			<div v-if="pre" class="sumbox"><Ico name="check-circle" /><div class="grow"><b>{{ plural(pre.count, 'lead') }}</b> will go to <b>{{ join(m.assignees) }}</b>.</div></div><div v-if="pre" v-html="sample(pre.sample)"></div>
-			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="users" :loading="busy" :disabled="!pre || !pre.count" @click="go">Assign {{ pre ? plural(pre.count, 'lead') : '' }}</Btn></template>
-		</Panel>`,
+		<div class="mv">
+			<div class="mv-main">
+				<section class="mv-card"><StepHead n="1" title="Which leads?" /><p class="small muted">Leads that fit these conditions.</p><WhenField :rules="m.rules" v-model:match-mode="m.match_mode" /></section>
+				<section class="mv-card"><StepHead n="2" title="Give them to" /><p class="small muted">Choose who gets them.</p><PeopleField v-model="m.assignees" placeholder="Choose who gets these leads" /></section>
+				<section v-if="m.assignees.length > 1" class="mv-card"><StepHead n="3" title="How are they shared?" /><ShareCards v-model="m.distribution" :amount="amt" :count="m.assignees.length" /><CountList :amount="amt" :people="m.assignees" :available="avail" /></section>
+			</div>
+			<aside class="mv-side">
+				<section class="mv-card"><h3 class="mv-h">Leads that will be given</h3>
+					<Seg v-model="m.takeOver" :options="[{ value: false, label: 'No owner yet' }, { value: true, label: 'Every lead' }]" />
+					<div class="mv-big"><b>{{ pre ? CM.num(pre.count) : 0 }}</b> <span>{{ pre && pre.count === 1 ? 'lead' : 'leads' }}</span></div>
+					<div v-if="pre && pre.available != null && pre.available !== pre.count" class="small muted">of {{ CM.num(pre.available) }} that match</div>
+					<div v-if="amt.mode !== 'each' || m.assignees.length < 2" style="margin-top:12px"><AmountField :amount="amt" :available="avail" noun="matching leads" /></div>
+					<p class="small muted" style="margin:12px 0 0">{{ m.takeOver ? 'Leads that already have an owner move to the new people.' : 'Leads that already have an owner stay with them.' }}</p>
+					<div v-if="over" class="alert err" style="margin-top:10px"><Ico name="alert" /><div class="grow">More leads are given out than there are.</div></div>
+					<div v-if="pre" v-html="sample(pre.sample)" style="margin-top:12px"></div>
+				</section>
+				<Btn variant="primary" icon="users" class="mv-go" :loading="busy" :disabled="!pre || !pre.count || over" @click="go">Assign {{ pre ? plural(pre.count, 'lead') : '0 leads' }}</Btn>
+			</aside>
+		</div>`,
 	}
 
 	// ------------------------------------------------------------------ 3. move one person's leads to others
@@ -286,7 +298,7 @@
 				try { const res = await CM.apiA('transfer', { from_users: t.from, to_users: t.to, distribution: t.distribution, scope: t.all ? 'all' : 'open', limit: amountLimit(amt), counts: amountCounts(amt, t.to) }); CM.toast(doneText(res, 'Moving')); emit('done') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
 			const clash = computed(() => t.from.some((u) => t.to.includes(u)))
-			const over = computed(() => amt.mode === 'each' && t.to.length > 1 && pre.value && pre.value.count > avail.value)
+			const over = computed(() => amt.mode === 'each' && t.to.length > 1 && pre.value && eachTotal(amt, t.to) > avail.value)
 			return { t, amt, pre, avail, busy, ok, go, clash, over, plural, join, CM, nameOf }
 		},
 		template: `
