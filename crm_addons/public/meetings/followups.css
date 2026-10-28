@@ -165,3 +165,7 @@ html.inline .dash-brand .brand-ico { display: none; }
 .fu-n { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; background: var(--accent); color: #fff; }
 .fu-n .ico { width: 13px; height: 13px; }
 .fu-sep { width: 1px; align-self: stretch; background: var(--dash-line); }
+/* tighter spacing, like the Leads screen */
+.fu .dash-body { padding-top: 12px; gap: 10px; }
+.fu-filters { padding: 10px 14px; }
+.fu-lbar { padding: 6px 14px; }
