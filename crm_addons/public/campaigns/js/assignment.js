@@ -197,7 +197,7 @@
 		setup() { return { CM } },
 		template: `
 		<div class="row wrap" style="gap:10px;align-items:center">
-			<select class="inp amt-mode" :value="amount.mode" aria-label="How many leads" @change="amount.mode = $event.target.value"><option value="all">All {{ noun }}</option><option value="number">A certain number</option></select>
+<div style="min-width:200px"><Dd v-model="amount.mode" :options="[{ value: 'all', label: 'All ' + noun }, { value: 'number', label: 'A certain number' }]" aria-label="How many leads" /></div>
 			<template v-if="amount.mode === 'number'"><input class="inp limit-n" type="number" min="1" :max="available || null" v-model="amount.limit" aria-label="How many leads" /><span class="small muted" v-if="available != null">of {{ CM.num(available) }}</span></template>
 		</div>`,
 	}
