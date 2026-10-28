@@ -233,7 +233,20 @@ html.pro .top { display: none; } /* the Suite Pro header has the search, over ev
 html.pro .body { grid-template-columns: minmax(0, 1fr); max-width: 1180px; padding-top: 14px; }
 
 /* inside the Suite Pro app the tab and its icon are the heading: no title, description or sub-headings in the page */
-html.pro .g-head:not(.keep), html.pro h3.sub:not(.keep) { display: none; }
+html.pro .g-head:not(.keep) { display: block; margin: 0 0 6px; } html.pro .g-head .g-i, html.pro .g-head h2 { display: none; } html.pro .g-head p { margin: 0; font-size: 14px; color: var(--soft); max-width: 70ch; }
 
 .frappe-note { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 14px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--amber) 35%, var(--border)); border-radius: 10px; background: var(--amber-soft); color: var(--amber); font-size: 13px; }
 .frappe-note .ico { flex: none; margin-top: 1px; }
+
+/* settings pages: a short intro, labelled sections, and what each option does written under it */
+.fn-i { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 1.5px solid currentColor; font: italic 700 11px/1 Georgia, serif; }
+.row-l .desc { margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--faint); max-width: 64ch; }
+html.pro h3.sub { margin: 26px 0 0; padding-top: 18px; border-top: 1px solid var(--border); font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+html.pro .g-head + h3.sub, html.pro .frappe-note + h3.sub { margin-top: 12px; border-top: 0; padding-top: 0; }
+html.pro .card.pad { padding: 22px 26px; }
+html.pro .sub + .row-i, html.pro .g-head + .row-i, html.pro .card > .row-i:first-of-type { border-top: 0; margin-top: 4px; }
+html.pro .g-head + .row-i { border-top: 1px solid var(--border); margin-top: 14px; }
+html.pro .row-i.child { border-left: 0; padding-left: 20px; }
+html.pro .row-i.child .lab label { color: var(--text); }
+.inp.num { width: 112px; text-align: right; }
+.unit { color: var(--faint); font-size: 12.5px; white-space: nowrap; }

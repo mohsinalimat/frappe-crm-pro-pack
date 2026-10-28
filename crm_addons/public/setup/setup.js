@@ -511,13 +511,14 @@
 					<section v-for="g in visible" :key="g.key" class="stack">
 						<div class="card pad">
 							<div class="row g-head" :class="{ keep: tab === 'sales' && !term }"><span class="g-i"><Ico :name="g.icon" :size="19" /></span><div class="grow"><h2>{{ g.title }}</h2><p class="muted">{{ g.desc }}</p></div></div>
-					<div v-if="g.frappe" class="frappe-note"><Ico name="info" :size="16" /><span><b>Changing in Frappe's UI.</b> {{ g.frappe }}</span></div>
+					<div v-if="g.frappe" class="frappe-note"><span class="fn-i" aria-hidden="true">i</span><span><b>Changing in Frappe's UI.</b> {{ g.frappe }}</span></div>
 							<ViewDefaults v-if="g.custom === 'views'" /><Branding v-if="g.custom === 'branding'" />
 							<template v-for="(it, i) in g.shown" :key="(it.k || it.h) + i">
 								<h3 v-if="it.h" class="sub">{{ it.h }}</h3>
 								<div v-else class="row-i" :class="{ locked: !met(it), child: it.when, bad: problem(it), wide: ['menu', 'fieldlist', 'counters', 'area', 'watemplate', 'metausage'].includes(it.t) }">
 									<div class="row-l">
 										<div class="lab"><label :for="'f-' + it.k">{{ it.label }}</label><Info :info="it.info" :label="it.label" /></div>
+										<div v-if="met(it) && it.info && it.info.what" class="desc">{{ it.info.what }}</div>
 										<div v-if="!met(it)" class="hint"><Ico name="lock" :size="12" /> {{ lockText(it) }}</div>
 										<div v-else-if="problem(it)" class="err">{{ problem(it) }}</div>
 									</div>

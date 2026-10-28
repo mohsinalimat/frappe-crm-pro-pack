@@ -653,3 +653,11 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 .wi-card.right { left: auto; right: 0; } .wi-chat .wx-head .small { max-width: 46ch; }
 .wi-chat .wx-head .wi-dots { padding: 8px 6px; border: 0; background: transparent; } .wi-chat .wx-head .wi-dots:hover { background: var(--surface-2, #eef0f3); }
 .app.solo { grid-template-columns: minmax(0, 1fr); } .app.solo .wi-page { padding: 0; } .wi-in.solo { height: 100vh; border: 0; border-radius: 0; }
+
+/* phones and narrow windows: the Settings sub-menu joins the top strip as a row, and the header gets the full width */
+@media (max-width: 900px) {
+	.nav-grp { display: flex; flex-direction: row; align-items: center; gap: 4px; flex: none; }
+	.nav-sub { flex-direction: row; margin: 0; padding: 0; border: 0; } .nav-sub-h { display: none; } .nav-sub-i { white-space: nowrap; }
+	.st-head { padding-right: 0; } .st-title { font-size: 22px; } .subtabs { padding: 14px 16px 0; column-gap: 16px; }
+	.st-ctl { flex: 1 1 100%; margin-left: 0; } .st-ctl .gs { flex: 1 1 auto; min-width: 0; } .st-tabs { gap: 20px; }
+}
