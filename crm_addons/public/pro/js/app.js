@@ -58,14 +58,17 @@
 			const items = computed(() => menu(PRO.shell.config))
 			const active = computed(() => { const k = r.parts[0] || 'notifications'; return items.value.some((i) => i.key === k) ? k : (items.value[0] ? items.value[0].key : 'notifications') })
 			const current = computed(() => items.value.find((i) => i.key === active.value) || {})
-			onMounted(() => { PRO.loadShell(); CM.loadShared() })
+			const health = ref(null)
+			async function checkHealth() { try { const h = await CM.call('crm_addons.pro.compat.get_health', {}); health.value = h.show ? h : null } catch (e) { /* the check is a help, never a blocker */ } }
+			async function seen() { try { await CM.call('crm_addons.pro.compat.acknowledge', {}); health.value = null } catch (e) { CM.toast(e.message, 'err') } }
+			onMounted(async () => { await PRO.loadShell(); CM.loadShared(); if (PRO.shell.config && PRO.shell.config.can_manage_access) checkHealth() })
 			let saved = false; try { saved = localStorage.getItem('pro_rail_collapsed') === '1' } catch (e) { /* storage blocked */ }
 			const collapsed = ref(saved)
 			const toggleRail = () => { collapsed.value = !collapsed.value; try { localStorage.setItem('pro_rail_collapsed', collapsed.value ? '1' : '0') } catch (e) { /* not remembered */ } }
 			watch(active, () => { document.title = (current.value.label || 'Suite Pro') + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			// the unread count stays fresh while the page is open
 			let t; onMounted(() => { t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000) }); onBeforeUnmount(() => clearInterval(t))
-			return { r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
+			return { health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
@@ -78,6 +81,9 @@
 				</div>
 			</nav>
 			<main class="main">
+				<div v-if="health" class="compat" role="alert"><Ico name="alert" /><div class="grow"><b>Frappe CRM changed or something it needs is missing.</b>
+					<ul><li v-for="(p, i) in health.problems" :key="'p' + i" :class="p.level">{{ p.text }}</li><li v-for="(c, i) in health.changes" :key="'c' + i">{{ c }}</li></ul></div>
+					<Btn v-if="!health.problems.length" size="sm" @click="seen">I have seen this</Btn></div>
 				<div v-if="PRO.shell.error" class="page"><Empty icon="alert" title="Could not start" :text="PRO.shell.error"><a class="btn primary" href="/login?redirect-to=/crm-pro">Log in</a></Empty></div>
 				<div v-else-if="!PRO.shell.loaded" class="page"><Skel h="40" r="10" /><Skel h="300" r="12" /></div>
 				<Notifications v-else-if="active === 'notifications'" :key="'n'" />

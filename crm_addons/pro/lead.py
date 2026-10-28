@@ -8,10 +8,6 @@ from frappe import _
 from frappe.utils import cint, cstr, strip_html
 
 LEAD = "CRM Lead"
-EDITABLE = (
-	"salutation", "first_name", "last_name", "email", "mobile_no", "phone", "organization", "website", "job_title", "territory", "source", "industry",
-	"gender", "no_of_employees", "annual_revenue", "status", "lead_owner", "lost_reason", "lost_notes",
-)
 TASK_STATUS = ("Backlog", "Todo", "In Progress", "Done", "Canceled")
 PRIORITY = ("Low", "Medium", "High")
 
@@ -36,7 +32,14 @@ def get_lead(name):
 	doc = _lead(name)
 	d = doc.as_dict()
 	out = {k: d.get(k) for k in ("name", "lead_name", "image", "creation", "modified", "owner", "converted", "addons_score", "next_follow_up_on", "next_meeting_on", "addons_last_outcome", "addons_last_remark", "addons_call_attempts", "crm_wa_opt_in", "crm_demo_first_utm_source", "crm_demo_first_utm_medium", "crm_demo_first_utm_campaign")}
-	out.update({k: d.get(k) for k in EDITABLE})
+	from crm_addons.pro import form
+
+	side = form.sections("Side Panel")
+	writable = form.writable()
+	out["side_panel"] = [{"label": s["label"], "fields": [{**f, "value": d.get(f["fieldname"]), "display": _display(f, d.get(f["fieldname"]))} for f in s["fields"]]} for s in side]
+	out["values"] = {k: d.get(k) for k in writable}
+	for k in ("first_name", "last_name", "mobile_no", "email", "organization", "job_title", "website", "territory", "source", "industry", "status", "lead_owner"):
+		out[k] = d.get(k)
 	out["lead_owner_info"] = _person(d.get("lead_owner"))
 	out["created_by"] = _person(d.get("owner"))
 	out["can_write"] = bool(doc.has_permission("write"))
@@ -46,31 +49,26 @@ def get_lead(name):
 		"calls": frappe.db.count("CRM Call Log", {"reference_doctype": LEAD, "reference_docname": name}),
 	}
 	out["statuses"] = frappe.get_all("CRM Lead Status", fields=["name", "color", "type", "position"], order_by="position asc, name asc")
-	out["fields"] = _field_meta()
 	return out
 
 
-def _field_meta():
-	"""The editable fields with the options a Select / Link needs, so the page can draw them."""
-	meta = frappe.get_meta(LEAD)
-	out = {}
-	for f in EDITABLE:
-		df = meta.get_field(f)
-		if df:
-			out[f] = {"label": df.label, "type": df.fieldtype, "options": df.options if df.fieldtype in ("Select", "Link") else None}
-	return out
+def _display(spec, value):
+	if value in (None, ""):
+		return ""
+	if spec["fieldtype"] == "Check":
+		return "Yes" if value else "No"
+	return cstr(value)
 
 
 @frappe.whitelist()
 def update_lead(name, values):
-	"""Change some details. Only the fields in EDITABLE can be set; a status change goes through the document so CRM's status log is kept."""
+	"""Change some details. Only the fields CRM's layouts allow can be set (see ``form.writable``); a status change goes through the document so CRM's status log is kept."""
 	doc = _lead(name, "write")
 	values = values if isinstance(values, dict) else json.loads(values or "{}")
-	bad = [k for k in values if k not in EDITABLE]
-	if bad:
-		frappe.throw(_("Cannot change: {0}").format(", ".join(bad)))
-	for k, v in values.items():
-		doc.set(k, v if v not in ("",) else None)
+	from crm_addons.pro import form
+
+	for k, v in form.clean_values(values).items():
+		doc.set(k, v)
 	doc.save()
 	return get_lead(name)
 

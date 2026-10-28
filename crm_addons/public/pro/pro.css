@@ -58,3 +58,7 @@
 .inp-wrap:not(:has(> svg)) .inp { padding-left: 12px; }
 
 .lead-page .ltabs { flex-wrap: wrap; overflow: visible; }
+
+.compat { display: flex; gap: 12px; align-items: flex-start; margin: 12px 24px 0; padding: 12px 16px; border: 1px solid var(--amber); background: var(--amber-soft); color: var(--text); border-radius: 10px; }
+.compat ul { margin: 6px 0 0; padding-left: 18px; } .compat li.error { color: var(--red); font-weight: 600; }
+.fsec + .fsec { margin-top: 16px; }

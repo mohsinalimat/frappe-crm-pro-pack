@@ -47,7 +47,7 @@
 			var v = new URLSearchParams(location.search).get('v') || Date.now()
 			var css = ['../campaigns/campaigns.css', '../campaigns/views.css', 'pro.css']
 			var C = '../campaigns/js/'
-			var js = ['../debug.js', '../meetings/vendor/vue.global.prod.js', C + 'core.js', C + 'ui.js', 'js/common.js', 'js/notifications.js', 'js/leads.js', 'js/lead.js', 'js/orgs.js', 'js/app.js']
+			var js = ['../debug.js', '../meetings/vendor/vue.global.prod.js', C + 'core.js', C + 'ui.js', 'js/common.js', 'js/notifications.js', 'js/form.js', 'js/leads.js', 'js/lead.js', 'js/orgs.js', 'js/app.js']
 			css.forEach(function (f) { document.write('<link rel="stylesheet" href="' + f + '?v=' + v + '">') })
 			js.forEach(function (f) { document.write('<script src="' + f + '?v=' + v + '"><\/script>') })
 		})()

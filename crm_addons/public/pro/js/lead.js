@@ -57,11 +57,14 @@
 			watch(title, (t) => { if (t) document.title = t + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			const copy = async (t) => { try { await navigator.clipboard.writeText(t); CM.toast('Copied') } catch (e) { CM.toast('Could not copy', 'err') } }
 
-			// edit
-			const edit = reactive({ open: false, v: {}, busy: false })
-			const EDIT_FIELDS = ['first_name', 'last_name', 'mobile_no', 'email', 'organization', 'job_title', 'website', 'territory', 'source']
-			function openEdit() { edit.v = Object.fromEntries(EDIT_FIELDS.map((f) => [f, lead.value[f] || ''])); edit.open = true }
-			async function saveEdit() { edit.busy = true; await save(edit.v, 'Saved'); edit.busy = false; edit.open = false }
+			// edit: every writable field, laid out as CRM lays it out
+			const edit = reactive({ open: false, v: {}, sections: [], busy: false, error: '' })
+			async function openEdit() {
+				try { edit.sections = await CM.call('crm_addons.pro.form.get_form', { kind: 'edit' }) } catch (e) { CM.toast(e.message, 'err'); return }
+				edit.v = Object.fromEntries(edit.sections.flatMap((s) => s.fields).map((f) => [f.fieldname, lead.value.values[f.fieldname] ?? '']))
+				edit.error = ''; edit.open = true
+			}
+			async function saveEdit() { edit.busy = true; edit.error = ''; try { lead.value = await call('update_lead', { name: props.name, values: JSON.stringify(edit.v) }); delete data.activity; delete data.comments; delete data.data; edit.open = false; CM.toast('Saved') } catch (e) { edit.error = e.message } finally { edit.busy = false } }
 
 			// notes
 			const noteForm = reactive({ title: '', content: '', busy: false })
@@ -106,7 +109,7 @@
 			async function sendWa() { wa.busy = true; try { await call('send_whatsapp', { name: props.name, message: wa.text }); wa.text = ''; delete data.activity; await reload('whatsapp') } catch (e) { CM.toast(e.message, 'err') } finally { wa.busy = false } }
 
 			const ICON = { change: 'edit', comment: 'message', assigned: 'users' }
-			return { lead, error, loading, tab, TABS, data, busyTab, back, statusOpts, ownerOpts, setStatus, setOwner, title, copy, edit, openEdit, saveEdit, EDIT_FIELDS, noteForm, addNote, dropNote, comment, addComment, comments, fu, openFollowup, saveFollowup, doneFollowup, fuOpts, mt, openMeeting, saveMeeting, em, openEmail, sendEmail, wa, sendWa, chat, waMessages, ICON, day, digits, load, PRO, CM }
+			return { lead, error, loading, tab, TABS, data, busyTab, back, statusOpts, ownerOpts, setStatus, setOwner, title, copy, edit, openEdit, saveEdit, noteForm, addNote, dropNote, comment, addComment, comments, fu, openFollowup, saveFollowup, doneFollowup, fuOpts, mt, openMeeting, saveMeeting, em, openEmail, sendEmail, wa, sendWa, chat, waMessages, ICON, day, digits, load, PRO, CM }
 		},
 		template: `
 		<div class="page lead-page">
@@ -232,9 +235,10 @@
 							<Field label="Status"><Dd :modelValue="lead.status" :options="statusOpts" :disabled="!lead.can_write" aria-label="Status" @update:modelValue="setStatus" /></Field>
 							<Field label="Assigned to"><Dd :modelValue="lead.lead_owner || ''" :options="ownerOpts" searchable :disabled="!lead.can_write" aria-label="Assigned to" @update:modelValue="setOwner" /></Field>
 						</section>
-						<section class="card"><h3>Details</h3>
-							<div class="facts one"><Fact label="Phone" :value="lead.mobile_no" /><Fact label="Email" :value="lead.email" /><Fact label="Organization" :value="lead.organization" /><Fact label="Job title" :value="lead.job_title" /><Fact label="Territory" :value="lead.territory" /><Fact label="Source" :value="lead.source" /><Fact label="Website" :value="lead.website" /><Fact label="Added on" :value="day(lead.creation)" /></div>
+						<section v-for="(s, i) in lead.side_panel" :key="'sp' + i" class="card"><h3>{{ s.label || 'Details' }}</h3>
+							<div class="facts one"><Fact v-for="f in s.fields" :key="f.fieldname" :label="f.label" :value="f.display" /></div>
 						</section>
+						<section class="card"><h3>Added</h3><div class="facts one"><Fact label="Added on" :value="day(lead.creation)" /><Fact label="Added by" :value="lead.created_by && lead.created_by.full_name" /></div></section>
 						<section class="card"><h3>Follow-up</h3>
 							<div class="facts one"><Fact label="Next follow-up"><span :class="{ overdue: lead.next_follow_up_on && new Date(lead.next_follow_up_on.replace(' ', 'T')) < new Date() }">{{ day(lead.next_follow_up_on) || '-' }}</span></Fact><Fact label="Next meeting" :value="day(lead.next_meeting_on)" /><Fact label="Last call" :value="lead.addons_last_outcome" /><Fact label="Call attempts" :value="lead.addons_call_attempts" /><Fact label="Score" :value="lead.addons_score" /></div>
 						</section>
@@ -244,8 +248,9 @@
 					</aside>
 				</div>
 
-				<Modal v-if="edit.open" title="Edit lead" @close="edit.open = false" @submit="saveEdit">
-					<div class="grid2"><Field v-for="f in EDIT_FIELDS" :key="f" :label="lead.fields[f] ? lead.fields[f].label : f"><Inp v-model="edit.v[f]" :aria-label="f" /></Field></div>
+				<Modal v-if="edit.open" title="Edit lead" size="lg" @close="edit.open = false" @submit="saveEdit">
+					<FormFields :sections="edit.sections" :values="edit.v" />
+					<div v-if="edit.error" class="err" role="alert" style="margin-top:10px">{{ edit.error }}</div>
 					<template #foot><Btn @click="edit.open = false">Cancel</Btn><Btn variant="primary" :loading="edit.busy" @click="saveEdit">Save</Btn></template>
 				</Modal>
 				<Modal v-if="fu.open" title="Log a follow-up" @close="fu.open = false">

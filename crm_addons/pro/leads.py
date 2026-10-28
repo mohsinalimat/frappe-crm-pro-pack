@@ -241,53 +241,48 @@ def bulk_delete(names):
 	return {"done": done, "failed": failed}
 
 
-CREATE_FIELDS = ("salutation", "first_name", "last_name", "email", "mobile_no", "phone", "organization", "website", "job_title", "territory", "source", "status", "lead_owner")
-
-
 @frappe.whitelist()
 def create_lead(values):
-	"""A new lead from the form: only the fields in CREATE_FIELDS. Returns its name."""
+	"""A new lead from the form: the fields CRM's layouts allow (see ``form.writable``). Returns its name."""
 	_check()
+	from crm_addons.pro import form
+
 	frappe.has_permission(LEAD, "create", throw=True)
-	values = values if isinstance(values, dict) else json.loads(values or "{}")
-	bad = [k for k in values if k not in CREATE_FIELDS]
-	if bad:
-		frappe.throw(_("Cannot set: {0}").format(", ".join(bad)))
-	data = {k: v for k, v in values.items() if cstr(v).strip()}
+	data = {k: v for k, v in form.clean_values(values).items() if v is not None}
 	if not cstr(data.get("first_name")).strip():
 		frappe.throw(_("First name is needed."))
 	data.setdefault("lead_owner", frappe.session.user)
-	doc = frappe.get_doc({"doctype": LEAD, **data}).insert()
-	return doc.name
-
-
-def _safe(column, value):
-	"""A spreadsheet runs a cell that starts with = + - or @ as a formula: those cells get a leading quote (phone numbers may start with +)."""
-	text = cstr(value)
-	return "'" + text if text.startswith(("=", "@", "-")) or (text.startswith("+") and column != "mobile_no") else text
-
-
-EXPORT_COLUMNS = (("name", "ID"), ("lead_name", "Name"), ("organization", "Organization"), ("mobile_no", "Phone"), ("email", "Email"), ("status", "Status"), ("source", "Source"), ("territory", "Territory"), ("lead_owner", "Assigned to"), ("next_follow_up_on", "Next follow-up"), ("creation", "Added"))
+	return frappe.get_doc({"doctype": LEAD, **data}).insert().name
 
 
 @frappe.whitelist()
-def export_csv(filters=None, search=None, scope="all"):
-	"""Up to 5000 leads of the current filters as CSV text."""
+def export_csv(filters=None, search=None, scope="all", names=None):
+	"""Every exportable field of the leads of the current filters (or of the chosen ``names``) as CSV text. Returns {csv, count, truncated}."""
 	_check()
 	import csv
 	import io
 
-	flt, or_flt, search_or = _conditions(filters, search, scope)
-	if search_or and or_flt:
-		names = _get_list(fields=["name"], filters=flt, or_filters=or_flt, limit_page_length=0, pluck="name")
-		flt = flt + [[LEAD, "name", "in", names or [""]]]
-		or_flt = search_or
-	elif search_or:
-		or_flt = search_or
-	rows = _get_list(fields=[c for c, _l in EXPORT_COLUMNS], filters=flt, or_filters=or_flt, order_by="creation desc", limit_page_length=5000)
+	from crm_addons.pro import form
+
+	cols = form.export_fields()
+	fieldnames = [c for c, _l in cols]
+	cap = 20000
+	chosen = _loads(names, []) if names else []
+	if chosen:
+		flt, or_flt = [[LEAD, "name", "in", [cstr(n) for n in chosen][:cap]]], None
+	else:
+		flt, or_flt, search_or = _conditions(filters, search, scope)
+		if search_or and or_flt:
+			ids = _get_list(fields=["name"], filters=flt, or_filters=or_flt, limit_page_length=0, pluck="name")
+			flt = flt + [[LEAD, "name", "in", ids or [""]]]
+			or_flt = search_or
+		elif search_or:
+			or_flt = search_or
+	rows = _get_list(fields=fieldnames, filters=flt, or_filters=or_flt, order_by="creation desc", limit_page_length=cap + 1)
+	truncated = len(rows) > cap
 	buf = io.StringIO()
 	w = csv.writer(buf)
-	w.writerow([label for _c, label in EXPORT_COLUMNS])
-	for r in rows:
-		w.writerow([_safe(c, r.get(c)) for c, _l in EXPORT_COLUMNS])
-	return buf.getvalue()
+	w.writerow([label for _c, label in cols])
+	for r in rows[:cap]:
+		w.writerow([form.safe_cell(r.get(c)) for c in fieldnames])
+	return {"csv": buf.getvalue(), "count": min(len(rows), cap), "truncated": truncated}

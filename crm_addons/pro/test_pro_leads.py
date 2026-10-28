@@ -4,7 +4,7 @@ import json
 
 import frappe
 
-from crm_addons.pro import lead, leads
+from crm_addons.pro import form, lead, leads
 from crm_addons.team_access.test_access import AccessCase
 
 
@@ -78,10 +78,11 @@ class TestProLeads(AccessCase):
 			leads.create_lead(json.dumps({"first_name": "x", "converted": 1}))
 		with self.assertRaises(frappe.ValidationError):
 			leads.create_lead(json.dumps({"last_name": "no first name"}))
-		csv = leads.export_csv(search="Zq")
-		self.assertIn("Zq", csv)
-		self.assertIn("+911234567890", csv)  # a phone keeps its plus sign
-		self.assertEqual(leads._safe("lead_name", "=SUM(A1)"), "'=SUM(A1)")
+		res = leads.export_csv(search="Zq")
+		self.assertIn("Zq", res["csv"])
+		self.assertIn("+911234567890", res["csv"])  # a phone keeps its plus sign
+		self.assertEqual(form.safe_cell("=SUM(A1)"), "'=SUM(A1)")
+		self.assertEqual(form.safe_cell("+91 98000"), "+91 98000")
 
 	def test_quick_filters(self):
 		frappe.set_user("Administrator")

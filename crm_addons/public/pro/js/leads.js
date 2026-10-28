@@ -91,34 +91,64 @@
 	const overdue = (s) => !!s && new Date(String(s).replace(' ', 'T')) < new Date()
 	const csvDownload = (text, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000) }
 
-	/** The "new lead" form. */
+	/** The "new lead" form: the fields of CRM's Quick Entry layout, so a field added in CRM shows up here. */
 	V.NewLead = {
 		props: { opts: Object },
 		emits: ['close', 'created'],
 		setup(props, { emit }) {
-			const v = reactive({ first_name: '', last_name: '', mobile_no: '', email: '', organization: '', job_title: '', website: '', source: '', territory: '', status: '', lead_owner: PRO.shell.user })
-			const busy = ref(false); const error = ref('')
-			const statusOpts = computed(() => props.opts.statuses.map((s) => ({ value: s.name, label: s.name })))
-			const ownerOpts = computed(() => { const l = props.opts.owners.map((o) => ({ value: o.name, label: o.full_name })); return l.some((o) => o.value === PRO.shell.user) ? l : [{ value: PRO.shell.user, label: PRO.shell.full_name }, ...l] })
-			const pick = (list) => [{ value: '', label: 'Not set' }, ...list.map((x) => ({ value: x, label: x }))]
+			const sections = ref([]); const v = reactive({}); const busy = ref(false); const error = ref(''); const loading = ref(true)
+			onMounted(async () => {
+				try {
+					sections.value = await CM.call('crm_addons.pro.form.get_form', { kind: 'create' })
+					sections.value.forEach((s) => s.fields.forEach((f) => { v[f.fieldname] = f.default || '' }))
+					if ('lead_owner' in v) v.lead_owner = PRO.shell.user
+					if ('status' in v && !v.status && props.opts.statuses.length) v.status = props.opts.statuses[0].name
+				} catch (e) { error.value = e.message } finally { loading.value = false }
+			})
 			async function save() {
-				if (!v.first_name.trim()) { error.value = 'First name is needed.'; return }
+				const missing = sections.value.flatMap((s) => s.fields).find((f) => f.reqd && !String(v[f.fieldname] ?? '').trim())
+				if (missing) { error.value = missing.label + ' is needed.'; return }
 				busy.value = true; error.value = ''
 				try { const name = await CM.call('crm_addons.pro.leads.create_lead', { values: JSON.stringify(v) }); CM.toast('Lead added'); emit('created', name) } catch (e) { error.value = e.message } finally { busy.value = false }
 			}
-			return { v, busy, error, save, statusOpts, ownerOpts, pick }
+			return { sections, v, busy, error, save, loading }
 		},
 		template: `
-		<Modal title="New lead" @close="$emit('close')" @submit="save">
-			<div class="grid2">
-				<Field label="First name" required><Inp v-model="v.first_name" aria-label="First name" /></Field><Field label="Last name"><Inp v-model="v.last_name" aria-label="Last name" /></Field>
-				<Field label="Phone"><Inp v-model="v.mobile_no" placeholder="With country code, e.g. +91..." aria-label="Phone" /></Field><Field label="Email"><Inp v-model="v.email" type="email" aria-label="Email" /></Field>
-				<Field label="Organization"><Inp v-model="v.organization" aria-label="Organization" /></Field><Field label="Job title"><Inp v-model="v.job_title" aria-label="Job title" /></Field>
-				<Field label="Source"><Dd v-model="v.source" :options="pick(opts.sources)" searchable aria-label="Source" /></Field><Field label="Territory"><Dd v-model="v.territory" :options="pick(opts.territories)" searchable aria-label="Territory" /></Field>
-				<Field label="Status"><Dd v-model="v.status" :options="[{ value: '', label: 'Default' }, ...statusOpts]" aria-label="Status" /></Field><Field label="Assigned to"><Dd v-model="v.lead_owner" :options="ownerOpts" searchable aria-label="Assigned to" /></Field>
-			</div>
+		<Modal title="New lead" size="lg" @close="$emit('close')" @submit="save">
+			<Skel v-if="loading" h="120" />
+			<FormFields v-else :sections="sections" :values="v" />
 			<div v-if="error" class="err" role="alert" style="margin-top:10px">{{ error }}</div>
-			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" :loading="busy" @click="save">Add lead</Btn></template>
+			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" :loading="busy" :disabled="loading" @click="save">Add lead</Btn></template>
+		</Modal>`,
+	}
+
+	/** Upload a CSV of leads: check it first (nothing is saved), then add them. */
+	V.ImportLeads = {
+		emits: ['close', 'done'],
+		setup(props, { emit }) {
+			const text = ref(''); const fileName = ref(''); const result = ref(null); const busy = ref(false); const error = ref('')
+			async function pick(e) {
+				const f = e.target.files[0]; if (!f) return
+				if (f.size > 5e6) { error.value = 'That file is over 5 MB. Split it into parts.'; return }
+				fileName.value = f.name; text.value = await f.text(); result.value = null; error.value = ''; await run(1)
+			}
+			async function run(dry) {
+				busy.value = true; error.value = ''
+				try { result.value = await CM.call('crm_addons.pro.form.import_csv', { content: text.value, dry_run: dry }); if (!dry) { CM.toast(result.value.created + ' leads added'); emit('done') } } catch (e) { error.value = e.message; result.value = null } finally { busy.value = false }
+			}
+			async function template() { try { const r = await CM.call('crm_addons.pro.form.import_template', {}); csvDownload(r.csv, 'lead-import-template.csv') } catch (e) { CM.toast(e.message, 'err') } }
+			return { text, fileName, result, busy, error, pick, run, template }
+		},
+		template: `
+		<Modal title="Upload leads" subtitle="A CSV file whose first row holds the column names of the lead form." @close="$emit('close')">
+			<div class="row" style="gap:10px;flex-wrap:wrap"><label class="btn"><Ico name="upload" /> Choose a CSV file<input type="file" accept=".csv,text/csv" hidden @change="pick" /></label><Btn variant="ghost" icon="download" @click="template">Download the template</Btn><span v-if="fileName" class="small muted">{{ fileName }}</span></div>
+			<div v-if="error" class="err" role="alert" style="margin-top:10px">{{ error }}</div>
+			<div v-if="result" style="margin-top:14px">
+				<p><b>{{ result.created }}</b> of {{ result.total }} {{ result.dry_run ? 'leads are ready to add' : 'leads added' }}<template v-if="result.failed.length">; <b>{{ result.failed.length }}</b> need fixing</template>.</p>
+				<p v-if="result.unknown.length" class="small muted">Columns not used (no such field on the lead form): {{ result.unknown.join(', ') }}</p>
+				<ul v-if="result.failed.length" class="list" style="max-height:200px;overflow:auto"><li v-for="f in result.failed" :key="f.row" class="li small">Row {{ f.row }}: {{ f.reason }}</li></ul>
+			</div>
+			<template #foot><Btn @click="$emit('close')">Close</Btn><Btn variant="primary" :loading="busy" :disabled="!result || !result.dry_run || !result.created" @click="run(0)">Add {{ result && result.dry_run ? result.created : '' }} leads</Btn></template>
 		</Modal>`,
 	}
 
@@ -130,7 +160,7 @@
 			const sort = reactive({ by: store.get('sortBy', 'creation'), dir: store.get('sortDir', 'desc') }); const page = ref(1)
 			const rows = ref([]); const total = ref(0); const board = ref([]); const loading = ref(true); const error = ref('')
 			const picked = ref([]); const views = ref(store.get('views', []))
-			const showFilters = ref(store.get('showFilters', false)); const showViews = ref(false); const creating = ref(false); const exporting = ref(false)
+			const showFilters = ref(store.get('showFilters', false)); const showViews = ref(false); const creating = ref(false); const importing = ref(false); const exporting = ref(false)
 			let timer, seq = 0
 
 			const query = () => ({ filters: JSON.stringify(filters), search: search.value || undefined, scope: scope.value })
@@ -175,7 +205,7 @@
 
 			async function exportCsv() {
 				exporting.value = true
-				try { csvDownload(await CM.call('crm_addons.pro.leads.export_csv', query()), 'leads-' + iso(new Date()) + '.csv') } catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
+				try { const r = await CM.call('crm_addons.pro.leads.export_csv', { ...query(), names: picked.value.length ? JSON.stringify(picked.value) : undefined }); csvDownload(r.csv, 'leads-' + iso(new Date()) + '.csv'); CM.toast(r.count + (r.count === 1 ? ' lead' : ' leads') + ' exported' + (r.truncated ? ' (the first 20,000; narrow the filters for the rest)' : ''), r.truncated ? 'warn' : 'ok') } catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 
 			// bulk actions
@@ -226,15 +256,15 @@
 			const assignOpts = computed(() => [{ value: '__none__', label: 'Nobody (unassign)' }, ...opts.owners.map((o) => ({ value: o.name, label: o.full_name }))])
 			const colOpts = COLS.map((c) => ({ value: c.id, label: c.label }))
 			const modeOpts = [{ value: 'table', label: 'Table', icon: 'list' }, { value: 'kanban', label: 'Kanban', icon: 'columns' }, { value: 'grid', label: 'Grid', icon: 'grid2' }]
-			return { opts, filters, search, scope, datePreset, DATES, SORT_OPTS, mode, modeOpts, perPage, cols, sort, page, rows, total, totalAll, board, loading, error, picked, views, showFilters, showViews, creating, exporting, exportCsv, activeCount, clear, sortBy, pages, go, visible, allOn, flipAll, flip, open, flag, noFollow, setScope, showing, bulk, applyBulk, removeBulk, drag, drop, colScroll, viewName, saveView, applyView, dropView, statusOpts, ownerOpts, assignOpts, colOpts, load, when, overdue, PRO, CM }
+			return { opts, filters, search, scope, datePreset, DATES, SORT_OPTS, mode, modeOpts, perPage, cols, sort, page, rows, total, totalAll, board, loading, error, picked, views, showFilters, showViews, creating, importing, exporting, exportCsv, activeCount, clear, sortBy, pages, go, visible, allOn, flipAll, flip, open, flag, noFollow, setScope, showing, bulk, applyBulk, removeBulk, drag, drop, colScroll, viewName, saveView, applyView, dropView, statusOpts, ownerOpts, assignOpts, colOpts, load, when, overdue, PRO, CM }
 		},
 		template: `
 		<div class="page leads" :class="'m-' + mode">
 			<div class="pg-head"><div class="grow"><h1>Leads</h1><p class="muted small">{{ loading && !totalAll ? '' : totalAll + (totalAll === 1 ? ' lead' : ' leads') }}</p></div>
 				<div class="actions">
 					<Seg v-model="mode" :options="modeOpts" />
-					<Btn icon="download" :loading="exporting" title="Download the leads of these filters (CSV)" aria-label="Export leads" @click="exportCsv" />
-					<a v-if="opts.can_create" class="btn icon" href="/app/data-import/new?reference_doctype=CRM%20Lead" target="_blank" rel="noopener" title="Import leads" aria-label="Import leads"><Ico name="upload" /></a>
+					<Btn icon="download" :loading="exporting" title="Download every field of the leads (the selected ones, or all of these filters) as CSV" aria-label="Export leads" @click="exportCsv" />
+					<Btn v-if="opts.can_create" icon="upload" title="Upload leads from a CSV file" aria-label="Upload leads" @click="importing = true" />
 					<Btn v-if="opts.can_create" variant="primary" icon="plus" @click="creating = true">Add lead</Btn>
 				</div>
 			</div>
@@ -351,6 +381,7 @@
 					</section>
 				</div>
 			</section>
+			<ImportLeads v-if="importing" @close="importing = false" @done="importing = false; load()" />
 			<NewLead v-if="creating" :opts="opts" @close="creating = false" @created="(n) => { creating = false; open(n) }" />
 		</div>`,
 	}
