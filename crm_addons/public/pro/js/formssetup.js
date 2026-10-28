@@ -11,8 +11,8 @@
 
 	/** A picture of the Add lead / organization / person pop-up from the rows being edited (it creates nothing). */
 	V.FormMock = {
-		props: { title: String, fields: Array },
-		template: `<div class="fm"><div class="fm-t">{{ title }}</div><div class="fm-g"><div v-for="f in fields" :key="f.fieldname" class="fm-f" :style="f.full || ['Small Text', 'Text', 'Long Text', 'Text Editor'].includes(f.fieldtype) ? 'grid-column:1/-1' : null"><span class="fm-l">{{ f.label }}<b v-if="f.reqd || f.locked" style="color:var(--red)"> *</b></span><div v-if="f.fieldtype === 'Check'" class="fm-sw"></div><div v-else class="fm-i" :class="{ tall: ['Small Text', 'Text', 'Long Text', 'Text Editor'].includes(f.fieldtype) }"><span v-if="f.values.length || f.fieldtype === 'Link' || f.fieldtype === 'Select'" class="fm-d">Select</span><span v-if="f.values.length || f.fieldtype === 'Link' || f.fieldtype === 'Select'" class="fm-c">&#9662;</span></div></div><div v-if="!fields.length" class="small muted">No fields are shown.</div></div><div class="fm-b"><span>Cancel</span><b>Add</b></div></div>`,
+		props: { title: String, fields: Array, bare: Boolean },
+		template: `<div class="fm" :class="{ bare }"><div v-if="!bare" class="fm-t">{{ title }}</div><div class="fm-g"><div v-for="f in fields" :key="f.fieldname" class="fm-f" :style="f.full || ['Small Text', 'Text', 'Long Text', 'Text Editor'].includes(f.fieldtype) ? 'grid-column:1/-1' : null"><span class="fm-l">{{ f.label }}<b v-if="f.reqd || f.locked" style="color:var(--red)"> *</b></span><div v-if="f.fieldtype === 'Check'" class="fm-sw"></div><div v-else class="fm-i" :class="{ tall: ['Small Text', 'Text', 'Long Text', 'Text Editor'].includes(f.fieldtype) }"><span v-if="f.values.length || f.fieldtype === 'Link' || f.fieldtype === 'Select'" class="fm-d">Select</span><span v-if="f.values.length || f.fieldtype === 'Link' || f.fieldtype === 'Select'" class="fm-c">&#9662;</span></div></div><div v-if="!fields.length" class="small muted">No fields are shown.</div></div><div class="fm-b"><span>Cancel</span><b>Add</b></div></div>`,
 	}
 
 	V.FormsSetup = {
@@ -50,6 +50,7 @@
 			function removeRow(k) { if (spec(k).locked) { CM.toast(spec(k).label + ' is always on this form.', 'err'); return } rows[kind.value] = rows[kind.value].filter((r) => r.fieldname !== k); touch() }
 			function setHidden(k, v) { const r = row(k); r.hidden = v ? 1 : 0; if (v) r.reqd = 0; touch() }
 			const showPv = ref((() => { try { return localStorage.getItem('pro_forms_preview') !== '0' } catch (e) { return true } })()); watch(showPv, (v) => { try { localStorage.setItem('pro_forms_preview', v ? '1' : '0') } catch (e) { /* not remembered */ } })
+			const popup = ref(false)
 			const dragFrom = ref(-1); const dragOver = ref(-1)
 			function drop(j) { const i = dragFrom.value; dragFrom.value = dragOver.value = -1; if (i < 0 || i === j) return; const [x] = rows[kind.value].splice(i, 1); rows[kind.value].splice(j, 0, x); touch() }
 			const TYPE = { Data: 'Text', 'Small Text': 'Textarea', Text: 'Textarea', 'Long Text': 'Textarea', 'Text Editor': 'Textarea', Int: 'Number', Float: 'Number', Currency: 'Number', Phone: 'Phone', Check: 'Switch', Date: 'Date', Datetime: 'Date', Link: 'Dropdown', Select: 'Dropdown' }
@@ -86,18 +87,18 @@
 				organization: { doc: 'CRM Organization', what: 'an organization field' },
 				person: { doc: 'User', what: 'a person field' },
 			}
-			return { showPv, dragFrom, dragOver, drop, typeOf, iconOf, removeRow, setHidden, shown, hiddenCount, hdr, loading, error, busy, kind, TABS, items, row, spec, canRequire, addable, add, touch, rows, custom, dirty, guide, opt, openOptions, applyOptions, shownValues, toggle, save, reset, links, slug, dt, GUIDE, CM, all, pool }
+			return { popup, showPv, dragFrom, dragOver, drop, typeOf, iconOf, removeRow, setHidden, shown, hiddenCount, hdr, loading, error, busy, kind, TABS, items, row, spec, canRequire, addable, add, touch, rows, custom, dirty, guide, opt, openOptions, applyOptions, shownValues, toggle, save, reset, links, slug, dt, GUIDE, CM, all, pool }
 		},
 		template: `
 		<div class="page">
-			<Teleport v-if="hdr" to="#hdr-ctl"><Btn variant="primary" :loading="busy" :disabled="loading || !dirty" @click="save">Save</Btn></Teleport>
+			<Teleport v-if="hdr" to="#hdr-ctl"><div class="row" style="gap:8px;align-items:center"><Btn size="sm" variant="ghost" icon="info" title="A field or value is missing" aria-label="A field or value is missing" @click="guide = true" /><div class="seg" role="group" aria-label="View"><button type="button" :class="{ on: showPv }" :aria-pressed="showPv" title="Split: setup and preview" aria-label="Split view" @click="showPv = true"><Ico name="columns" size="sm" /> Split</button><button type="button" :class="{ on: !showPv }" :aria-pressed="!showPv" title="Form only" aria-label="Form only" @click="showPv = false"><Ico name="rows" size="sm" /> Form</button></div><Btn size="sm" icon="eye" :disabled="loading || !!error" @click="popup = true">Preview</Btn><Btn variant="primary" :loading="busy" :disabled="loading || !dirty" @click="save">Save</Btn></div></Teleport>
 			<ErrorState v-if="error" :message="error" />
 			<div v-else-if="loading" class="card" style="padding:18px"><Skel h="20" /></div>
 			<template v-else>
-				<div class="row" style="gap:10px;flex-wrap:wrap;align-items:center"><Seg v-model="kind" :options="TABS" /><span class="grow"></span><Btn v-if="custom[kind]" size="sm" variant="ghost" @click="reset">Reset to the CRM form</Btn><Btn size="sm" variant="ghost" icon="info" @click="guide = true">A field or value is missing</Btn><Btn size="sm" :icon="showPv ? 'eye' : 'eye-off'" :aria-pressed="showPv" @click="showPv = !showPv">Preview {{ showPv ? 'on' : 'off' }}</Btn></div>
+				<div class="row fs-kinds"><div class="fs-seg" role="tablist" aria-label="Form"><button v-for="t in TABS" :key="t.value" type="button" role="tab" :class="{ on: kind === t.value }" :aria-selected="kind === t.value" @click="kind = t.value"><Ico :name="t.icon" size="sm" /> {{ t.label }}</button></div><span class="grow"></span><Btn v-if="custom[kind]" size="sm" variant="ghost" @click="reset">Reset to the CRM form</Btn></div>
 				<div class="fs-split" :class="{ solo: !showPv }">
 					<section class="card" style="padding:16px 18px">
-						<div class="row" style="margin-bottom:10px"><div class="grow"><b style="font-size:16px">Form fields</b><p class="small muted" style="margin:2px 0 0">Drag to reorder. Click the icons to turn Full row, Required or Hide on or off.</p></div>
+						<div class="row" style="margin-bottom:10px"><div class="grow"><b style="font-size:16px">Form fields</b></div>
 							<div style="width:190px"><Dd modelValue="" :options="addable" searchable placeholder="+ Add field" aria-label="Add a field to the form" @update:modelValue="add" /></div></div>
 						<div class="fs-t-head"><span></span><span>Field name</span><span>Field type</span><span class="c">Full row</span><span class="c">Required</span><span class="c">Hide</span><span class="c">Actions</span></div>
 						<div v-for="(r, i) in rows[kind]" :key="r.fieldname" class="fs-t-row" :class="{ off: r.hidden, over: dragOver === i && dragFrom !== i }" draggable="true" @dragstart="dragFrom = i" @dragover.prevent="dragOver = i" @dragleave="dragOver = -1" @drop.prevent="drop(i)" @dragend="dragFrom = dragOver = -1">
@@ -114,6 +115,8 @@
 					<aside v-if="showPv" class="card fs-pv"><div class="row" style="margin-bottom:10px"><b class="grow" style="font-size:16px">Preview</b><span class="small muted">{{ hiddenCount }} hidden</span></div><FormMock :title="all[kind].title" :fields="shown" /></aside>
 				</div>
 			</template>
+
+			<Modal v-if="popup" size="md" :title="all[kind].title" subtitle="Exactly how it looks to the person adding." @close="popup = false"><FormMock bare :title="all[kind].title" :fields="shown" /><template #foot><Btn variant="primary" @click="popup = false">Close</Btn></template></Modal>
 
 			<Modal v-if="opt" size="sm" :title="'Options of ' + opt.label" subtitle="Untick a value to hide it on this form. It stays in the CRM." @close="opt = null">
 				<Inp v-if="opt.values.length > 8" v-model="opt.q" icon="search" placeholder="Search" clearable aria-label="Search the values" />

@@ -37,70 +37,83 @@
 	V.ProfileMenu = {
 		props: { collapsed: Boolean },
 		setup() {
-			const open = ref(false); const dlg = ref(false); const busy = ref(false); const err = ref(''); const sec = ref('profile'); const edit = ref(false)
+			const open = ref(false); const dlg = ref(false); const busy = ref(false); const err = ref(''); const edit = ref(false); const photoBusy = ref(false); const fileEl = ref(null)
 			const theme = ref((() => { try { return localStorage.getItem('crm_addons_theme_pref') || 'auto' } catch (e) { return 'auto' } })())
-			const p = reactive({ first_name: '', last_name: '', mobile_no: '', email: '', designation: '', company: '', role: '', reports_to: '', joined: '', full_name: '' }); const pw = reactive({ old: '', n1: '', n2: '' })
+			const p = reactive({ first_name: '', last_name: '', mobile_no: '', email: '', designation: '', company: '', role: '', reports_to: '', joined: '', full_name: '', image: '', last_login: '', preset: '', leads_owned: 0, notify: { enabled: 1, email: 1 } }); const pw = reactive({ old: '', n1: '', n2: '' })
+			const browser = ref(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission)
 			function setTheme(t) {
 				theme.value = t
 				const eff = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t
 				try { localStorage.setItem('crm_addons_theme_pref', t); if (t === 'auto') { localStorage.removeItem('theme'); localStorage.removeItem('crm_addons_theme') } else { localStorage.setItem('theme', t); localStorage.setItem('crm_addons_theme', t) } } catch (e) { /* not remembered */ }
 				document.documentElement.setAttribute('data-theme', eff)
 			}
-			async function openProfile(s) { open.value = false; err.value = ''; sec.value = s || 'profile'; edit.value = false; dlg.value = true; try { Object.assign(p, await PRO.api('get_profile', {})) } catch (e) { err.value = e.message } }
-			async function save() { busy.value = true; err.value = ''; try { const r = await PRO.api('update_profile', { first_name: p.first_name, last_name: p.last_name, mobile_no: p.mobile_no, designation: p.designation, company: p.company }); Object.assign(p, r); PRO.shell.full_name = r.full_name; edit.value = false; CM.toast('Profile saved') } catch (e) { err.value = e.message } finally { busy.value = false } }
+			async function openProfile() { open.value = false; err.value = ''; edit.value = false; dlg.value = true; try { Object.assign(p, await PRO.api('get_profile', {})) } catch (e) { err.value = e.message } }
+			async function save() { busy.value = true; err.value = ''; try { const r = await PRO.api('update_profile', { first_name: p.first_name, last_name: p.last_name, mobile_no: p.mobile_no }); Object.assign(p, r); PRO.shell.full_name = r.full_name; edit.value = false; CM.toast('Profile saved') } catch (e) { err.value = e.message } finally { busy.value = false } }
 			async function changePw() {
 				if (pw.n1 !== pw.n2) { err.value = 'The two new passwords are not the same.'; return }
 				busy.value = true; err.value = ''
 				try { await PRO.api('change_password', { old_password: pw.old, new_password: pw.n1 }); pw.old = pw.n1 = pw.n2 = ''; CM.toast('Password changed') } catch (e) { err.value = e.message } finally { busy.value = false }
 			}
+			async function pickPhoto(e) {
+				const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return
+				if (!/^image\//.test(f.type) || f.size > 3 * 1048576) { err.value = 'Choose an image up to 3 MB.'; return }
+				photoBusy.value = true; err.value = ''
+				try { const up = await CM.upload(f, { isPrivate: false }); const r = await PRO.api('set_photo', { file_url: up.file_url }); Object.assign(p, r); PRO.shell.image = r.image; CM.toast('Profile picture changed') } catch (x) { err.value = x.message } finally { photoBusy.value = false }
+			}
+			async function saveNotify() { try { p.notify = await PRO.api('update_notifications', { enabled: p.notify.enabled ? 1 : 0, email: p.notify.email ? 1 : 0 }) } catch (e) { err.value = e.message } }
+			async function askBrowser() { if (typeof Notification === 'undefined') return; browser.value = await Notification.requestPermission() }
 			const ROLE = { 'System Manager': ['Administrator', 'You can manage the whole CRM, its settings and its people.'], 'Sales Manager': ['Sales Manager', 'You can see and manage your team\'s leads, meetings and follow-ups.'], 'Sales User': ['Sales User', 'You can manage your own leads, meetings and follow-ups.'] }
 			const role = computed(() => ROLE[p.role] || [p.role || 'Team member', 'What you can see and change is set by an administrator.'])
 			const logout = () => { location.href = '/api/method/logout' }
 			const onDoc = (e) => { if (open.value && !(e.target.closest && e.target.closest('.pf-wrap'))) open.value = false }
 			onMounted(() => document.addEventListener('click', onDoc)); onBeforeUnmount(() => document.removeEventListener('click', onDoc))
-			const SECS = [['profile', 'Profile', 'user'], ['security', 'Account & security', 'shield'], ['prefs', 'Preferences', 'settings']]
-			return { open, dlg, busy, err, sec, edit, theme, setTheme, p, pw, openProfile, save, changePw, logout, role, SECS, PRO, CM }
+			const LOCK = 'Set by administrator. You cannot change.'
+			return { open, dlg, busy, err, edit, theme, setTheme, p, pw, openProfile, save, changePw, pickPhoto, photoBusy, fileEl, saveNotify, askBrowser, browser, logout, role, LOCK, PRO, CM }
 		},
 		template: `
 		<div class="pf-wrap">
 			<div v-if="open" class="pf-card">
 				<div class="pf-me"><Avatar :name="PRO.shell.full_name || PRO.shell.user" :size="36" /><div style="min-width:0"><b class="ellipsis" style="display:block">{{ PRO.shell.full_name }}</b><span class="small muted ellipsis" style="display:block">{{ PRO.shell.user }}</span></div></div>
-				<button type="button" class="pf-i" @click="openProfile('profile')"><Ico name="user" /> My profile</button>
-				<button type="button" class="pf-i" @click="openProfile('security')"><Ico name="shield" /> Account &amp; security</button>
+				<button type="button" class="pf-i" @click="openProfile"><Ico name="user" /> My profile</button>
 				<div class="pf-th" role="group" aria-label="Theme"><button v-for="t in [['light', 'Light', 'sun'], ['dark', 'Dark', 'moon'], ['auto', 'Auto', 'monitor']]" :key="t[0]" type="button" :class="{ on: theme === t[0] }" :aria-pressed="theme === t[0]" @click="setTheme(t[0])"><Ico :name="t[2]" size="sm" />{{ t[1] }}</button></div>
 				<button type="button" class="pf-i danger" @click="logout"><Ico name="log-out" /> Log out</button>
 			</div>
 			<button type="button" class="nav pf-btn" :title="collapsed ? PRO.shell.full_name : null" aria-haspopup="menu" :aria-expanded="open" @click.stop="open = !open"><Avatar :name="PRO.shell.full_name || PRO.shell.user" :size="24" /><span class="nav-l ellipsis">{{ PRO.shell.full_name || PRO.shell.user }}</span><Ico name="chevron-up" size="sm" class="nav-l" style="margin-left:auto" /></button>
 			<Modal v-if="dlg" size="xl" title="My profile" subtitle="Manage your personal information and account settings." @close="dlg = false" @submit="save">
 				<div class="pfm">
-					<nav class="pfm-nav" aria-label="Profile sections"><button v-for="s in SECS" :key="s[0]" type="button" :class="{ on: sec === s[0] }" @click="sec = s[0]; err = ''"><Ico :name="s[2]" />{{ s[1] }}</button></nav>
 					<div class="pfm-main">
 						<div v-if="err" class="alert err" role="alert"><Ico name="alert" /><div class="grow">{{ err }}</div></div>
-						<template v-if="sec === 'profile'">
-							<div class="pfm-hero card"><Avatar :name="p.full_name || p.user" :size="68" /><div class="grow" style="min-width:0"><h3 style="margin:0">{{ p.full_name }}</h3><div class="muted">{{ [p.designation, p.company].filter(Boolean).join(' - ') || 'Add your designation and company below' }}</div>
-								<div class="row wrap" style="gap:16px;margin-top:8px"><span class="small muted"><Ico name="mail" size="sm" /> {{ p.email }}</span><span v-if="p.mobile_no" class="small muted"><Ico name="phone" size="sm" /> {{ p.mobile_no }}</span></div></div></div>
-							<section class="card pfm-sec"><div class="row"><b class="grow">Personal information</b><Btn size="sm" :icon="edit ? 'x' : 'edit'" @click="edit = !edit">{{ edit ? 'Cancel' : 'Edit' }}</Btn></div>
-								<div class="g2"><Field label="First name" required><Inp icon="user" v-model="p.first_name" :disabled="!edit" aria-label="First name" /></Field><Field label="Last name"><Inp icon="user" v-model="p.last_name" :disabled="!edit" aria-label="Last name" /></Field></div>
-								<div class="g2"><Field label="Email" hint="Your login. An administrator changes it."><Inp icon="mail" :modelValue="p.email" disabled aria-label="Email" /></Field><Field label="Contact number"><Inp icon="phone" v-model="p.mobile_no" :disabled="!edit" aria-label="Contact number" /></Field></div></section>
-							<section class="card pfm-sec"><div class="row"><b class="grow">Job and team</b></div>
-								<div class="g2"><Field label="Designation"><Inp icon="briefcase" v-model="p.designation" :disabled="!edit" aria-label="Designation" /></Field><Field label="Company"><Inp icon="building" v-model="p.company" :disabled="!edit" aria-label="Company" /></Field></div>
-								<div class="g2"><Field label="Reports to" hint="Set by an administrator."><Inp icon="user" :modelValue="p.reports_to || 'Nobody'" disabled aria-label="Reports to" /></Field></div></section>
-						</template>
-						<section v-if="sec === 'security'" class="card pfm-sec"><b>Password</b><p class="small muted" style="margin:0">Use at least 8 characters. You stay signed in on this device.</p>
+						<div class="pfm-hero card"><div class="pfm-ph"><img v-if="p.image" :src="p.image" alt="" /><Avatar v-else :name="p.full_name || p.user" :size="76" /></div>
+							<div class="grow" style="min-width:0"><h3 style="margin:0">{{ p.full_name }}</h3><div class="muted">{{ [p.designation, p.company].filter(Boolean).join(' - ') || p.email }}</div>
+								<div class="row wrap" style="gap:16px;margin-top:8px"><span class="small muted"><Ico name="mail" size="sm" /> {{ p.email }}</span><span v-if="p.mobile_no" class="small muted"><Ico name="phone" size="sm" /> {{ p.mobile_no }}</span></div></div>
+							<div><input ref="fileEl" type="file" accept="image/*" hidden @change="pickPhoto" /><Btn icon="image" :loading="photoBusy" @click="fileEl.click()">Change photo</Btn></div></div>
+						<section class="card pfm-sec"><div class="row"><b class="grow">Personal information</b><Btn size="sm" :icon="edit ? 'x' : 'edit'" @click="edit = !edit">{{ edit ? 'Cancel' : 'Edit' }}</Btn></div>
+							<div class="g2"><Field label="First name" required><Inp icon="user" v-model="p.first_name" :disabled="!edit" aria-label="First name" /></Field><Field label="Last name"><Inp icon="user" v-model="p.last_name" :disabled="!edit" aria-label="Last name" /></Field></div>
+							<div class="g2"><Field label="Email"><div class="pfm-lock" :title="LOCK" tabindex="0"><Inp icon="mail" :modelValue="p.email" disabled aria-label="Email" /></div></Field><Field label="Contact number"><Inp icon="phone" v-model="p.mobile_no" :disabled="!edit" aria-label="Contact number" /></Field></div></section>
+						<section class="card pfm-sec"><b>Job and team</b>
+							<div class="g2"><Field label="Designation"><div class="pfm-lock" :title="LOCK" tabindex="0"><Inp icon="briefcase" :modelValue="p.designation || '-'" disabled aria-label="Designation" /></div></Field><Field label="Company"><div class="pfm-lock" :title="LOCK" tabindex="0"><Inp icon="building" :modelValue="p.company || '-'" disabled aria-label="Company" /></div></Field></div>
+							<div class="g2"><Field label="Reports to"><div class="pfm-lock" :title="LOCK" tabindex="0"><Inp icon="user" :modelValue="p.reports_to || 'Nobody'" disabled aria-label="Reports to" /></div></Field><Field label="Access preset"><div class="pfm-lock" :title="LOCK" tabindex="0"><Inp icon="shield" :modelValue="p.preset || 'Default for your role'" disabled aria-label="Access preset" /></div></Field></div></section>
+						<section class="card pfm-sec"><b>Password</b><p class="small muted" style="margin:0">Use at least 8 characters.</p>
 							<div class="g3"><Field label="Current password"><Inp icon="lock" v-model="pw.old" type="password" aria-label="Current password" /></Field><Field label="New password"><Inp icon="lock" v-model="pw.n1" type="password" aria-label="New password" /></Field><Field label="New password again"><Inp icon="lock" v-model="pw.n2" type="password" aria-label="New password again" /></Field></div>
-							<div><Btn variant="primary" :loading="busy" :disabled="!pw.old || !pw.n1" @click="changePw">Change password</Btn></div></section>
-						<section v-if="sec === 'prefs'" class="card pfm-sec"><b>Theme</b><p class="small muted" style="margin:0">How the CRM looks for you on this device.</p>
-							<div class="pf-th" style="max-width:320px"><button v-for="t in [['light', 'Light', 'sun'], ['dark', 'Dark', 'moon'], ['auto', 'Auto', 'monitor']]" :key="t[0]" type="button" :class="{ on: theme === t[0] }" @click="setTheme(t[0])"><Ico :name="t[2]" size="sm" />{{ t[1] }}</button></div></section>
+							<div><Btn :loading="busy" :disabled="!pw.old || !pw.n1" @click="changePw">Change password</Btn></div></section>
+						<section class="card pfm-sec"><b>Preferences</b>
+							<div class="row" style="gap:12px;flex-wrap:wrap"><div><div class="small muted" style="margin-bottom:6px">Theme</div><div class="pf-th" style="min-width:260px"><button v-for="t in [['light', 'Light', 'sun'], ['dark', 'Dark', 'moon'], ['auto', 'Auto', 'monitor']]" :key="t[0]" type="button" :class="{ on: theme === t[0] }" @click="setTheme(t[0])"><Ico :name="t[2]" size="sm" />{{ t[1] }}</button></div></div></div></section>
+						<section class="card pfm-sec"><b>Notifications</b>
+							<div class="pfm-n"><div class="grow"><b>Notify me in the CRM</b><div class="small muted">Assignments, mentions and follow-ups appear in your Notifications.</div></div><Switch :modelValue="!!p.notify.enabled" label="Notify me in the CRM" @update:modelValue="(v) => { p.notify.enabled = v ? 1 : 0; saveNotify() }" /></div>
+							<div class="pfm-n"><div class="grow"><b>Also by email</b><div class="small muted">A copy to {{ p.email }}.</div></div><Switch :modelValue="!!p.notify.email" :disabled="!p.notify.enabled" label="Also by email" @update:modelValue="(v) => { p.notify.email = v ? 1 : 0; saveNotify() }" /></div>
+							<div class="pfm-n"><div class="grow"><b>On this device</b><div class="small muted">{{ browser === 'granted' ? 'Allowed: you see alerts from this browser.' : browser === 'denied' ? 'Blocked in this browser. Allow notifications for this site in the browser settings.' : browser === 'unsupported' ? 'This browser cannot show alerts.' : 'Get an alert from this browser when something needs you.' }}</div></div><Btn size="sm" :disabled="browser !== 'default'" @click="askBrowser">{{ browser === 'granted' ? 'Allowed' : 'Allow' }}</Btn></div></section>
 					</div>
 					<aside class="pfm-side">
 						<section class="card pfm-sec"><b>My role</b><div class="pfm-role"><Ico name="user" /> {{ role[0] }}</div><p class="small muted" style="margin:0">{{ role[1] }}</p></section>
 						<section class="card pfm-sec"><b>Quick info</b>
 							<div v-if="p.company" class="pfm-q"><Ico name="building" size="sm" /><span>{{ p.company }}</span></div>
 							<div v-if="p.reports_to" class="pfm-q"><Ico name="user" size="sm" /><span>Reports to {{ p.reports_to }}</span></div>
+							<div class="pfm-q"><Ico name="users" size="sm" /><span>{{ CM.num(p.leads_owned) }} lead{{ p.leads_owned === 1 ? '' : 's' }} owned by you</span></div>
+							<div v-if="p.last_login" class="pfm-q"><Ico name="clock" size="sm" /><span>Last sign-in {{ CM.fmt(p.last_login) }}</span></div>
 							<div class="pfm-q"><Ico name="calendar" size="sm" /><span>Joined {{ CM.fmtDate(p.joined) }}</span></div></section>
 					</aside>
 				</div>
-				<template #foot><button type="button" class="btn pf-out" @click="logout"><Ico name="log-out" /> Log out</button><span class="grow"></span><Btn @click="dlg = false">Close</Btn><Btn v-if="sec === 'profile'" variant="primary" icon="save" :loading="busy" :disabled="!edit" @click="save">Save changes</Btn></template>
+				<template #foot><button type="button" class="btn pf-out" @click="logout"><Ico name="log-out" /> Log out</button><span class="grow"></span><Btn @click="dlg = false">Close</Btn><Btn variant="primary" icon="save" :loading="busy" :disabled="!edit" @click="save">Save changes</Btn></template>
 			</Modal>
 		</div>`,
 	}

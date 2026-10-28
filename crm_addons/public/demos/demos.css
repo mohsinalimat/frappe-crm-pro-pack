@@ -160,3 +160,8 @@
 
 fieldset.ro { border: 0; margin: 0; padding: 0; min-width: 0; }
 tr.off td{opacity:.62}
+
+/* Log: the page header stays, the rows scroll under a fixed column header */
+.logscroll { max-height: calc(100vh - 250px); overflow: auto }
+.logscroll thead th { position: sticky; top: 0; z-index: 2; background: var(--surface, #fff); box-shadow: 0 1px 0 var(--border) }
+.logcard { overflow: hidden }

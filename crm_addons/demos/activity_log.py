@@ -1,0 +1,72 @@
+"""The Log: website bookings and lead form entries together, newest first, paged on the server (there can be thousands)."""
+
+import frappe
+from frappe import _
+from frappe.utils import cint, cstr
+
+from crm_addons.campaigns.common import date_range
+from crm_addons.demos import common
+from crm_addons.demos.common import BOOKING, DEMO_TYPE
+from crm_addons.demos.permissions import scope_sql
+from crm_addons.team_access import access
+
+FORM, ENTRY = "CRM Lead Form", "CRM Lead Form Entry"
+
+
+def _sources(kind):
+	"""The parts of the log this person may see: bookings by Bookings access, lead forms by Widgets access."""
+	out = []
+	if kind in ("", "all", "bookings") and access.level("demos") != access.R.NONE:
+		out.append("bookings")
+	if kind in ("", "all", "forms") and access.allows("demo_widgets", "view"):
+		out.append("forms")
+	return out
+
+
+@frappe.whitelist()
+def get_log(kind="all", result=None, search=None, from_date=None, to_date=None, page=1, page_size=50):
+	which = _sources(cstr(kind))
+	if not which:
+		frappe.throw(_("You do not have access to the log."), frappe.PermissionError)
+	values, parts = {}, []
+	start, end = date_range(from_date, to_date)
+	if "bookings" in which:
+		w = [scope_sql(frappe.session.user, "b") or "1 = 1"]
+		parts.append(
+			f"""select 'booking' as kind, b.name, b.creation, b.status as result, coalesce(t.title, b.demo_type) as thing, b.name_, b.email, b.phone, b.lead,
+			b.utm_source, b.utm_medium, b.utm_campaign, if(b.rescheduled_from is null or b.rescheduled_from = '', '', 'Moved from an earlier booking') as reason, b.ip_address
+			from `tab{BOOKING}` b left join `tab{DEMO_TYPE}` t on t.name = b.demo_type where {' and '.join(w)}"""
+		)
+	if "forms" in which:
+		parts.append(
+			f"""select 'form' as kind, e.name, e.creation, e.result, coalesce(f.title, e.form) as thing, e.name_, e.email, e.phone, e.lead,
+			e.utm_source, e.utm_medium, e.utm_campaign, e.reason, e.ip_address from `tab{ENTRY}` e left join `tab{FORM}` f on f.name = e.form"""
+		)
+	outer = ["1 = 1"]
+	if start:
+		outer.append("u.creation >= %(start)s")
+		values["start"] = start
+	if end:
+		outer.append("u.creation < %(end)s")
+		values["end"] = end
+	if result:
+		outer.append("u.result = %(result)s")
+		values["result"] = result
+	txt = cstr(search).strip()
+	if txt:
+		outer.append("(u.name_ like %(q)s or u.email like %(q)s or u.phone like %(q)s or u.utm_campaign like %(q)s or u.utm_source like %(q)s or u.thing like %(q)s)")
+		values["q"] = f"%{txt}%"
+	union = " union all ".join(parts)
+	where = " and ".join(outer)
+	page, size = max(1, cint(page)), min(max(1, cint(page_size) or 50), 200)
+	total = frappe.db.sql(f"select count(*) from ({union}) u where {where}", values)[0][0]
+	rows = frappe.db.sql(
+		f"select u.* from ({union}) u where {where} order by u.creation desc limit %(limit)s offset %(offset)s",
+		{**values, "limit": size, "offset": (page - 1) * size}, as_dict=True,
+	)
+	admin = common.is_admin()
+	for r in rows:
+		r["creation"] = str(r["creation"])
+		r["ip"] = r.pop("ip_address") if admin else None
+		r.pop("ip_address", None)
+	return {"rows": rows, "total": total, "page": page, "page_size": size, "show_ip": admin, "kinds": which}

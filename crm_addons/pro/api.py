@@ -50,21 +50,64 @@ def get_profile():
 		"user": doc.name, "first_name": doc.first_name, "last_name": doc.last_name, "email": doc.email, "mobile_no": doc.mobile_no, "full_name": doc.full_name,
 		"image": doc.user_image, "designation": doc.get("crm_designation") or "", "company": doc.get("crm_company") or "", "role": role,
 		"reports_to": frappe.db.get_value("User", leader, "full_name") if leader else "", "joined": str(doc.creation)[:10],
+		"last_login": str(doc.last_login or "")[:16], "timezone": doc.time_zone or "", "preset": _preset(doc.name),
+		"leads_owned": frappe.db.count("CRM Lead", {"lead_owner": doc.name}), "notify": _notify(doc.name),
 	}
 
 
+def _preset(user):
+	try:
+		from crm_addons.team_access import access
+
+		cfg = access.configured(user)
+		return (cfg or {}).get("preset") or ""
+	except Exception:
+		frappe.clear_messages()
+		return ""
+
+
+def _notify(user):
+	row = frappe.db.get_value("Notification Settings", user, ["enabled", "enable_email_notifications"], as_dict=True) if frappe.db.exists("Notification Settings", user) else None
+	return {"enabled": cint(row.enabled) if row else 1, "email": cint(row.enable_email_notifications) if row else 1}
+
+
 @frappe.whitelist()
-def update_profile(first_name, last_name=None, mobile_no=None, designation=None, company=None):
-	"""Their own name, number, designation and company; nothing else about the account."""
+def update_notifications(enabled, email):
+	"""Whether they are notified in the CRM, and whether the same also arrives by email."""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in."), frappe.PermissionError)
+	if frappe.db.exists("Notification Settings", frappe.session.user):
+		doc = frappe.get_doc("Notification Settings", frappe.session.user)
+	else:
+		doc = frappe.get_doc({"doctype": "Notification Settings", "user": frappe.session.user})
+	doc.enabled, doc.enable_email_notifications = cint(enabled), cint(email)
+	doc.save(ignore_permissions=True)
+	return _notify(frappe.session.user)
+
+
+@frappe.whitelist()
+def set_photo(file_url):
+	"""Their own profile picture: an image they just uploaded."""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in."), frappe.PermissionError)
+	url = cstr(file_url)
+	if not (url.startswith("/files/") or url.startswith("/private/files/")) or ".." in url:
+		frappe.throw(_("Choose an image you uploaded."))
+	if not frappe.db.exists("File", {"file_url": url, "owner": frappe.session.user}):
+		frappe.throw(_("Choose an image you uploaded."))
+	frappe.db.set_value("User", frappe.session.user, "user_image", url)
+	return get_profile()
+
+
+@frappe.whitelist()
+def update_profile(first_name, last_name=None, mobile_no=None):
+	"""Their own name and number; job details, role and email are set by an administrator."""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please log in."), frappe.PermissionError)
 	if not cstr(first_name).strip():
 		frappe.throw(_("Enter your first name."))
 	doc = frappe.get_doc("User", frappe.session.user)
 	doc.first_name, doc.last_name, doc.mobile_no = cstr(first_name).strip()[:60], cstr(last_name).strip()[:60], cstr(mobile_no).strip()[:20]
-	for field, value in (("crm_designation", designation), ("crm_company", company)):
-		if value is not None and doc.meta.has_field(field):
-			doc.set(field, cstr(value).strip()[:140])
 	doc.save(ignore_permissions=True)
 	return get_profile()
 
