@@ -106,3 +106,16 @@ class TestWhatsAppReplies(AccessCase):
 		self.addCleanup(frappe.set_user, "Administrator")
 		frappe.set_user(person)
 		self.assertEqual([r["title"] for r in config.get_whatsapp_replies()["replies"]], ["Thanks"])
+
+	def test_a_reply_file_must_be_a_public_upload(self):
+		from crm_addons.campaigns import replies
+
+		self.addCleanup(lambda: frappe.db.set_default(replies.KEY, "[]"))
+		with self.assertRaises(frappe.ValidationError):
+			replies.save("Brochure", "Here it is", None, "/private/files/x.pdf", "x.pdf")
+		with self.assertRaises(frappe.ValidationError):
+			replies.save("Brochure", "Here it is", None, "/files/does-not-exist.pdf", "x.pdf")
+		file = frappe.get_doc({"doctype": "File", "file_name": "reply-test.txt", "content": "hello", "is_private": 0}).insert(ignore_permissions=True)
+		self.addCleanup(frappe.delete_doc, "File", file.name, force=True, ignore_permissions=True)
+		row = replies.save("Brochure", "Here it is", None, file.file_url, "reply-test.txt")[0]
+		self.assertEqual((row["attach_url"], row["attach_type"]), (file.file_url, "document"))

@@ -103,35 +103,56 @@
 		</Modal>`,
 	}
 
-	/** Saved replies for the WhatsApp chat on a lead: short messages with variables. They are filled in for the lead and shown in the message box first, never sent on their own. */
+	/** WhatsApp saved replies, a screen of their own: short messages with variables, optionally with a file. On a lead's chat they are filled in, shown in the message box and sent along with their file once the person agrees. */
 	V.WaReplies = {
 		setup() {
-			const rows = ref([]); const loading = ref(true); const error = ref(''); const canEdit = ref(false); const ed = ref(null); const busy = ref(false); const box = ref(null)
+			const rows = ref([]); const loading = ref(true); const error = ref(''); const canEdit = ref(false); const ed = ref(null); const busy = ref(false); const box = ref(null); const upBusy = ref(false)
+			const q = ref(''); const layout = CM.useLayout('crm_wa_replies_layout')
 			async function load() { loading.value = true; error.value = ''; try { const r = await CM.api('list_whatsapp_replies', {}); rows.value = r.rows; canEdit.value = r.can_edit } catch (e) { error.value = e.message } finally { loading.value = false } }
 			onMounted(() => { CM.loadShared(); load() })
-			const openNew = () => { ed.value = { id: '', title: '', text: '' } }
+			const shown = computed(() => { const t = q.value.trim().toLowerCase(); return t ? rows.value.filter((r) => (r.title + ' ' + r.text).toLowerCase().includes(t)) : rows.value })
+			const openNew = () => { ed.value = { id: '', title: '', text: '', attach_url: '', attach_name: '' } }
 			const openEdit = (r) => { ed.value = { ...r } }
 			const vars = (t) => [...new Set([...String(t).matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => m[1]))]
 			const insert = (token) => CM.insertAtCursor(box.value, token)
-			async function save() { busy.value = true; try { const r = await CM.api('save_whatsapp_reply', { title: ed.value.title, text: ed.value.text, reply_id: ed.value.id || undefined }); rows.value = r.rows; ed.value = null; CM.toast('Saved reply stored') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false } }
+			const bubble = (r) => ({ template: String(r.text || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (m, n) => '[' + n.replace(/_/g, ' ') + ']'), header_type: '', buttons: [] })
+			async function attach(e) { const f = e.target.files[0]; e.target.value = ''; if (!f) return; upBusy.value = true; try { const up = await CM.upload(f, { isPrivate: false }); ed.value.attach_url = up.file_url; ed.value.attach_name = up.file_name } catch (x) { CM.toast(x.message, 'err') } finally { upBusy.value = false } }
+			async function save() { busy.value = true; try { const r = await CM.api('save_whatsapp_reply', { title: ed.value.title, text: ed.value.text, reply_id: ed.value.id || undefined, attach_url: ed.value.attach_url || undefined, attach_name: ed.value.attach_name || undefined }); rows.value = r.rows; ed.value = null; CM.toast('Saved reply stored') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false } }
 			async function drop(r) { if (!(await CM.confirm({ title: 'Delete "' + r.title + '"?', confirmText: 'Delete', danger: true }))) return; try { rows.value = (await CM.api('delete_whatsapp_reply', { reply_id: r.id })).rows } catch (e) { CM.toast(e.message, 'err') } }
-			return { rows, loading, error, canEdit, ed, busy, box, openNew, openEdit, vars, insert, save, drop, load }
+			return { rows, shown, q, layout, loading, error, canEdit, ed, busy, box, upBusy, openNew, openEdit, vars, insert, bubble, attach, save, drop, load }
 		},
 		template: `
-		<div class="stack" style="gap:14px">
-			<div class="alert"><Ico name="info" /><div class="grow"><b>Saved replies are not templates.</b> <span style="color:inherit;opacity:.85">They are quick messages for an open chat (the lead wrote in the last 24 hours). On a lead's WhatsApp tab, type <b>/</b> to pick one: it is filled in with the lead's details and shown in the message box so you can change it before sending.</span></div></div>
-			<div class="row"><div class="grow"></div><Btn v-if="canEdit" variant="primary" icon="plus" @click="openNew">New saved reply</Btn></div>
-			<div v-if="loading" class="card pad"><Skel h="60" /></div>
+		<div class="page">
+			<div class="pg-head"><div class="grow"><h1>WhatsApp saved replies</h1><p>Quick messages with variables for open chats. Shown to the person before they send, with their file if one is saved.</p></div>
+				<div class="actions"><Btn v-if="canEdit" variant="primary" icon="plus" @click="openNew">New saved reply</Btn></div></div>
+			<div class="alert"><Ico name="info" /><div class="grow"><b>Saved replies are not templates.</b> <span style="color:inherit;opacity:.85">They are for a chat that is already open (the lead wrote in the last 24 hours), so Meta does not review them. On a lead's WhatsApp tab, type <b>/</b> to pick one: it is filled in with the lead's details and shown in the message box so the person can change it before sending.</span></div></div>
+			<div class="row wrap tool"><div style="width:300px;max-width:100%"><Inp v-model="q" icon="search" placeholder="Search saved replies" clearable aria-label="Search saved replies" /></div><div class="grow"></div><HdrSlot><LayoutSwitch v-model="layout" /></HdrSlot></div>
+			<div v-if="loading" class="wgrid"><div v-for="n in 3" :key="n" class="card pad"><Skel h="120" r="10" /></div></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
-			<Empty v-else-if="!rows.length" icon="whatsapp" title="No saved replies yet" :text="canEdit ? 'Add the answers your team gives again and again, such as pricing or a thank-you.' : 'Someone who edits templates can add them.'" />
-			<div v-else class="card" style="padding:0;overflow:hidden"><ul class="list" style="margin:0">
-				<li v-for="r in rows" :key="r.id" class="li row" style="gap:12px;align-items:flex-start;padding:12px 16px"><Ico name="whatsapp" /><div class="grow" style="min-width:0"><b>{{ r.title }}</b><div class="small muted" style="white-space:pre-wrap;overflow-wrap:anywhere">{{ r.text }}</div><div v-if="vars(r.text).length" class="row wrap" style="gap:6px;margin-top:6px"><span v-for="v in vars(r.text)" :key="v" class="tchip">{{ v }}</span></div></div>
-					<template v-if="canEdit"><Btn size="sm" icon="edit" @click="openEdit(r)">Edit</Btn><Btn size="sm" variant="ghost" icon="trash" aria-label="Delete reply" @click="drop(r)" /></template></li></ul></div>
-			<Modal v-if="ed" :title="ed.id ? 'Edit saved reply' : 'New saved reply'" @close="ed = null">
-				<Field label="Title" hint="What people see when they type /"><Inp v-model="ed.title" placeholder="e.g. Pricing" aria-label="Reply title" /></Field>
-				<Field label="Message"><textarea ref="box" class="inp" rows="5" v-model="ed.text" placeholder="Hi {{ first_name }}, ..." aria-label="Reply message"></textarea><div style="margin-top:6px"><VarMenu @pick="insert" /></div></Field>
-				<div class="small muted">Variables such as <b v-pre>{{ first_name }}</b> are filled in from the lead. The person can still edit the text before it is sent.</div>
-				<template #foot><Btn @click="ed = null">Cancel</Btn><Btn variant="primary" :loading="busy" :disabled="!ed.title.trim() || !ed.text.trim()" @click="save">Save</Btn></template>
+			<Empty v-else-if="!shown.length" icon="whatsapp" :title="rows.length ? 'No saved replies match' : 'No saved replies yet'" :text="rows.length ? 'Try a different search.' : (canEdit ? 'Add the messages your team sends again and again, such as an introduction or a thank-you.' : 'Someone who edits templates can add them.')" />
+			<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
+				<thead><tr><th>Reply</th><th>Variables</th><th>File</th><th></th></tr></thead>
+				<tbody><tr v-for="r in shown" :key="r.id" class="click" tabindex="0" @click="canEdit && openEdit(r)" @keydown.enter="canEdit && openEdit(r)">
+					<td><b>{{ r.title }}</b><div class="small muted ellipsis" style="max-width:420px">{{ r.text }}</div></td>
+					<td><span v-for="v in vars(r.text)" :key="v" class="tchip" style="margin-right:4px">{{ v }}</span><span v-if="!vars(r.text).length" class="faint">-</span></td>
+					<td><span v-if="r.attach_name" class="small"><Ico name="paperclip" size="sm" /> {{ r.attach_name }}</span><span v-else class="faint">-</span></td>
+					<td class="num" @click.stop><Btn v-if="canEdit" size="sm" variant="ghost" icon="trash" aria-label="Delete reply" @click="drop(r)" /></td></tr></tbody></table></div></div>
+			<div v-else class="wgrid">
+				<article v-for="r in shown" :key="r.id" class="wcard card hover" tabindex="0" @click="canEdit && openEdit(r)" @keydown.enter="canEdit && openEdit(r)">
+					<div class="wcard-pv"><WaTemplateBubble :t="bubble(r)" compact /></div>
+					<div class="wcard-b">
+						<div class="row"><b class="grow ellipsis" :title="r.title">{{ r.title }}</b><Btn v-if="canEdit" size="sm" variant="ghost" icon="trash" aria-label="Delete reply" @click.stop="drop(r)" /></div>
+						<div class="row wrap" style="gap:6px"><span v-for="v in vars(r.text)" :key="v" class="tchip">{{ v }}</span><span v-if="r.attach_name" class="tchip"><Ico name="paperclip" size="sm" /> {{ r.attach_name }}</span><span v-if="!vars(r.text).length && !r.attach_name" class="tchip">Plain text</span></div>
+					</div>
+				</article>
+			</div>
+			<Modal v-if="ed" :title="ed.id ? 'Edit saved reply' : 'New saved reply'" size="lg" @close="ed = null">
+				<div class="grid2" style="align-items:start"><div class="stack" style="gap:12px">
+					<Field label="Title" hint="What people see when they type /"><Inp v-model="ed.title" placeholder="e.g. Introduction" aria-label="Reply title" /></Field>
+					<Field label="Message"><textarea ref="box" class="inp" rows="6" v-model="ed.text" placeholder="Hi {{ first_name }}, ..." aria-label="Reply message"></textarea><div style="margin-top:6px"><VarMenu @pick="insert" /></div></Field>
+					<Field label="File sent with it (optional)"><div class="row wrap" style="gap:8px"><label class="btn sm" :class="{ disabled: upBusy }"><Ico name="paperclip" size="sm" /> {{ ed.attach_url ? 'Replace file' : 'Add a file' }}<input type="file" hidden accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" @change="attach" /></label><span v-if="ed.attach_url" class="small">{{ ed.attach_name }} <button type="button" class="btn ghost icon sm" aria-label="Remove file" @click="ed.attach_url = ''; ed.attach_name = ''"><Ico name="x" size="sm" /></button></span></div><div class="small muted" style="margin-top:4px">Images, videos and documents. It goes out with the message when the person sends it.</div></Field>
+				</div><div><div class="lbl" style="margin-bottom:8px">Preview</div><div class="wa-stage"><WaTemplateBubble :t="bubble(ed)" /></div></div></div>
+				<template #foot><Btn @click="ed = null">Cancel</Btn><Btn variant="primary" :loading="busy" :disabled="!ed.title.trim() || !ed.text.trim() || upBusy" @click="save">Save</Btn></template>
 			</Modal>
 		</div>`,
 	}
@@ -139,7 +160,7 @@
 	V.WhatsAppTemplates = {
 		setup() {
 			const data = ref(null); const loading = ref(true); const error = ref(''); const syncing = ref(false)
-			const view = ref('templates'); const q = reactive({ search: '', category: '', status: '', purpose: '' }); const layout = CM.useLayout('crm_wa_templates_layout'); const protectedDel = ref(null); const detail = ref(null); const createOpen = ref(false)
+			const q = reactive({ search: '', category: '', status: '', purpose: '' }); const layout = CM.useLayout('crm_wa_templates_layout'); const protectedDel = ref(null); const detail = ref(null); const createOpen = ref(false)
 			const created = async () => { createOpen.value = false; await load(true) }
 			async function load(quiet) { if (!quiet) loading.value = true; error.value = ''; try { data.value = await CM.api('list_whatsapp_templates', {}) } catch (e) { error.value = e.message } finally { loading.value = false } }
 			onMounted(() => { CM.loadShared(); load() })
@@ -158,15 +179,13 @@
 			async function refresh() { await load(true); CM.toast('List refreshed') }
 			const use = (t) => { if (!t.approved) return CM.toast('Only templates approved by Meta can be used in a campaign.', 'warn'); CM.go('/campaigns/new?wa=' + encodeURIComponent(t.name)) }
 			const cats = computed(() => CATEGORIES.filter((c) => rows.value.some((r) => r.category === c)).map((c) => ({ value: c, label: catLabel(c) })))
-			return { view, protectedDel, layout, purposeCount, createOpen, created, data, loading, error, syncing, q, shown, rows, count, sync, refresh, detail, use, load, STATUSES, cats, stateTone, stateLabel, catLabel, CM }
+			return { protectedDel, layout, purposeCount, createOpen, created, data, loading, error, syncing, q, shown, rows, count, sync, refresh, detail, use, load, STATUSES, cats, stateTone, stateLabel, catLabel, CM }
 		},
 		template: `
 		<div class="page">
-			<div class="pg-head"><div class="grow"><h1>{{ view === 'templates' ? 'WhatsApp templates' : 'WhatsApp saved replies' }}</h1><p>{{ view === 'templates' ? 'Message templates approved by Meta for WhatsApp Business. Pick one when you build a campaign.' : 'Quick messages with variables for open chats. Shown to the person before they send.' }}</p></div>
-				<div v-show="view === 'templates'" class="actions"><Btn v-if="data && data.installed && data.can_create" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn><Btn icon="refresh" :loading="loading && !!data" @click="refresh">Refresh</Btn><Btn v-if="data && data.can_sync" variant="primary" icon="download" :loading="syncing" @click="sync">{{ syncing ? 'Syncing' : 'Sync status from Meta' }}</Btn></div></div>
-			<Seg v-model="view" :options="[{ value: 'templates', label: 'Templates' }, { value: 'replies', label: 'Saved replies' }]" style="align-self:flex-start" />
-			<WaReplies v-if="view === 'replies'" />
-			<template v-if="view === 'templates'">
+			<div class="pg-head"><div class="grow"><h1>WhatsApp templates</h1><p>Message templates approved by Meta for WhatsApp Business. Pick one when you build a campaign.</p></div>
+				<div class="actions"><Btn v-if="data && data.installed && data.can_create" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn><Btn icon="refresh" :loading="loading && !!data" @click="refresh">Refresh</Btn><Btn v-if="data && data.can_sync" variant="primary" icon="download" :loading="syncing" @click="sync">{{ syncing ? 'Syncing' : 'Sync status from Meta' }}</Btn></div></div>
+			
 			<div class="alert"><Ico name="info" /><div class="grow"><b>Create a template here and Meta reviews it.</b> <span class="muted" style="color:inherit;opacity:.85">New templates start as Pending and can be used once Meta approves them. Press Sync from Meta to update their status.</span> <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener">Open WhatsApp Manager <Ico name="external" size="sm" /></a></div></div>
 			<div v-if="data && !data.can_sync" class="small faint">Only managers can sync from Meta. Use Refresh to reload this list.</div>
 			<div v-if="data && !data.installed"><Empty icon="whatsapp" title="WhatsApp is not set up" text="The frappe_whatsapp app is not installed on this site, so there are no WhatsApp templates. Email campaigns work without it." /></div>
@@ -199,7 +218,6 @@
 					</article>
 				</div>
 			</template>
- 			</template>
  			<ProtectedDelete v-if="protectedDel" kind="whatsapp" :template="protectedDel" @close="protectedDel = null" @deleted="protectedDel = null; detail = null; load(true)" />
 			<WaTemplateCreate v-if="createOpen" :languages="(data && data.languages) || ['en']" @close="createOpen = false" @created="created" />
 			<Drawer v-if="detail" :title="detail.template_name" :subtitle="stateLabel(detail.state) + ' - ' + catLabel(detail.category)" @close="detail = null">

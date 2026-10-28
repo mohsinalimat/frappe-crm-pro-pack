@@ -10,6 +10,7 @@
 		{ key: 'automations', label: 'Automations', icon: 'zap', path: '/automations', show: () => CM.can('automations', 'view') },
 		{ key: 'email', label: 'Email templates', icon: 'mail', path: '/templates/email', show: () => CM.canAny(['email_templates', 'view'], ['campaign_create', 1]) },
 		{ key: 'whatsapp', label: 'WhatsApp templates', icon: 'whatsapp', path: '/templates/whatsapp', show: () => CM.canAny(['whatsapp_templates', 'view'], ['campaign_create', 1]) },
+		{ key: 'replies', label: 'WhatsApp saved replies', icon: 'whatsapp', path: '/replies/whatsapp', show: () => CM.canAny(['whatsapp_templates', 'view'], ['campaign_create', 1]) },
 		{ key: 'audiences', label: 'Audiences', icon: 'users', path: '/audiences', show: () => CM.canAny(['audiences', 'view'], ['campaign_create', 1]) },
 		{ key: 'reports', label: 'Reports', icon: 'chart', path: '/reports', show: () => CM.can('campaign_reports', 1) },
 		{ key: 'hygiene', label: 'List clean-up', icon: 'shield', path: '/hygiene', show: () => CM.can('list_cleanup', 1) },
@@ -41,6 +42,7 @@
 						if (p[1] === 'whatsapp') return { comp: 'WhatsAppTemplates', key: 'wa' }
 						if (p[2] === 'new' || p[2] === 'edit') return { comp: 'EmailEditorRoute', key: 'ee' }
 						return { comp: 'EmailTemplates', key: 'email' }
+					case 'replies': return { comp: 'WaReplies', key: 'wr' }
 					case 'audiences': return { comp: 'Audiences', key: 'aud' }
 					case 'reports': return { comp: 'Reports', key: 'rep' }
 						case 'hygiene': return { comp: 'ListHealth', key: 'hyg' }
@@ -53,7 +55,7 @@
 			}
 			// a person without Campaigns lands on the first part they can use
 			watch(() => [CM.shared.config, r.parts[0]], () => { if (!CM.shared.config || r.parts[0]) return; const first = NAV.find((n) => n.show()); if (first && first.key !== 'campaigns') CM.replace(first.path) }, { immediate: true })
-			const active = computed(() => { const p = r.parts; return p[0] === 'templates' ? (p[1] === 'whatsapp' ? 'whatsapp' : 'email') : p[0] === 'audiences' ? 'audiences' : p[0] === 'reports' ? 'reports' : p[0] === 'hygiene' ? 'hygiene' : p[0] === 'automations' ? 'automations' : 'campaigns' })
+			const active = computed(() => { const p = r.parts; return p[0] === 'templates' ? (p[1] === 'whatsapp' ? 'whatsapp' : 'email') : p[0] === 'replies' ? 'replies' : p[0] === 'audiences' ? 'audiences' : p[0] === 'reports' ? 'reports' : p[0] === 'hygiene' ? 'hygiene' : p[0] === 'automations' ? 'automations' : 'campaigns' })
 			onMounted(() => CM.loadShared())
 			// the left panel can shrink to icons only; the choice is remembered in this browser
 			let saved = false; try { saved = localStorage.getItem('cm_rail_collapsed') === '1' } catch (e) { /* storage blocked: start expanded */ }

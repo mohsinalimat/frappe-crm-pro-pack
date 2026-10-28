@@ -154,17 +154,24 @@
 			const bandTone = (b) => (b === 'Hot' ? 'red' : b === 'Warm' ? 'amber' : 'neutral')
 
 			// emails: write one, or start from one of the app's templates and edit it before it goes
-			const em = reactive({ open: false, busy: false, loading: false, v: {}, error: '', tpl: '', info: null, cc: false, bcc: false, files: [], upBusy: false })
+			const em = reactive({ open: false, busy: false, loading: false, v: {}, error: '', tpl: '', info: null, cc: false, bcc: false, files: [], upBusy: false, pick: false, sel: '' })
 			const opened = reactive({})
-			async function openEmail() {
-				em.v = { recipients: lead.value.email || '', cc: '', bcc: '', subject: '', content: '' }; em.tpl = ''; em.error = ''; em.cc = false; em.bcc = false; em.files = []; em.open = true; em.loading = true
+			async function loadTemplates() {
+				if (em.info) return
+				em.loading = true
 				try { em.info = await call('email_templates', { name: props.name }) } catch (e) { em.error = e.message } finally { em.loading = false }
 			}
-			const tplOpts = computed(() => [{ value: '', label: 'No template - write my own' }, ...((em.info && em.info.templates) || []).map((t) => ({ value: t.name, label: t.label }))])
-			function pickTemplate(v) {
-				em.tpl = v; const t = ((em.info && em.info.templates) || []).find((x) => x.name === v)
-				if (!t) return
-				em.v.subject = t.subject; em.v.content = t.body
+			// a blank email to write by hand
+			async function openEmail() {
+				em.v = { recipients: lead.value.email || '', cc: '', bcc: '', subject: '', content: '' }; em.tpl = ''; em.error = ''; em.cc = false; em.bcc = false; em.files = []; em.open = true
+				loadTemplates()
+			}
+			// the templates already in the CRM, each shown as it will look, then used as the start of an email
+			async function openTemplates() { em.pick = true; em.sel = em.tpl; await loadTemplates(); if (!em.sel && em.info && em.info.templates.length) em.sel = em.info.templates[0].name }
+			const selTemplate = computed(() => ((em.info && em.info.templates) || []).find((t) => t.name === em.sel) || null)
+			async function useTemplate(t) {
+				if (!em.open) await openEmail()
+				em.tpl = t.name; em.v.subject = t.subject; em.v.content = t.body; em.pick = false
 			}
 			async function attach(e) {
 				const picked = [...e.target.files]; e.target.value = ''; em.upBusy = true
@@ -174,7 +181,7 @@
 			const mailState = (e) => (e.sent_or_received === 'Received' ? 'Received' : e.read_by_recipient ? 'Read' : e.delivery_status || 'Sent')
 
 			// whatsapp: shaped like the app, with the 24-hour rule of the WhatsApp Business platform
-			const wa = reactive({ text: '', busy: false, emoji: false, cat: '😀', menu: false, replies: [], hi: 0 }); const chat = ref(null); const pics = ref(null); const vids = ref(null); const docs = ref(null)
+			const wa = reactive({ text: '', busy: false, emoji: false, cat: '😀', menu: false, replies: [], hi: 0, reply: null, pending: null, menuFor: '' }); const chat = ref(null); const pics = ref(null); const vids = ref(null); const docs = ref(null)
 			const waTemplate = () => window.postMessage({ source: 'crm-addons', type: 'pro-send', kind: 'whatsapp', names: [props.name] }, location.origin)
 			const waMessages = computed(() => (data.whatsapp ? [...data.whatsapp.messages].sort((a, b) => String(a.creation).localeCompare(String(b.creation))) : []))
 			const waDays = computed(() => { const out = []; for (const m of waMessages.value) { const k = dayKey(m.creation); const last = out[out.length - 1]; if (last && last.key === k) last.items.push(m); else out.push({ key: k, label: dayLabel(m.creation), items: [m] }) } return out })
@@ -186,9 +193,9 @@
 			watch(slash, () => { wa.hi = 0 })
 			// the reply is filled in for this lead on the server and only put in the box: the person reads and edits it, then sends
 			async function useReply(r) {
-				wa.menu = false; wa.text = r.text
+				wa.menu = false; wa.text = r.text; wa.pending = r.attach_url ? { url: r.attach_url, name: r.attach_name, type: r.attach_type || 'document' } : null
 				try { wa.text = await call('render_reply', { name: props.name, text: r.text }) } catch (e) { /* the raw text stays for editing */ }
-				nextTick(() => { const el = document.querySelector('.wa-in'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length) } })
+				nextTick(() => { const el = document.querySelector('.wx-in'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length) } })
 			}
 			function onKeys(e) {
 				if (!slash.value.length) return
@@ -199,14 +206,19 @@
 			const mediaOf = (m) => { const a = m.attach; if (!a) return ''; const t = m.content_type; if (t === 'image' || /\.(png|jpe?g|gif|webp)$/i.test(a)) return 'image'; if (t === 'video' || /\.(mp4|3gp|mov)$/i.test(a)) return 'video'; if (t === 'audio' || /\.(mp3|ogg|opus|m4a|aac|amr)$/i.test(a)) return 'audio'; return 'document' }
 			const fileName = (u) => decodeURIComponent(String(u || '').split('/').pop().split('?')[0])
 			const caption = (m) => (m.message && m.message !== m.attach ? m.message : '')
-			const bubbleText = (m) => caption(m) || (!m.attach ? (m.message || (m.template ? 'Template: ' + m.template : '[' + (m.content_type || 'message') + ']')) : '')
-			const tick = (m) => (m.status === 'read' || m.status === 'Read' ? 'read' : m.status === 'delivered' || m.status === 'Delivered' ? 'delivered' : m.status === 'failed' || m.status === 'Failed' ? 'failed' : 'sent')
+			const bubbleText = (m) => caption(m) || (!m.attach ? (m.template_name ? (m.template || '') : (m.message || (m.template ? m.template : '[' + (m.content_type || 'message') + ']'))) : '')
+			const tick = (m) => { const st = String(m.status || '').toLowerCase(); return st === 'read' ? 'read' : st === 'delivered' ? 'delivered' : st === 'failed' ? 'failed' : 'sent' }
+			const REACTS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
+			function startReply(m) { wa.reply = m; wa.menuFor = ''; nextTick(() => { const el = document.querySelector('.wx-in'); if (el) el.focus() }) }
+			async function copyText(m) { wa.menuFor = ''; copy(bubbleText(m) || m.message || '') }
+			async function react(m, x) { wa.menuFor = ''; try { await call('react_whatsapp', { name: props.name, message: m.name, emoji: m.reaction === x ? '' : x }); await reload('whatsapp') } catch (e) { CM.toast(e.message, 'err') } }
 			async function sendWa(file) {
 				wa.busy = true
 				try {
 					let attachUrl = ''; let type = 'text'
 					if (file) { const up = await CM.upload(file, { isPrivate: false }); attachUrl = up.file_url; type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : 'document' }
-					await call('send_whatsapp', { name: props.name, message: wa.text, attach: attachUrl, content_type: type }); wa.text = ''; wa.emoji = false; delete data.activity; await reload('whatsapp')
+					else if (wa.pending) { attachUrl = wa.pending.url; type = wa.pending.type }
+					await call('send_whatsapp', { name: props.name, message: wa.text, attach: attachUrl, content_type: type, reply_to: wa.reply ? wa.reply.name : '' }); wa.text = ''; wa.emoji = false; wa.reply = null; wa.pending = null; delete data.activity; await reload('whatsapp')
 				} catch (e) { CM.toast(e.message, 'err'); reload('whatsapp') } finally { wa.busy = false }
 			}
 			function pickFile(e) { wa.menu = false; const f = e.target.files[0]; e.target.value = ''; if (f) sendWa(f) }
@@ -214,7 +226,7 @@
 			const shortTime = (s) => { const d = new Date(String(s || '').replace(' ', 'T')); if (isNaN(d)) return ''; const t = new Date(); const sameDay = d.toDateString() === t.toDateString(); return (sameDay ? '' : d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ', ') + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }
 
 			const ICON = { change: 'edit', comment: 'message', assigned: 'users' }
-			return { lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, dropLead, edit, openEdit, saveEdit, comment, commenting, addComment, comments, ovl, openOverlay, frame, doneFollowup, dropFollowup, fu, overdue, attemptTone, bandTone, em, opened, openEmail, tplOpts, pickTemplate, attach, sendEmail, mailState, wa, waTemplate, sendWa, pickFile, pics, vids, docs, addEmoji, EMOJI, EMOJI_TABS, slash, useReply, onKeys, shortTime, grouped, chat, waMessages, waDays, mediaOf, fileName, caption, bubbleText, tick, clock, ICON, day, load, PRO, CM }
+			return { openTemplates, selTemplate, useTemplate, lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, dropLead, edit, openEdit, saveEdit, comment, commenting, addComment, comments, ovl, openOverlay, frame, doneFollowup, dropFollowup, fu, overdue, attemptTone, bandTone, em, opened, openEmail, attach, sendEmail, mailState, wa, waTemplate, sendWa, pickFile, pics, vids, docs, addEmoji, EMOJI, EMOJI_TABS, REACTS, startReply, copyText, react, slash, useReply, onKeys, shortTime, grouped, chat, waMessages, waDays, mediaOf, fileName, caption, bubbleText, tick, clock, ICON, day, load, PRO, CM }
 		},
 		template: `
 		<div class="page lead-page">
@@ -264,7 +276,7 @@
 							</template>
 
 							<template v-else-if="tab === 'emails'">
-								<div class="tab-head"><h3 class="row" style="gap:8px"><Ico name="mail" /> Emails</h3><Btn v-if="lead.can_write" variant="primary" icon="plus" @click="openEmail">New email</Btn></div>
+								<div class="tab-head"><h3 class="row" style="gap:8px"><Ico name="mail" /> Emails</h3><div v-if="lead.can_write" class="row" style="gap:8px"><Btn icon="file-text" @click="openTemplates">Templates</Btn><Btn variant="primary" icon="plus" @click="openEmail">New email</Btn></div></div>
 								<Skel v-if="!data.emails" h="40" />
 								<Empty v-else-if="!data.emails.length" icon="mail" title="No emails yet" text="Emails sent to or received from this lead show here." />
 								<div v-else class="mails"><article v-for="e in data.emails" :key="e.name" class="mail" :class="e.sent_or_received === 'Sent' ? 'out' : 'in'">
@@ -328,31 +340,39 @@
 							<template v-else-if="tab === 'whatsapp'">
 								<Skel v-if="!data.whatsapp" h="40" />
 								<Empty v-else-if="!data.whatsapp.installed" icon="whatsapp" title="WhatsApp is not set up" text="Install and connect the Frappe WhatsApp app to chat with leads here." />
-								<div v-else class="wa">
-									<div class="wa-head"><Pic :name="title" :image="lead.image" :size="30" /><div class="grow"><b>{{ title }}</b><div class="small">{{ lead.mobile_no || 'No phone number' }}</div></div>
-										<span class="wa-win" :class="{ on: data.whatsapp.window_open }" :title="data.whatsapp.window_open ? 'Free chat is open until ' + day(data.whatsapp.window_until) : 'The lead has not written in 24 hours'">{{ data.whatsapp.window_open ? 'Open till ' + shortTime(data.whatsapp.window_until) : 'Template needed' }}</span>
-										<button v-if="lead.can_write && lead.mobile_no" type="button" class="wa-tpl" @click="waTemplate"><Ico name="send" size="sm" /> Template</button></div>
-									<div ref="chat" class="wa-chat"><p v-if="!waMessages.length" class="wa-note">No messages yet. Start with a template.</p>
-										<template v-for="d in waDays" :key="d.key"><div class="wa-day"><span>{{ d.label }}</span></div>
-											<div v-for="(m, mi) in d.items" :key="m.name" class="wa-row" :class="[m.type === 'Incoming' ? 'in' : 'out', grouped(d, mi) ? 'cont' : 'first']"><div class="wa-bub">
-												<template v-if="mediaOf(m) === 'image'"><a :href="m.attach" target="_blank" rel="noopener"><img class="wa-img" :src="m.attach" alt="Image" loading="lazy" /></a></template>
-												<video v-else-if="mediaOf(m) === 'video'" class="wa-img" :src="m.attach" controls preload="metadata"></video>
+								<div v-else class="wx">
+									<div class="wx-head"><Pic :name="title" :image="lead.image" :size="30" /><div class="grow"><b>{{ title }}</b><div class="small">{{ lead.mobile_no || 'No phone number' }}</div></div>
+										<span class="wx-win" :class="{ on: data.whatsapp.window_open }" :title="data.whatsapp.window_open ? 'Free chat is open until ' + day(data.whatsapp.window_until) : 'The lead has not written in 24 hours'">{{ data.whatsapp.window_open ? 'Open till ' + shortTime(data.whatsapp.window_until) : 'Template needed' }}</span>
+										<button v-if="lead.can_write && lead.mobile_no" type="button" class="wx-tpl" @click="waTemplate"><Ico name="send" size="sm" /> Template</button></div>
+									<div ref="chat" class="wx-chat" @click="wa.menuFor = ''"><p v-if="!waMessages.length" class="wx-note">No messages yet. Start with a template.</p>
+										<template v-for="d in waDays" :key="d.key"><div class="wx-day"><span>{{ d.label }}</span></div>
+											<div v-for="(m, mi) in d.items" :key="m.name" class="wx-row" :class="[m.type === 'Incoming' ? 'in' : 'out', grouped(d, mi) ? 'cont' : 'first']"><div class="wx-bub" :class="{ reacted: m.reaction }">
+												<button v-if="lead.can_write && data.whatsapp.window_open" type="button" class="wx-more" aria-label="Message options" @click.stop="wa.menuFor = wa.menuFor === m.name ? '' : m.name"><Ico name="chevron-down" size="sm" /></button>
+												<div v-if="wa.menuFor === m.name" class="wx-menu" @click.stop><div class="wx-react"><button v-for="x in REACTS" :key="x" type="button" :class="{ on: m.reaction === x }" :aria-label="'React ' + x" @click="react(m, x)">{{ x }}</button></div><button type="button" @click="startReply(m)"><Ico name="arrow-left" size="sm" /> Reply</button><button type="button" @click="copyText(m)"><Ico name="copy" size="sm" /> Copy</button></div>
+												<div v-if="m.is_reply && m.reply_message" class="wx-quote"><b>{{ m.reply_to_from || 'Message' }}</b><span>{{ m.reply_message }}</span></div>
+												<template v-if="mediaOf(m) === 'image'"><a :href="m.attach" target="_blank" rel="noopener"><img class="wx-img" :src="m.attach" alt="Image" loading="lazy" /></a></template>
+												<video v-else-if="mediaOf(m) === 'video'" class="wx-img" :src="m.attach" controls preload="metadata"></video>
 												<audio v-else-if="mediaOf(m) === 'audio'" :src="m.attach" controls preload="metadata"></audio>
-												<a v-else-if="mediaOf(m) === 'document'" class="wa-doc" :href="m.attach" target="_blank" rel="noopener"><Ico name="file" /><span class="ellipsis">{{ fileName(m.attach) }}</span><Ico name="download" size="sm" /></a>
-												<div v-if="bubbleText(m)" class="wa-text">{{ bubbleText(m) }}</div>
-												<div class="wa-meta">{{ clock(m.creation) }}<template v-if="m.type !== 'Incoming'"> <span class="wa-tick" :class="tick(m)" :title="m.status || 'Sent'">{{ tick(m) === 'failed' ? '!' : tick(m) === 'sent' ? '✓' : '✓✓' }}</span></template></div></div></div></template></div>
-									<div v-if="!lead.mobile_no" class="wa-lock">Add a phone number to message this lead.</div>
-									<div v-else-if="!data.whatsapp.window_open" class="wa-lock"><div><b>Send a template first.</b> The lead has not written in the last 24 hours, so WhatsApp only allows an approved template. Once they reply, you can chat freely here.</div><Btn v-if="lead.can_write" variant="primary" icon="send" @click="waTemplate">Send a template</Btn></div>
-									<form v-else-if="lead.can_write" class="wa-compose" @submit.prevent="sendWa()">
-										<div v-if="wa.emoji" class="wa-emoji"><div class="wa-etabs"><button v-for="t in EMOJI_TABS" :key="t" type="button" :class="{ on: wa.cat === t }" :aria-label="'Emoji group ' + t" @click="wa.cat = t">{{ t }}</button></div><div class="wa-egrid"><button v-for="x in EMOJI[wa.cat]" :key="x" type="button" :aria-label="'Emoji ' + x" @click="addEmoji(x)">{{ x }}</button></div></div>
-										<div v-if="wa.menu" class="wa-attach"><button type="button" @click="pics.click()"><Ico name="image" /> Image</button><button type="button" @click="vids.click()"><Ico name="play" /> Video</button><button type="button" @click="docs.click()"><Ico name="file" /> Document</button></div>
-										<div v-if="slash.length || (wa.text === '/' && !wa.replies.length)" class="wa-slash" role="listbox" aria-label="Saved replies"><button v-for="(r, i) in slash" :key="r.title" type="button" role="option" :class="{ on: i === wa.hi }" :aria-selected="String(i === wa.hi)" @mousedown.prevent="useReply(r)" @mouseenter="wa.hi = i"><b>{{ r.title }}</b><span class="ellipsis">{{ r.text }}</span></button><p v-if="!slash.length" class="small muted" style="margin:6px 10px">No saved replies yet. Add them under Campaigns, WhatsApp templates, Saved replies.</p></div>
-										<button type="button" class="wa-ib" aria-label="Emoji" title="Emoji" @click="wa.emoji = !wa.emoji; wa.menu = false">😊</button>
-										<button type="button" class="wa-ib" aria-label="Attach an image, video or document" title="Attach" :disabled="wa.busy" @click="wa.menu = !wa.menu; wa.emoji = false"><Ico name="paperclip" /></button>
-										<button type="button" class="wa-ib" aria-label="Saved replies" title="Saved replies (or type /)" @click="wa.text = '/'; wa.emoji = false; wa.menu = false"><Ico name="zap" /></button>
+												<a v-else-if="mediaOf(m) === 'document'" class="wx-doc" :href="m.attach" target="_blank" rel="noopener"><Ico name="file" /><span class="ellipsis">{{ fileName(m.attach) }}</span><Ico name="download" size="sm" /></a>
+												<div v-if="m.template_name && m.header" class="wx-text"><b>{{ m.header }}</b></div>
+												<div v-if="bubbleText(m)" class="wx-text">{{ bubbleText(m) }}</div>
+												<div v-if="m.template_name && m.footer" class="wx-foot-t">{{ m.footer }}</div>
+												<div class="wx-meta">{{ clock(m.creation) }}<template v-if="m.type !== 'Incoming'"><svg v-if="tick(m) === 'failed'" class="wx-tick failed" viewBox="0 0 16 16" width="14" height="14" aria-label="Failed"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5" /><path d="M8 4.5v4.2M8 10.8v.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg><svg v-else class="wx-tick" :class="tick(m)" viewBox="0 0 17 11" width="17" height="11" :aria-label="tick(m)"><path d="M1 5.8 4.2 9 10.5 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /><path v-if="tick(m) !== 'sent'" d="M6 8.6 6.6 9 13 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></template></div>
+												<span v-if="m.reaction" class="wx-reaction">{{ m.reaction }}</span></div></div></template></div>
+									<div v-if="!lead.mobile_no" class="wx-lock">Add a phone number to message this lead.</div>
+									<div v-else-if="!data.whatsapp.window_open" class="wx-lock"><div><b>Send a template first.</b> The lead has not written in the last 24 hours, so WhatsApp only allows an approved template. Once they reply, you can chat freely here.</div><Btn v-if="lead.can_write" variant="primary" icon="send" @click="waTemplate">Send a template</Btn></div>
+									<form v-else-if="lead.can_write" class="wx-compose" @submit.prevent="sendWa()">
+										<div v-if="wa.reply" class="wx-replybar"><div class="wx-quote grow"><b>{{ wa.reply.type === 'Incoming' ? (wa.reply.from_name || 'Lead') : 'You' }}</b><span>{{ bubbleText(wa.reply) || 'Attachment' }}</span></div><button type="button" class="wx-ib" aria-label="Cancel reply" @click="wa.reply = null"><Ico name="x" size="sm" /></button></div>
+										<div v-if="wa.pending" class="wx-replybar"><Ico :name="wa.pending.type === 'image' ? 'image' : 'file'" /><span class="grow ellipsis">{{ wa.pending.name }} <span class="small muted">goes with this message</span></span><button type="button" class="wx-ib" aria-label="Remove attachment" @click="wa.pending = null"><Ico name="x" size="sm" /></button></div>
+										<div v-if="wa.emoji" class="wx-emoji"><div class="wx-etabs"><button v-for="t in EMOJI_TABS" :key="t" type="button" :class="{ on: wa.cat === t }" :aria-label="'Emoji group ' + t" @click="wa.cat = t">{{ t }}</button></div><div class="wx-egrid"><button v-for="x in EMOJI[wa.cat]" :key="x" type="button" :aria-label="'Emoji ' + x" @click="addEmoji(x)">{{ x }}</button></div></div>
+										<div v-if="wa.menu" class="wx-attach"><button type="button" @click="pics.click()"><Ico name="image" /> Image</button><button type="button" @click="vids.click()"><Ico name="play" /> Video</button><button type="button" @click="docs.click()"><Ico name="file" /> Document</button></div>
+										<div v-if="slash.length || (wa.text === '/' && !wa.replies.length)" class="wx-slash" role="listbox" aria-label="Saved replies"><button v-for="(r, i) in slash" :key="r.title" type="button" role="option" :class="{ on: i === wa.hi }" :aria-selected="String(i === wa.hi)" @mousedown.prevent="useReply(r)" @mouseenter="wa.hi = i"><b>{{ r.title }}</b><span class="ellipsis">{{ r.text }}</span></button><p v-if="!slash.length" class="small muted" style="margin:6px 10px">No saved replies yet. Add them under Campaigns, WhatsApp templates, Saved replies.</p></div>
+										<button type="button" class="wx-ib" aria-label="Emoji" title="Emoji" @click="wa.emoji = !wa.emoji; wa.menu = false">😊</button>
+										<button type="button" class="wx-ib" aria-label="Attach an image, video or document" title="Attach" :disabled="wa.busy" @click="wa.menu = !wa.menu; wa.emoji = false"><Ico name="paperclip" /></button>
+										<button type="button" class="wx-ib" aria-label="Saved replies" title="Saved replies (or type /)" @click="wa.text = '/'; wa.emoji = false; wa.menu = false"><Ico name="zap" /></button>
 										<input ref="pics" type="file" hidden accept="image/*" @change="pickFile" /><input ref="vids" type="file" hidden accept="video/*" @change="pickFile" /><input ref="docs" type="file" hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,audio/*" @change="pickFile" />
-										<input class="wa-in" v-model="wa.text" placeholder="Type a message, or / for saved replies" aria-label="WhatsApp message" @keydown="onKeys" @focus="wa.emoji = false" />
-										<button type="submit" class="wa-send" aria-label="Send" :disabled="wa.busy || !wa.text.trim() || (wa.text.startsWith('/') && slash.length > 0)"><Ico name="send" /></button>
+										<input class="wx-in" v-model="wa.text" placeholder="Type a message, or / for saved replies" aria-label="WhatsApp message" @keydown="onKeys" @focus="wa.emoji = false" />
+										<button type="submit" class="wx-send" aria-label="Send" :disabled="wa.busy || (!wa.text.trim() && !wa.pending) || (wa.text.startsWith('/') && slash.length > 0)"><Ico name="send" /></button>
 									</form>
 								</div>
 							</template>
@@ -381,7 +401,7 @@
 				<div v-if="ovl.open" class="ovl" role="dialog" aria-modal="true" :aria-label="ovl.title" @click.self="ovl.open = false"><div class="ovl-box"><iframe ref="frame" :src="ovl.src" :title="ovl.title" :style="{ height: ovl.height + 'px' }"></iframe></div></div>
 				<Modal v-if="em.open" title="New email" size="lg" @close="em.open = false">
 					<div v-if="em.info && em.info.problem" class="err" role="alert" style="margin-bottom:10px">{{ em.info.problem }}</div>
-					<Field label="Template"><Dd :modelValue="em.tpl" :options="tplOpts" searchable aria-label="Email template" @update:modelValue="pickTemplate" /></Field>
+					<div class="row" style="gap:8px;margin-bottom:12px"><Btn size="sm" icon="file-text" @click="openTemplates">{{ em.tpl ? 'Change template' : 'Use a template' }}</Btn><span v-if="em.tpl" class="small muted">Started from: {{ (((em.info && em.info.templates) || []).find((t) => t.name === em.tpl) || {}).label }}</span></div>
 					<Field label="To"><div class="row" style="gap:8px"><div class="grow"><Inp v-model="em.v.recipients" aria-label="To" /></div><button v-if="!em.cc" type="button" class="btn ghost sm" @click="em.cc = true">CC</button><button v-if="!em.bcc" type="button" class="btn ghost sm" @click="em.bcc = true">BCC</button></div></Field>
 					<Field v-if="em.cc" label="CC"><Inp v-model="em.v.cc" placeholder="Separate addresses with commas" aria-label="CC" /></Field>
 					<Field v-if="em.bcc" label="BCC"><Inp v-model="em.v.bcc" placeholder="Separate addresses with commas" aria-label="BCC" /></Field>
@@ -391,6 +411,14 @@
 						<span v-for="f in em.files" :key="f.name" class="chip-file"><Ico name="file" size="sm" /> {{ f.file_name }}<button type="button" class="btn ghost icon sm" :aria-label="'Remove ' + f.file_name" @click="em.files = em.files.filter((x) => x !== f)"><Ico name="x" size="sm" /></button></span></div>
 					<div v-if="em.error" class="err" role="alert" style="margin-top:8px">{{ em.error }}</div>
 					<template #foot><Btn @click="em.open = false">Cancel</Btn><Btn variant="primary" icon="send" :loading="em.busy" :disabled="em.loading || em.upBusy" @click="sendEmail">Send</Btn></template>
+				</Modal>
+				<Modal v-if="em.pick" title="Email templates" size="xl" @close="em.pick = false">
+					<div v-if="em.info && em.info.problem" class="err" role="alert" style="margin-bottom:10px">{{ em.info.problem }}</div>
+					<Skel v-if="em.loading" h="120" />
+					<Empty v-else-if="!em.info || !em.info.templates.length" icon="mail" title="No email templates yet" text="Create them under Campaigns, Email templates." />
+					<div v-else class="tpl-pick"><ul class="tpl-list" role="listbox" aria-label="Templates"><li v-for="t in em.info.templates" :key="t.name"><button type="button" role="option" :aria-selected="String(em.sel === t.name)" :class="{ on: em.sel === t.name }" @click="em.sel = t.name"><b class="ellipsis">{{ t.label }}</b><span class="small muted ellipsis">{{ t.subject }}</span></button></li></ul>
+						<div class="tpl-view"><template v-if="selTemplate"><div class="tpl-sub"><span class="small muted">Subject</span><b>{{ selTemplate.subject || '(no subject)' }}</b></div><iframe class="tpl-frame" sandbox="" :srcdoc="selTemplate.body" :title="'Preview of ' + selTemplate.label"></iframe></template></div></div>
+					<template #foot><Btn @click="em.pick = false">Cancel</Btn><Btn variant="primary" icon="check" :disabled="!selTemplate" @click="useTemplate(selTemplate)">Use this template</Btn></template>
 				</Modal>
 			</template>
 		</div>`,

@@ -753,13 +753,13 @@ def list_whatsapp_replies():
 
 
 @frappe.whitelist()
-def save_whatsapp_reply(title, text, reply_id=None):
+def save_whatsapp_reply(title, text, reply_id=None, attach_url=None, attach_name=None):
 	_check_user()
 	if not _can_edit_replies():
 		frappe.throw(_("You do not have access to {0}.").format(_("WhatsApp saved replies")), frappe.PermissionError)
 	from crm_addons.campaigns import replies
 
-	return {"rows": replies.save(title, text, reply_id)}
+	return {"rows": replies.save(title, text, reply_id, attach_url, attach_name)}
 
 
 @frappe.whitelist()

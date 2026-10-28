@@ -19,7 +19,11 @@ def all_replies():
 		saved = []
 	if not isinstance(saved, list):
 		return []
-	return [{"id": cstr(r.get("id")), "title": cstr(r.get("title")), "text": cstr(r.get("text"))} for r in saved if isinstance(r, dict) and r.get("id") and r.get("title") and r.get("text")]
+	return [
+		{"id": cstr(r.get("id")), "title": cstr(r.get("title")), "text": cstr(r.get("text")), "attach_url": cstr(r.get("attach_url")), "attach_name": cstr(r.get("attach_name")), "attach_type": cstr(r.get("attach_type"))}
+		for r in saved
+		if isinstance(r, dict) and r.get("id") and r.get("title") and r.get("text")
+	]
 
 
 def _write(rows):
@@ -27,20 +31,41 @@ def _write(rows):
 	return rows
 
 
-def save(title, text, reply_id=None):
+def _media_type(name):
+	n = cstr(name).lower()
+	if n.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+		return "image"
+	if n.endswith((".mp4", ".3gp", ".mov")):
+		return "video"
+	return "document"
+
+
+def _attachment(url, name):
+	"""A file kept with the reply, sent along with it. It must be a public file already uploaded to this site, because WhatsApp fetches it by link."""
+	url = cstr(url).strip()
+	if not url:
+		return {"attach_url": "", "attach_name": "", "attach_type": ""}
+	if not url.startswith("/files/") or not frappe.db.exists("File", {"file_url": url, "is_private": 0}):
+		frappe.throw(_("Attach a file that was uploaded as a public file."))
+	name = cstr(name).strip()[:140] or url.rsplit("/", 1)[-1]
+	return {"attach_url": url, "attach_name": name, "attach_type": _media_type(name)}
+
+
+def save(title, text, reply_id=None, attach_url=None, attach_name=None):
 	title, text = cstr(title).strip()[:60], cstr(text).strip()[:1000]
 	if not title or not text:
 		frappe.throw(_("Give the reply a short title and a message."))
+	extra = _attachment(attach_url, attach_name)
 	rows = all_replies()
 	if reply_id:
 		row = next((r for r in rows if r["id"] == reply_id), None)
 		if not row:
 			frappe.throw(_("This saved reply no longer exists."), frappe.DoesNotExistError)
-		row.update(title=title, text=text)
+		row.update(title=title, text=text, **extra)
 	else:
 		if len(rows) >= MAX:
 			frappe.throw(_("You can keep up to {0} saved replies.").format(MAX))
-		rows.append({"id": frappe.generate_hash(length=8), "title": title, "text": text})
+		rows.append({"id": frappe.generate_hash(length=8), "title": title, "text": text, **extra})
 	return _write(rows)
 
 

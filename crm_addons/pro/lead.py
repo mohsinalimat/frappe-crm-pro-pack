@@ -375,7 +375,7 @@ def get_whatsapp(name):
 	if not frappe.db.exists("DocType", "WhatsApp Message"):
 		return {"installed": False, "messages": []}
 	msgs = frappe.get_attr("crm.api.whatsapp.get_whatsapp_messages")(LEAD, name)
-	out = [{k: m.get(k) for k in ("name", "type", "message", "creation", "status", "content_type", "attach", "template", "is_reply", "reply_to_message_id")} for m in (msgs or [])]
+	out = [{k: m.get(k) for k in ("name", "type", "message", "creation", "status", "content_type", "attach", "template", "template_name", "header", "footer", "is_reply", "reply_to_message_id", "message_id", "reaction", "reply_message", "reply_to", "reply_to_from", "reply_to_type", "from_name")} for m in (msgs or [])]
 	last_in = max((m["creation"] for m in out if m.get("type") == "Incoming"), default=None)
 	open_until = None
 	if last_in:
@@ -386,18 +386,43 @@ def get_whatsapp(name):
 	return {"installed": True, "messages": out, "number": frappe.db.get_value(LEAD, name, "mobile_no"), "window_open": bool(open_until), "window_until": open_until, "last_incoming": last_in}
 
 
+def _chat_ready(name, doc):
+	if not doc.mobile_no:
+		frappe.throw(_("This lead has no phone number."))
+	if not get_whatsapp(name)["window_open"]:
+		frappe.throw(_("The lead has not written in the last 24 hours, so WhatsApp only allows a template. Send a template first."))
+
+
+def _reply_target(name, reply_to):
+	"""The message being answered, only if it belongs to this lead's chat."""
+	if not reply_to:
+		return ""
+	if not frappe.db.exists("WhatsApp Message", {"name": reply_to, "reference_doctype": LEAD, "reference_name": name}):
+		frappe.throw(_("That message is not in this chat."))
+	return reply_to
+
+
 @frappe.whitelist()
-def send_whatsapp(name, message="", attach="", content_type="text"):
+def send_whatsapp(name, message="", attach="", content_type="text", reply_to=""):
 	doc = _lead(name, "write")
 	text, attach = cstr(message).strip(), cstr(attach).strip()
 	content_type = content_type if content_type in ("text", "image", "video", "document", "audio") else "text"
 	if not text and not attach:
 		frappe.throw(_("Write a message first."))
-	if not doc.mobile_no:
-		frappe.throw(_("This lead has no phone number."))
-	if not get_whatsapp(name)["window_open"]:
-		frappe.throw(_("The lead has not written in the last 24 hours, so WhatsApp only allows a template. Send a template first."))
-	frappe.get_attr("crm.api.whatsapp.create_whatsapp_message")(LEAD, name, text, doc.mobile_no, attach, "", content_type)
+	_chat_ready(name, doc)
+	frappe.get_attr("crm.api.whatsapp.create_whatsapp_message")(LEAD, name, text, doc.mobile_no, attach, _reply_target(name, reply_to), content_type)
+	return True
+
+
+@frappe.whitelist()
+def react_whatsapp(name, message, emoji=""):
+	"""React to a message in the chat with an emoji (an empty emoji takes the reaction back)."""
+	doc = _lead(name, "write")
+	_chat_ready(name, doc)
+	target = _reply_target(name, message)
+	if not target or not frappe.db.get_value("WhatsApp Message", target, "message_id"):
+		frappe.throw(_("This message cannot be reacted to yet."))
+	frappe.get_attr("crm.api.whatsapp.create_whatsapp_message")(LEAD, name, cstr(emoji).strip()[:8], doc.mobile_no, "", target, "reaction")
 	return True
 
 
