@@ -27,7 +27,8 @@
 		if (c.campaigns_enabled !== 0 && campaignAccess) rows.push({ key: 'campaigns', label: 'Campaigns', icon: 'send' })
 		if (c.can_assign) rows.push({ key: 'assignment', label: 'Assignment', icon: 'users' })
 		if (c.demos_enabled !== 0 && (a.demos !== 'none' || (a.demo_widgets || 'none') !== 'none' || Number(a.demo_report))) rows.push({ key: 'bookings', label: 'Bookings', icon: 'target' })
-		if (c.can_manage_access) { rows.push({ key: 'access', label: 'Team', icon: 'shield' }); rows.push({ key: 'settings', label: 'Settings', icon: 'settings', native: true }) }
+		if (c.can_manage_access || (a.team && a.team !== 'none')) rows.push({ key: 'access', label: 'Team', icon: 'shield' })
+		if (c.can_manage_access) rows.push({ key: 'settings', label: 'Settings', icon: 'settings', native: true })
 		return rows
 	}
 

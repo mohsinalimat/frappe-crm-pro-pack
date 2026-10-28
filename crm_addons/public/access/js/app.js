@@ -42,7 +42,8 @@
 				</div>
 			</nav>
 			<div v-if="pro" class="subtabs"><div class="st-head"><b class="st-title">Team</b></div><nav class="st-tabs" aria-label="Team"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" size="sm" />{{ n.label }}</a></nav><div id="hdr-ctl" class="st-ctl"></div></div>
-			<main class="main">
+			<main class="main" :class="{ vo: d.loaded && d.can_manage === false }">
+				<div v-if="d.loaded && d.can_manage === false" class="alert info" style="margin:14px 24px 0"><Ico name="info" /><div class="grow"><b>View only.</b> You can look at people, their access and the hierarchy. A System Manager makes the changes.</div></div>
 				<div v-if="denied" class="page"><Empty icon="shield" title="Only System Managers can change access" text="Ask a System Manager to open this page. Your own access is set there."><a class="btn primary" href="/crm" v-if="!embedded">Back to CRM</a></Empty></div>
 				<component v-else :is="view" :key="active" />
 			</main>

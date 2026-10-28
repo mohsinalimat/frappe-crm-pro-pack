@@ -5,7 +5,7 @@
 	const AX = (window.AX = { views: {} })
 
 	AX.api = (m, a) => CM.call('crm_addons.team_access.admin.' + m, a)
-	AX.data = reactive({ loaded: false, loading: false, error: '', groups: [], features: [], presets: [], people: [], hierarchy: { available: false, enabled: false, people: 0 }, me: '' })
+	AX.data = reactive({ loaded: false, loading: false, error: '', groups: [], features: [], presets: [], can_manage: true, people: [], hierarchy: { available: false, enabled: false, people: 0 }, me: '' })
 	AX.load = async (force) => {
 		if (AX.data.loading || (AX.data.loaded && !force)) return
 		AX.data.loading = true; AX.data.error = ''

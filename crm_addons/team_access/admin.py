@@ -18,6 +18,12 @@ def _admin():
 		frappe.throw(_("Only a System Manager can change who sees what."), frappe.PermissionError)
 
 
+def _viewer():
+	"""The Team page can be looked at by anyone Team and access gives "View only"; changing anything is for System Managers."""
+	if not (access.is_admin() or access.allows("team", "view")):
+		frappe.throw(_("You do not have access to the Team page."), frappe.PermissionError)
+
+
 def _registry():
 	return {
 		"groups": [{"key": k, "label": label, "help": help} for k, label, help in R.GROUPS],
@@ -117,13 +123,13 @@ def _people():
 @frappe.whitelist()
 def get_overview():
 	"""Everything the screen needs in one call."""
-	_admin()
-	return {**_registry(), "presets": _presets(), "people": _people(), "hierarchy": access.hierarchy_info(), "me": frappe.session.user, "login_template": _login_template()}
+	_viewer()
+	return {**_registry(), "can_manage": access.is_admin(), "presets": _presets(), "people": _people(), "hierarchy": access.hierarchy_info(), "me": frappe.session.user, "login_template": _login_template()}
 
 
 @frappe.whitelist()
 def get_user_access(user):
-	_admin()
+	_viewer()
 	if not frappe.db.exists("User", user):
 		frappe.throw(_("User {0} was not found.").format(frappe.bold(user)))
 	cfg = access.configured(user)
@@ -457,7 +463,7 @@ def _tree():
 @frappe.whitelist()
 def get_hierarchy():
 	"""The Sales Hierarchy for the Hierarchy page: the tree, and the people who are not in it yet."""
-	_admin()
+	_viewer()
 	info = access.hierarchy_info()
 	tree = _tree()
 	placed = {n["user"] for n in tree}

@@ -46,7 +46,7 @@
 				</div>
 				<AccessGrid :rows="rows" @change="change" />
 			</div>
-			<template #foot><Btn @click="close">Cancel</Btn><Btn variant="primary" icon="save" :loading="saving" :disabled="!dirty" @click="save">{{ isNew ? 'Create preset' : 'Save preset' }}</Btn></template>
+			<template #foot><Btn @click="close">Cancel</Btn><Btn variant="primary" icon="save" :loading="saving" :disabled="!dirty || !AX.data.can_manage" @click="save">{{ isNew ? 'Create preset' : 'Save preset' }}</Btn></template>
 		</Drawer>`,
 	}
 

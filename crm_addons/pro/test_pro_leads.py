@@ -82,6 +82,20 @@ class TestProLeads(AccessCase):
 		with self.assertRaises(frappe.PermissionError):
 			leads.list_leads()
 
+	def test_the_team_page_can_be_looked_at_but_not_changed(self):
+		from crm_addons.team_access import admin
+
+		user = self.person("viewer.pro@example.org", "Sales User")
+		frappe.set_user(user)
+		with self.assertRaises(frappe.PermissionError):
+			admin.get_overview()
+		frappe.set_user("Administrator")
+		self.configure(user, overrides={"team": "view"})
+		frappe.set_user(user)
+		self.assertFalse(admin.get_overview()["can_manage"])
+		with self.assertRaises(frappe.PermissionError):
+			admin.save_user_access(user, overrides=json.dumps({"leads": "all"}))
+
 	def test_guest_is_refused(self):
 		frappe.set_user("Guest")
 		with self.assertRaises(frappe.PermissionError):

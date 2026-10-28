@@ -146,7 +146,7 @@
 			</div>
 			<template #foot>
 				<span v-if="dirty" class="small" style="margin-right:auto;color:var(--amber)">Unsaved changes</span>
-				<Btn @click="close">Cancel</Btn><Btn variant="primary" icon="save" :loading="saving" :disabled="!dirty || (isAdmin && !profileDirty)" @click="save">Save changes</Btn>
+				<Btn @click="close">Cancel</Btn><Btn variant="primary" icon="save" :loading="saving" :disabled="!dirty || (isAdmin && !profileDirty) || !AX.data.can_manage" @click="save">Save changes</Btn>
 			</template>
 		</Drawer>`,
 	}
@@ -191,7 +191,7 @@
 				<label class="check"><input type="checkbox" v-model="f.invite" /> Email them an invitation to set a password</label>
 				<label class="check" :class="{ faint: !waReady }"><input type="checkbox" v-model="f.whatsapp" :disabled="!waReady || !f.mobile_no.trim()" /> Also send the login link on WhatsApp <span class="small muted">{{ !AX.data.login_template.exists ? '(create the WhatsApp template first)' : !waReady ? '(template waiting for Meta approval)' : !f.mobile_no.trim() ? '(needs a contact number)' : '' }}</span></label>
 			</div>
-			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="plus" :loading="busy" @click="submit">Add person</Btn></template>
+			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="plus" :loading="busy" :disabled="!AX.data.can_manage" @click="submit">Add person</Btn></template>
 		</Modal>`,
 	}
 

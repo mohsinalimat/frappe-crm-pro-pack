@@ -82,3 +82,4 @@
 .ax-gi { width: 36px; height: 36px; } .ax-ri { width: 30px; height: 30px; background: var(--bg-soft); color: var(--text-soft); }
 .ax-cnt { font-size: 12.5px; font-weight: 600; color: var(--accent-text); white-space: nowrap; }
 .ax-ph > .grow { flex: 0 0 auto; } .ax-psearch { flex: 1 1 220px; width: auto; min-width: 180px; } .ax-ph > .grow p { white-space: nowrap; }
+.vo .pg-head .actions { display: none; }
