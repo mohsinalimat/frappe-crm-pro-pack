@@ -165,6 +165,10 @@ tr.off td{opacity:.62}
 
 /* Log: the page header stays, the rows scroll under a fixed column header */
 .logbar { padding: 12px 18px; gap: 10px; align-items: center }
-.logscroll { max-height: calc(100vh - 390px); overflow: auto }
+.logcard { display: flex; flex-direction: column; min-height: 320px }
+.logscroll { flex: 1 1 auto; min-height: 0; overflow: auto }
+.logtype { display: flex; align-items: center; gap: 10px }
+.logic { width: 30px; height: 30px; border-radius: 8px; display: inline-grid; place-items: center; flex: none; background: var(--accent-soft, #e8ecfd); color: var(--accent, #2563eb) }
+.logic.purple { background: #efe7fb; color: #7c3aed }
 .logscroll thead th { position: sticky; top: 0; z-index: 2; background: var(--surface, #fff); box-shadow: 0 1px 0 var(--border) }
 .logcard { overflow: hidden }

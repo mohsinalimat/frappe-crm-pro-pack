@@ -24,7 +24,7 @@ def _sources(kind):
 
 
 @frappe.whitelist()
-def get_log(kind="all", result=None, search=None, from_date=None, to_date=None, page=1, page_size=50):
+def get_log(kind="all", result=None, search=None, source=None, from_date=None, to_date=None, page=1, page_size=50):
 	which = _sources(cstr(kind))
 	if not which:
 		frappe.throw(_("You do not have access to the log."), frappe.PermissionError)
@@ -33,13 +33,13 @@ def get_log(kind="all", result=None, search=None, from_date=None, to_date=None, 
 	if "bookings" in which:
 		w = [scope_sql(frappe.session.user, "b") or "1 = 1"]
 		parts.append(
-			f"""select 'booking' as kind, b.name, b.creation, b.status as result, coalesce(t.title, b.demo_type) as thing, b.name_, b.email, b.phone, b.lead,
+			f"""select 'booking' as kind, b.demo_type as source, b.name, b.creation, b.status as result, coalesce(t.title, b.demo_type) as thing, b.name_, b.email, b.phone, b.lead,
 			b.utm_source, b.utm_medium, b.utm_campaign, if(b.rescheduled_from is null or b.rescheduled_from = '', '', 'Moved from an earlier booking') as reason, b.ip_address
 			from `tab{BOOKING}` b left join `tab{DEMO_TYPE}` t on t.name = b.demo_type where {' and '.join(w)}"""
 		)
 	if "forms" in which:
 		parts.append(
-			f"""select 'form' as kind, e.name, e.creation, e.result, coalesce(f.title, e.form) as thing, e.name_, e.email, e.phone, e.lead,
+			f"""select 'form' as kind, e.form as source, e.name, e.creation, e.result, coalesce(f.title, e.form) as thing, e.name_, e.email, e.phone, e.lead,
 			e.utm_source, e.utm_medium, e.utm_campaign, e.reason, e.ip_address from `tab{ENTRY}` e left join `tab{FORM}` f on f.name = e.form"""
 		)
 	outer = ["1 = 1"]
@@ -49,9 +49,13 @@ def get_log(kind="all", result=None, search=None, from_date=None, to_date=None, 
 	if end:
 		outer.append("u.creation < %(end)s")
 		values["end"] = end
-	if result:
-		outer.append("u.result = %(result)s")
-		values["result"] = result
+	picked = [r.strip() for r in cstr(result).split(",") if r.strip()]
+	if picked:
+		outer.append("u.result in %(results)s")
+		values["results"] = tuple(picked)
+	if source:
+		outer.append("u.source = %(source)s")
+		values["source"] = source
 	txt = cstr(search).strip()
 	if txt:
 		outer.append("(u.name_ like %(q)s or u.email like %(q)s or u.phone like %(q)s or u.utm_campaign like %(q)s or u.utm_source like %(q)s or u.thing like %(q)s)")
@@ -70,3 +74,14 @@ def get_log(kind="all", result=None, search=None, from_date=None, to_date=None, 
 		r["ip"] = r.pop("ip_address") if admin else None
 		r.pop("ip_address", None)
 	return {"rows": rows, "total": total, "page": page, "page_size": size, "show_ip": admin, "kinds": which}
+
+
+@frappe.whitelist()
+def get_sources():
+	"""The booking pages and lead forms that can appear in the log, for the "All websites" filter."""
+	out = []
+	if access.level("demos") != access.R.NONE:
+		out += [{"value": r.name, "label": r.title or r.name, "kind": "booking"} for r in frappe.get_all(DEMO_TYPE, fields=["name", "title"], order_by="title asc", limit_page_length=200)]
+	if access.allows("demo_widgets", "view"):
+		out += [{"value": r.name, "label": r.title or r.name, "kind": "form"} for r in frappe.get_all(FORM, fields=["name", "title"], order_by="title asc", limit_page_length=200)]
+	return out
