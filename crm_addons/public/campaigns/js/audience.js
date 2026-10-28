@@ -135,7 +135,7 @@
 					<div class="fb-val">
 						<span v-if="['set', 'notset'].includes(r.op)" class="faint small">No value needed</span>
 						<template v-else-if="r.op === 'between'"><input class="inp" :type="kind(r) === 'date' ? 'date' : 'number'" v-model="r.value[0]" aria-label="From" /><span class="faint">and</span><input class="inp" :type="kind(r) === 'date' ? 'date' : 'number'" v-model="r.value[1]" aria-label="To" /></template>
-						<div v-else-if="['in', 'not in'].includes(r.op) && ['select', 'link'].includes(kind(r)) && options(r).length" class="chips"><button v-for="o in options(r)" :key="o" type="button" class="fchip" :class="{ on: (r.value || []).includes(o) }" @click="toggleIn(r, o)">{{ o }}</button></div>
+						<div v-else-if="['in', 'not in'].includes(r.op) && ['select', 'link'].includes(kind(r)) && options(r).length" style="min-width:220px"><MultiDd :model-value="r.value || []" @update:model-value="r.value = $event" :options="options(r)" :searchable="options(r).length > 7" placeholder="Choose" /></div>
 						<input v-else-if="['in', 'not in'].includes(r.op)" class="inp" :value="csv(r)" placeholder="value, value, value" @input="setCsv(r, $event.target.value)" />
 						<Dd v-else-if="kind(r) === 'select' || (kind(r) === 'link' && options(r).length)" v-model="r.value" :options="options(r)" :searchable="options(r).length > 7" placeholder="Choose" />
 						<Dd v-else-if="kind(r) === 'check'" v-model="r.value" :options="yn" />

@@ -183,6 +183,40 @@
 		</div>`,
 	}
 
+	/** Pick several values from a list: a closed box that shows what is chosen, and a list with ticks (for fields with many values). */
+	C.MultiDd = {
+		props: { modelValue: { type: Array, default: () => [] }, options: { type: Array, default: () => [] }, placeholder: { type: String, default: 'Choose' }, searchable: Boolean, disabled: Boolean },
+		emits: ['update:modelValue'],
+		setup(props, { emit }) {
+			const trig = ref(null); const q = ref('')
+			const p = usePop(() => trig.value, { width: 0 })
+			const norm = computed(() => props.options.map((o) => (typeof o === 'object' ? o : { value: o, label: String(o) })))
+			const shown = computed(() => { const t = q.value.trim().toLowerCase(); return t ? norm.value.filter((o) => (o.label + ' ' + o.value).toLowerCase().includes(t)) : norm.value })
+			const label = (v) => (norm.value.find((o) => o.value === v) || { label: v }).label
+			const text = computed(() => { const l = props.modelValue.map(label); return l.length > 2 ? l.slice(0, 2).join(', ') + ' +' + (l.length - 2) : l.join(', ') })
+			const on = (v) => props.modelValue.includes(v)
+			const flip = (v) => emit('update:modelValue', on(v) ? props.modelValue.filter((x) => x !== v) : [...props.modelValue, v])
+			function toggle() { if (props.disabled) return; if (!p.open.value) q.value = ''; p.toggle(); if (p.open.value && props.searchable) nextTick(() => p.pop.value && p.pop.value.querySelector('input') && p.pop.value.querySelector('input').focus()) }
+			return { ...p, trig, q, shown, text, on, flip, toggle }
+		},
+		template: `
+		<div class="dd">
+			<button ref="trig" type="button" class="dd-btn" :class="{ open }" :disabled="disabled" aria-haspopup="listbox" :aria-expanded="open" @click="toggle">
+				<span class="lab" :class="{ ph: !modelValue.length }">{{ modelValue.length ? text : placeholder }}</span>
+				<Ico name="chevron-down" size="sm" class="chev" />
+			</button>
+			<Teleport to="body">
+				<div v-if="open" ref="pop" class="pop" :style="style" role="listbox" aria-multiselectable="true">
+					<div v-if="searchable" class="pop-search"><input class="inp" style="height:32px" v-model="q" placeholder="Search" aria-label="Search options" /></div>
+					<div class="pop-list">
+						<button v-for="o in shown" :key="o.value" type="button" class="opt" :class="{ on: on(o.value) }" role="option" :aria-selected="on(o.value)" @click="flip(o.value)"><span class="grow ellipsis">{{ o.label }}</span><Ico v-if="on(o.value)" name="check" size="sm" class="tick" /></button>
+						<div v-if="!shown.length" class="pop-empty">Nothing found</div>
+					</div>
+				</div>
+			</Teleport>
+		</div>`,
+	}
+
 	C.Menu = {
 		props: { items: Array, align: { type: String, default: 'right' }, label: { type: String, default: 'More actions' } },
 		setup(props) {
