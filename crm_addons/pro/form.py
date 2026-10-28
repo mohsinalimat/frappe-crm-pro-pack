@@ -83,12 +83,33 @@ def writable():
 	return found
 
 
+def _apply_create_config(secs):
+	"""The admin's choice of new-lead fields (Leads setup), in their order; fields CRM itself requires always stay."""
+	from crm_addons.pro import config
+
+	chosen = config.load().get("create_fields")
+	if not chosen:
+		return secs
+	allowed = writable()
+	known = {f["fieldname"]: f for s in secs for f in s["fields"]}
+	fields = []
+	for r in chosen:
+		spec = known.get(r["fieldname"]) or allowed.get(r["fieldname"])
+		if spec:
+			fields.append({**spec, "reqd": 1 if (spec["reqd"] or r.get("reqd")) else 0})
+	have = {f["fieldname"] for f in fields}
+	fields += [f for f in known.values() if f["reqd"] and f["fieldname"] not in have]
+	return [{"label": "", "fields": fields}] if fields else secs
+
+
 @frappe.whitelist()
 def get_form(kind="create"):
 	"""The new-lead form (``create``): CRM's Quick Entry layout, with the required fields CRM insists on. ``edit``: every writable field, grouped as CRM groups them."""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please log in."), frappe.PermissionError)
 	secs = sections("Quick Entry")
+	if kind == "create":
+		secs = _apply_create_config(secs)
 	have = {f["fieldname"] for s in secs for f in s["fields"]}
 	meta = _meta()
 	extra = [_spec(df) for df in meta.fields if df.reqd and not df.default and df.fieldname not in have and df.fieldname not in NEVER and df.fieldtype in LIST_TYPES and not df.hidden]

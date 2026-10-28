@@ -251,8 +251,32 @@ def create_lead(values):
 	data = {k: v for k, v in form.clean_values(values).items() if v is not None}
 	if not cstr(data.get("first_name")).strip():
 		frappe.throw(_("First name is needed."))
+	from crm_addons.pro import config
+
+	labels = {f["fieldname"]: f["label"] for sec in form.get_form("create") for f in sec["fields"]}
+	for r in config.load().get("create_fields") or []:  # fields the admin made required on the form
+		if r.get("reqd") and r["fieldname"] in labels and data.get(r["fieldname"]) in (None, ""):
+			frappe.throw(_("{0} is needed.").format(labels[r["fieldname"]]))
 	data.setdefault("lead_owner", frappe.session.user)
 	return frappe.get_doc({"doctype": LEAD, **data}).insert().name
+
+
+@frappe.whitelist()
+def search_names(text):
+	"""Names of the leads that have ``text`` in any of their text fields (name, email, phone, organization, source ...): one box searches everything.
+	Only leads this person may see (the list API's own permission rules)."""
+	_check()
+	from crm_addons.pro import form
+
+	text = cstr(text).strip()
+	if not text:
+		return []
+	meta = frappe.get_meta(LEAD)
+	cols = [k for k, _l in form.export_fields() if k != "name" and (meta.get_field(k) is None or meta.get_field(k).fieldtype in ("Data", "Phone", "Select", "Link", "Small Text", "Text", "Long Text"))]
+	cols += ["name"]
+	like = f"%{text}%"
+	rows = frappe.get_list(LEAD, filters={"converted": 0}, or_filters=[[LEAD, c, "like", like] for c in cols], pluck="name", limit_page_length=2000)
+	return rows
 
 
 @frappe.whitelist()
