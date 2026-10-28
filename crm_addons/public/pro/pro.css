@@ -65,3 +65,15 @@
 
 .frow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
 .colpick { max-height: 320px; overflow: auto; margin-top: 8px; } .tbl tr.grp td { background: var(--bg-soft); }
+
+/* The lists keep their top (title, view bar, filters) in place; only the results scroll, and a board stretches to the bottom of the window. */
+@media (min-width: 701px) {
+	.main > .page.leads { flex: 1 1 auto; min-height: 0; max-width: 1480px; overflow: hidden; padding-bottom: 16px; gap: 12px; }
+	.page.leads .listcard { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+	.page.leads .listcard > .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
+	.page.leads .listcard > .pager, .page.leads .listcard > .lbar { flex: none; }
+	.page.leads .tbl th { position: sticky; top: 0; z-index: 2; }
+	.page.leads .board { flex: 1 1 auto; min-height: 0; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 12px 14px; }
+	.page.leads .board .col { max-height: none; min-height: 0; height: 100%; }
+	.page.leads .bulk, .page.leads .fbar, .page.leads .pg-head { flex: none; }
+}
