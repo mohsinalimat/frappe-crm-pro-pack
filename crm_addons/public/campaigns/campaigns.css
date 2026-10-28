@@ -374,3 +374,6 @@ html.pro .row.tool:not(:has(*)), html.pro .row.tools:not(:has(*)) { display: non
 .cl-n{width:110px;text-align:right}
 @media (max-width:900px){.mv{grid-template-columns:1fr}}
 .dd-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+/* narrow screens: the page's buttons sit in the flow under the title instead of floating over it */
+@media (max-width: 700px) { html.pro .main > .page > .pg-head:first-child > .actions { position: static; margin: 0 0 10px; } }
