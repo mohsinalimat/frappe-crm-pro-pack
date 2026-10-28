@@ -290,7 +290,7 @@
 									<div class="grow">
 										<div v-if="e.kind === 'change'"><b>{{ e.by ? e.by.full_name : 'System' }}</b> edited {{ (e.changes || []).length > 1 ? (e.changes || []).length + ' fields' : 'a field' }}<ul class="chg"><li v-for="(c, ci) in (e.changes || [{ field: e.field, old: e.old, new: e.new }])" :key="ci"><span class="chg-f">{{ c.field }}</span><span class="chg-o">{{ c.old || 'empty' }}</span><Ico name="arrow-right" size="sm" /><b class="chg-n">{{ c.new || 'empty' }}</b></li></ul></div>
 										<div v-else-if="e.kind === 'assigned'" class="muted">{{ e.text }}</div>
-										<div v-else-if="e.kind === 'comment' && e.form_entry"><b>Lead form</b> - someone who is already a lead tried to register<div class="cbub" v-html="e.html"></div>
+										<div v-else-if="e.kind === 'comment' && e.form_entry"><b>{{ e.form_entry.label || 'Lead form' }}</b> - someone who is already a lead tried to register<div class="cbub" v-html="e.html"></div>
 											<div v-if="lead.can_write" class="row" style="gap:8px;margin-top:6px"><Btn v-if="!e.form_entry.applied" size="sm" variant="primary" icon="refresh" @click="applyEntry(e)">Update details</Btn><span v-else class="small muted">Details updated</span></div></div>
 										<div v-else-if="e.kind === 'comment'"><b>{{ e.by && e.by.full_name !== 'Guest' ? e.by.full_name : 'Lead form' }}</b> commented<div class="cbub" v-html="e.html || e.text"></div></div>
 										<div v-else><b>{{ e.title }}</b><span v-if="e.by" class="muted"> - {{ e.by.full_name }}</span><div v-if="e.detail" class="small muted">{{ e.detail }}</div></div>

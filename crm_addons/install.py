@@ -100,6 +100,16 @@ DEMO_LEAD_FIELDS = [
 	{"fieldname": "crm_demo_first_utm_campaign", "fieldtype": "Data", "label": "First UTM Campaign", "read_only": 1, "no_copy": 1},
 ]
 
+# Meta lead ads: where a lead came from. Data, so (like the fields above) not removed on uninstall.
+META_LEAD_FIELDS = [
+	{"fieldname": f, "fieldtype": "Data", "label": label, "read_only": 1, "no_copy": 1, **extra}
+	for f, label, extra in (
+		("crm_meta_form", "Meta Lead Form", {"in_standard_filter": 1}), ("crm_meta_campaign_name", "Meta Campaign", {"in_standard_filter": 1}),
+		("crm_meta_campaign_id", "Meta Campaign ID", {}), ("crm_meta_adset_name", "Meta Ad Set", {}), ("crm_meta_adset_id", "Meta Ad Set ID", {}),
+		("crm_meta_ad_name", "Meta Ad", {}), ("crm_meta_ad_id", "Meta Ad ID", {}), ("crm_meta_leadgen_id", "Meta Lead ID", {"search_index": 1}),
+	)
+]
+
 STARTER_EMAIL_TEMPLATES = [
 	(
 		"Follow-up (starter)",
@@ -295,6 +305,7 @@ def run_all():
 	ensure_settings()
 	remove_deal_leftovers()
 	ensure_custom_fields()
+	ensure_meta_setup()
 	ensure_templates()
 	ensure_quick_entry_layout()
 	ensure_scripts()
@@ -606,6 +617,17 @@ def ensure_templates():
 
 
 # -- custom fields ------------------------------------------------------------------------
+
+
+def ensure_meta_setup():
+	"""The lead fields that say which Meta campaign, ad set and ad a lead came from, and the Facebook / Instagram lead sources."""
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+	create_custom_fields({"CRM Lead": [dict(f) for f in META_LEAD_FIELDS]}, ignore_validate=True)
+	if frappe.db.exists("DocType", "CRM Lead Source"):
+		for name in ("Facebook", "Instagram"):
+			if not frappe.db.exists("CRM Lead Source", name):
+				frappe.get_doc({"doctype": "CRM Lead Source", "source_name": name}).insert(ignore_permissions=True)
 
 
 def ensure_custom_fields():

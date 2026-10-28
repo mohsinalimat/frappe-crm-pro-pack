@@ -1,0 +1,101 @@
+{
+ "actions": [],
+ "creation": "2026-10-28 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "form_id",
+  "form_name",
+  "page_id",
+  "page_name",
+  "page_token",
+  "enabled",
+  "mapping",
+  "questions",
+  "subscribed",
+  "last_lead_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "form_id",
+   "fieldtype": "Data",
+   "label": "Form Id",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "form_name",
+   "fieldtype": "Data",
+   "label": "Form Name",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "page_id",
+   "fieldtype": "Data",
+   "label": "Page Id",
+   "reqd": 1
+  },
+  {
+   "fieldname": "page_name",
+   "fieldtype": "Data",
+   "label": "Page Name"
+  },
+  {
+   "fieldname": "page_token",
+   "fieldtype": "Password",
+   "label": "Page Token"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1"
+  },
+  {
+   "fieldname": "mapping",
+   "fieldtype": "Long Text",
+   "label": "Mapping"
+  },
+  {
+   "fieldname": "questions",
+   "fieldtype": "Long Text",
+   "label": "Questions"
+  },
+  {
+   "fieldname": "subscribed",
+   "fieldtype": "Check",
+   "label": "Subscribed"
+  },
+  {
+   "fieldname": "last_lead_at",
+   "fieldtype": "Datetime",
+   "label": "Last Lead At"
+  }
+ ],
+ "modified": "2026-10-28 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Campaigns",
+ "name": "CRM Meta Form",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "field:form_id"
+}

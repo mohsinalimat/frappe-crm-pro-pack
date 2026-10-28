@@ -1,0 +1,202 @@
+{
+ "actions": [],
+ "creation": "2026-10-28 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "leadgen_id",
+  "form",
+  "form_name",
+  "result",
+  "via",
+  "lead",
+  "matched_by",
+  "platform",
+  "source",
+  "person_name",
+  "email",
+  "phone",
+  "campaign_id",
+  "campaign_name",
+  "adset_id",
+  "adset_name",
+  "ad_id",
+  "ad_name",
+  "lead_time",
+  "values_json",
+  "raw_json",
+  "error",
+  "comment",
+  "applied",
+  "applied_on",
+  "applied_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "leadgen_id",
+   "fieldtype": "Data",
+   "label": "Leadgen Id",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "form",
+   "fieldtype": "Data",
+   "label": "Form",
+   "search_index": 1
+  },
+  {
+   "fieldname": "form_name",
+   "fieldtype": "Data",
+   "label": "Form Name"
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "label": "Result",
+   "options": "\nCreated\nDuplicate\nFailed\nIgnored",
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "via",
+   "fieldtype": "Select",
+   "label": "Via",
+   "options": "\nWebhook\nCatch-up\nRetry"
+  },
+  {
+   "fieldname": "lead",
+   "fieldtype": "Link",
+   "label": "Lead",
+   "options": "CRM Lead",
+   "search_index": 1
+  },
+  {
+   "fieldname": "matched_by",
+   "fieldtype": "Data",
+   "label": "Matched By"
+  },
+  {
+   "fieldname": "platform",
+   "fieldtype": "Data",
+   "label": "Platform"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Source"
+  },
+  {
+   "fieldname": "person_name",
+   "fieldtype": "Data",
+   "label": "Person Name"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email"
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone"
+  },
+  {
+   "fieldname": "campaign_id",
+   "fieldtype": "Data",
+   "label": "Campaign Id"
+  },
+  {
+   "fieldname": "campaign_name",
+   "fieldtype": "Data",
+   "label": "Campaign Name"
+  },
+  {
+   "fieldname": "adset_id",
+   "fieldtype": "Data",
+   "label": "Adset Id"
+  },
+  {
+   "fieldname": "adset_name",
+   "fieldtype": "Data",
+   "label": "Adset Name"
+  },
+  {
+   "fieldname": "ad_id",
+   "fieldtype": "Data",
+   "label": "Ad Id"
+  },
+  {
+   "fieldname": "ad_name",
+   "fieldtype": "Data",
+   "label": "Ad Name"
+  },
+  {
+   "fieldname": "lead_time",
+   "fieldtype": "Datetime",
+   "label": "Lead Time"
+  },
+  {
+   "fieldname": "values_json",
+   "fieldtype": "Long Text",
+   "label": "Values Json"
+  },
+  {
+   "fieldname": "raw_json",
+   "fieldtype": "Long Text",
+   "label": "Raw Json"
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Error"
+  },
+  {
+   "fieldname": "comment",
+   "fieldtype": "Data",
+   "label": "Comment"
+  },
+  {
+   "fieldname": "applied",
+   "fieldtype": "Check",
+   "label": "Applied"
+  },
+  {
+   "fieldname": "applied_on",
+   "fieldtype": "Datetime",
+   "label": "Applied On"
+  },
+  {
+   "fieldname": "applied_by",
+   "fieldtype": "Link",
+   "label": "Applied By",
+   "options": "User"
+  }
+ ],
+ "modified": "2026-10-28 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Campaigns",
+ "name": "CRM Meta Lead Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "hash"
+}

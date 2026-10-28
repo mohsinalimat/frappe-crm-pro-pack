@@ -180,7 +180,10 @@ def apply_form_entry(name, entry):
 	"""The "Update details" button on a lead-form note: put what the person shared on the lead."""
 	_lead(name, "write")
 	from crm_addons.demos import leadforms
+	from crm_addons.pro import meta
 
+	if frappe.db.exists(meta.LOG, entry):
+		return meta.apply_entry(entry, name)
 	return leadforms.apply_entry(entry, name)
 
 
@@ -192,7 +195,9 @@ def get_timeline(name):
 
 	from crm_addons.demos import leadforms
 
-	forms = leadforms.entries_for_lead(name)
+	from crm_addons.pro import meta
+
+	forms = {**leadforms.entries_for_lead(name), **meta.entries_for_lead(name)}
 	out = []
 	for c in frappe.get_all("Comment", filters={"reference_doctype": LEAD, "reference_name": name, "comment_type": ["in", ["Comment", "Assigned"]]}, fields=["name", "comment_type", "content", "owner", "creation"], limit_page_length=200):
 		out.append({"kind": "comment" if c.comment_type == "Comment" else "assigned", "text": strip_html(c.content or ""), "html": clean_html(c.content or "") if c.comment_type == "Comment" else "", "by": _person(c.owner), "creation": c.creation, "form_entry": forms.get(c.name)})

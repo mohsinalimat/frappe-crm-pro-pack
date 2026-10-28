@@ -108,7 +108,7 @@ scheduler_events = {
 		# Campaign Manager: claims rate-limited batches and starts scheduled campaigns.
 		"* * * * *": ["crm_addons.campaigns.engine.dispatch", "crm_addons.demos.messaging.send_due", "crm_addons.demos.leadform_messages.send_due"],
 	},
-	"hourly": ["crm_addons.utils.refresh_stale_next_meetings"],
+	"hourly": ["crm_addons.utils.refresh_stale_next_meetings", "crm_addons.pro.meta.catch_up"],
 	"daily": ["crm_addons.stale.send_stale_alerts", "crm_addons.scoring.refresh_all"],
 }
 
