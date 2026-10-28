@@ -73,11 +73,10 @@
 	.page.leads .listcard > .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
 	.page.leads .listcard > .pager, .page.leads .listcard > .lbar { flex: none; }
 	.page.leads .tbl th { position: sticky; top: 0; z-index: 2; }
-	/* the whole board scrolls, so every column moves together (a column never scrolls on its own) */
-	.page.leads .board { flex: 1 1 auto; min-height: 0; align-items: flex-start; overflow: auto; padding: 0 14px 12px; }
-	.page.leads .board .col { max-height: none; min-height: 160px; height: auto; margin-top: 12px; }
-	.page.leads .board .col-body { overflow: visible; }
-	.page.leads .board .col header { position: sticky; top: 0; z-index: 2; background: var(--bg-soft); border-radius: 12px 12px 0 0 }
+	/* a column keeps its title in place and only its own leads scroll; the board scrolls sideways */
+	.page.leads .board { flex: 1 1 auto; min-height: 0; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 12px 14px; }
+	.page.leads .board .col { max-height: none; min-height: 0; height: 100%; }
+	.page.leads .board .col-body { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
 	.page.leads .bulk, .page.leads .fbar, .page.leads .pg-head { flex: none; }
 }
 
@@ -221,3 +220,9 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 .settings-wrap .gs{width:190px}
 .settings-wrap .set-head{display:flex;align-items:center;gap:12px}.settings-wrap .set-head .st-ctl{margin-left:auto;padding-bottom:0}
 .settings-wrap .set-head{flex-direction:row;padding-right:0;min-height:0}
+/* the board's sideways scrollbar is always shown, so it is clear the columns go on */
+.page.leads .board::-webkit-scrollbar { height: 12px }
+.page.leads .board::-webkit-scrollbar-track { background: var(--bg-soft) }
+.page.leads .board::-webkit-scrollbar-thumb { background: var(--border-strong, #b8c0cc); border-radius: 6px; border: 2px solid var(--bg-soft) }
+.page.leads .board .col-body::-webkit-scrollbar { width: 8px }
+.page.leads .board .col-body::-webkit-scrollbar-thumb { background: var(--border-strong, #c4cad4); border-radius: 4px }
