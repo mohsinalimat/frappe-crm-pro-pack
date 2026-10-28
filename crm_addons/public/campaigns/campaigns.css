@@ -324,9 +324,15 @@ html.inline .pg-head .grow { min-width: 0; }
 /* inside the Suite Pro app: the left menu becomes tabs along the top */
 html.pro .rail { display: none; }
 html.pro .app, html.pro .app.rail-collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-.subtabs { display: flex; align-items: center; gap: 18px; min-height: 56px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
-.st-title { display: none; }
-.st-tabs { display: flex; gap: 4px; padding: 3px; border-radius: var(--r-ctl); background: var(--bg-soft, #eef0f4); }
-.st-tab { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 5px; color: var(--text-soft); font-weight: 550; white-space: nowrap; text-decoration: none; }
+.subtabs { display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 18px 24px 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+.st-head { display: flex; flex-direction: column; gap: 3px; min-height: 52px; padding-right: 260px; }
+.st-title { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: var(--text); }
+.st-sub { font-size: 14px; color: var(--text-soft); }
+.st-tabs { display: flex; gap: 26px; padding: 0; background: none; overflow-x: auto; }
+.st-tab { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 2px; border-bottom: 2px solid transparent; color: var(--text-soft); font-weight: 550; white-space: nowrap; text-decoration: none; margin-bottom: -1px; }
 .st-tab:hover { color: var(--text); text-decoration: none; }
-.st-tab.on { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); font-weight: 650; }
+.st-tab.on { color: var(--accent-text, var(--accent)); border-bottom-color: var(--accent); font-weight: 650; }
+/* the page's own title is the header above; only its buttons stay, at the top right */
+html.pro .main > .page > .pg-head:first-child:has(> .actions) { min-height: 0; padding: 0; margin: 0; border: 0; }
+html.pro .main > .page > .pg-head:first-child:has(> .actions) > .grow { display: none; }
+html.pro .main > .page > .pg-head:first-child > .actions { position: fixed; top: 20px; right: 24px; z-index: 12; margin: 0; }

@@ -68,7 +68,7 @@
 		},
 		template: `
 		<div class="page">
-			<div class="pg-head"><div class="grow"><h1>Leads setup</h1><p class="muted small">What the Leads screen starts with, for everybody. People can still change columns and sorting for themselves.</p></div>
+			<div class="pg-head"><div class="grow"><p class="muted small" style="margin:0">What the Leads screen starts with, for everybody. People can still change columns and sorting for themselves.</p></div>
 				<div class="actions"><Btn variant="primary" :loading="busy" :disabled="loading" @click="save">Save</Btn></div></div>
 			<ErrorState v-if="error" :message="error" />
 			<div v-else-if="loading" class="card" style="padding:18px"><Skel h="20" /></div>

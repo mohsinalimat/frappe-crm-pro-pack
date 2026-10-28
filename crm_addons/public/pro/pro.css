@@ -183,3 +183,18 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 .page.leads .bulk { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 14px; padding: 10px 14px 10px 16px; border-radius: 12px; box-shadow: 0 8px 28px rgba(16, 24, 40, .18); max-width: calc(100% - 32px); white-space: nowrap }
 .bulk-n { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; background: var(--accent); color: #fff }
 .bulk-sep { width: 1px; align-self: stretch; background: var(--border) }
+
+/* Settings in the menu: an arrow opens the groups under it */
+.nav-split { display: flex; align-items: center; position: relative }
+.nav-split .nav { flex: 1 1 auto }
+.nav-chev { position: absolute; right: 6px; top: 5px; width: 24px; height: 24px; border: 0; border-radius: 6px; background: transparent; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center }
+.nav-chev:hover { background: var(--bg-hover); color: var(--text) }
+.nav-chev .ico { transition: transform .15s } .nav-chev.open .ico { transform: rotate(180deg) }
+.nav-sub { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px 18px; padding-left: 12px; border-left: 1px solid var(--border) }
+.nav-sub-h { margin: 8px 0 2px 8px; font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint) }
+.nav-sub-i { display: block; padding: 6px 8px; border-radius: 6px; font-size: 13.5px; color: var(--text-soft); text-decoration: none }
+.nav-sub-i:hover { background: var(--bg-hover); color: var(--text); text-decoration: none }
+.nav-sub-i.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 600 }
+.settings-wrap > .subtabs { padding-bottom: 14px }
+.rail { overflow-y: auto }
+.rail > .nav, .rail > .nav-grp, .nav-split, .nav-sub { flex: none }

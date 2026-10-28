@@ -59,7 +59,7 @@
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
 				</div>
 			</nav>
-			<div v-if="pro" class="subtabs"><b class="st-title">Assignment</b><nav class="st-tabs" aria-label="Assignment"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null">{{ n.label }}</a></nav></div>
+			<div v-if="pro" class="subtabs"><div class="st-head"><b class="st-title">Assignment</b><span class="st-sub">Decide who gets each new lead, and move or review them.</span></div><nav class="st-tabs" aria-label="Assignment"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" size="sm" />{{ n.label }}</a></nav></div>
 			<main class="main">
 				<div v-if="shared.error" class="page" style="padding-bottom:0"><div class="alert err"><Ico name="alert" /><div class="grow">{{ shared.error }}</div></div></div>
 				<div v-if="!allowed" class="page"><Empty icon="shield" title="You do not have access to lead assignment" text="Ask a System Manager to give you access on the Team and access page." /></div>

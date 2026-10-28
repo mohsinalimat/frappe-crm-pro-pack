@@ -57,7 +57,7 @@
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
 				</div>
 			</nav>
-			<div v-if="pro" class="subtabs"><b class="st-title">Bookings</b><nav class="st-tabs" aria-label="Bookings"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null">{{ n.label }}</a></nav></div>
+			<div v-if="pro" class="subtabs"><div class="st-head"><b class="st-title">Bookings</b><span class="st-sub">Booking pages, demo types and the meetings they create.</span></div><nav class="st-tabs" aria-label="Bookings"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" size="sm" />{{ n.label }}</a></nav></div>
 			<main class="main">
 				<div v-if="!s.ready" class="page"><Skel h="40" r="10" /><Skel h="220" r="12" /></div>
 				<div v-else-if="s.error" class="page"><ErrorState :message="s.error" @retry="location.reload()" /></div>

@@ -54,22 +54,29 @@
 		template: `<iframe ref="el" class="pro-frame" :src="src" :title="page" @load="tidy"></iframe>`,
 	}
 
+	// The settings, sorted into a few groups for the menu on the left
+	const GROUP_OF = { branding: 'General', ui: 'General', views: 'General', leads: 'Leads and sales', meetings: 'Leads and sales', followups: 'Leads and sales', insights: 'Leads and sales', dashboard: 'Leads and sales', campaigns: 'Campaigns', alerts: 'Campaigns', prices: 'Campaigns' }
+	PRO.settingsGroups = () => {
+		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Leads screen', group: 'Leads and sales' }]
+		return ['General', 'Leads and sales', 'Campaigns', 'Other'].map((t) => ({ title: t, items: all.filter((x) => x.group === t) })).filter((g) => g.items.length)
+	}
+
 	/** Settings: the existing setup page, and the Leads screen setup beside it. */
 	V.SettingsPage = {
 		props: { tab: String },
 		setup(props) {
-			const TABS = computed(() => [{ value: 'start', label: 'Setup checklist' }, ...((window.SETUP_SCHEMA || []).map((g) => ({ value: g.key, label: g.title }))), { value: 'leads', label: 'Leads screen' }])
+			const TABS = computed(() => PRO.settingsGroups().flatMap((g) => g.items.map((i) => ({ ...i, group: g.title }))))
 			const cur = computed(() => (TABS.value.some((t) => t.value === props.tab) ? props.tab : 'start'))
 			const first = props.tab && props.tab !== 'leads' ? props.tab : 'start'
 			const frameTab = ref(first); watch(cur, (t) => { if (t !== 'leads') frameTab.value = t })
 			const seen = ref(cur.value === 'leads' ? false : true)   // the setup page loads when first needed, and then stays (its unsaved changes survive a visit to the other tab)
 			watch(cur, (t) => { if (t !== 'leads') seen.value = true })
-			watch(cur, () => nextTick(() => { const el = document.querySelector('.settings-wrap .st-tab.on'); if (el) el.scrollIntoView({ inline: 'center', block: 'nearest' }) }))
-			return { TABS, cur, frameTab, seen }
+			const curItem = computed(() => TABS.value.find((t) => t.value === cur.value) || {})
+			return { TABS, cur, curItem, frameTab, seen }
 		},
 		template: `
 		<div class="settings-wrap">
-			<div class="subtabs"><nav class="st-tabs" aria-label="Settings"><a v-for="t in TABS" :key="t.value" :href="'#/settings/' + t.value" class="st-tab" :class="{ on: cur === t.value }" :aria-current="cur === t.value ? 'page' : null">{{ t.label }}</a></nav></div>
+			<div class="subtabs"><div class="st-head"><b class="st-title">{{ curItem.label }}</b><span class="st-sub">Settings \u00b7 {{ curItem.group }}</span></div></div>
 			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><Frame v-if="seen" v-show="cur !== 'leads'" page="settings" :tab="frameTab" key="settings" /></div>
 		</div>`,
 	}
@@ -97,13 +104,17 @@
 			watch(active, () => { document.title = (current.value.label || 'Suite Pro') + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			// the unread count stays fresh while the page is open
 			let t; onMounted(() => { t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000) }); onBeforeUnmount(() => clearInterval(t))
-			return { sendDlg, sendRun, runSend, ntf, health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
+			const setOpen = ref(r.parts[0] === 'settings'); watch(() => r.parts[0], (v) => { if (v === 'settings') setOpen.value = true })
+			const settingsMenu = computed(() => PRO.settingsGroups())
+			return { setOpen, settingsMenu, sendDlg, sendRun, runSend, ntf, health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
 			<nav class="rail" :class="{ collapsed }" aria-label="Suite Pro">
 				<div class="brand"><img v-if="PRO.shell.brand.logo" :src="PRO.shell.brand.logo" alt="" class="brand-img" /><span v-else class="brand-ico" aria-hidden="true"><Ico name="grid2" /></span><div class="brand-txt"><b>{{ PRO.shell.brand.name || 'Suite Pro' }}</b><span>{{ PRO.shell.full_name }}</span></div></div>
 				<template v-for="n in items" :key="n.key"><button v-if="n.key === 'notifications'" type="button" class="nav" :class="{ on: ntf }" :aria-expanded="String(ntf)" :title="collapsed ? n.label : null" :aria-label="n.label" @click="ntf = !ntf"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></button>
+								<div v-else-if="n.key === 'settings'" class="nav-grp"><div class="nav-split"><a :href="'#/settings/' + (r.parts[0] === 'settings' && r.parts[1] ? r.parts[1] : 'start')" class="nav" :class="{ on: active === 'settings' }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === 'settings' ? 'page' : null" @click="setOpen = true"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span></a><button v-if="!collapsed" type="button" class="nav-chev" :class="{ open: setOpen }" :aria-expanded="String(setOpen)" aria-label="Show the settings groups" @click="setOpen = !setOpen"><Ico name="chevron-down" size="sm" /></button></div>
+									<div v-if="setOpen && !collapsed" class="nav-sub"><template v-for="g in settingsMenu" :key="g.title"><div class="nav-sub-h">{{ g.title }}</div><a v-for="t in g.items" :key="t.value" :href="'#/settings/' + t.value" class="nav-sub-i" :class="{ on: active === 'settings' && (r.parts[1] || 'start') === t.value }">{{ t.label }}</a></template></div></div>
 								<a v-else :href="'#/' + n.key" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></a></template>
 				<div class="rail-foot">
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>

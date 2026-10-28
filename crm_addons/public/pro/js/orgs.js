@@ -57,7 +57,7 @@
 		},
 		template: `
 		<div class="page leads">
-			<div class="pg-head"><div class="grow"><h1>Organizations</h1><p class="muted small">{{ loading && !rows.length ? '' : total + (total === 1 ? ' organization' : ' organizations') }}</p></div>
+			<div class="pg-head"><div class="grow"><h1>Organizations</h1></div>
 				<div class="actions"><Btn v-if="opts.can_create" variant="primary" icon="plus" @click="creating = true">Add organization</Btn></div></div>
 			<section class="card fbar"><div class="row wrap" style="gap:8px">
 				<div class="grow" style="min-width:220px"><Inp v-model="search" icon="search" placeholder="Search name or website..." clearable aria-label="Search organizations" /></div>
