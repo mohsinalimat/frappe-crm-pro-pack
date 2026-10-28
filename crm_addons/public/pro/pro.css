@@ -192,7 +192,7 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 .nav-chev .ico { transition: transform .15s } .nav-chev.open .ico { transform: rotate(180deg) }
 .nav-sub { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px 18px; padding-left: 12px; border-left: 1px solid var(--border) }
 .nav-sub-h { margin: 8px 0 2px 8px; font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint) }
-.nav-sub-i { display: block; padding: 6px 8px; border-radius: 6px; font-size: 13.5px; color: var(--text-soft); text-decoration: none }
+.nav-sub-i { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 6px; font-size: 13.5px; color: var(--text-soft); text-decoration: none }
 .nav-sub-i:hover { background: var(--bg-hover); color: var(--text); text-decoration: none }
 .nav-sub-i.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 600 }
 .settings-wrap > .subtabs { padding-bottom: 14px }
@@ -203,3 +203,8 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 .main > .page.leads > .pg-head:first-child { margin-bottom: 0 }
 .page.leads .fbar { padding: 10px 14px; margin-bottom: 0 }
 .page.leads .listcard > .lbar { padding: 6px 14px }
+
+.gs{position:relative;width:320px;max-width:100%}.gs .inp,.gs .control{width:100%}
+.gs-pop{position:absolute;z-index:30;top:calc(100% + 4px);right:0;left:0;max-height:340px;overflow:auto;background:var(--surface,#fff);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px}
+.gs-i{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;padding:8px 10px;border:0;background:transparent;border-radius:6px;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.gs-i:hover{background:var(--bg-hover)}

@@ -229,5 +229,5 @@ input.inp.wide[type="text"], textarea.inp.wide { width: 100%; } .br-card { align
 html.pro .side, html.pro .top .grow { display: none; }
 html.pro .top { background: transparent; border-bottom: 0; }
 html.pro .top-in { justify-content: flex-end; max-width: 1180px; padding: 14px 24px 0; }
-html.pro .search { width: 320px; }
+html.pro .top { display: none; } /* the Suite Pro header has the search, over every settings page */
 html.pro .body { grid-template-columns: minmax(0, 1fr); max-width: 1180px; padding-top: 14px; }

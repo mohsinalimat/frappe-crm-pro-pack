@@ -6,7 +6,7 @@
  */
 window.SETUP_SCHEMA = [
 	{
-		key: 'branding', title: 'Branding', icon: 'palette', custom: 'branding',
+		key: 'branding', title: 'Branding', icon: 'palette', custom: 'branding', words: 'name logo favicon login page footer desk brand colour title',
 		desc: 'The name, logo and favicon people see in the CRM, on the login page, in the Desk and in the footer. Leave a field empty to keep the default look.',
 		items: [],
 	},
@@ -116,7 +116,7 @@ window.SETUP_SCHEMA = [
 		],
 	},
 	{
-		key: 'views', title: 'Default views', icon: 'layout', custom: 'views',
+		key: 'views', title: 'Default views', icon: 'layout', custom: 'views', words: 'list kanban columns order filters quick filter leads contacts organizations',
 		desc: 'How the Leads, Contacts and Organizations pages open for everybody: list or Kanban, the columns, the order, the filters and the quick-filter boxes. People can still change their own view; yours applies until they do.',
 		items: [],
 	},

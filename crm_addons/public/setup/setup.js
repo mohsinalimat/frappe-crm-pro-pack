@@ -326,7 +326,7 @@
 			const draft = reactive({}) // values being edited
 			const choices = ref({}); const status = ref({ checks: [], todo: 0, ready: 0, total: 0 })
 			const tab = ref(params.get('tab') || 'start'); const q = ref('')
-			window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.source === 'pro-shell' && e.data.tab) { q.value = ''; tab.value = e.data.tab } }) // the Suite Pro app picks the section from its own tabs
+			window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.source === 'pro-shell' && e.data.tab) { q.value = ''; tab.value = e.data.tab; if (e.data.field) nextTick(() => nextTick(() => { if (itemMap[e.data.field]) go(itemMap[e.data.field].group, e.data.field) })) } }) // the Suite Pro app picks the section from its own tabs
 			const saving = ref(false); const toast = reactive({ text: '', tone: '' })
 			const open = reactive({}); const test = reactive({ busy: false, text: '', ok: false }); const rechecking = ref(false)
 			const itemMap = {}; SCHEMA.forEach((g) => g.items.forEach((it) => { if (it.k) { itemMap[it.k] = it; it.group = g.key } }))
@@ -423,7 +423,8 @@
 				const items = g.items.filter((it) => it.h || matches(it))
 				const real = items.filter((it) => it.k)
 				const kept = items.filter((it, i) => !it.h || (items[i + 1] && !items[i + 1].h)) // drop a heading with nothing under it
-				return { ...g, shown: term.value ? kept : g.items, count: real.length, changed: g.items.filter((it) => it.k && dirtyKeys.value.includes(it.k)).length }
+				const customHit = !!g.custom && !!term.value && (g.title + ' ' + (g.desc || '') + ' ' + (g.words || '')).toLowerCase().includes(term.value)
+				return { ...g, shown: term.value ? kept : g.items, count: real.length + (customHit ? 1 : 0), changed: g.items.filter((it) => it.k && dirtyKeys.value.includes(it.k)).length }
 			}))
 			const visible = computed(() => (term.value ? groups.value.filter((g) => g.count) : groups.value.filter((g) => g.key === tab.value)))
 			const noResults = computed(() => term.value && !visible.value.length)
