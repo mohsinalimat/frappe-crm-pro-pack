@@ -9,7 +9,7 @@
 	const NAV = [
 		{ key: 'rules', label: 'Rules', icon: 'zap', path: '/rules', show: () => lvl('assignment_rules') !== 'none' },
 		{ key: 'assign', label: 'Assign leads now', icon: 'users', path: '/assign', show: () => lvl('assignment_move') !== 'none' },
-		{ key: 'move', label: 'Move leads', icon: 'arrow-right', path: '/move', show: () => lvl('assignment_move') !== 'none' },
+		{ key: 'move', label: 'Move leads', icon: 'move-people', path: '/move', show: () => lvl('assignment_move') !== 'none' },
 		{ key: 'history', label: 'History', icon: 'clock', path: '/history', show: () => lvl('assignment_history') !== 'none' },
 	]
 

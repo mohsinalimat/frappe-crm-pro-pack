@@ -344,3 +344,6 @@ html.pro .main > .page > .pg-head:first-child > .actions { position: fixed; top:
 .st-ctl .inp, .st-ctl .control { height: 34px; }
 .st-head { flex: 0 0 100%; } .st-tabs { flex: 0 0 auto; max-width: 100%; }
 html.pro .row.tool:not(:has(*)), html.pro .row.tools:not(:has(*)) { display: none; }
+
+.limit-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.limit-n { width: 90px; height: 34px; }

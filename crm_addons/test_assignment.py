@@ -107,6 +107,16 @@ class TestAssignment(FrappeTestCase):
 		self.assertFalse(frappe.db.exists("Email Queue", {"message": ["like", "%T0%"]}))  # and no email
 		self.assertTrue(frappe.db.exists("CRM Assignment Log", {"lead": names[0], "source": "Transfer"}))
 
+	def test_transfer_can_move_just_a_number_of_leads(self):
+		src = make_user("asg_lim@example.com", ["Sales User"])
+		names = [lead(f"L{i}", lead_owner=src).name for i in range(5)]
+		pre = asg.preview_transfer([src], "open", 2)
+		self.assertEqual((pre["count"], pre["available"]), (2, 5))
+		res = asg.transfer([src], [self.b], "Round robin", limit=2)
+		self.assertEqual(res["assigned"], 2)
+		self.assertEqual(sum(1 for n in names if self.owner(n) == self.b), 2)
+		self.assertEqual(sum(1 for n in names if self.owner(n) == src), 3)
+
 	def test_only_a_system_manager_can_use_it(self):
 		frappe.set_user(self.a)
 		for fn, args in ((asg.list_rules, ()), (asg.list_people, ()), (asg.list_log, ()), (asg.transfer, ([self.a], [self.b], "Round robin"))):

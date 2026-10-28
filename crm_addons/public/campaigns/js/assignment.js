@@ -83,6 +83,7 @@
 	}
 
 	const sample = (rows) => (rows && rows.length ? `<table class="tbl small"><thead><tr><th>Lead</th><th>Status</th><th>Now with</th></tr></thead><tbody>${rows.map((l) => `<tr><td>${CM.escape(l.lead_name || l.name)}</td><td>${CM.escape(l.status || '')}</td><td>${l.lead_owner ? CM.escape(nameOf(l.lead_owner)) : 'No one'}</td></tr>`).join('')}</tbody></table>` : '')
+	CM.ICONS['move-people'] = '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>'
 	C.StepHead = { props: { n: [Number, String], title: String }, template: `<div class="step-h"><span class="step-n">{{ n }}</span><b>{{ title }}</b></div>` }
 	const ready = (rules) => rules.length && A.ready({ mode: 'CRM Filters', rules })
 	const doneText = (res, verb) => (res.queued ? `${verb} ${plural(res.count, 'lead')} in the background. See Recent activity when it finishes.` : `${plural(res.assigned, 'lead')} ${verb === 'Moving' ? 'moved' : 'assigned'}`)
@@ -92,7 +93,7 @@
 		props: { title: String, subtitle: String },
 		emits: ['close'],
 		setup() { const el = ref(null); onMounted(() => { if (el.value && el.value.scrollIntoView) el.value.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }); return { el } },
-		template: `<section ref="el" class="asg-panel"><div class="asg-panel-h"><div class="grow"><b>{{ title }}</b><div class="small muted" v-if="subtitle">{{ subtitle }}</div></div><button type="button" class="btn ghost icon sm" aria-label="Close" @click="$emit('close')"><Ico name="x" /></button></div><div class="asg-panel-b"><slot /></div><div v-if="$slots.foot" class="asg-panel-f"><slot name="foot" /></div></section>`,
+		template: `<section ref="el" class="asg-panel"><div v-if="title || subtitle" class="asg-panel-h"><div class="grow"><b>{{ title }}</b><div class="small muted" v-if="subtitle">{{ subtitle }}</div></div><button type="button" class="btn ghost icon sm" aria-label="Close" @click="$emit('close')"><Ico name="x" /></button></div><div class="asg-panel-b"><slot /></div><div v-if="$slots.foot" class="asg-panel-f"><slot name="foot" /></div></section>`,
 	}
 
 	// ------------------------------------------------------------------ 1. a rule for new leads
@@ -186,12 +187,12 @@
 	C.AssignNow = {
 		emits: ['close', 'done'],
 		setup(props, { emit }) {
-			const m = reactive({ rules: [], match_mode: 'All conditions', assignees: [], distribution: 'Round robin', takeOver: false })
+			const m = reactive({ rules: [], match_mode: 'All conditions', assignees: [], distribution: 'Round robin', takeOver: false, useLimit: false, limit: 10 })
 			const pre = ref(null); const busy = ref(false)
 			const ok = computed(() => ready(m.rules) && m.assignees.length)
-			const data = () => ({ conditions: A.rulesToJson(m.rules), match_mode: m.match_mode, assignees: m.assignees, distribution: m.distribution, scope: m.takeOver ? 'all' : 'unassigned' })
+			const data = () => ({ conditions: A.rulesToJson(m.rules), match_mode: m.match_mode, assignees: m.assignees, distribution: m.distribution, scope: m.takeOver ? 'all' : 'unassigned', limit: m.useLimit ? Math.max(0, parseInt(m.limit, 10) || 0) : 0 })
 			const count = CM.debounce(async () => { if (!ok.value) { pre.value = null; return } try { pre.value = await CM.apiA('preview_manual', { data: data() }) } catch (e) { pre.value = null } }, 500)
-			watch(() => [JSON.stringify(m.rules), m.match_mode, m.assignees.join(), m.takeOver], count)
+			watch(() => [JSON.stringify(m.rules), m.match_mode, m.assignees.join(), m.takeOver, m.useLimit, m.limit], count)
 			async function go() {
 				if (!(await CM.confirm({ title: `Give ${plural(pre.value.count, 'lead')} to ${join(m.assignees)}?`, message: 'Each person gets a CRM notification.', confirmText: 'Assign' }))) return
 				busy.value = true
@@ -200,11 +201,12 @@
 			return { m, pre, busy, ok, go, plural, join, sample, CM }
 		},
 		template: `
-		<Panel title="Give existing leads to people" @close="$emit('close')">
+		<Panel @close="$emit('close')">
 			<StepHead n="1" title="Which leads?" /><WhenField :rules="m.rules" v-model:match-mode="m.match_mode" />
 			<label class="check" style="margin-top:10px"><input type="checkbox" v-model="m.takeOver" /><span>Include leads that already have an owner</span></label>
 			<StepHead n="2" title="Give them to" /><PeopleField v-model="m.assignees" placeholder="Choose who gets these leads" />
 			<HowField v-model="m.distribution" :count="m.assignees.length" />
+			<div class="limit-row"><label class="check"><input type="checkbox" v-model="m.useLimit" /><span>Give only a number of them, not all</span></label><template v-if="m.useLimit"><input class="inp limit-n" type="number" min="1" :max="pre ? pre.available : null" v-model="m.limit" aria-label="How many leads" /><span class="small muted" v-if="pre">of {{ CM.num(pre.available) }} matching</span></template></div>
 			<div v-if="pre" class="sumbox"><Ico name="check-circle" /><div class="grow"><b>{{ plural(pre.count, 'lead') }}</b> will go to <b>{{ join(m.assignees) }}</b>.</div></div><div v-if="pre" v-html="sample(pre.sample)"></div>
 			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="users" :loading="busy" :disabled="!pre || !pre.count" @click="go">Assign {{ pre ? plural(pre.count, 'lead') : '' }}</Btn></template>
 		</Panel>`,
@@ -214,24 +216,26 @@
 	C.MoveLeads = {
 		emits: ['close', 'done'],
 		setup(props, { emit }) {
-			const t = reactive({ from: [], to: [], distribution: 'Round robin', all: false })
+			const t = reactive({ from: [], to: [], distribution: 'Round robin', all: false, useLimit: false, limit: 10 })
+			const lim = () => (t.useLimit ? Math.max(0, parseInt(t.limit, 10) || 0) : 0)
 			const pre = ref(null); const busy = ref(false)
 			const ok = computed(() => t.from.length && t.to.length)
-			const load = CM.debounce(async () => { if (!t.from.length) { pre.value = null; return } try { pre.value = await CM.apiA('preview_transfer', { from_users: t.from, scope: t.all ? 'all' : 'open' }) } catch (e) { pre.value = null } }, 400)
-			watch(() => [t.from.join(), t.all], load)
+			const load = CM.debounce(async () => { if (!t.from.length) { pre.value = null; return } try { pre.value = await CM.apiA('preview_transfer', { from_users: t.from, scope: t.all ? 'all' : 'open', limit: lim() }) } catch (e) { pre.value = null } }, 400)
+			watch(() => [t.from.join(), t.all, t.useLimit, t.limit], load)
 			async function go() {
 				if (!(await CM.confirm({ title: `Move ${plural(pre.value.count, 'lead')}?`, message: `From ${join(t.from)} to ${join(t.to)}. The old owner no longer sees them; the new people are notified in CRM.`, confirmText: 'Move leads', danger: true }))) return
 				busy.value = true
-				try { const res = await CM.apiA('transfer', { from_users: t.from, to_users: t.to, distribution: t.distribution, scope: t.all ? 'all' : 'open' }); CM.toast(doneText(res, 'Moving')); emit('done') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
+				try { const res = await CM.apiA('transfer', { from_users: t.from, to_users: t.to, distribution: t.distribution, scope: t.all ? 'all' : 'open', limit: lim() }); CM.toast(doneText(res, 'Moving')); emit('done') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
 			const clash = computed(() => t.from.some((u) => t.to.includes(u)))
 			return { t, pre, busy, ok, go, clash, plural, join, sample, CM, nameOf }
 		},
 		template: `
-		<Panel title="Move leads from one person to others" @close="$emit('close')">
+		<Panel @close="$emit('close')">
 			<StepHead n="1" title="Take leads from" /><PeopleField v-model="t.from" placeholder="Choose who to take leads from" />
 			<StepHead n="2" title="Give them to" /><PeopleField v-model="t.to" placeholder="Choose who gets them" />
 			<HowField v-model="t.distribution" :count="t.to.length" />
+			<div class="limit-row"><label class="check"><input type="checkbox" v-model="t.useLimit" /><span>Move only a number of them, not all</span></label><template v-if="t.useLimit"><input class="inp limit-n" type="number" min="1" :max="pre ? pre.available : null" v-model="t.limit" aria-label="How many leads" /><span class="small muted" v-if="pre">of {{ CM.num(pre.available) }} available</span></template></div>
 			<label class="check" style="margin-top:12px"><input type="checkbox" v-model="t.all" /><span>Include closed and converted leads (otherwise only open ones move)</span></label>
 			<div v-if="clash" class="alert err" style="margin-top:10px"><Ico name="alert" /><div class="grow">The same person is on both sides.</div></div>
 			<div v-else-if="pre" class="sumbox"><Ico name="check-circle" /><div class="grow"><b>{{ plural(pre.count, 'lead') }}</b> will move<template v-if="t.from.length > 1"> ({{ t.from.map((u) => nameOf(u) + ' ' + (pre.per_user[u] || 0)).join(', ') }})</template><template v-if="t.to.length"> to <b>{{ join(t.to) }}</b></template>.</div></div><div v-if="pre" v-html="sample(pre.sample)"></div>
@@ -248,7 +252,7 @@
 
 	V.AsgRules = {
 		setup() {
-			const rules = ref([]); const loading = ref(true); const error = ref(''); const q = reactive({ search: '', state: '' })
+			const rules = ref([]); const loading = ref(true); const error = ref(''); const q = reactive({ search: '', state: '' }); const layout = CM.useLayout('crm_asg_rules_layout')
 			async function load() { loading.value = true; error.value = ''; try { rules.value = await CM.apiA('list_rules', {}) } catch (e) { error.value = e.message } finally { loading.value = false } }
 			onMounted(() => { CM.loadShared(); loadPeople(true); load() })
 			const shown = computed(() => rules.value.filter((r) => (!q.state || (q.state === 'on' ? r.enabled : !r.enabled)) && (!q.search || (r.name + ' ' + r.assignees.map(nameOf).join(' ')).toLowerCase().includes(q.search.toLowerCase()))))
@@ -269,17 +273,21 @@
 			}
 			const menu = (r) => CM.canManageRules() ? [{ label: 'Give existing leads to them', icon: 'users', run: () => CM.go('/rules/run/' + encodeURIComponent(r.name)) }, { label: 'Edit', icon: 'edit', run: () => CM.go('/rules/edit/' + encodeURIComponent(r.name)) }, { label: r.enabled ? 'Switch off' : 'Switch on', icon: 'refresh', run: () => toggle(r) }, { sep: true }, { label: 'Delete', icon: 'trash', danger: true, run: () => remove(r) }] : [{ label: 'View', icon: 'eye', run: () => CM.go('/rules/edit/' + encodeURIComponent(r.name)) }]
 			const when = (r) => r.conditions.map((c) => asText(c)).join(r.match_mode === 'Any condition' ? ' or ' : ' and ')
-			return { rules, loading, error, load, q, shown, count, toggle, menu, when, join, nameOf, HOW_TEXT, CM, plural, go: CM.go }
+			return { layout, rules, loading, error, load, q, shown, count, toggle, menu, when, join, nameOf, HOW_TEXT, CM, plural, go: CM.go }
 		},
 		template: `
 		<div class="page">
 			<div class="pg-head"><div class="grow"><h1>Rules</h1><p>Leads that come in are given to the right people automatically. Every rule a new lead matches applies.</p></div><div class="actions"><Btn v-if="CM.canManageRules()" variant="primary" icon="plus" @click="go('/rules/new')">Create rule</Btn></div></div>
-			<div class="row wrap tool"><div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search rules" clearable aria-label="Search rules" /></div></div>
-			<div class="chips" role="group" aria-label="State"><button v-for="s in [['', 'All'], ['on', 'On'], ['off', 'Off']]" :key="s[0]" type="button" class="fchip" :class="{ on: q.state === s[0] }" @click="q.state = s[0]">{{ s[1] }} <span class="n">{{ count(s[0]) }}</span></button></div>
+			<div class="row wrap tool"><div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search rules" clearable aria-label="Search rules" /></div>
+				<div class="chips" role="group" aria-label="State"><button v-for="s in [['', 'All'], ['on', 'On'], ['off', 'Off']]" :key="s[0]" type="button" class="fchip" :class="{ on: q.state === s[0] }" @click="q.state = s[0]">{{ s[1] }} <span class="n">{{ count(s[0]) }}</span></button></div></div>
+			<HdrSlot><LayoutSwitch v-model="layout" /></HdrSlot>
 			<div v-if="loading" class="cgrid"><div v-for="n in 4" :key="n" class="card pad col" style="gap:12px"><Skel w="60%" h="18" /><Skel w="40%" h="14" /><Skel h="40" /></div></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<Empty v-else-if="!rules.length" icon="users" title="Create your first rule" text="A rule says: leads like this go to these people. For example, every lead with State = Gujarat goes to Siddharth and Aayushi."><Btn v-if="CM.canManageRules()" variant="primary" icon="plus" @click="go('/rules/new')">Create rule</Btn></Empty>
 			<Empty v-else-if="!shown.length" icon="search" title="No rules match" text="Try a different search or filter."><Btn @click="q.search = ''; q.state = ''">Clear filters</Btn></Empty>
+			<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl"><thead><tr><th>Rule</th><th>When</th><th>Given to</th><th>Leads assigned</th><th>On</th><th></th></tr></thead><tbody>
+				<tr v-for="r in shown" :key="r.name" class="click" :class="{ 'asg-off': !r.enabled }" tabindex="0" @click="go('/rules/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/rules/edit/' + encodeURIComponent(r.name))"><td><b>{{ r.name }}</b><div v-if="r.overlaps.length" class="small rule-overlap"><Ico name="alert" size="sm" /> Also matches {{ r.overlaps.join(', ') }}</div></td><td class="small">{{ r.match_mode === 'Any condition' ? 'Any of' : 'All of' }}: {{ when(r) }}</td><td class="small">{{ r.assignees.map(nameOf).join(', ') }}<span class="badge blue nodot" v-if="r.assignees.length > 1" style="margin-left:6px">{{ HOW_TEXT[r.distribution] }}</span></td><td>{{ CM.num(r.assigned_count) }}</td>
+					<td @click.stop><button type="button" class="sw" :class="{ on: r.enabled }" role="switch" :aria-checked="!!r.enabled" :aria-label="(r.enabled ? 'Turn off ' : 'Turn on ') + r.name" :disabled="!CM.canManageRules()" @click="toggle(r)"><span class="sw-k"></span></button></td><td @click.stop style="text-align:right"><Menu :items="menu(r)" :label="'Actions for ' + r.name" /></td></tr></tbody></table></div></div>
 			<div v-else class="cgrid">
 				<article v-for="r in shown" :key="r.name" class="ccard card hover" tabindex="0" @click="go('/rules/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/rules/edit/' + encodeURIComponent(r.name))" :class="{ 'asg-off': !r.enabled }">
 					<div class="row" style="align-items:flex-start"><div class="grow" style="min-width:0"><div class="ccard-t" :title="r.name">{{ r.name }}</div><div class="small faint">{{ r.match_mode === 'Any condition' ? 'Any of' : 'All of' }}: {{ when(r) }}</div></div><span class="badge nodot" :class="r.enabled ? 'green' : 'neutral'">{{ r.enabled ? 'On' : 'Off' }}</span><span @click.stop><Menu :items="menu(r)" /></span></div>
@@ -314,12 +322,12 @@
 
 	V.AsgAssign = {
 		setup() { onMounted(() => { CM.loadShared(); loadPeople() }); return { CM } },
-		template: `<div class="page">${head('Assign leads now', 'Pick leads you already have and give them to people.')}<AssignNow @close="CM.go('/rules')" @done="CM.go('/history')" /></div>`,
+		template: `<div class="page"><AssignNow @close="CM.go('/rules')" @done="CM.go('/history')" /></div>`,
 	}
 
 	V.AsgMove = {
 		setup() { onMounted(() => { CM.loadShared(); loadPeople() }); return { CM } },
-		template: `<div class="page">${head('Move leads', "Hand one person's leads to one or more others.")}<MoveLeads @close="CM.go('/rules')" @done="CM.go('/history')" /></div>`,
+		template: `<div class="page"><MoveLeads @close="CM.go('/rules')" @done="CM.go('/history')" /></div>`,
 	}
 
 	V.AsgHistory = {
@@ -350,7 +358,7 @@
 		},
 		template: `
 		<div class="page">
-			<div class="pg-head"><div class="grow"><h1>History</h1><p>Everything assigned here, by a rule or by hand. You can undo an assignment for {{ hist.undo_hours }} hours.</p></div></div>
+			<p class="small muted" style="margin:0">Everything assigned here, by a rule or by hand. You can undo an assignment for {{ hist.undo_hours }} hours.</p>
 			<div class="row wrap tool"><div style="width:300px;max-width:100%"><Inp v-model="q" icon="search" placeholder="Search history" clearable aria-label="Search history" /></div></div>
 			<div v-if="loading" class="card pad col"><Skel v-for="n in 5" :key="n" h="40" /></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />

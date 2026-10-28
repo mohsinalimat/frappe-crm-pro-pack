@@ -572,6 +572,12 @@ def run_rule(name, scope="unassigned", confirm=0):
 	return _stage("rules", {"names": names, "rules": [rule.name], "only_rules": 0 if pre["also_matched_by"] else 1, "people": rule_users(rule)})
 
 
+def _limited(names, limit):
+	"""Only the first ``limit`` leads (0 or nothing means all of them)."""
+	limit = cint(limit)
+	return names[:limit] if limit > 0 else names
+
+
 def _manual_args(data):
 	data = _json(data, {})
 	conditions, mode = _definition(data)
@@ -590,14 +596,16 @@ def preview_manual(data):
 	_move()
 	conditions, mode, people, _dist, scope = _manual_args(data)
 	names = _my_leads(_targets(conditions, mode, scope))
-	return {"count": len(names), "sample": _sample(names), "people": people}
+	total = len(names)
+	names = _limited(names, _json(data, {}).get("limit"))
+	return {"count": len(names), "available": total, "sample": _sample(names), "people": people}
 
 
 @frappe.whitelist()
 def assign_manual(data):
 	_move()
 	conditions, mode, people, dist, scope = _manual_args(data)
-	names = _my_leads(_targets(conditions, mode, scope))
+	names = _limited(_my_leads(_targets(conditions, mode, scope)), _json(data, {}).get("limit"))
 	if not names:
 		return {"queued": False, "assigned": 0, "skipped": 0}
 	return _stage("manual", {"names": names, "people": people, "distribution": dist})
@@ -618,7 +626,7 @@ def _owned_by(users, scope):
 
 
 @frappe.whitelist()
-def preview_transfer(from_users, scope="open"):
+def preview_transfer(from_users, scope="open", limit=0):
 	_move()
 	users = _clean_users(from_users)
 	if not users:
@@ -627,11 +635,13 @@ def preview_transfer(from_users, scope="open"):
 	scope = "all" if scope == "all" else "open"
 	per = {u: len(_owned_by([u], scope)) for u in users}
 	names = _owned_by(users, scope)
-	return {"count": len(names), "per_user": per, "sample": _sample(names)}
+	total = len(names)
+	names = _limited(names, limit)
+	return {"count": len(names), "available": total, "per_user": per, "sample": _sample(names)}
 
 
 @frappe.whitelist()
-def transfer(from_users, to_users, distribution, scope="open"):
+def transfer(from_users, to_users, distribution, scope="open", limit=0):
 	"""Move every lead that is owned by, or assigned to, the ``from_users`` onto the ``to_users``."""
 	_move()
 	src = _clean_users(from_users)
@@ -643,7 +653,7 @@ def transfer(from_users, to_users, distribution, scope="open"):
 		frappe.throw(_("The same person cannot be both the source and the destination."))
 	if distribution not in MODES:
 		frappe.throw(_("Choose how the people share the leads."))
-	names = _owned_by(src, "all" if scope == "all" else "open")
+	names = _limited(_owned_by(src, "all" if scope == "all" else "open"), limit)
 	if not names:
 		return {"queued": False, "assigned": 0, "skipped": 0}
 	return _stage("transfer", {"names": names, "from_users": src, "people": dest, "distribution": distribution})
