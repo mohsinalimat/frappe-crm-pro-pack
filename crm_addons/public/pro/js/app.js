@@ -235,7 +235,7 @@
 			watch(() => r.parts[0], (v) => { if (v === 'notifications') { ntf.value = true; location.hash = '#/dashboard' } }, { immediate: true })
 			watch(active, () => { document.title = (current.value.label || 'Suite Pro') + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			// the unread count stays fresh while the page is open
-			let t, t2; onMounted(() => { t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000); if (items.value.some((i) => i.key === 'whatsapp')) { const wa = async () => { try { PRO.shell.waUnread = (await CM.call('crm_addons.pro.inbox.get_access')).unread } catch (e) { /* later */ } }; wa(); t2 = setInterval(() => { if (!document.hidden && active.value !== 'whatsapp') wa() }, 30000) } }); onBeforeUnmount(() => clearInterval(t))
+			let t, t2; onMounted(() => { PRO.notifier && PRO.notifier.start(); t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000); if (items.value.some((i) => i.key === 'whatsapp')) { const wa = async () => { try { PRO.shell.waUnread = (await CM.call('crm_addons.pro.inbox.get_access')).unread } catch (e) { /* later */ } }; wa(); t2 = setInterval(() => { if (!document.hidden && active.value !== 'whatsapp') wa() }, 30000) } }); onBeforeUnmount(() => clearInterval(t))
 			const solo = computed(() => r.parts[0] === 'whatsapp' && !!r.query.solo) // a chat opened in its own tab: no menu around it
 			const setOpen = ref(r.parts[0] === 'settings'); watch(() => r.parts[0], (v) => { if (v === 'settings') setOpen.value = true })
 			const settingsMenu = computed(() => PRO.settingsGroups())
@@ -268,7 +268,7 @@
 				<Inbox v-else-if="active === 'whatsapp'" :key="'wa'" />
 				<Frame v-else :page="active" :key="active" />
 			</main>
-			<template v-if="ntf"><div class="ntf-back" @click="ntf = false"></div><aside class="ntf-panel" role="dialog" aria-label="Notifications" @keydown.esc="ntf = false"><Notifications panel @close="ntf = false" /></aside></template>
+			<template v-if="ntf"><div class="ntf-back" @click.self="ntf = false"><aside class="ntf-panel" role="dialog" aria-label="Notifications" @keydown.esc="ntf = false"><Notifications panel @close="ntf = false" /></aside></div></template>
 			<BulkDialog v-if="sendDlg" :count="sendDlg.names.length" :only="sendDlg.kind ? [sendDlg.kind] : ['email', 'whatsapp']" :start="sendDlg.kind" :owners="[]" :statuses="[]" :run="sendRun" @close="sendDlg = null" @go="runSend" />
 			<Toasts /><ConfirmHost />
 		</div>`,

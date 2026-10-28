@@ -14,10 +14,48 @@
 	const TYPE_ICON = { Assignment: 'users', Mention: 'mail', Task: 'check-circle', WhatsApp: 'whatsapp', Automation: 'bell' }
 	const TYPE_TONE = { Assignment: 'blue', Mention: 'purple', Task: 'green', WhatsApp: 'teal', Automation: 'blue' }
 	const TABS = [
-		{ id: 'all', label: 'All', icon: 'bell' }, { id: 'unread', label: 'Unread', icon: 'eye' },
-		{ id: 'leads', label: 'Leads', icon: 'users', types: ['Assignment'] }, { id: 'mentions', label: 'Mentions', icon: 'mail', types: ['Mention'] },
-		{ id: 'updates', label: 'Updates', icon: 'check-circle', types: ['Task', 'WhatsApp', 'Automation'] },
+		{ id: 'all', label: 'All' }, { id: 'unread', label: 'Unread' },
+		{ id: 'assignments', label: 'Assignments', types: ['Assignment'] }, { id: 'mentions', label: 'Mentions', types: ['Mention'] },
+		{ id: 'tasks', label: 'Tasks', types: ['Task'] }, { id: 'whatsapp', label: 'WhatsApp', types: ['WhatsApp'] },
 	]
+
+	/** Browser alerts: a desktop notification and a short sound when a new notification arrives while the page is open. */
+	const KEY = 'pro.ntf.alerts'
+	const store = { get() { try { return localStorage.getItem(KEY) === '1' } catch (e) { return false } }, set(v) { try { localStorage.setItem(KEY, v ? '1' : '0') } catch (e) { /* not kept */ } } }
+	let audio
+	function beep() {
+		try {
+			audio = audio || new (window.AudioContext || window.webkitAudioContext)()
+			const o = audio.createOscillator(); const g = audio.createGain(); o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(audio.destination)
+			g.gain.setValueAtTime(0.0001, audio.currentTime); g.gain.exponentialRampToValueAtTime(0.18, audio.currentTime + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.35)
+			o.start(); o.stop(audio.currentTime + 0.36)
+		} catch (e) { /* no sound */ }
+	}
+	const seen = new Set(); let primed = false; let started = false
+	async function poll() {
+		if (!store.get()) return
+		try {
+			const r = await PRO.api('list_notifications', { show: 'unread', page_length: 10 })
+			PRO.shell.unread = r.unread
+			const fresh = r.rows.filter((n) => !seen.has(n.name)); r.rows.forEach((n) => seen.add(n.name))
+			if (!primed) { primed = true; return }
+			if (!fresh.length) return
+			beep()
+			if ('Notification' in window && Notification.permission === 'granted') {
+				const n = fresh[0]; const more = fresh.length > 1 ? ` (+${fresh.length - 1} more)` : ''
+				try { new Notification(`${n.from_name || 'CRM'}${more}`, { body: n.quote || n.text || n.type, tag: 'pro-ntf' }) } catch (e) { /* blocked */ }
+			}
+		} catch (e) { /* the next poll tries again */ }
+	}
+	PRO.notifier = {
+		enabled: reactive({ on: store.get() }),
+		start() { if (started) return; started = true; setInterval(() => { if (!document.hidden) poll() }, 30000); poll() },
+		async set(on) {
+			if (on && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission() } catch (e) { /* ask again later */ } }
+			if (on && 'Notification' in window && Notification.permission === 'denied') CM.toast('Desktop alerts are blocked in this browser; you will still hear the sound', 'err')
+			store.set(on); this.enabled.on = on; primed = false; if (on) { beep(); poll() }
+		},
+	}
 
 	V.Notifications = {
 		props: { panel: Boolean },
@@ -25,7 +63,8 @@
 		setup() {
 			const rows = ref([]); const total = ref(0); const loading = ref(true); const error = ref(''); const more = ref(false)
 			const tab = ref('all'); const type = ref(''); const q = ref(''); const counts = ref({ all: 0, by_type: {} })
-			const menu = ref(''); const filt = ref(false)
+			const menu = ref(''); const filt = ref(false); const tabsEl = ref(null)
+			let dx = 0, sx = 0, dragging = false, moved = false
 			let timer
 			async function load(append) {
 				if (!append) loading.value = true; error.value = ''
@@ -66,17 +105,19 @@
 				return t.replace(/^[^:]{1,60}:\s*/, '').replace(/^:\s*/, '')
 			}
 			const noun = (n) => (n.reference_doctype === 'CRM Deal' ? 'Deal' : n.reference_doctype === 'CRM Lead' ? 'Lead' : 'Record')
-			const typeOpts = Object.keys(TYPE_ICON)
-			return { rows, total, loading, error, tab, type, q, groups, typeOpts, open, toggle, readAll, load, more, TYPE_ICON, TYPE_TONE, TABS, tabCount, action, noun, menu, filt, PRO, CM }
+			const typeOpts = []
+			const dragStart = (e) => { if (e.pointerType !== 'mouse') return; dragging = true; moved = false; sx = e.clientX; dx = tabsEl.value.scrollLeft }
+			const dragMove = (e) => { if (!dragging) return; const d = e.clientX - sx; if (Math.abs(d) > 4) { moved = true; tabsEl.value.classList.add('drag') } if (moved) tabsEl.value.scrollLeft = dx - d }
+			const dragEnd = () => { dragging = false; if (tabsEl.value) tabsEl.value.classList.remove('drag') }
+			const tabClick = (id) => { if (moved) { moved = false; return } tab.value = id }
+			return { tabsEl, dragStart, dragMove, dragEnd, tabClick, rows, total, loading, error, tab, type, q, groups, typeOpts, open, toggle, readAll, load, more, TYPE_ICON, TYPE_TONE, TABS, tabCount, notifier: PRO.notifier, action, noun, menu, filt, PRO, CM }
 		},
 		template: `
 		<div :class="panel ? 'ntf-in' : 'page'">
-			<div class="pg-head ntf-head"><div class="grow"><h1>Notifications <span v-if="PRO.shell.unread" class="ntf-count">{{ PRO.shell.unread }}</span></h1><p class="muted small">Stay updated with the latest activity in your CRM.</p></div><div class="actions"><Btn icon="check" :disabled="!PRO.shell.unread" @click="readAll">Mark all read</Btn><Btn v-if="panel" variant="ghost" icon="x" aria-label="Close notifications" title="Close" @click="$emit('close')" /></div></div>
-			<div class="chips ntf-tabs"><button v-for="t in TABS" :key="t.id" type="button" class="fchip" :class="{ on: tab === t.id }" @click="tab = t.id">{{ t.label }}<span v-if="t.id === 'all' || t.id === 'unread'" class="n">{{ tabCount(t) }}</span></button></div>
+			<div class="pg-head ntf-head"><div class="grow"><h1>Notifications <span v-if="PRO.shell.unread" class="ntf-count">{{ PRO.shell.unread }}</span></h1></div><div class="actions"><label class="ntf-sound" title="Play a sound and show a desktop alert when something new arrives"><Ico name="bell" size="sm" /><Switch :modelValue="notifier.enabled.on" label="Sound and desktop alerts" @update:modelValue="notifier.set($event)" /></label><Btn size="sm" icon="check" :disabled="!PRO.shell.unread" @click="readAll">Mark all read</Btn><Btn v-if="panel" variant="ghost" icon="x" aria-label="Close notifications" title="Close" @click="$emit('close')" /></div></div>
+			<div class="chips ntf-tabs" ref="tabsEl" @pointerdown="dragStart" @pointermove="dragMove" @pointerup="dragEnd" @pointerleave="dragEnd"><button v-for="t in TABS" :key="t.id" type="button" class="fchip" :class="{ on: tab === t.id }" @click="tabClick(t.id)">{{ t.label }}<span v-if="t.id === 'all' || t.id === 'unread'" class="n">{{ tabCount(t) }}</span></button></div>
 			<div class="row tools" style="gap:8px">
 				<div class="grow"><Inp v-model="q" icon="search" placeholder="Search notifications..." clearable aria-label="Search notifications" /></div>
-				<div class="ntf-pop"><Btn :variant="type ? 'primary' : 'default'" icon="filter" aria-label="Filter by type" title="Filter by type" @click.stop="filt = !filt; menu = ''" />
-					<div v-if="filt" class="ntf-menu" @click.stop><button type="button" :class="{ on: !type }" @click="type = ''; filt = false">All types</button><button v-for="t in typeOpts" :key="t" type="button" :class="{ on: type === t }" @click="type = t; filt = false"><Ico :name="TYPE_ICON[t]" size="sm" /> {{ t }}</button></div></div>
 			</div>
 			<div :class="panel ? 'ntf-body' : ''">
 			<div v-if="loading" class="card" style="padding:0"><div v-for="n in 6" :key="n" style="padding:16px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div>
