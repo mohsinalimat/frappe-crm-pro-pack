@@ -26,16 +26,16 @@
 			async function loadAcc() { try { acc.value = await call('get_access'); PRO.shell.waUnread = acc.value.unread } catch (e) { acc.value = { level: 'none', unread: 0 } } }
 			async function openChat(key, quiet) {
 				cur.value = key; if (!quiet) { chatLoading.value = true; chatErr.value = '' }
-				try { chat.value = await call('get_chat', { key }); await Promise.all([loadAcc(), solo.value ? null : loadList(true)]) } catch (e) { chatErr.value = e.message; if (!quiet) chat.value = null } finally { chatLoading.value = false }
+				try { chat.value = await call('get_chat', { key }); await Promise.all([loadAcc(), loadList(true)]) } catch (e) { chatErr.value = e.message; if (!quiet) chat.value = null } finally { chatLoading.value = false }
 			}
 			watch(() => [list.view], () => { list.page = 1; loadList() }); watch(() => list.q, () => { clearTimeout(tQ); tQ = setTimeout(() => { list.page = 1; loadList() }, 300) })
 			watch(() => CM.route.parts[1], (k) => { if (k && k !== cur.value) openChat(k) })
 			let poll = null
-			onMounted(async () => { await loadAcc(); if (acc.value.level !== 'none') { if (!solo.value) await loadList(); if (cur.value) openChat(cur.value) } else list.loading = false; poll = setInterval(() => { if (document.hidden || !acc.value || acc.value.level === 'none') return; loadAcc(); if (!solo.value) loadList(true); if (cur.value && chat.value && !busy.value) openChat(cur.value, true) }, 10000) })
+			onMounted(async () => { await loadAcc(); if (acc.value.level !== 'none') { await loadList(); if (cur.value) openChat(cur.value) } else list.loading = false; poll = setInterval(() => { if (document.hidden || !acc.value || acc.value.level === 'none') return; loadAcc(); loadList(true); if (cur.value && chat.value && !busy.value) openChat(cur.value, true) }, 10000) })
 			onBeforeUnmount(() => clearInterval(poll))
 			const busy = ref(false)
 			const solo = computed(() => !!CM.route.query.solo)
-			watch(() => chat.value && chat.value.chat.title, (t) => { if (solo.value && t) document.title = t + ' - WhatsApp Business' })
+			watch(() => solo.value, (v) => { if (v) document.title = 'WhatsApp Business' }, { immediate: true })
 			// the chat's own calls
 			const sendWa = async (p) => { await call('send', { key: cur.value, message: p.text, attach: p.attach, content_type: p.type, reply_to: p.replyTo }); await openChat(cur.value, true) }
 			const reactWa = async (m, emoji) => { await call('react', { key: cur.value, message: m.name, emoji }); await openChat(cur.value, true) }
