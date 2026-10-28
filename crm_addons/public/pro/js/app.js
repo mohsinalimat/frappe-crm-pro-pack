@@ -8,7 +8,7 @@
 
 	// existing pages, shown in a frame (their own left menus stay inside them)
 	const FRAMES = {
-		dashboard: 'meetings/dashboard.html', followups: 'meetings/followups.html', meetings: 'meetings/index.html', campaigns: 'campaigns/index.html',
+		dashboard: 'meetings/dashboard.html', followups: 'meetings/followups.html', meetings: 'meetings/index.html', campaigns: 'campaigns/index.html', templates: 'campaigns/index.html',
 		assignment: 'campaigns/assignment.html', bookings: 'demos/index.html', access: 'access/index.html', settings: 'setup/index.html',
 	}
 
@@ -24,7 +24,7 @@
 		if (c.follow_ups_enabled !== 0 && shown('followups')) rows.push({ key: 'followups', label: 'Follow-ups', icon: 'phone' })
 		if (shown('organizations')) rows.push({ key: 'organizations', label: 'Organizations', icon: 'building', native: true })
 		if (shown('meetings')) rows.push({ key: 'meetings', label: 'Meetings', icon: 'calendar' })
-		if (c.campaigns_enabled !== 0 && campaignAccess) rows.push({ key: 'campaigns', label: 'Campaigns', icon: 'send' })
+		if (c.campaigns_enabled !== 0 && campaignAccess) { rows.push({ key: 'campaigns', label: 'Campaigns', icon: 'send' }); if (['email_templates', 'whatsapp_templates'].some((k) => shown(k)) || !!Number(a.campaign_create)) rows.push({ key: 'templates', label: 'Templates', icon: 'file' }) }
 		if (c.can_assign) rows.push({ key: 'assignment', label: 'Assignment', icon: 'users' })
 		if (c.demos_enabled !== 0 && (a.demos !== 'none' || (a.demo_widgets || 'none') !== 'none' || Number(a.demo_report))) rows.push({ key: 'bookings', label: 'Bookings', icon: 'target' })
 		if (c.can_manage_access || (a.team && a.team !== 'none')) rows.push({ key: 'access', label: 'Team', icon: 'shield' })
@@ -37,7 +37,7 @@
 		setup(props) {
 			const theme = document.documentElement.getAttribute('data-theme') || 'light'
 			const first = props.tab
-			const src = computed(() => '/assets/crm_addons/' + FRAMES[props.page] + '?embed=1&inline=1&pro=1&theme=' + theme + (first ? '&tab=' + encodeURIComponent(first) : '') + '&v=' + encodeURIComponent(ver()))
+			const src = computed(() => '/assets/crm_addons/' + FRAMES[props.page] + '?embed=1&inline=1&pro=1&theme=' + theme + (first ? '&tab=' + encodeURIComponent(first) : '') + (props.page === 'templates' ? '&only=templates' : props.page === 'campaigns' ? '&only=campaigns' : '') + '&v=' + encodeURIComponent(ver()))
 			const el = ref(null)
 			// the pages draw a close / open-in-a-tab toolbar when they are a pop-up: not wanted here
 			function tidy() {

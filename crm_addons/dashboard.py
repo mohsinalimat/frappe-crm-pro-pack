@@ -588,6 +588,31 @@ def _count_optouts(start, end, who):
 
 
 @frappe.whitelist()
+def get_leads_overview(from_date=None, to_date=None):
+	"""The Leads view of the Sales Dashboard: new leads, and how many came from lead forms and from website bookings. Managers only (company-wide numbers)."""
+	frappe.only_for(NURTURE_ROLES)
+	from crm_addons.demos import leadforms
+	from crm_addons.team_access import access
+	from crm_addons.utils import is_manager
+
+	if not (is_manager() or access.scope_users("dashboard") is None):
+		frappe.throw(_("The Leads view of the Sales Dashboard is for managers."), frappe.PermissionError)
+	start, end = _nurture_period(from_date, to_date)
+	span = date_diff(end, start) + 1
+	now = leadforms.leads_overview(str(start), str(end))
+	was = leadforms.leads_overview(str(add_days(start, -span)), str(add_days(start, -1)))
+	days, by = [], {r["date"]: r for r in now["by_day"]}
+	d = start
+	while d <= end:
+		days.append(by.get(str(d)) or {"date": str(d), "forms": 0, "bookings": 0, "all": 0})
+		d = add_days(d, 1)
+	now["by_day"] = days
+	now["previous"] = {k: was[k] for k in ("leads", "from_forms", "duplicates", "blocked", "bookings", "booking_leads")}
+	now["from_date"], now["to_date"] = str(start), str(end)
+	return now
+
+
+@frappe.whitelist()
 def get_nurturing(from_date=None, to_date=None, user=None, top_limit=10):
 	"""Campaign analytics for the Lead Nurturing view of the Sales Dashboard.
 

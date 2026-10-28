@@ -6,6 +6,9 @@
 	var Vue = window.Vue
 	var UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid']
 	var FIRST = 'crm_lf_first_touch'
+	var EMBED = QS.get('embed') === '1'
+	function post(msg) { if (EMBED && window.parent !== window) safe(function () { window.parent.postMessage(Object.assign({ source: 'crm-lead-form' }, msg), '*') }) }
+	function b64urlDecode(x) { return safe(function () { var b = x.replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; return JSON.parse(decodeURIComponent(escape(atob(b)))) }, null) }
 
 	function safe(fn, fallback) { try { return fn() } catch (e) { return fallback } }
 
@@ -13,11 +16,14 @@
 	function attribution() {
 		var cur = {}
 		UTM_KEYS.forEach(function (k) { var v = QS.get(k); if (v) cur[k] = v.slice(0, 250) })
-		var first = safe(function () { return JSON.parse(localStorage.getItem(FIRST) || 'null') }, null)
+		// embedded on another website: the host page's script hands over the first visit (ft), the page address and where the visitor came from
+		var first = QS.get('ft') ? b64urlDecode(QS.get('ft')) : safe(function () { return JSON.parse(localStorage.getItem(FIRST) || 'null') }, null)
 		if (!first && Object.keys(cur).length) { first = cur; safe(function () { localStorage.setItem(FIRST, JSON.stringify(cur)) }) }
 		var utm = Object.assign({}, cur)
-		if (first) utm.first_touch = first
-		return { utm: utm, landing_url: (location.origin + location.pathname + location.search).slice(0, 500), referrer: (document.referrer || '').slice(0, 500) }
+		if (first && typeof first === 'object') utm.first_touch = first
+		var landing = QS.get('landing') || (EMBED ? '' : location.origin + location.pathname + location.search)
+		var referrer = QS.get('ref') != null ? QS.get('ref') : (document.referrer || '')
+		return { utm: utm, landing_url: String(landing).slice(0, 500), referrer: String(referrer).slice(0, 500) }
 	}
 
 	function stripHtml(s) { var d = document.createElement('div'); d.innerHTML = String(s || ''); return (d.textContent || '').trim() }
@@ -58,7 +64,9 @@
 		setup: function () {
 			var ref = Vue.ref, reactive = Vue.reactive
 			var state = ref('loading'), form = ref(null), error = ref(''), busy = ref(false), brand = ref({}), done = ref(false)
-			var answers = reactive({}), errors = reactive({}), hp = ref('')
+			var answers = reactive({}), errors = reactive({}), hp = ref(''), consent = ref(0)
+			function height() { Vue.nextTick(function () { post({ type: 'height', height: Math.ceil(document.documentElement.scrollHeight) }) }) }
+			if (EMBED) { window.addEventListener('resize', height); setInterval(height, 600) }
 			var attr = attribution()
 
 			function applyBrand(b) {
@@ -74,7 +82,7 @@
 			call('get_public_form', { slug: CFG.slug }).then(function (d) {
 				form.value = d; applyBrand(d.brand); document.title = d.brand.heading || d.title
 				d.fields.forEach(function (f) { answers[f.fieldname] = f.fieldtype === 'Check' ? 0 : '' })
-				state.value = 'ready'
+				state.value = 'ready'; consent.value = d.consent && d.consent.default ? 1 : 0; post({ type: 'ready' }); height()
 			}).catch(function (e) { state.value = e.code === 'not_found' ? 'missing' : 'broken'; error.value = friendly(e) })
 
 			function kind(f) {
@@ -101,7 +109,7 @@
 				error.value = ''
 				if (!check()) return
 				busy.value = true
-				var payload = { slug: CFG.slug, answers: Object.assign({}, answers), hp: hp.value, form_token: form.value.form_token, utm: attr.utm, landing_url: attr.landing_url, referrer: attr.referrer }
+				var payload = { slug: CFG.slug, answers: Object.assign({}, answers), hp: hp.value, consent: consent.value, form_token: form.value.form_token, utm: attr.utm, landing_url: attr.landing_url, referrer: attr.referrer }
 				var attempt = function (again) {
 					return call('submit', payload, true).catch(function (e) {
 						// a very quick human is asked to wait a moment, invisibly (the server refuses a form sent within a few seconds)
@@ -112,10 +120,11 @@
 				attempt(true).then(function (r) {
 					done.value = true; if (r && r.brand) applyBrand(r.brand)
 					var url = brand.value.redirect_url
-					if (url && /^https:\/\//i.test(url)) setTimeout(function () { location.href = url }, 2500)
+					post({ type: 'submitted' })
+					if (url && /^https:\/\//i.test(url)) setTimeout(function () { if (EMBED) post({ type: 'redirect', url: url }); else location.href = url }, 2500)
 				}).catch(function (e) { error.value = friendly(e) }).finally(function () { busy.value = false })
 			}
-			return { state: state, form: form, error: error, busy: busy, brand: brand, done: done, answers: answers, errors: errors, hp: hp, kind: kind, submit: submit }
+			return { state: state, form: form, error: error, busy: busy, brand: brand, done: done, answers: answers, errors: errors, hp: hp, consent: consent, kind: kind, submit: submit }
 		},
 		template: '\
 <div v-if="state === \'loading\'" class="lf-card"><div class="lf-head"><span class="sk" style="height:28px;width:60%"></span></div><div class="lf-body"><span class="sk" style="height:42px;margin-bottom:16px"></span><span class="sk" style="height:42px;margin-bottom:16px"></span><span class="sk" style="height:42px"></span></div></div>\
@@ -134,6 +143,7 @@
 				<input v-else :id="\'f_\' + f.fieldname" v-bind="kind(f)" v-model="answers[f.fieldname]" :placeholder="f.placeholder" :aria-invalid="!!errors[f.fieldname]">\
 				<p v-if="f.help" class="lf-help">{{ f.help }}</p><p v-if="errors[f.fieldname]" class="bk-err">{{ errors[f.fieldname] }}</p>\
 			</div>\
+			<label v-if="form.consent && form.consent.text" class="bk-check"><input type="checkbox" v-model="consent" :true-value="1" :false-value="0"><span class="bk-box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="bk-consent">{{ form.consent.text }}</span></label>\
 			<div class="bk-hp" aria-hidden="true"><label>Leave this empty<input type="text" tabindex="-1" autocomplete="off" v-model="hp"></label></div>\
 			<div class="bk-actions"><button type="submit" class="bk-btn primary" :disabled="busy">{{ busy ? \'Sending…\' : brand.button_text }}</button></div>\
 		</form></div>\

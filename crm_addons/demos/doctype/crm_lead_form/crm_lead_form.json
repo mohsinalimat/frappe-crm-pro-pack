@@ -26,7 +26,12 @@
   "lead_status",
   "assignment_mode",
   "assign_to",
-  "notify_owner"
+  "notify_owner",
+  "allowed_origins",
+  "consent_text",
+  "consent_default",
+  "max_per_ip_per_hour",
+  "messages_json"
  ],
  "fields": [
   {
@@ -159,6 +164,33 @@
    "fieldtype": "Check",
    "label": "Notify Owner",
    "default": "1"
+  },
+  {
+   "fieldname": "allowed_origins",
+   "fieldtype": "Small Text",
+   "label": "Allowed websites"
+  },
+  {
+   "fieldname": "consent_text",
+   "fieldtype": "Small Text",
+   "label": "WhatsApp consent text"
+  },
+  {
+   "fieldname": "consent_default",
+   "fieldtype": "Check",
+   "label": "Consent Default"
+  },
+  {
+   "fieldname": "max_per_ip_per_hour",
+   "fieldtype": "Int",
+   "label": "Forms per IP address per hour",
+   "default": "20"
+  },
+  {
+   "fieldname": "messages_json",
+   "fieldtype": "Code",
+   "label": "Messages",
+   "options": "JSON"
   }
  ],
  "index_web_pages_for_search": 0,

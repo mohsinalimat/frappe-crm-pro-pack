@@ -125,8 +125,49 @@ class TestLeadForms(FrappeTestCase):
 		self.submit()
 		self.assertEqual(frappe.db.get_value("CRM Lead", {"email": "asha.rao.lf@example.org"}, "lead_owner"), "Administrator")
 
-	def test_stats_count_what_came_in(self):
+	def test_the_report_counts_what_came_in(self):
 		self.submit()
 		self.submit()
-		stats = leadforms.form_stats(30, self.slug)
-		self.assertEqual((stats["totals"]["Created"], stats["totals"]["Duplicate"]), (1, 1))
+		r = leadforms.report(None, None, self.slug)
+		self.assertEqual((r["totals"]["created"], r["totals"]["duplicate"]), (1, 1))
+		self.assertEqual(r["by_day"][0]["created"], 1)
+		self.assertEqual(r["by_form"][0]["label"], "Test form")
+		o = leadforms.leads_overview(None, None)
+		self.assertGreaterEqual(o["from_forms"], 1)
+
+	def test_messages_are_queued_for_a_new_lead_only_and_whatsapp_needs_consent(self):
+		tpl = frappe.get_all("CRM Campaign Email Template", pluck="name", limit=1)
+		if not tpl:
+			self.skipTest("needs an email template")
+		self.form.messages_json = json.dumps([
+			{"after_minutes": 0, "send_email": 1, "email_template": tpl[0]},
+			{"after_minutes": 1440, "send_email": 1, "email_template": tpl[0], "send_whatsapp": 1, "wa_template": "x"},
+		])
+		self.form.save(ignore_permissions=True)
+		self.submit()
+		rows = frappe.get_all("CRM Lead Form Message", filters={"form": self.slug}, fields=["channel", "status", "due_at"], order_by="due_at asc, channel asc")
+		self.assertEqual([(r.channel, r.status) for r in rows], [("Email", "Pending"), ("Email", "Pending"), ("WhatsApp", "Skipped")])
+		self.assertGreater(rows[1].due_at, rows[0].due_at)
+		self.submit()  # already a lead: nothing more is written
+		self.assertEqual(frappe.db.count("CRM Lead Form Message", {"form": self.slug}), 3)
+		for m in frappe.get_all("CRM Lead Form Message", filters={"form": self.slug}, pluck="name"):
+			frappe.delete_doc("CRM Lead Form Message", m, force=True, ignore_permissions=True)
+
+	def test_a_channel_that_is_on_needs_a_template(self):
+		from crm_addons.demos import leadform_messages
+
+		with self.assertRaises(frappe.ValidationError):
+			leadform_messages.clean_messages([{"after_minutes": 0, "send_email": 1}])
+		self.assertEqual(leadform_messages.clean_messages([{"after_minutes": 99999999, "send_email": 1, "email_template": "t"}])[0]["after_minutes"], 30 * 24 * 60)
+
+	def test_allowed_websites_must_be_origins(self):
+		from crm_addons.demos import framing
+
+		self.form.allowed_origins = "https://www.example.com\nnot a url"
+		with self.assertRaises(frappe.ValidationError):
+			self.form.save(ignore_permissions=True)
+		self.form.reload()
+		self.form.allowed_origins = "https://www.example.com/"
+		self.form.save(ignore_permissions=True)
+		self.assertEqual(framing.form_origins("/lead-form/" + self.slug), ["https://www.example.com"])
+		self.assertEqual(framing.form_origins("/lead-form/no-such-form"), [])

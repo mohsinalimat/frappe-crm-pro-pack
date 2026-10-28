@@ -354,7 +354,21 @@
 			const config = ref(null)
 			const nurturingOn = computed(() => !!(config.value && config.value.campaigns_enabled && !(config.value.access && config.value.access.dashboard_campaigns_tab === 0)))
 			const deals = computed(() => !config.value || config.value.deals_enabled !== 0) // off when the Deals menu is hidden in the settings
-			const view = ref(location.hash === '#nurturing' ? 'nurturing' : 'sales')
+			const hashView = () => (location.hash === '#nurturing' ? 'nurturing' : location.hash === '#leads' ? 'leads' : 'sales')
+			const view = ref(hashView())
+			const leads = ref(null); const leadsLoading = ref(false); const leadsError = ref('')
+			const leadsOn = computed(() => !!(scope.value && scope.value.is_manager))
+			async function loadLeads(quiet) {
+				const [a, b] = rangeOf(range.value)
+				if (!quiet) leadsLoading.value = true
+				try { leads.value = await call('crm_addons.dashboard.get_leads_overview', { from_date: ymd(a), to_date: ymd(b) }); leadsError.value = ''; updatedAt.value = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) } catch (e) { leadsError.value = e.message } finally { leadsLoading.value = false }
+			}
+			const leadKpis = computed(() => {
+				const x = leads.value; if (!x) return []; const p = x.previous
+				return [['New leads', x.leads, p.leads, 'blue', 'created in this period'], ['From lead forms', x.from_forms, p.from_forms, 'green', 'forms on pages and websites'], ['Bookings', x.bookings, p.bookings, 'blue', x.booking_leads + ' leads behind them'], ['Already leads', x.duplicates, p.duplicates, 'purple', 'filled a form again'], ['Blocked', x.blocked, p.blocked, 'amber', 'spam or invalid']].map((r) => ({ label: r[0], value: num(r[1]), delta: nDelta(r[1], r[2]), sub: r[4], tone: r[3] }))
+			})
+			const leadMax = computed(() => (leads.value ? Math.max(1, ...leads.value.by_day.map((d) => d.all)) : 1))
+			const leadSrcMax = computed(() => (leads.value ? Math.max(1, ...leads.value.by_source.map((r) => r.leads)) : 1))
 			const nur = ref(null)
 			const nurLoading = ref(false)
 			const nurError = ref('')
@@ -386,17 +400,19 @@
 			function setView(v) {
 				if (v === 'nurturing' && !nurturingOn.value) v = 'sales'
 				view.value = v
-				try { history.replaceState(null, '', v === 'nurturing' ? '#nurturing' : location.pathname + location.search) } catch (e) { /* ignore */ }
+				try { history.replaceState(null, '', v === 'nurturing' ? '#nurturing' : v === 'leads' ? '#leads' : location.pathname + location.search) } catch (e) { /* ignore */ }
+				if (v === 'leads') loadLeads()
 				const [a, b] = rangeOf(range.value)
 				if (v === 'nurturing' && (!nur.value || nurKey !== [ymd(a), ymd(b), user.value].join('|'))) loadNurturing()
 			}
-			const refresh = (quiet) => (view.value === 'nurturing' ? loadNurturing(quiet) : load(quiet))
-			watch([range, user], () => { store.set(RANGE_KEY, JSON.stringify(range.value)); load(); if (view.value === 'nurturing') loadNurturing() })
+			const refresh = (quiet) => (view.value === 'nurturing' ? loadNurturing(quiet) : view.value === 'leads' ? loadLeads(quiet) : load(quiet))
+			watch([range, user], () => { store.set(RANGE_KEY, JSON.stringify(range.value)); load(); if (view.value === 'nurturing') loadNurturing(); if (view.value === 'leads') loadLeads() })
 
 			let timer
-			const onHash = () => setView(location.hash === '#nurturing' ? 'nurturing' : 'sales')
+			const onHash = () => setView(hashView())
 			onMounted(() => {
 				load()
+				if (view.value === 'leads') loadLeads()
 				loadLayouts()
 				call('crm_addons.api.get_client_config').then((c) => {
 					config.value = c
@@ -733,7 +749,7 @@
 				editing, dragOver, lay, titleOf, shownWidgets, shownCards, toggleKpi, toggleWidget, moveKpi, moveWidget, setWidth, isFirst, isLast, dragStart, dropOn, resetLayout, WIDTHS, deals,
 				EMBED, openFull, data, loading, fatal, range, user, userOptions, subtitle, updatedAt, exportItems, exportFile, metric, split, splitOptions, scope, isManager, everyone, cards,
 				dayLabels, seriesData, chartTotal, outcomeItems, outcomeTotal, pct, funnel, hourLabels, hourSeries, bestHour, attemptLabels, attemptSeries, statusRows, statusMax, statusTotal, assignedRows, assignedMax, bdOf, bdMax, sourceRows, sourceMax,
-				teamLabel, bandItems, meetingItems, meetingTotal, view, setView, nurturingOn, nur, nurLoading, nurError, refresh, funnelChannel, nurCards, nurDayLabels, nurSeries, nurTotalSent, nurFunnel, chanRows, chanMax, statusDonut, nurturedItems, campaignUrl, pct1, nurNoCampaigns, nurQuiet, nurRateTone, NUR, loadNurturing, showTeam, people, maxCalls, columns, sort, sortBy, rateTone, mixRows, mixMax, load, open, close, fmtWhen, outcomeTone, num, OUTCOME_COLORS,
+				teamLabel, bandItems, meetingItems, meetingTotal, view, setView, leads, leadsLoading, leadsError, leadsOn, leadKpis, leadMax, leadSrcMax, nurturingOn, nur, nurLoading, nurError, refresh, funnelChannel, nurCards, nurDayLabels, nurSeries, nurTotalSent, nurFunnel, chanRows, chanMax, statusDonut, nurturedItems, campaignUrl, pct1, nurNoCampaigns, nurQuiet, nurRateTone, NUR, loadNurturing, showTeam, people, maxCalls, columns, sort, sortBy, rateTone, mixRows, mixMax, load, open, close, fmtWhen, outcomeTone, num, OUTCOME_COLORS,
 			}
 		},
 		template: `
@@ -741,9 +757,10 @@
 	<div class="progress" v-if="loading || nurLoading"></div>
 	<header class="dash-bar">
 		<div class="dash-brand"><span class="brand-ico"><ico name="chart" size="lg" /></span><div><h1>Sales Dashboard</h1></div></div>
-		<div class="seg dash-tabs" role="tablist" aria-label="Dashboard" v-if="nurturingOn">
+		<div class="seg dash-tabs" role="tablist" aria-label="Dashboard" v-if="nurturingOn || leadsOn">
 			<button role="tab" :aria-selected="view === 'sales'" :class="{ on: view === 'sales' }" @click="setView('sales')">Sales</button>
-			<button role="tab" :aria-selected="view === 'nurturing'" :class="{ on: view === 'nurturing' }" @click="setView('nurturing')">Campaigns</button>
+			<button role="tab" v-if="leadsOn" :aria-selected="view === 'leads'" :class="{ on: view === 'leads' }" @click="setView('leads')">Leads</button>
+			<button role="tab" v-if="nurturingOn" :aria-selected="view === 'nurturing'" :class="{ on: view === 'nurturing' }" @click="setView('nurturing')">Campaigns</button>
 		</div>
 		<div class="dash-controls">
 			<range-picker v-model="range" />
@@ -773,7 +790,25 @@
 	<div class="banner error" v-if="view === 'sales' && fatal" style="margin:16px 24px 0">{{ fatal }}</div>
 	<div class="banner error" v-if="view === 'nurturing' && nurError" style="margin:16px 24px 0">{{ nurError }}</div>
 
-	<main class="dash-body" v-if="view === 'nurturing'">
+	<div class="banner error" v-if="view === 'leads' && leadsError" style="margin:16px 24px 0">{{ leadsError }}</div>
+	<main class="dash-body" v-if="view === 'leads'">
+		<template v-if="leads">
+			<section class="kpis"><div class="kpi" v-for="c in leadKpis" :key="c.label" :class="c.tone"><div class="kpi-label">{{ c.label }}</div><div class="kpi-value">{{ c.value }}<span class="delta" v-if="c.delta" :class="c.delta.up ? 'up' : 'down'">{{ c.delta.up ? '▲' : '▼' }} {{ c.delta.text }}</span></div><div class="kpi-sub">{{ c.sub }}</div></div></section>
+			<div class="grid two-one">
+				<section class="panel"><header><h3>Leads per day</h3><span class="sub">All new leads, wherever they came from</span></header>
+					<div class="lbars"><div class="lbar" v-for="d in leads.by_day" :key="d.date" :title="d.date + ': ' + d.all + ' leads (' + d.forms + ' from forms, ' + d.bookings + ' bookings)'"><i :style="{ height: (d.all / leadMax) * 100 + '%' }"></i></div></div>
+					<div class="sub" style="margin-top:6px">{{ leads.from_date }} to {{ leads.to_date }}</div></section>
+				<section class="panel"><header><h3>Where leads come from</h3><span class="sub">By lead source</span></header>
+					<p class="sub" v-if="!leads.by_source.length">No leads in this period.</p>
+					<div class="lsrc" v-for="r in leads.by_source" :key="r.label"><span class="ellipsis">{{ r.label }}</span><div class="lsrc-b"><i :style="{ width: (r.leads / leadSrcMax) * 100 + '%' }"></i></div><b>{{ num(r.leads) }}</b></div></section>
+			</div>
+			<section class="panel"><header><h3>Lead forms</h3><span class="sub">Leads created and people who were already leads</span><span class="spacer"></span><a class="btn small" href="/assets/crm_addons/demos/index.html#/report/forms" target="_blank" rel="noopener">Open lead form report</a></header>
+				<p class="sub" v-if="!leads.by_form.length">No lead form was filled in over these dates.</p>
+				<div class="table-wrap" v-else><table class="team plain"><thead><tr><th>Form</th><th class="num">New leads</th><th class="num">Already leads</th></tr></thead><tbody><tr v-for="r in leads.by_form" :key="r.label"><td>{{ r.label }}</td><td class="num">{{ num(r.created) }}</td><td class="num">{{ num(r.duplicate) }}</td></tr></tbody></table></div></section>
+		</template>
+		<section class="panel skel tall" v-else-if="leadsLoading"></section>
+	</main>
+	<main class="dash-body" v-else-if="view === 'nurturing'">
 		<template v-if="nur">
 			<section class="panel nur-empty" v-if="nurNoCampaigns">
 				<span class="big"><ico name="send" /></span>

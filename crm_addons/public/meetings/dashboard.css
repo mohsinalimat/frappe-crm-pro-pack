@@ -217,3 +217,11 @@ html.inline .dash-bar { min-height: 56px; padding: 8px 24px; }
 .pick-none { padding: 10px; color: var(--text-faint); font-size: 13px; }
 
 html.inline .dash-brand .brand-ico { display: none; }
+
+.lbars { display: flex; align-items: flex-end; gap: 2px; height: 160px; }
+.lbar { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 2px; }
+.lbar i { display: block; width: 100%; min-height: 2px; background: var(--accent, #2563eb); border-radius: 2px 2px 0 0; }
+.lsrc { display: grid; grid-template-columns: minmax(80px, 1fr) 2fr 36px; gap: 10px; align-items: center; padding: 5px 0; font-size: 13px; }
+.lsrc-b { height: 8px; background: var(--border, #e5e7eb); border-radius: 4px; overflow: hidden; }
+.lsrc-b i { display: block; height: 100%; background: var(--accent, #2563eb); }
+.lsrc b { text-align: right; }

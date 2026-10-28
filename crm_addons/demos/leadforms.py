@@ -13,7 +13,8 @@ import frappe
 from frappe import _
 from frappe.utils import add_to_date, cint, cstr, escape_html, flt, get_url, now_datetime
 
-from crm_addons.demos import booking, common, spam
+from crm_addons.demos import booking, common, leadform_messages, spam
+from crm_addons.campaigns.common import date_range
 from crm_addons.demos.common import LEAD, fail
 from crm_addons.team_access import access
 from crm_addons.utils import get_settings
@@ -253,7 +254,7 @@ def _labels(form, answers):
 	return rows
 
 
-def create_lead(form, answers, utm, first_touch):
+def create_lead(form, answers, utm, first_touch, consent=0):
 	meta = _meta()
 	values = {"doctype": LEAD, **answers}
 	if form.lead_source:
@@ -263,6 +264,8 @@ def create_lead(form, answers, utm, first_touch):
 	for column, key in (("crm_demo_first_utm_source", "utm_source"), ("crm_demo_first_utm_medium", "utm_medium"), ("crm_demo_first_utm_campaign", "utm_campaign")):
 		if meta.has_field(column) and first_touch.get(key):
 			values[column] = first_touch[key]
+	if consent and meta.has_field("crm_wa_opt_in"):
+		values["crm_wa_opt_in"] = 1
 	mode = form.assignment_mode or ASSIGNMENTS[0]
 	if mode != ASSIGNMENTS[0]:
 		frappe.flags.in_assignment = True  # the assignment rules are skipped: this form says who gets the lead
@@ -359,6 +362,13 @@ def _form_by_slug(slug):
 	return frappe.get_cached_doc(FORM, slug)
 
 
+def _check_ip_limit(form):
+	limit = cint(form.max_per_ip_per_hour)
+	ip = spam.ip_hash(getattr(frappe.local, "request_ip", None))
+	if limit > 0 and ip and frappe.db.count(ENTRY, {"form": form.name, "ip_hash": ip, "creation": [">=", add_to_date(now_datetime(), hours=-1)]}) >= limit:
+		fail("rate_limited", _("Too many forms from your network. Please try again later."))
+
+
 def _brand(form):
 	return {
 		"name": form.brand_name or form.title, "logo_url": form.logo or "", "accent": form.accent_color or "", "theme": (form.theme or "Auto").lower(),
@@ -384,11 +394,11 @@ def get_public_form(slug):
 	form = _form_by_slug(slug)
 	meta = _meta()
 	fields = [_spec(meta.get_field(c["fieldname"]), c) for c in load_fields(form) if meta.get_field(c["fieldname"])]
-	return {"slug": form.name, "title": form.title, "brand": _brand(form), "fields": fields, "form_token": spam.make_form_token(TOKEN_NS + form.name)}
+	return {"slug": form.name, "title": form.title, "brand": _brand(form), "fields": fields, "consent": {"text": form.consent_text or "", "default": 1 if cint(form.consent_default) else 0}, "form_token": spam.make_form_token(TOKEN_NS + form.name)}
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
-def submit(slug, answers=None, utm=None, landing_url=None, referrer=None, form_token=None, hp=None):
+def submit(slug, answers=None, utm=None, landing_url=None, referrer=None, form_token=None, hp=None, consent=0):
 	spam.throttle("lf_submit", 20, 3600)
 	form = _form_by_slug(slug)
 	utm_now, first = booking._utm_of(_json(utm))
@@ -398,10 +408,9 @@ def submit(slug, answers=None, utm=None, landing_url=None, referrer=None, form_t
 		log_entry(form.name, "Blocked", reason="Hidden field filled", utm=utm_now, first_touch=first, landing_url=landing_url, referrer=referrer)
 		return ok
 	spam.check_form_token(TOKEN_NS + form.name, form_token)
-	try:
-		values = clean_answers(form, _json(answers))
-	except frappe.ValidationError:
-		raise
+	_check_ip_limit(form)
+	values = clean_answers(form, _json(answers))
+	consent = 1 if cint(consent) and form.consent_text else 0
 	lead, how = find_duplicate(values.get("email"), values.get("mobile_no"))
 	if lead:
 		comment = note_duplicate(form, lead, how, values)
@@ -409,14 +418,18 @@ def submit(slug, answers=None, utm=None, landing_url=None, referrer=None, form_t
 		return ok
 	frappe.db.savepoint("lead_form")
 	try:
-		lead = create_lead(form, values, utm_now, first)
+		lead = create_lead(form, values, utm_now, first, consent)
 	except Exception:
 		frappe.db.rollback(save_point="lead_form")
 		log_entry(form.name, "Failed", values, reason=(frappe.get_traceback().strip().splitlines() or [""])[-1], utm=utm_now, first_touch=first, landing_url=landing_url, referrer=referrer)
 		frappe.db.commit()
 		frappe.log_error(title="Lead form: a lead could not be created", message=frappe.get_traceback())
 		fail("create_failed", _("We could not save your details. Please try again in a moment."))
-	log_entry(form.name, "Created", values, lead=lead, utm=utm_now, first_touch=first, landing_url=landing_url, referrer=referrer)
+	entry = log_entry(form.name, "Created", values, lead=lead, utm=utm_now, first_touch=first, landing_url=landing_url, referrer=referrer)
+	try:
+		leadform_messages.queue(form, entry, lead, consent)
+	except Exception:  # a welcome message must never lose the lead
+		frappe.log_error(title="Lead form: could not queue the messages", message=frappe.get_traceback())
 	return ok
 
 
@@ -444,11 +457,27 @@ def _counts(form=None, since=None):
 @frappe.whitelist()
 def list_forms():
 	_manage()
-	since = add_to_date(now_datetime(), days=-30)
 	out = []
 	for f in frappe.get_all(FORM, fields=["name", "title", "slug", "enabled", "modified", "lead_source", "assignment_mode"], order_by="modified desc", limit_page_length=200):
-		out.append({**f, "url": public_url(f.slug), "total": _counts(f.name), "last30": _counts(f.name, since)})
+		doc = frappe.get_doc(FORM, f.name)
+		total = _counts(f.name)
+		out.append({**f, "url": public_url(f.slug), "total": total, "entries": sum(total.values()), "field_count": len(load_fields(doc)), "message_count": len(leadform_messages.load_rules(doc))})
 	return out
+
+
+@frappe.whitelist()
+def duplicate_form(name):
+	_manage("manage")
+	data = get_form_admin(name)["doc"]
+	for key in ("name", "creation", "modified", "modified_by", "owner", "docstatus", "idx"):
+		data.pop(key, None)
+	base = (data.get("slug") or "form")[:50] + "-copy"
+	slug, n = base, 1
+	while frappe.db.exists(FORM, slug):
+		n += 1
+		slug = f"{base}-{n}"
+	data.update({"slug": slug, "title": (data.get("title") or "Form") + " (copy)", "enabled": 0})
+	return save_form(data)
 
 
 @frappe.whitelist()
@@ -459,14 +488,16 @@ def get_form_admin(name):
 	doc = frappe.get_doc(FORM, name)
 	data = doc.as_dict(convert_dates_to_str=True)
 	data["fields_list"] = load_fields(doc)
+	data["messages_list"] = leadform_messages.load_rules(doc)
 	data.pop("fields_json", None)
+	data.pop("messages_json", None)
 	return {"doc": data, "url": public_url(doc.name), "counts": _counts(name)}
 
 
 @frappe.whitelist()
 def new_form_defaults():
 	_manage("manage")
-	return {"fields_list": default_fields(), "catalog": catalog(), **choices()}
+	return {"fields_list": default_fields(), "messages_list": [], "catalog": catalog(), **choices()}
 
 
 @frappe.whitelist()
@@ -489,10 +520,11 @@ def save_form(doc):
 	_manage("manage")
 	data = frappe.parse_json(doc) if isinstance(doc, str) else doc
 	data = dict(data or {})
-	for key in ("creation", "modified", "modified_by", "owner", "docstatus", "idx", "fields_json"):
+	for key in ("creation", "modified", "modified_by", "owner", "docstatus", "idx", "fields_json", "messages_json"):
 		data.pop(key, None)
 	rows = data.pop("fields_list", None)
 	data["fields_json"] = dump_fields(clean_fields(rows))
+	data["messages_json"] = json.dumps(leadform_messages.clean_messages(data.pop("messages_list", [])))
 	name = data.get("name")
 	if name and frappe.db.exists(FORM, name):
 		target = frappe.get_doc(FORM, name)
@@ -522,10 +554,13 @@ def list_entries(form=None, result=None, search=None, from_date=None, to_date=No
 		filters["form"] = form
 	if result in ("Created", "Duplicate", "Blocked", "Failed"):
 		filters["result"] = result
-	if from_date:
-		filters["creation"] = [">=", from_date]
-	if to_date:
-		filters["creation"] = ["between", [from_date or "2000-01-01", f"{to_date} 23:59:59"]]
+	start, end = date_range(from_date, to_date)
+	if start and end:
+		filters["creation"] = ["between", [start, add_to_date(end, seconds=-1)]]
+	elif start:
+		filters["creation"] = [">=", start]
+	elif end:
+		filters["creation"] = ["<", end]
 	or_filters = None
 	txt = cstr(search).strip()
 	if txt:
@@ -542,29 +577,82 @@ def list_entries(form=None, result=None, search=None, from_date=None, to_date=No
 	return {"rows": rows, "total": total, "page": cint(page), "page_size": size}
 
 
-@frappe.whitelist()
-def form_stats(days=30, form=None):
-	"""How many leads came: totals by result, by day and by campaign source."""
-	_manage()
-	days = max(1, min(cint(days) or 30, 365))
-	since = add_to_date(now_datetime(), days=-days)
-	flt_ = {"creation": [">=", since]}
+def _count_by(column, where, values, none):
+	rows = frappe.db.sql(
+		f"""select coalesce(nullif({column}, ''), %(none)s) as label, sum(result = 'Created') as created, sum(result = 'Duplicate') as duplicate
+		from `tab{ENTRY}` e where {where} group by label order by created desc, duplicate desc, label limit 100""",
+		{**values, "none": none}, as_dict=True,
+	)
+	return [{"label": r.label, "created": int(r.created or 0), "duplicate": int(r.duplicate or 0)} for r in rows]
+
+
+def _where(from_date, to_date, form):
+	start, end = date_range(from_date, to_date)
+	parts, values = ["1 = 1"], {}
+	if start:
+		parts.append("e.creation >= %(start)s")
+		values["start"] = start
+	if end:
+		parts.append("e.creation < %(end)s")
+		values["end"] = end
 	if form:
-		flt_["form"] = form
-	rows = frappe.get_all(ENTRY, filters=flt_, fields=["result", "utm_source", "creation", "form"], limit_page_length=100000)
-	by_day, by_source, by_form = {}, {}, {}
-	for r in rows:
-		day = str(r.creation)[:10]
-		d = by_day.setdefault(day, {"Created": 0, "Duplicate": 0})
-		if r.result in d:
-			d[r.result] += 1
-		if r.result == "Created":
-			by_source[r.utm_source or ""] = by_source.get(r.utm_source or "", 0) + 1
-			by_form[r.form] = by_form.get(r.form, 0) + 1
-	titles = {r.name: r.title for r in frappe.get_all(FORM, fields=["name", "title"], limit_page_length=300)}
+		parts.append("e.form = %(form)s")
+		values["form"] = form
+	return " and ".join(parts), values
+
+
+@frappe.whitelist()
+def report(from_date=None, to_date=None, form=None):
+	"""The Lead form report: what came in over the dates, by form, by day and by where it came from."""
+	_manage()
+	where, values = _where(from_date, to_date, form)
+	t = frappe.db.sql(
+		f"""select count(*) as submissions, sum(result = 'Created') as created, sum(result = 'Duplicate') as duplicate, sum(result = 'Blocked') as blocked,
+		sum(result = 'Failed') as failed, sum(result = 'Duplicate' and applied = 1) as applied from `tab{ENTRY}` e where {where}""", values, as_dict=True)[0]
+	by_day = frappe.db.sql(
+		f"""select date(e.creation) as date, sum(result = 'Created') as created, sum(result = 'Duplicate') as duplicate, sum(result = 'Blocked') as blocked
+		from `tab{ENTRY}` e where {where} group by date(e.creation) order by date(e.creation)""", values, as_dict=True)
+	titles = {r.name: r.title for r in frappe.get_all(FORM, fields=["name", "title"], limit_page_length=500)}
+	by_form = _count_by("e.form", where, values, "(none)")
+	for r in by_form:
+		r["label"] = titles.get(r["label"], r["label"])
 	return {
-		"totals": _counts(form, since), "days": days,
-		"by_day": [{"day": k, **v} for k, v in sorted(by_day.items())],
-		"by_source": sorted(({"source": k or "Direct / none", "leads": v} for k, v in by_source.items()), key=lambda x: -x["leads"]),
-		"by_form": sorted(({"form": titles.get(k, k), "leads": v} for k, v in by_form.items()), key=lambda x: -x["leads"]),
+		"totals": {k: int(t[k] or 0) for k in ("submissions", "created", "duplicate", "blocked", "failed", "applied")},
+		"by_day": [{"date": str(r.date), "created": int(r.created or 0), "duplicate": int(r.duplicate or 0), "blocked": int(r.blocked or 0)} for r in by_day],
+		"by_source": _count_by("e.utm_source", where, values, "(direct)"), "by_medium": _count_by("e.utm_medium", where, values, "(none)"),
+		"by_campaign": _count_by("e.utm_campaign", where, values, "(none)"), "by_form": by_form,
+	}
+
+
+def leads_overview(from_date=None, to_date=None):
+	"""For the Sales dashboard: where leads came from in the period, from lead forms and from website bookings (no permission check: the caller has done it)."""
+	start, end = date_range(from_date, to_date)
+	where, values = ["1 = 1"], {}
+	if start:
+		where.append("creation >= %(start)s")
+		values["start"] = start
+	if end:
+		where.append("creation < %(end)s")
+		values["end"] = end
+	w = " and ".join(where)
+	forms = frappe.db.sql(f"select sum(result = 'Created') as created, sum(result = 'Duplicate') as duplicate, sum(result = 'Blocked') as blocked from `tab{ENTRY}` where {w}", values, as_dict=True)[0]
+	bookings = frappe.db.sql(f"select count(*) as n, count(distinct lead) as leads from `tabCRM Demo Booking` where {w}", values, as_dict=True)[0]
+	total = frappe.db.sql(f"select count(*) from `tab{LEAD}` where {w}", values)[0][0]
+	by_day = {}
+	for r in frappe.db.sql(f"select date(creation) as d, sum(result = 'Created') as n from `tab{ENTRY}` where {w} group by date(creation)", values, as_dict=True):
+		by_day.setdefault(str(r.d), {"date": str(r.d), "forms": 0, "bookings": 0, "all": 0})["forms"] = int(r.n or 0)
+	for r in frappe.db.sql(f"select date(creation) as d, count(*) as n from `tabCRM Demo Booking` where {w} group by date(creation)", values, as_dict=True):
+		by_day.setdefault(str(r.d), {"date": str(r.d), "forms": 0, "bookings": 0, "all": 0})["bookings"] = int(r.n or 0)
+	for r in frappe.db.sql(f"select date(creation) as d, count(*) as n from `tab{LEAD}` where {w} group by date(creation)", values, as_dict=True):
+		by_day.setdefault(str(r.d), {"date": str(r.d), "forms": 0, "bookings": 0, "all": 0})["all"] = int(r.n or 0)
+	by_source = frappe.db.sql(
+		f"select coalesce(nullif(source, ''), '(none)') as label, count(*) as n from `tab{LEAD}` where {w} group by label order by n desc limit 10", values, as_dict=True)
+	by_form = frappe.db.sql(
+		f"select f.title as label, sum(e.result = 'Created') as created, sum(e.result = 'Duplicate') as duplicate from `tab{ENTRY}` e join `tab{FORM}` f on f.name = e.form where {w.replace('creation', 'e.creation')} group by f.title order by created desc limit 10", values, as_dict=True)
+	return {
+		"leads": int(total or 0), "from_forms": int(forms.created or 0), "duplicates": int(forms.duplicate or 0), "blocked": int(forms.blocked or 0),
+		"bookings": int(bookings.n or 0), "booking_leads": int(bookings.leads or 0),
+		"by_day": [by_day[k] for k in sorted(by_day)],
+		"by_source": [{"label": r.label, "leads": int(r.n)} for r in by_source],
+		"by_form": [{"label": r.label, "created": int(r.created or 0), "duplicate": int(r.duplicate or 0)} for r in by_form],
 	}

@@ -23,10 +23,10 @@
 						if (p[1]) return { comp: 'DemoEditor', key: 'ed' + p[1], props: { name: p[1], tab: p[2] || 'details' } }
 						return { comp: 'DemoTypes', key: 'types' }
 					case 'forms':
-						if (p[1]) return { comp: 'LeadFormEditor', key: 'lf' + p[1], props: { name: p[1] } }
+						if (p[1]) return { comp: 'LeadFormEditor', key: 'lf' + p[1], props: { name: p[1], tab: p[2] || 'details' } }
 						return { comp: 'LeadForms', key: 'forms' }
 					case 'bookings': return { comp: 'Bookings', key: 'bk' }
-					case 'report': return { comp: 'Report', key: 'rep' }
+					case 'report': return p[1] === 'forms' ? { comp: 'LeadFormReport', key: 'lfrep' } : { comp: 'Report', key: 'rep' }
 					default: return DM.session.demos !== 'none' || DM.session.widgets === 'none' ? { comp: 'Bookings', key: 'bk' } : { comp: 'DemoTypes', key: 'types' }
 				}
 			})

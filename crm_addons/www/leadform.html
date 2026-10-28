@@ -14,6 +14,7 @@
 			var d = document.documentElement, q = new URLSearchParams(location.search), t = (q.get('theme') || d.getAttribute('data-theme') || 'auto').toLowerCase()
 			if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 			d.setAttribute('data-theme', t)
+			if (q.get('embed') === '1') d.className += ' bk-embed'
 		})()
 	</script>
 </head>

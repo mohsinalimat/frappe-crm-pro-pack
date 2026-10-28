@@ -8,9 +8,9 @@
 		// each part shows only if the person's access settings allow it (Team and access)
 		{ key: 'campaigns', label: 'Campaigns', icon: 'send', path: '/campaigns', show: () => CM.can('campaigns', 'own') },
 		{ key: 'automations', label: 'Automations', icon: 'zap', path: '/automations', show: () => CM.can('automations', 'view') },
-		{ key: 'email', label: 'Email templates', icon: 'mail', path: '/templates/email', show: () => CM.canAny(['email_templates', 'view'], ['campaign_create', 1]) },
-		{ key: 'whatsapp', label: 'WhatsApp templates', icon: 'whatsapp', path: '/templates/whatsapp', show: () => CM.canAny(['whatsapp_templates', 'view'], ['campaign_create', 1]) },
-		{ key: 'replies', label: 'WhatsApp saved replies', icon: 'whatsapp', path: '/replies/whatsapp', show: () => CM.canAny(['whatsapp_templates', 'view'], ['campaign_create', 1]) },
+		{ key: 'email', group: 'templates', label: 'Email templates', icon: 'mail', path: '/templates/email', show: () => CM.canAny(['email_templates', 'view'], ['campaign_create', 1]) },
+		{ key: 'whatsapp', group: 'templates', label: 'WhatsApp templates', icon: 'whatsapp', path: '/templates/whatsapp', show: () => CM.canAny(['whatsapp_templates', 'view'], ['campaign_create', 1]) },
+		{ key: 'replies', group: 'templates', label: 'WhatsApp saved replies', icon: 'whatsapp', path: '/replies/whatsapp', show: () => CM.canAny(['whatsapp_templates', 'view'], ['campaign_create', 1]) },
 		{ key: 'audiences', label: 'Audiences', icon: 'users', path: '/audiences', show: () => CM.canAny(['audiences', 'view'], ['campaign_create', 1]) },
 		{ key: 'reports', label: 'Reports', icon: 'chart', path: '/reports', show: () => CM.can('campaign_reports', 1) },
 		{ key: 'hygiene', label: 'List clean-up', icon: 'shield', path: '/hygiene', show: () => CM.can('list_cleanup', 1) },
@@ -54,7 +54,9 @@
 				}
 			}
 			// a person without Campaigns lands on the first part they can use
-			watch(() => [CM.shared.config, r.parts[0]], () => { if (!CM.shared.config || r.parts[0]) return; const first = NAV.find((n) => n.show()); if (first && first.key !== 'campaigns') CM.replace(first.path) }, { immediate: true })
+			const only = new URLSearchParams(location.search).get('only') // the Suite Pro menu has Campaigns and Templates apart
+			const nav = computed(() => NAV.filter((n) => n.show() && (!only || (only === 'templates') === (n.group === 'templates'))))
+			watch(() => [CM.shared.config, r.parts[0]], () => { if (!CM.shared.config || (r.parts[0] && r.parts[0] !== 'campaigns')) return; const first = nav.value[0]; if (first && first.key !== 'campaigns' && !nav.value.some((n) => n.key === 'campaigns')) CM.replace(first.path) }, { immediate: true })
 			const active = computed(() => { const p = r.parts; return p[0] === 'templates' ? (p[1] === 'whatsapp' ? 'whatsapp' : 'email') : p[0] === 'replies' ? 'replies' : p[0] === 'audiences' ? 'audiences' : p[0] === 'reports' ? 'reports' : p[0] === 'hygiene' ? 'hygiene' : p[0] === 'automations' ? 'automations' : 'campaigns' })
 			onMounted(() => CM.loadShared())
 			// the left panel can shrink to icons only; the choice is remembered in this browser
@@ -73,8 +75,7 @@
 				CM.requestClose()
 			}
 			if (CM.embed) { onMounted(() => { window.addEventListener('keydown', onEsc); try { window.focus() } catch (e) { /* the host page focuses the frame too */ } }); onBeforeUnmount(() => window.removeEventListener('keydown', onEsc)) }
-			const nav = computed(() => NAV.filter((n) => n.show()))
-			return { pro: CM.pro, view, active, NAV: nav, collapsed, toggleRail, canConfigure, shared: CM.shared, go: CM.go, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
+			return { only, pro: CM.pro, view, active, NAV: nav, collapsed, toggleRail, canConfigure, shared: CM.shared, go: CM.go, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
@@ -88,7 +89,7 @@
 						<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
 					</div>
 				</nav>
-			<div v-if="pro" class="subtabs"><div class="st-head"><b class="st-title">Campaigns</b></div><nav class="st-tabs" aria-label="Campaigns"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" size="sm" />{{ n.label }}</a></nav><div id="hdr-ctl" class="st-ctl"></div></div>
+			<div v-if="pro" class="subtabs"><div class="st-head"><b class="st-title">{{ only === 'templates' ? 'Templates' : 'Campaigns' }}</b></div><nav class="st-tabs" aria-label="Campaigns"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" size="sm" />{{ n.label }}</a></nav><div id="hdr-ctl" class="st-ctl"></div></div>
 			<main class="main">
 				<div v-if="shared.error" class="page" style="padding-bottom:0"><div class="alert err"><Ico name="alert" /><div class="grow">{{ shared.error }}</div></div></div>
 				<component :is="view.comp" :key="view.key" v-bind="view.props || {}" />

@@ -15,6 +15,7 @@ from crm_addons.demos.common import BOOKING, DEMO_TYPE, RESERVED_SLUGS, SLUG_RE
 ORIGIN_RE = re.compile(r"^https?://[A-Za-z0-9.-]+(:\d{1,5})?$|^https?://\*\.[A-Za-z0-9.-]+(:\d{1,5})?$")
 MANAGE = re.compile(r"^/book/manage/([A-Za-z0-9_-]{20,64})/?$")
 PAGE = re.compile(r"^/book/([a-z0-9-]+)/?$")
+LEAD_FORM = re.compile(r"^/lead-form/([a-z0-9-]+)/?$")
 
 
 def clean_origins(raw):
@@ -44,13 +45,22 @@ def origins_for_path(path):
 	return clean_origins(raw) if enabled else []
 
 
+def form_origins(path):
+	"""The allowed embedding origins for a /lead-form/<slug> path, or None when the path is not a lead form page."""
+	match = LEAD_FORM.match(path)
+	if not match or not SLUG_RE.match(match.group(1)):
+		return None
+	row = frappe.db.get_value("CRM Lead Form", match.group(1), ["enabled", "allowed_origins"])
+	return clean_origins(row[1]) if row and row[0] else []
+
+
 def add_frame_headers(response=None, request=None, **kwargs):
 	"""``after_request`` hook."""
 	try:
 		path = getattr(request, "path", "") or ""
-		if response is None or not (path == "/book" or path.startswith("/book/")):
+		if response is None or not (path == "/book" or path.startswith("/book/") or path.startswith("/lead-form/")):
 			return
-		origins = origins_for_path(path)
+		origins = form_origins(path) if path.startswith("/lead-form/") else origins_for_path(path)
 		if origins is None:
 			return
 		ancestors = " ".join(["'self'", *origins])
