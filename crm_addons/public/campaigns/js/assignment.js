@@ -274,7 +274,7 @@
 		template: `
 		<div class="page">
 			<div class="pg-head"><div class="grow"><h1>Rules</h1><p>Leads that come in are given to the right people automatically. Every rule a new lead matches applies.</p></div><div class="actions"><Btn v-if="CM.canManageRules()" variant="primary" icon="plus" @click="go('/rules/new')">Create rule</Btn></div></div>
-			<div class="row wrap tool"><div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search rules" clearable aria-label="Search rules" /></div></div>
+			<div class="row wrap tool"><HdrSlot><div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search rules" clearable aria-label="Search rules" /></div></HdrSlot></div>
 			<div class="chips" role="group" aria-label="State"><button v-for="s in [['', 'All'], ['on', 'On'], ['off', 'Off']]" :key="s[0]" type="button" class="fchip" :class="{ on: q.state === s[0] }" @click="q.state = s[0]">{{ s[1] }} <span class="n">{{ count(s[0]) }}</span></button></div>
 			<div v-if="loading" class="cgrid"><div v-for="n in 4" :key="n" class="card pad col" style="gap:12px"><Skel w="60%" h="18" /><Skel w="40%" h="14" /><Skel h="40" /></div></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
@@ -351,7 +351,7 @@
 		template: `
 		<div class="page">
 			<div class="pg-head"><div class="grow"><h1>History</h1><p>Everything assigned here, by a rule or by hand. You can undo an assignment for {{ hist.undo_hours }} hours.</p></div></div>
-			<div class="row wrap tool"><div style="width:300px;max-width:100%"><Inp v-model="q" icon="search" placeholder="Search history" clearable aria-label="Search history" /></div></div>
+			<div class="row wrap tool"><HdrSlot><div style="width:300px;max-width:100%"><Inp v-model="q" icon="search" placeholder="Search history" clearable aria-label="Search history" /></div></HdrSlot></div>
 			<div v-if="loading" class="card pad col"><Skel v-for="n in 5" :key="n" h="40" /></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<Empty v-else-if="!hist.groups.length" icon="clock" title="Nothing assigned yet" text="Every assignment made here is listed with who it went to, and can be undone for a day." />

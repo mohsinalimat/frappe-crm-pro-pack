@@ -324,7 +324,7 @@ html.inline .pg-head .grow { min-width: 0; }
 /* inside the Suite Pro app: the left menu becomes tabs along the top */
 html.pro .rail { display: none; }
 html.pro .app, html.pro .app.rail-collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-.subtabs { display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 18px 24px 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+.subtabs { display: flex; flex-wrap: wrap; align-items: flex-end; column-gap: 20px; row-gap: 10px; padding: 18px 24px 0; background: var(--surface); border-bottom: 1px solid var(--border); }
 .st-head { display: flex; flex-direction: column; gap: 3px; min-height: 34px; padding-right: 260px; }
 .st-title { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: var(--text); }
 .st-sub { font-size: 14px; color: var(--text-soft); }
@@ -337,3 +337,10 @@ html.pro .main > .page > .pg-head:first-child:has(> .actions) { display: content
 html.pro .main > .page { padding-top: 14px; }
 html.pro .main > .page > .pg-head:first-child:has(> .actions) > .grow { display: none; }
 html.pro .main > .page > .pg-head:first-child > .actions { position: fixed; top: 20px; right: 24px; z-index: 12; margin: 0; }
+
+/* search, dates and the view switch of a list live in the header, under the page button */
+.st-ctl { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-bottom: 5px; }
+.st-ctl:empty { display: none; }
+.st-ctl .inp, .st-ctl .control { height: 34px; }
+.st-head { flex: 0 0 100%; } .st-tabs { flex: 0 0 auto; max-width: 100%; }
+html.pro .row.tool:not(:has(*)), html.pro .row.tools:not(:has(*)) { display: none; }

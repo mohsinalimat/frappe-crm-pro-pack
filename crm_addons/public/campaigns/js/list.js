@@ -73,12 +73,14 @@
 		<div class="page">
 			<div class="pg-head"><div class="grow"><h1>Campaigns</h1><p>Reach your leads on email and WhatsApp, and see exactly what was sent, delivered and opened.</p></div><div v-if="canManage" class="actions"><Btn variant="primary" icon="plus" @click="go('/campaigns/new')">Create campaign</Btn></div></div>
 			<div class="row wrap tool">
+				<HdrSlot>
 				<div v-if="view !== 'calendar'" style="width:260px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search campaigns" clearable aria-label="Search campaigns" /></div>
-				<div v-if="view !== 'calendar'" style="width:160px"><Dd v-model="q.channel" :options="CHANNELS" placeholder="All channels" allow-empty="All channels" size="sm" aria-label="Channel" /></div>
 				<DateRange v-if="view !== 'calendar'" v-model="dateRange" any aria-label="Created" />
+				<Seg v-model="view" icons :options="[{ value: 'grid', label: 'Grid view', icon: 'grid' }, { value: 'list', label: 'List view', icon: 'rows' }, { value: 'calendar', label: 'Calendar', icon: 'calendar' }]" />
+				</HdrSlot>
+				<div v-if="view !== 'calendar'" style="width:160px"><Dd v-model="q.channel" :options="CHANNELS" placeholder="All channels" allow-empty="All channels" size="sm" aria-label="Channel" /></div>
 				<span class="grow"></span>
 				<div v-if="view !== 'calendar'" style="width:190px"><Dd v-model="q.sort" :options="SORTS" size="sm" prefix="Sort:" aria-label="Sort" /></div>
-				<Seg v-model="view" icons :options="[{ value: 'grid', label: 'Grid view', icon: 'grid' }, { value: 'list', label: 'List view', icon: 'rows' }, { value: 'calendar', label: 'Calendar', icon: 'calendar' }]" />
 			</div>
 			<div v-if="view !== 'calendar'" class="chips" role="group" aria-label="Status"><button v-for="s in STATUS_CHIPS" :key="s[0]" type="button" class="fchip" :class="{ on: q.status === s[0] }" @click="q.status = s[0]">{{ s[1] }}</button></div>
 

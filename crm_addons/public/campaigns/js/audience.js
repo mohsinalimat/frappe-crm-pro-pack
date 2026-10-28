@@ -381,7 +381,7 @@
 		template: `
 		<div class="page">
 			<div class="pg-head"><div class="grow"><h1>Audiences</h1><p>Saved segments of your leads. They are the same saved filters as in your Leads list, ready to use in any campaign.</p></div><div class="actions"><Btn variant="primary" icon="plus" @click="openCreate">Create segment</Btn></div></div>
-			<div class="row wrap tool"><div style="width:300px;max-width:100%"><Inp v-model="q" icon="search" placeholder="Search segments" clearable aria-label="Search segments" /></div></div>
+			<div class="row wrap tool"><HdrSlot><div style="width:300px;max-width:100%"><Inp v-model="q" icon="search" placeholder="Search segments" clearable aria-label="Search segments" /></div></HdrSlot></div>
 			<div v-if="loading" class="seg-grid"><Skel v-for="n in 6" :key="n" h="132" r="12" /></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<Empty v-else-if="!shown.length" icon="users" :title="rows.length ? 'No segments match' : 'No saved segments yet'" :text="rows.length ? 'Try a different search.' : 'Save a set of filters as a segment to reuse it across campaigns.'"><Btn v-if="!rows.length" variant="primary" icon="plus" @click="openCreate">Create segment</Btn></Empty>

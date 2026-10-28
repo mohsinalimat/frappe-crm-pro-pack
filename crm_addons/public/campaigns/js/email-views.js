@@ -225,7 +225,7 @@
 		<div class="page">
 			<div class="pg-head"><div class="grow"><h1>Email templates</h1><p>Reusable emails for campaigns and follow-ups. Build once, personalise with variables, use everywhere.</p></div><div class="actions"><Btn v-if="isManager()" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn></div></div>
 			<div class="row wrap tool">
-				<div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search templates" clearable aria-label="Search templates" /></div>
+				<HdrSlot><div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search templates" clearable aria-label="Search templates" /></div></HdrSlot>
 				<div class="chips"><button v-for="p in ['', 'System']" :key="p" type="button" class="fchip" :class="{ on: q.purpose === p }" :aria-pressed="q.purpose === p" @click="q.purpose = p">{{ p || 'All' }} <span class="n">{{ purposeCount(p) }}</span></button></div>
 				<div style="width:190px"><Dd v-model="q.category" :options="cats" placeholder="All categories" allow-empty="All categories" size="sm" /></div>
 				<button type="button" class="fchip" :class="{ on: q.fav }" @click="q.fav = !q.fav"><Ico name="star" size="sm" />Favourites</button>

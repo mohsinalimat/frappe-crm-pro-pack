@@ -83,6 +83,17 @@
 		emits: ['update:modelValue'],
 		template: `<div class="seg" :class="{ icons }" role="group"><button v-for="o in options" :key="o.value" type="button" :class="{ on: o.value === modelValue }" :title="o.label" :aria-label="o.label" :aria-pressed="o.value === modelValue" @click="$emit('update:modelValue', o.value)"><Ico v-if="o.icon" :name="o.icon" /><span v-if="!icons">{{ o.label }}</span></button></div>`,
 	}
+	/** Inside the Suite Pro app the controls of a list (search, dates, view switch) sit in the page header, in the slot #hdr-ctl; elsewhere they stay where they are. */
+	C.HdrSlot = {
+		setup(_, { slots }) {
+			const ready = Vue.ref(false)
+			Vue.onMounted(() => { ready.value = true })  // the header is in the document only once the page has been mounted
+			return () => {
+				if (!CM.pro) return slots.default && slots.default()
+				return ready.value && document.getElementById('hdr-ctl') ? Vue.h(Vue.Teleport, { to: '#hdr-ctl' }, slots.default && slots.default()) : null
+			}
+		},
+	}
 	C.Switch = {
 		props: { modelValue: Boolean, label: String },
 		emits: ['update:modelValue'],
