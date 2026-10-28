@@ -6,7 +6,26 @@
 	const PRO = window.PRO
 	const V = PRO.views
 	const call = (m, a) => CM.call('crm_addons.pro.integrations.' + m, a)
-	const NAME = { gmail: 'Gmail', ses: 'Amazon SES', other: 'Email' }
+	const NAME = { gmail: 'Gmail', ses: 'Amazon SES', outlook: 'Outlook.com', microsoft365: 'Microsoft 365', yahoo: 'Yahoo Mail', yandex: 'Yandex Mail', sendgrid: 'SendGrid', sparkpost: 'SparkPost', other: 'Email (SMTP)' }
+	// what each provider asks for. key: password = a password or API key; receive = can also bring replies in
+	const PROV = [
+		{ key: 'gmail', blurb: 'Send and receive. About 2,000 emails a day.', pw: 'App password', pwHint: '16 letters from Google Account, Security, 2-Step Verification, App passwords.', receive: true },
+		{ key: 'ses', blurb: 'Bulk sending, pennies per thousand. Send only.' },
+		{ key: 'outlook', blurb: 'Outlook.com and Hotmail. Use an app password.', pw: 'App password', pwHint: 'Microsoft account, Security, App passwords.', receive: true },
+		{ key: 'microsoft365', blurb: 'Work and school accounts. Send and receive.', pw: 'Password or app password', pwHint: 'Your administrator must allow SMTP sign-in (SMTP AUTH) for the mailbox.', receive: true },
+		{ key: 'yahoo', blurb: 'Send and receive. Use an app password.', pw: 'App password', pwHint: 'Yahoo Account Security, Generate app password.', receive: true },
+		{ key: 'yandex', blurb: 'Send and receive. Use an app password.', pw: 'App password', pwHint: 'Yandex ID, Security, App passwords.', receive: true },
+		{ key: 'sendgrid', blurb: 'Bulk sending with its own delivery stats. Send only.', pw: 'API key', pwHint: 'A SendGrid API key with Mail Send permission. The user name apikey is filled in for you.' },
+		{ key: 'sparkpost', blurb: 'Bulk sending. Send only.', pw: 'API key', pwHint: 'A SparkPost API key with Send via SMTP permission.' },
+		{ key: 'smtp', blurb: 'Any other mail server: Zoho, Mailgun, Brevo, your own.', pw: 'Password', pwHint: 'The password or API key of the mail server.', custom: true, receive: true },
+	]
+	const BRAND = { gmail: ['#fff', 'M4 7l8 6 8-6v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z M4 7l8 6 8-6 M4 7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1', '#EA4335'], ses: ['#FF9900', 'M5 8l7 5 7-5 M5 8v9h14V8z M5 8h14', '#fff'], outlook: ['#0A64AD', 'M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12z M12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z', '#fff'], microsoft365: ['#D83B01', 'M5 5h6v6H5z M13 5h6v6h-6z M5 13h6v6H5z M13 13h6v6h-6z', '#fff'], yahoo: ['#6001D2', 'M6 6l6 8 6-8 M12 14v5', '#fff'], yandex: ['#FC3F1D', 'M13.5 19V6.5h-1.7c-2 0-3.3 1-3.3 2.8 0 1.6.8 2.4 2.2 3.3l1.4.9L8.4 19 M13.5 12.6l2.5 6.4', '#fff'], sendgrid: ['#1A82E2', 'M5 5h5v5H5z M14 5h5v5h-5z M10 10h4v4h-4z M5 14h5v5H5z M14 14h5v5h-5z', '#fff'], sparkpost: ['#FA6423', 'M13 3L6 13h5l-1 8 8-11h-5z', '#fff'], other: ['#475569', 'M4 7l8 6 8-6 M4 7v10h16V7z M4 7h16', '#fff'] }
+	// a small tile in the provider's colour with a simple glyph (a drawing, not the registered logo)
+	V.BrandIcon = {
+		props: { name: String, size: { type: Number, default: 38 } },
+		setup(props) { const b = computed(() => BRAND[props.name === 'smtp' ? 'other' : props.name] || BRAND.other); return { b } },
+		template: `<span class="it-brand" :style="{ width: size + 'px', height: size + 'px', background: b[0] }"><svg viewBox="0 0 24 24" :width="size * 0.6" :height="size * 0.6" fill="none" :stroke="b[2]" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="b[1]" :fill="name === 'gmail' ? '#fff' : name === 'sparkpost' || name === 'microsoft365' || name === 'sendgrid' ? b[2] : 'none'" /></svg></span>`,
+	}
 	const STATS = [['sent', 'Sent', 'green'], ['waiting', 'Not sent yet', 'amber'], ['failed', 'Failed', 'red'], ['read', 'Read', 'blue'], ['not_read', 'Not read', '']]
 
 	const WSTATS = [['sent', 'Sent', 'green'], ['delivered', 'Delivered', 'blue'], ['read', 'Read', 'blue'], ['not_read', 'Delivered, not read', ''], ['failed', 'Failed', 'red']]
@@ -15,7 +34,8 @@
 		props: { part: { type: String, default: 'email' } },
 		setup() {
 			const loading = ref(true); const error = ref(''); const d = ref({ email: [], whatsapp: { installed: false, accounts: [] }, regions: [], ses: {}, limits: {} })
-			const dlg = ref(''); const busy = ref(false); const f = reactive({ email_id: '', region: 'ap-south-1', smtp_user: '', smtp_password: '', app_password: '', receive: true, use: false })
+			const dlg = ref(''); const busy = ref(false); const f = reactive({ email_id: '', region: 'ap-south-1', smtp_user: '', smtp_password: '', app_password: '', receive: true, use: false, server: '', port: '587', security: 'TLS', login: '', imap: '', imap_port: '993' })
+			const pw = ref(''); const remove = ref(null); const newPw = ref(null)
 			const working = ref(''); const res = reactive({}); const wd = ref(''); const wf = reactive({ name: '', account_name: '', phone_id: '', business_id: '', app_id: '', version: 'v21.0', token: '', send: false, recv: false }); const gone = ref(null)
 			async function load() {
 				try { d.value = await call('get_integrations'); error.value = '' } catch (e) { error.value = e.message } finally { loading.value = false }
@@ -23,13 +43,15 @@
 			onMounted(load)
 			const sending = computed(() => d.value.email.find((a) => a.sending))
 			const hasSes = computed(() => d.value.email.some((a) => a.kind === 'ses'))
-			function open(kind) { Object.assign(f, { email_id: '', smtp_user: '', smtp_password: '', app_password: '', receive: true, use: !d.value.email.some((a) => a.sending) }); dlg.value = kind }
+			function open(kind) { Object.assign(f, { email_id: '', smtp_user: '', smtp_password: '', app_password: '', receive: true, use: !d.value.email.some((a) => a.sending), server: '', port: '587', security: 'TLS', login: '', imap: '', imap_port: '993' }); dlg.value = kind }
+			const prov = computed(() => PROV.find((p) => p.key === dlg.value) || {})
 			async function add() {
 				busy.value = true
 				try {
 					if (dlg.value === 'ses') await call('add_ses', { email_id: f.email_id, region: f.region, smtp_user: f.smtp_user, smtp_password: f.smtp_password, use_for_sending: f.use ? 1 : 0 })
+					else if (dlg.value !== 'gmail') await call('add_provider', { provider: dlg.value, email_id: f.email_id, password: f.app_password, receive: f.receive ? 1 : 0, use_for_sending: f.use ? 1 : 0, smtp_server: f.server, smtp_port: f.port, security: f.security, login_id: f.login, imap_server: f.imap, imap_port: f.imap_port })
 					else await call('add_gmail', { email_id: f.email_id, app_password: f.app_password, receive: f.receive ? 1 : 0, use_for_sending: f.use ? 1 : 0 })
-					CM.toast((dlg.value === 'ses' ? 'Amazon SES' : 'Gmail') + ' connected'); dlg.value = ''; f.smtp_password = f.app_password = ''; await load()
+					CM.toast((NAME[dlg.value] || 'Email account') + ' connected'); dlg.value = ''; f.smtp_password = f.app_password = ''; await load()
 				} catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
 			async function use(a) {
@@ -71,9 +93,17 @@
 				const w = gone.value; busy.value = true
 				try { const r = await call('disconnect_whatsapp', { account: w.name }); CM.toast(r.removed ? 'Disconnected' : 'Switched off. Its message history is kept.'); gone.value = null; await load() } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
+			async function removeAcc() {
+				busy.value = true
+				try { await call('remove_account', { account: remove.value.name }); CM.toast('Removed'); remove.value = null; await load() } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
+			}
+			async function savePw() {
+				busy.value = true
+				try { await call('update_password', { account: newPw.value.name, password: pw.value }); CM.toast('Saved. The login works.'); newPw.value = null; pw.value = ''; await load() } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
+			}
 			async function copy(text) { try { await navigator.clipboard.writeText(text); CM.toast('Copied') } catch (e) { CM.toast('Select the address and copy it', 'err') } }
 			const when = (s) => (s ? CM.fmt(s) : '')
-			return { loading, error, d, dlg, f, busy, working, sending, hasSes, open, add, use, test, copy, NAME, STATS, when, res, testConn, wd, wf, gone, openWa, saveWa, setWa, testWa, disconnect, WSTATS }
+			return { PROV, prov, pw, remove, newPw, removeAcc, savePw, loading, error, d, dlg, f, busy, working, sending, hasSes, open, add, use, test, copy, NAME, STATS, when, res, testConn, wd, wf, gone, openWa, saveWa, setWa, testWa, disconnect, WSTATS }
 		},
 		template: `
 		<div class="page it-page">
@@ -82,10 +112,10 @@
 			<template v-else>
 				<section v-if="part !== 'whatsapp'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">Email</b><div class="small muted">Every email the CRM sends (campaigns, lead emails, notifications) goes out from the account marked <b>Sending</b>. Only an administrator can change it.</div></div>
-						<Btn icon="plus" @click="open('gmail')">Add Gmail</Btn><Btn variant="primary" icon="plus" @click="open('ses')">Add Amazon SES</Btn></div>
-					<Empty v-if="!d.email.length" icon="mail" title="No email account yet" text="Add Gmail or Amazon SES to start sending." />
+						<Btn variant="primary" icon="plus" @click="open('pick')">Add email account</Btn></div>
+					<Empty v-if="!d.email.length" icon="mail" title="No email account yet" text="Add Gmail, Amazon SES, Outlook, SendGrid or any SMTP server to start sending." />
 					<div v-for="a in d.email" :key="a.name" class="it-acc" :class="{ on: a.sending }">
-						<div class="it-ic" :class="a.kind"><Ico :name="a.kind === 'other' ? 'mail' : 'send'" /></div>
+						<BrandIcon :name="a.kind" />
 						<div class="it-main">
 							<div class="row" style="gap:8px;flex-wrap:wrap"><b>{{ NAME[a.kind] }}</b><span class="muted">{{ a.email_id }}</span>
 								<span v-if="a.sending" class="badge green">Sending</span><span v-if="!a.outgoing" class="badge">Receives only</span><span v-if="a.incoming" class="badge blue">Receives replies</span><span v-if="a.region" class="badge">{{ a.region }}</span><span v-if="a.needs_password" class="badge amber">Password needed</span></div>
@@ -93,7 +123,7 @@
 							<div v-if="res[a.name]" class="small it-res" :class="res[a.name].ok ? 'ok' : 'bad'" role="status"><Ico :name="res[a.name].ok ? 'check-circle' : 'x-circle'" size="sm" /> {{ res[a.name].message }}</div>
 							<div v-if="a.sending && a.kind === 'gmail'" class="small it-warn"><Ico name="alert" size="sm" /> Gmail stops after about {{ d.limits.gmail }} emails a day. For bigger campaigns connect Amazon SES and switch sending to it.</div>
 						</div>
-						<div class="it-act"><Btn v-if="a.outgoing && !a.sending" size="sm" :loading="working === a.name" @click="use(a)">Use for sending</Btn><Btn size="sm" variant="ghost" icon="check-circle" :loading="working === 'c' + a.name" @click="testConn(a)">Test connection</Btn><Btn v-if="a.outgoing" size="sm" variant="ghost" icon="send" :loading="working === 't' + a.name" @click="test(a)">Send test email</Btn></div>
+						<div class="it-act"><Btn v-if="a.outgoing && !a.sending" size="sm" :loading="working === a.name" @click="use(a)">Use for sending</Btn><Btn size="sm" variant="ghost" icon="check-circle" :loading="working === 'c' + a.name" @click="testConn(a)">Test connection</Btn><Btn v-if="a.outgoing" size="sm" variant="ghost" icon="send" :loading="working === 't' + a.name" @click="test(a)">Send test email</Btn><Btn size="sm" variant="ghost" icon="edit" @click="newPw = a; pw = ''">New password</Btn><Btn v-if="!a.sending" size="sm" variant="ghost" icon="trash" @click="remove = a">Remove</Btn></div>
 					</div>
 				</section>
 
@@ -148,18 +178,29 @@
 				</template>
 			</template>
 
-			<Modal v-if="dlg" size="md" :title="dlg === 'ses' ? 'Connect Amazon SES' : 'Connect Gmail'" :subtitle="dlg === 'ses' ? 'Use the SMTP details from the SES console (SMTP settings, Create SMTP credentials), not your AWS access keys.' : 'Use an app password: Google Account, Security, 2-Step Verification, App passwords.'" @close="dlg = ''" @submit="add">
+			<Modal v-if="dlg === 'pick'" size="lg" title="Add an email account" subtitle="Choose where your email is sent from." @close="dlg = ''">
+				<div class="it-pick"><button v-for="p in PROV" :key="p.key" type="button" class="it-pk" @click="open(p.key)"><BrandIcon :name="p.key" :size="42" /><span><b>{{ p.key === 'smtp' ? 'Other SMTP server' : NAME[p.key] }}</b><span class="small muted">{{ p.blurb }}</span></span></button></div>
+			</Modal>
+			<Modal v-else-if="dlg" size="md" :title="'Connect ' + (dlg === 'smtp' ? 'an SMTP server' : NAME[dlg])" :subtitle="dlg === 'ses' ? 'Use the SMTP details from the SES console (SMTP settings, Create SMTP credentials), not your AWS access keys.' : prov.pwHint" @close="dlg = ''" @submit="add">
 				<div class="it-form">
-					<Field :label="dlg === 'ses' ? 'From email address (verified in SES)' : 'Gmail address'" required><Inp v-model="f.email_id" placeholder="you@yourcompany.com" autofocus /></Field>
+					<Field :label="dlg === 'ses' ? 'From email address (verified in SES)' : 'Email address'" required><Inp v-model="f.email_id" placeholder="you@yourcompany.com" autofocus /></Field>
 					<Field v-if="dlg === 'ses'" label="Region" hint="The region where your SES account is set up."><Dd v-model="f.region" :options="d.regions" searchable /></Field>
 					<Field v-if="dlg === 'ses'" label="SMTP user name" required><Inp v-model="f.smtp_user" placeholder="AKIA..." /></Field>
 					<Field v-if="dlg === 'ses'" label="SMTP password" required hint="Saved safely. It is not shown again."><Inp v-model="f.smtp_password" type="password" /></Field>
-					<Field v-if="dlg === 'gmail'" label="App password" required hint="16 letters. Saved safely. It is not shown again."><Inp v-model="f.app_password" type="password" /></Field>
-					<div v-if="dlg === 'gmail'" class="row it-sw"><div class="grow"><b>Also receive replies</b><div class="small muted">Emails sent to this address appear on the lead.</div></div><Switch v-model="f.receive" label="Also receive replies" /></div>
+					<template v-if="dlg === 'smtp'">
+						<Field label="SMTP server" required><Inp v-model="f.server" placeholder="smtp.yourcompany.com" /></Field>
+						<div class="row" style="gap:12px"><Field label="Port"><Inp v-model="f.port" /></Field><Field label="Security"><Dd v-model="f.security" :options="[{ value: 'TLS', label: 'STARTTLS (587)' }, { value: 'SSL', label: 'SSL (465)' }, { value: 'NONE', label: 'None' }]" /></Field></div>
+						<Field label="User name" hint="Leave empty if it is the email address."><Inp v-model="f.login" /></Field>
+					</template>
+					<Field v-if="dlg !== 'ses'" :label="prov.pw || 'Password'" required hint="Saved safely. It is not shown again."><Inp v-model="f.app_password" type="password" /></Field>
+					<template v-if="dlg === 'smtp' && f.receive"><Field label="Incoming (IMAP) server" hint="Needed to bring replies in."><Inp v-model="f.imap" placeholder="imap.yourcompany.com" /></Field></template>
+					<div v-if="prov.receive" class="row it-sw"><div class="grow"><b>Also receive replies</b><div class="small muted">Emails sent to this address appear on the lead.</div></div><Switch v-model="f.receive" label="Also receive replies" /></div>
 					<div class="row it-sw"><div class="grow"><b>Send all emails from this account</b><div class="small muted">Campaigns, lead emails and notifications.</div></div><Switch v-model="f.use" label="Send all emails from this account" /></div>
 				</div>
-				<template #foot><Btn @click="dlg = ''">Cancel</Btn><Btn variant="primary" :loading="busy" @click="add">Connect</Btn></template>
+				<template #foot><Btn @click="dlg = 'pick'">Back</Btn><Btn variant="primary" :loading="busy" @click="add">Connect</Btn></template>
 			</Modal>
+			<Modal v-if="remove" size="sm" :title="'Remove ' + remove.email_id + '?'" @close="remove = null"><p>The CRM stops using this account. Emails already sent stay on the leads.</p><template #foot><Btn @click="remove = null">Keep it</Btn><Btn variant="danger" :loading="busy" @click="removeAcc">Remove</Btn></template></Modal>
+			<Modal v-if="newPw" size="sm" :title="'New password for ' + newPw.email_id" subtitle="The CRM logs in with it before saving." @close="newPw = null" @submit="savePw"><Field label="Password or API key" required><Inp v-model="pw" type="password" autofocus /></Field><template #foot><Btn @click="newPw = null">Cancel</Btn><Btn variant="primary" :loading="busy" @click="savePw">Save</Btn></template></Modal>
 			<Modal v-if="wd" size="md" :title="wd === 'add' ? 'Connect a WhatsApp number' : 'Edit ' + wf.account_name" subtitle="The details are checked with WhatsApp before they are saved." @close="wd = ''" @submit="saveWa">
 				<div class="it-form">
 					<Field label="A name for this number" required><Inp v-model="wf.account_name" placeholder="Sales WhatsApp" autofocus /></Field>

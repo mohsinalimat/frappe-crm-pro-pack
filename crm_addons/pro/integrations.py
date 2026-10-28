@@ -59,6 +59,18 @@ def webhook_url():
 	return f"{get_url()}{METHOD}?t={_token()}"
 
 
+# the providers Frappe already knows (its Email Account "Service" list) and any other SMTP server. login: the user name some of them require
+PROVIDERS = {
+	"outlook": {"label": "Outlook.com", "smtp": "smtp-mail.outlook.com", "imap": "imap-mail.outlook.com", "service": "Outlook.com"},
+	"microsoft365": {"label": "Microsoft 365", "smtp": "smtp.office365.com", "imap": "outlook.office365.com", "service": ""},
+	"yahoo": {"label": "Yahoo Mail", "smtp": "smtp.mail.yahoo.com", "imap": "imap.mail.yahoo.com", "service": "Yahoo Mail"},
+	"yandex": {"label": "Yandex Mail", "smtp": "smtp.yandex.com", "imap": "imap.yandex.com", "service": "Yandex.Mail"},
+	"sendgrid": {"label": "SendGrid", "smtp": "smtp.sendgrid.net", "login": "apikey", "service": "Sendgrid"},
+	"sparkpost": {"label": "SparkPost", "smtp": "smtp.sparkpostmail.com", "login": "SMTP_Injection", "service": "SparkPost"},
+}
+_HOSTS = [("outlook", "smtp-mail.outlook.com"), ("microsoft365", "smtp.office365.com"), ("yahoo", "smtp.mail.yahoo.com"), ("yandex", "smtp.yandex.com"), ("sendgrid", "smtp.sendgrid.net"), ("sparkpost", "smtp.sparkpostmail.com")]
+
+
 def kind_of(row):
 	"""Which provider an Email Account is, from where it sends."""
 	host = cstr(row.get("smtp_server")).lower()
@@ -66,7 +78,7 @@ def kind_of(row):
 		return "ses"
 	if host == "smtp.gmail.com" or row.get("service") == "GMail":
 		return "gmail"
-	return "other"
+	return next((k for k, h in _HOSTS if h == host), "other")
 
 
 # -- the screen -------------------------------------------------------------------------------------------------
@@ -212,6 +224,64 @@ def add_gmail(email_id, app_password, receive=1, use_for_sending=0):
 			 "initial_sync_count": 100, "create_contact": 1, "imap_folder": [{"folder_name": "INBOX", "append_to": "CRM Lead"}]}
 		)
 	doc = _new_account(values, use_for_sending)
+	return {"name": doc.name}
+
+
+@frappe.whitelist()
+def add_provider(provider, email_id, password, receive=0, use_for_sending=0, smtp_server=None, smtp_port=None, security="TLS", login_id=None, imap_server=None, imap_port=None):
+	"""Outlook, Microsoft 365, Yahoo, Yandex, SendGrid, SparkPost, or any other SMTP server. Frappe logs in on saving, so wrong details are refused."""
+	_admin()
+	email_id, password = cstr(email_id).strip(), cstr(password).strip()
+	if not password:
+		frappe.throw(_("Enter the password or API key."))
+	preset = PROVIDERS.get(provider)
+	if provider != "smtp" and not preset:
+		frappe.throw(_("Choose an email provider."))
+	preset = preset or {"label": "SMTP"}
+	server = cstr(smtp_server or preset.get("smtp")).strip()
+	if not server or not re.match(r"^[A-Za-z0-9.-]+$", server):
+		frappe.throw(_("Enter the SMTP server, for example smtp.yourcompany.com."))
+	port = cint(smtp_port) or (465 if security == "SSL" else 587)
+	login = cstr(login_id or preset.get("login") or "").strip()
+	values = {
+		"email_id": email_id, "email_account_name": f"{preset['label']} ({email_id})", "service": preset.get("service", ""), "enable_outgoing": 1, "smtp_server": server, "smtp_port": port,
+		"use_tls": 1 if security == "TLS" else 0, "use_ssl_for_outgoing": 1 if security == "SSL" else 0, "password": password, "always_use_account_email_id_as_sender": 1,
+	}
+	if login and login != email_id:
+		values.update({"login_id_is_different": 1, "login_id": login})
+	imap = cstr(imap_server or preset.get("imap")).strip()
+	if cint(receive) and imap:
+		values.update({"enable_incoming": 1, "email_server": imap, "incoming_port": cint(imap_port) or 993, "use_imap": 1, "use_ssl": 1, "email_sync_option": "ALL",
+			"initial_sync_count": 100, "create_contact": 1, "imap_folder": [{"folder_name": "INBOX", "append_to": "CRM Lead"}]})
+	return {"name": _new_account(values, use_for_sending).name}
+
+
+@frappe.whitelist()
+def remove_account(account):
+	"""Remove a sender. The one that sends everything cannot be removed: choose another first."""
+	_admin()
+	doc = frappe.get_doc(EMAIL_ACCOUNT, account)
+	if cint(doc.default_outgoing):
+		frappe.throw(_("{0} sends all emails. Choose another account for sending first.").format(doc.email_id))
+	frappe.delete_doc(EMAIL_ACCOUNT, account)
+	return {"removed": True}
+
+
+@frappe.whitelist()
+def update_password(account, password):
+	"""A new password or API key for a sender; Frappe logs in with it before saving."""
+	_admin()
+	if not cstr(password).strip():
+		frappe.throw(_("Enter the new password."))
+	doc = frappe.get_doc(EMAIL_ACCOUNT, account)
+	doc.password = cstr(password).strip()
+	doc.awaiting_password = 0
+	try:
+		doc.save()
+	except frappe.ValidationError:
+		raise
+	except Exception as exc:
+		frappe.throw(_("The mail server did not accept this: {0}").format(frappe.utils.strip_html(cstr(exc))[:300]))
 	return {"name": doc.name}
 
 

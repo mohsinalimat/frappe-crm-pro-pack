@@ -105,6 +105,52 @@ class TestProIntegrations(AccessCase):
 			self.assertEqual(integrations.ses_events(token), "ok")
 
 
+class TestMoreProviders(AccessCase):
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("Administrator")
+
+	def test_each_provider_gets_its_servers_and_is_recognised(self):
+		for provider, host, login in (("outlook", "smtp-mail.outlook.com", None), ("yahoo", "smtp.mail.yahoo.com", None), ("yandex", "smtp.yandex.com", None), ("sendgrid", "smtp.sendgrid.net", "apikey"), ("sparkpost", "smtp.sparkpostmail.com", "SMTP_Injection"), ("microsoft365", "smtp.office365.com", None)):
+			with patch(VALIDATE):
+				name = integrations.add_provider(provider, f"{provider}@example.com", "pw")["name"]
+			doc = frappe.get_doc("Email Account", name)
+			self.assertEqual((doc.smtp_server, doc.enable_incoming), (host, 0))
+			self.assertEqual(doc.get("login_id") if login else None, login)
+			self.assertEqual(next(a for a in integrations.get_integrations()["email"] if a["name"] == name)["kind"], provider)
+
+	def test_receiving_replies_adds_the_inbox_for_the_providers_that_have_one(self):
+		with patch(VALIDATE), patch("frappe.email.doctype.email_account.email_account.EmailAccount.get_incoming_server"):
+			name = integrations.add_provider("yahoo", "inbox@example.com", "pw", receive=1)["name"]
+		doc = frappe.get_doc("Email Account", name)
+		self.assertEqual((doc.enable_incoming, doc.email_server), (1, "imap.mail.yahoo.com"))
+
+	def test_any_other_smtp_server(self):
+		with patch(VALIDATE):
+			name = integrations.add_provider("smtp", "me@corp.example", "pw", smtp_server="mail.corp.example", smtp_port=465, security="SSL", login_id="corp-user")["name"]
+		doc = frappe.get_doc("Email Account", name)
+		self.assertEqual((doc.smtp_server, int(doc.smtp_port), doc.use_ssl_for_outgoing, doc.login_id), ("mail.corp.example", 465, 1, "corp-user"))
+		with self.assertRaises(frappe.ValidationError):
+			integrations.add_provider("smtp", "me2@corp.example", "pw", smtp_server="bad server!")
+		with self.assertRaises(frappe.ValidationError):
+			integrations.add_provider("nonsense", "me3@corp.example", "pw")
+
+	def test_the_sending_account_cannot_be_removed_but_others_can(self):
+		with patch(VALIDATE):
+			one = integrations.add_provider("yahoo", "one@example.com", "pw", use_for_sending=1)["name"]
+			two = integrations.add_provider("yandex", "two@example.com", "pw")["name"]
+		with self.assertRaises(frappe.ValidationError):
+			integrations.remove_account(one)
+		self.assertTrue(integrations.remove_account(two)["removed"])
+		self.assertFalse(frappe.db.exists("Email Account", two))
+
+	def test_a_new_password_is_checked_and_saved(self):
+		with patch(VALIDATE):
+			name = integrations.add_provider("yahoo", "pw@example.com", "old")["name"]
+			integrations.update_password(name, "new-secret")
+		self.assertEqual(frappe.get_doc("Email Account", name).get_password("password"), "new-secret")
+
+
 class TestWhatsAppIntegration(AccessCase):
 	def setUp(self):
 		super().setUp()
