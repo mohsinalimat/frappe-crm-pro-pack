@@ -107,14 +107,14 @@
 
 /* Leads setup */
 .prev { margin-top: 10px; padding: 12px; border: 1px dashed var(--border); border-radius: 10px }
-.pv { display: inline-flex; align-items: center; height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--card, #fff); color: var(--muted, #6b7280) }
-.pv.grow { flex: 1 1 200px }
-.pv.dash { border-style: dashed }
-.pv-tbl { display: flex; gap: 18px; margin-top: 12px; padding: 8px 10px; background: var(--bg, #f6f7f9); border-radius: 8px; font-size: 12px; font-weight: 600; flex-wrap: wrap }
+.lp { display: inline-flex; align-items: center; height: 30px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--card, #fff); color: var(--muted, #6b7280) }
+.lp.grow { flex: 1 1 200px }
+.lp.dash { border-style: dashed }
+.lp-tbl { display: flex; gap: 18px; margin-top: 12px; padding: 8px 10px; background: var(--bg, #f6f7f9); border-radius: 8px; font-size: 12px; font-weight: 600; flex-wrap: wrap }
 .dl .li { border-bottom: 1px solid var(--border) }
 
-.pv.grow { justify-content: flex-start }
-.pv.ico { white-space: nowrap }
+.lp.grow { justify-content: flex-start }
+.lp.ico { white-space: nowrap }
 button.link { border: 0; background: none; padding: 0; color: var(--accent, #2563eb); cursor: pointer; font: inherit }
 
 /* upload wizard */
@@ -127,8 +127,8 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 .settings-wrap > .subtabs { flex: none }
 .settings-body { flex: 1 1 auto; min-height: 0; overflow: auto }
 .settings-body > .pro-frame { height: 100% }
-.pv { flex: 0 0 auto }
-.pv.grow { flex: 1 1 200px }
+.lp { flex: 0 0 auto }
+.lp.grow { flex: 1 1 200px }
 
 /* notifications: a panel beside the menu */
 .ntf-back { position: fixed; inset: 0; z-index: 40; background: rgba(15, 23, 42, .18) }
@@ -211,3 +211,6 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 
 .settings-body > .page { padding-top: 0 }
 .settings-wrap > .subtabs .st-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 4px }
+.lp { line-height: 1; padding-top: 1px; text-align: left }
+.lp.ico { justify-content: center; padding: 1px 8px 0 }
+.lp .ico, .lp svg { display: block; margin: 0 }

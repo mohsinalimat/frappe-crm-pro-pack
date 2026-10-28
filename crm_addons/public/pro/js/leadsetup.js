@@ -76,9 +76,9 @@
 				<section class="card" style="padding:16px 18px" aria-label="Preview">
 					<b>Preview</b>
 					<div class="prev">
-						<div class="row" style="gap:8px;flex-wrap:wrap"><span class="pv grow">Search anything: name, email, phone ...</span><span v-if="c.show_date" class="pv">Any time</span><span v-if="c.show_status" class="pv">Status</span><span class="pv ico" title="Filter icon" aria-label="Filter icon"><Ico name="filter" size="sm" /></span></div>
-						<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px"><span v-for="f in filters" :key="f.key" class="pv">{{ f.label }}</span><span class="pv dash">+ Custom filter</span></div>
-						<div class="pv-tbl"><span v-for="col in (columns.length ? columns : [{ key: 'a', label: 'CRM default columns' }])" :key="col.key">{{ col.label }}</span></div>
+						<div class="row" style="gap:8px;flex-wrap:wrap"><span class="lp grow">Search anything: name, email, phone ...</span><span v-if="c.show_date" class="lp">Any time</span><span v-if="c.show_status" class="lp">Status</span><span class="lp ico" title="Filter icon" aria-label="Filter icon"><Ico name="filter" size="sm" /></span></div>
+						<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px"><span v-for="f in filters" :key="f.key" class="lp">{{ f.label }}</span><span class="lp dash">+ Custom filter</span></div>
+						<div class="lp-tbl"><span v-for="col in (columns.length ? columns : [{ key: 'a', label: 'CRM default columns' }])" :key="col.key">{{ col.label }}</span></div>
 					</div>
 					<p class="small muted" style="margin:6px 0 0">Starts in <b>{{ c.default_view }}</b> view, sorted by <b>{{ (byL[sortParts.f] || {}).label || sortParts.f }}</b> ({{ sortParts.d === 'asc' ? 'oldest or A to Z first' : 'newest or Z to A first' }}).</p>
 				</section>
