@@ -347,3 +347,8 @@ html.pro .row.tool:not(:has(*)), html.pro .row.tools:not(:has(*)) { display: non
 
 .limit-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
 .limit-n { width: 90px; height: 34px; }
+
+.amount .amt-mode{width:auto;min-width:220px}
+.amt-each{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-width:420px}
+.amt-row{display:flex;align-items:center;gap:10px}
+.err-text{color:var(--danger,#c0392b)}

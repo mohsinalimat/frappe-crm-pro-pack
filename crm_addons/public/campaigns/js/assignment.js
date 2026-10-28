@@ -183,22 +183,50 @@
 		</Panel>`,
 	}
 
+	// How many leads: all of them, a number, or a number for each person (reference: "I'll set the numbers")
+	const newAmount = () => reactive({ mode: 'all', limit: 10, counts: {} })
+	const amountLimit = (a) => (a.mode === 'number' ? Math.max(0, parseInt(a.limit, 10) || 0) : 0)
+	const amountCounts = (a, people) => (a.mode === 'each' ? Object.fromEntries(people.map((u) => [u, Math.max(0, parseInt(a.counts[u], 10) || 0)])) : null)
+	const amountKey = (a) => a.mode + a.limit + JSON.stringify(a.counts)
+	C.AmountField = {
+		props: { amount: Object, people: Array, available: Number, noun: { type: String, default: 'leads' } },
+		setup(props) {
+			const given = computed(() => props.people.reduce((n, u) => n + Math.max(0, parseInt(props.amount.counts[u], 10) || 0), 0))
+			function even() {
+				const n = props.people.length; const total = props.available || 0
+				props.people.forEach((u, i) => { props.amount.counts[u] = Math.floor(total / n) + (i < total % n ? 1 : 0) })
+			}
+			return { given, even, CM, nameOf }
+		},
+		template: `
+		<div class="amount">
+			<div class="row wrap" style="gap:10px;align-items:center">
+				<select class="inp amt-mode" v-model="amount.mode" aria-label="How many leads"><option value="all">All {{ noun }}</option><option value="number">A certain number</option><option v-if="people.length > 1" value="each">A set number for each person</option></select>
+				<template v-if="amount.mode === 'number'"><input class="inp limit-n" type="number" min="1" :max="available || null" v-model="amount.limit" aria-label="How many leads" /><span class="small muted" v-if="available != null">of {{ CM.num(available) }}</span></template>
+			</div>
+			<div v-if="amount.mode === 'each'" class="amt-each">
+				<div v-for="u in people" :key="u" class="amt-row"><span class="grow">{{ nameOf(u) }}</span><input class="inp limit-n" type="number" min="0" v-model="amount.counts[u]" :aria-label="'Leads for ' + nameOf(u)" /></div>
+				<div class="row" style="gap:10px;align-items:center;margin-top:8px"><button type="button" class="btn sm" @click="even">Split evenly</button><span class="small" :class="given > (available || 0) ? 'err-text' : 'muted'">{{ CM.num(given) }} of {{ CM.num(available || 0) }} given out<template v-if="given <= (available || 0)">, {{ CM.num((available || 0) - given) }} will stay where they are</template><template v-else> (more than there are)</template></span></div>
+			</div>
+		</div>`,
+	}
+
 	// ------------------------------------------------------------------ 2. give leads that exist to people, now
 	C.AssignNow = {
 		emits: ['close', 'done'],
 		setup(props, { emit }) {
-			const m = reactive({ rules: [], match_mode: 'All conditions', assignees: [], distribution: 'Round robin', takeOver: false, useLimit: false, limit: 10 })
-			const pre = ref(null); const busy = ref(false)
+			const m = reactive({ rules: [], match_mode: 'All conditions', assignees: [], distribution: 'Round robin', takeOver: false })
+			const amt = newAmount(); const pre = ref(null); const busy = ref(false)
 			const ok = computed(() => ready(m.rules) && m.assignees.length)
-			const data = () => ({ conditions: A.rulesToJson(m.rules), match_mode: m.match_mode, assignees: m.assignees, distribution: m.distribution, scope: m.takeOver ? 'all' : 'unassigned', limit: m.useLimit ? Math.max(0, parseInt(m.limit, 10) || 0) : 0 })
+			const data = () => ({ conditions: A.rulesToJson(m.rules), match_mode: m.match_mode, assignees: m.assignees, distribution: m.distribution, scope: m.takeOver ? 'all' : 'unassigned', limit: amountLimit(amt), counts: amountCounts(amt, m.assignees) })
 			const count = CM.debounce(async () => { if (!ok.value) { pre.value = null; return } try { pre.value = await CM.apiA('preview_manual', { data: data() }) } catch (e) { pre.value = null } }, 500)
-			watch(() => [JSON.stringify(m.rules), m.match_mode, m.assignees.join(), m.takeOver, m.useLimit, m.limit], count)
+			watch(() => [JSON.stringify(m.rules), m.match_mode, m.assignees.join(), m.takeOver, amountKey(amt)], count)
 			async function go() {
 				if (!(await CM.confirm({ title: `Give ${plural(pre.value.count, 'lead')} to ${join(m.assignees)}?`, message: 'Each person gets a CRM notification.', confirmText: 'Assign' }))) return
 				busy.value = true
 				try { const res = await CM.apiA('assign_manual', { data: data() }); CM.toast(doneText(res, 'Assigning')); emit('done') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
-			return { m, pre, busy, ok, go, plural, join, sample, CM }
+			return { m, amt, pre, busy, ok, go, plural, join, sample, CM }
 		},
 		template: `
 		<Panel @close="$emit('close')">
@@ -206,7 +234,7 @@
 			<label class="check" style="margin-top:10px"><input type="checkbox" v-model="m.takeOver" /><span>Include leads that already have an owner</span></label>
 			<StepHead n="2" title="Give them to" /><PeopleField v-model="m.assignees" placeholder="Choose who gets these leads" />
 			<HowField v-model="m.distribution" :count="m.assignees.length" />
-			<div class="limit-row"><label class="check"><input type="checkbox" v-model="m.useLimit" /><span>Give only a number of them, not all</span></label><template v-if="m.useLimit"><input class="inp limit-n" type="number" min="1" :max="pre ? pre.available : null" v-model="m.limit" aria-label="How many leads" /><span class="small muted" v-if="pre">of {{ CM.num(pre.available) }} matching</span></template></div>
+			<StepHead n="3" title="How many?" /><AmountField :amount="amt" :people="m.assignees" :available="pre ? (pre.available ?? pre.count) : null" noun="matching leads" />
 			<div v-if="pre" class="sumbox"><Ico name="check-circle" /><div class="grow"><b>{{ plural(pre.count, 'lead') }}</b> will go to <b>{{ join(m.assignees) }}</b>.</div></div><div v-if="pre" v-html="sample(pre.sample)"></div>
 			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="users" :loading="busy" :disabled="!pre || !pre.count" @click="go">Assign {{ pre ? plural(pre.count, 'lead') : '' }}</Btn></template>
 		</Panel>`,
@@ -216,26 +244,26 @@
 	C.MoveLeads = {
 		emits: ['close', 'done'],
 		setup(props, { emit }) {
-			const t = reactive({ from: [], to: [], distribution: 'Round robin', all: false, useLimit: false, limit: 10 })
-			const lim = () => (t.useLimit ? Math.max(0, parseInt(t.limit, 10) || 0) : 0)
+			const t = reactive({ from: [], to: [], distribution: 'Round robin', all: false })
+			const amt = newAmount()
 			const pre = ref(null); const busy = ref(false)
 			const ok = computed(() => t.from.length && t.to.length)
-			const load = CM.debounce(async () => { if (!t.from.length) { pre.value = null; return } try { pre.value = await CM.apiA('preview_transfer', { from_users: t.from, scope: t.all ? 'all' : 'open', limit: lim() }) } catch (e) { pre.value = null } }, 400)
-			watch(() => [t.from.join(), t.all, t.useLimit, t.limit], load)
+			const load = CM.debounce(async () => { if (!t.from.length) { pre.value = null; return } try { pre.value = await CM.apiA('preview_transfer', { from_users: t.from, scope: t.all ? 'all' : 'open', limit: amountLimit(amt), to_users: t.to, counts: amountCounts(amt, t.to) }) } catch (e) { pre.value = null } }, 400)
+			watch(() => [t.from.join(), t.to.join(), t.all, amountKey(amt)], load)
 			async function go() {
 				if (!(await CM.confirm({ title: `Move ${plural(pre.value.count, 'lead')}?`, message: `From ${join(t.from)} to ${join(t.to)}. The old owner no longer sees them; the new people are notified in CRM.`, confirmText: 'Move leads', danger: true }))) return
 				busy.value = true
-				try { const res = await CM.apiA('transfer', { from_users: t.from, to_users: t.to, distribution: t.distribution, scope: t.all ? 'all' : 'open', limit: lim() }); CM.toast(doneText(res, 'Moving')); emit('done') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
+				try { const res = await CM.apiA('transfer', { from_users: t.from, to_users: t.to, distribution: t.distribution, scope: t.all ? 'all' : 'open', limit: amountLimit(amt), counts: amountCounts(amt, t.to) }); CM.toast(doneText(res, 'Moving')); emit('done') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
 			const clash = computed(() => t.from.some((u) => t.to.includes(u)))
-			return { t, pre, busy, ok, go, clash, plural, join, sample, CM, nameOf }
+			return { t, amt, pre, busy, ok, go, clash, plural, join, sample, CM, nameOf }
 		},
 		template: `
 		<Panel @close="$emit('close')">
 			<StepHead n="1" title="Take leads from" /><PeopleField v-model="t.from" placeholder="Choose who to take leads from" />
 			<StepHead n="2" title="Give them to" /><PeopleField v-model="t.to" placeholder="Choose who gets them" />
 			<HowField v-model="t.distribution" :count="t.to.length" />
-			<div class="limit-row"><label class="check"><input type="checkbox" v-model="t.useLimit" /><span>Move only a number of them, not all</span></label><template v-if="t.useLimit"><input class="inp limit-n" type="number" min="1" :max="pre ? pre.available : null" v-model="t.limit" aria-label="How many leads" /><span class="small muted" v-if="pre">of {{ CM.num(pre.available) }} available</span></template></div>
+			<StepHead n="3" title="How many?" /><AmountField :amount="amt" :people="t.to" :available="pre ? (pre.available ?? pre.count) : null" noun="their leads" />
 			<label class="check" style="margin-top:12px"><input type="checkbox" v-model="t.all" /><span>Include closed and converted leads (otherwise only open ones move)</span></label>
 			<div v-if="clash" class="alert err" style="margin-top:10px"><Ico name="alert" /><div class="grow">The same person is on both sides.</div></div>
 			<div v-else-if="pre" class="sumbox"><Ico name="check-circle" /><div class="grow"><b>{{ plural(pre.count, 'lead') }}</b> will move<template v-if="t.from.length > 1"> ({{ t.from.map((u) => nameOf(u) + ' ' + (pre.per_user[u] || 0)).join(', ') }})</template><template v-if="t.to.length"> to <b>{{ join(t.to) }}</b></template>.</div></div><div v-if="pre" v-html="sample(pre.sample)"></div>

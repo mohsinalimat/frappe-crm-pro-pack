@@ -409,7 +409,7 @@ def _apply(kind, p):
 	elif kind == "manual":
 		d = Distributor(p["people"], p["distribution"])
 		for lead in p["names"]:
-			users = d.next()
+			users = [p["plan"][lead]] if p.get("plan") else d.next()
 			if users and assign_lead(lead, users, "Manual", mode=p["distribution"], batch=p.get("batch", "")):
 				assigned += 1
 			else:
@@ -417,7 +417,7 @@ def _apply(kind, p):
 	elif kind == "transfer":
 		d = Distributor(p["people"], p["distribution"])
 		for lead in p["names"]:
-			users = d.next()
+			users = [p["plan"][lead]] if p.get("plan") else d.next()
 			if users and transfer_lead(lead, p["from_users"], users, p["distribution"], p.get("batch", "")):
 				assigned += 1
 			else:
@@ -578,6 +578,18 @@ def _limited(names, limit):
 	return names[:limit] if limit > 0 else names
 
 
+def _plan(names, people, counts):
+	"""Hand the leads out one person after another, as many as each was given. Returns (leads used, {lead: person})."""
+	counts = _json(counts, {})
+	plan, i = {}, 0
+	for u in people:
+		n = max(cint(counts.get(u)), 0)
+		for lead in names[i : i + n]:
+			plan[lead] = u
+		i += n
+	return list(plan), plan
+
+
 def _manual_args(data):
 	data = _json(data, {})
 	conditions, mode = _definition(data)
@@ -597,7 +609,11 @@ def preview_manual(data):
 	conditions, mode, people, _dist, scope = _manual_args(data)
 	names = _my_leads(_targets(conditions, mode, scope))
 	total = len(names)
-	names = _limited(names, _json(data, {}).get("limit"))
+	d = _json(data, {})
+	if d.get("counts"):
+		names = _plan(names, people, d["counts"])[0]
+	else:
+		names = _limited(names, d.get("limit"))
 	return {"count": len(names), "available": total, "sample": _sample(names), "people": people}
 
 
@@ -605,10 +621,16 @@ def preview_manual(data):
 def assign_manual(data):
 	_move()
 	conditions, mode, people, dist, scope = _manual_args(data)
-	names = _limited(_my_leads(_targets(conditions, mode, scope)), _json(data, {}).get("limit"))
+	d = _json(data, {})
+	names = _my_leads(_targets(conditions, mode, scope))
+	plan = {}
+	if d.get("counts"):
+		names, plan = _plan(names, people, d["counts"])
+	else:
+		names = _limited(names, d.get("limit"))
 	if not names:
 		return {"queued": False, "assigned": 0, "skipped": 0}
-	return _stage("manual", {"names": names, "people": people, "distribution": dist})
+	return _stage("manual", {"names": names, "people": people, "distribution": dist, "plan": plan})
 
 
 def _owned_by(users, scope):
@@ -626,7 +648,7 @@ def _owned_by(users, scope):
 
 
 @frappe.whitelist()
-def preview_transfer(from_users, scope="open", limit=0):
+def preview_transfer(from_users, scope="open", limit=0, to_users=None, counts=None):
 	_move()
 	users = _clean_users(from_users)
 	if not users:
@@ -636,12 +658,15 @@ def preview_transfer(from_users, scope="open", limit=0):
 	per = {u: len(_owned_by([u], scope)) for u in users}
 	names = _owned_by(users, scope)
 	total = len(names)
-	names = _limited(names, limit)
+	if _json(counts, {}):
+		names = _plan(names, _clean_users(to_users), counts)[0]
+	else:
+		names = _limited(names, limit)
 	return {"count": len(names), "available": total, "per_user": per, "sample": _sample(names)}
 
 
 @frappe.whitelist()
-def transfer(from_users, to_users, distribution, scope="open", limit=0):
+def transfer(from_users, to_users, distribution, scope="open", limit=0, counts=None):
 	"""Move every lead that is owned by, or assigned to, the ``from_users`` onto the ``to_users``."""
 	_move()
 	src = _clean_users(from_users)
@@ -653,10 +678,15 @@ def transfer(from_users, to_users, distribution, scope="open", limit=0):
 		frappe.throw(_("The same person cannot be both the source and the destination."))
 	if distribution not in MODES:
 		frappe.throw(_("Choose how the people share the leads."))
-	names = _limited(_owned_by(src, "all" if scope == "all" else "open"), limit)
+	names = _owned_by(src, "all" if scope == "all" else "open")
+	plan = {}
+	if _json(counts, {}):
+		names, plan = _plan(names, dest, counts)
+	else:
+		names = _limited(names, limit)
 	if not names:
 		return {"queued": False, "assigned": 0, "skipped": 0}
-	return _stage("transfer", {"names": names, "from_users": src, "people": dest, "distribution": distribution})
+	return _stage("transfer", {"names": names, "from_users": src, "people": dest, "distribution": distribution, "plan": plan})
 
 
 @frappe.whitelist()

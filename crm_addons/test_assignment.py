@@ -117,6 +117,18 @@ class TestAssignment(FrappeTestCase):
 		self.assertEqual(sum(1 for n in names if self.owner(n) == self.b), 2)
 		self.assertEqual(sum(1 for n in names if self.owner(n) == src), 3)
 
+	def test_each_person_can_be_given_their_own_number(self):
+		src = make_user("asg_cnt@example.com", ["Sales User"])
+		names = [lead(f"C{i}", lead_owner=src).name for i in range(5)]
+		counts = {self.a: 1, self.b: 3}
+		pre = asg.preview_transfer([src], "open", 0, [self.a, self.b], counts)
+		self.assertEqual((pre["count"], pre["available"]), (4, 5))
+		res = asg.transfer([src], [self.a, self.b], "Round robin", counts=counts)
+		self.assertEqual(res["assigned"], 4)
+		self.assertEqual(sum(1 for n in names if self.owner(n) == self.a), 1)
+		self.assertEqual(sum(1 for n in names if self.owner(n) == self.b), 3)
+		self.assertEqual(sum(1 for n in names if self.owner(n) == src), 1)
+
 	def test_only_a_system_manager_can_use_it(self):
 		frappe.set_user(self.a)
 		for fn, args in ((asg.list_rules, ()), (asg.list_people, ()), (asg.list_log, ()), (asg.transfer, ([self.a], [self.b], "Round robin"))):
