@@ -22,7 +22,7 @@ import secrets
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, cint, cstr, get_url, now_datetime
+from frappe.utils import add_days, cint, cstr, get_url, getdate, now_datetime
 from frappe.utils.html_utils import escape_html
 from frappe.utils.password import get_decrypted_password
 
@@ -666,7 +666,7 @@ def sync_state():
 
 
 @frappe.whitelist()
-def get_leads(page=1, page_size=25, result=None, form=None, search=None):
+def get_leads(page=1, page_size=25, result=None, form=None, search=None, from_date=None, to_date=None):
 	"""The whole Meta log, newest first, paged."""
 	_admin()
 	filters, or_filters = {}, []
@@ -675,6 +675,12 @@ def get_leads(page=1, page_size=25, result=None, form=None, search=None):
 		filters["result"] = ["in", picked]
 	if form:
 		filters["form"] = form
+	if from_date and to_date:
+		filters["creation"] = ["between", [getdate(from_date), cstr(getdate(to_date)) + " 23:59:59"]]
+	elif from_date:
+		filters["creation"] = [">=", getdate(from_date)]
+	elif to_date:
+		filters["creation"] = ["<=", cstr(getdate(to_date)) + " 23:59:59"]
 	txt = cstr(search).strip()
 	if txt:
 		or_filters = [[LOG, f, "like", f"%{txt}%"] for f in ("person_name", "email", "phone", "campaign_name", "ad_name", "leadgen_id")]

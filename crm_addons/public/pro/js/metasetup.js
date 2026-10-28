@@ -26,13 +26,13 @@
 			const edit = ref(null); const gone = ref(null); const guide = ref(false)
 			const SUBS = [['leads', 'Recent Meta leads', 'users'], ['forms', 'Lead forms', 'file'], ['connection', 'Meta connection', 'meta']]
 			const sub = ref(['leads', 'forms', 'connection'].includes(CM.store.get('meta-sub')) ? CM.store.get('meta-sub') : 'leads'); watch(sub, (v) => { CM.store.set('meta-sub', v); if (v === 'leads') loadLog() })
-			const lg = reactive({ rows: [], total: 0, counts: {}, forms: [], sync: {}, loading: false }); const lres = ref(''); const lform = ref(''); const lq = ref(''); const lpage = ref(1); const LSIZE = 20
+			const lg = reactive({ rows: [], total: 0, counts: {}, forms: [], sync: {}, loading: false }); const lres = ref(''); const lform = ref(''); const lq = ref(''); const lrange = CM.useRange('meta-log-range', 'any'); const lpage = ref(1); const LSIZE = 20
 			let seq = 0, timer = null, poll = null
 			async function loadLog(quiet) {
 				const my = ++seq; if (!quiet) lg.loading = true
-				try { const r = await call('get_leads', { page: lpage.value, page_size: LSIZE, result: lres.value || undefined, form: lform.value || undefined, search: lq.value || undefined }); if (my === seq) Object.assign(lg, r) } catch (e) { CM.toast(e.message, 'err') } finally { if (my === seq) lg.loading = false }
+				try { const r = await call('get_leads', { ...CM.rangeArgs(lrange.value), page: lpage.value, page_size: LSIZE, result: lres.value || undefined, form: lform.value || undefined, search: lq.value || undefined }); if (my === seq) Object.assign(lg, r) } catch (e) { CM.toast(e.message, 'err') } finally { if (my === seq) lg.loading = false }
 			}
-			watch([lres, lform], () => { lpage.value = 1; loadLog() }); watch(lpage, () => loadLog())
+			watch([lres, lform, () => lrange.value.preset, () => lrange.value.from, () => lrange.value.to], () => { lpage.value = 1; loadLog() }); watch(lpage, () => loadLog())
 			watch(lq, () => { clearTimeout(timer); timer = setTimeout(() => { lpage.value = 1; loadLog() }, 300) })
 			onMounted(() => { if (sub.value === 'leads') loadLog(); poll = setInterval(() => { if (sub.value === 'leads' && !document.hidden) loadLog(true) }, 15000) })
 			onBeforeUnmount(() => { clearInterval(poll); clearTimeout(timer) })
@@ -83,7 +83,7 @@
 			const fieldOpts = computed(() => [{ value: '', label: 'Do not import' }, ...d.value.fields])
 			const tone = (r) => ({ Created: 'green', Duplicate: 'blue', Failed: 'red', Ignored: 'amber', Waiting: 'amber' }[r] || '')
 			const word = (r) => ({ Created: 'New lead', Duplicate: 'Already a lead', Failed: 'Failed', Ignored: 'Skipped', Waiting: 'Waiting' }[r] || r)
-			return { found, todo, useApp, useToken, importForm, SUBS, sub, lg, lres, lform, lq, lpage, LSIZE, RES, syncNow, setSync, loading, error, d, c, busy, res, formRes, wiz, pages, page, forms, pick, map, loadingF, edit, gone, guide, GUIDE, save, test, disconnect, toggle, testForm, retry, remove, openWizard, choosePage, current, choose, formOpts, addForm, openEdit, saveMap, refreshQ, copy, when, fieldOpts, tone, word, CM }
+			return { found, todo, useApp, useToken, importForm, SUBS, sub, lg, lres, lform, lq, lrange, lpage, LSIZE, RES, syncNow, setSync, loading, error, d, c, busy, res, formRes, wiz, pages, page, forms, pick, map, loadingF, edit, gone, guide, GUIDE, save, test, disconnect, toggle, testForm, retry, remove, openWizard, choosePage, current, choose, formOpts, addForm, openEdit, saveMap, refreshQ, copy, when, fieldOpts, tone, word, CM }
 		},
 		template: `
 		<div class="page it-page">
@@ -142,10 +142,10 @@
 						<Btn icon="refresh" :loading="busy === 'sync'" :disabled="!d.connected" @click="syncNow">Sync now</Btn>
 						<Btn v-if="lg.sync.running !== false" icon="x-circle" :loading="busy === 'ss'" @click="setSync(false)">Stop sync</Btn><Btn v-else variant="primary" icon="check-circle" :loading="busy === 'ss'" @click="setSync(true)">Start sync</Btn></div>
 					<div class="small muted" style="margin:-4px 0 10px">{{ lg.sync.running === false ? 'While stopped, new leads from Meta are kept as Waiting and nothing is lost. Start the sync to import them. ' : '' }}{{ lg.sync.waiting ? lg.sync.waiting + ' waiting. ' : '' }}Last sync: {{ lg.sync.last_sync ? when(lg.sync.last_sync) : 'not yet' }}. Last notice from Meta: {{ lg.sync.last_event ? when(lg.sync.last_event) : 'none yet' }}.</div>
-					<div class="row wrap" style="gap:10px;margin-bottom:12px"><div style="width:200px"><Dd v-model="lres" :options="RES" aria-label="Result" /></div><div style="width:240px"><Dd v-model="lform" :options="lg.forms" searchable allow-empty="All forms" placeholder="All forms" aria-label="Form" /></div><div class="grow"></div>
+					<div class="row wrap" style="gap:10px;margin-bottom:12px"><div style="width:200px"><Dd v-model="lres" :options="RES" aria-label="Result" /></div><div style="width:240px"><Dd v-model="lform" :options="lg.forms" searchable allow-empty="All forms" placeholder="All forms" aria-label="Form" /></div><DateRange v-model="lrange" any one-month aria-label="Received between" /><div class="grow"></div>
 						<span v-for="(n, k) in lg.counts" :key="k" class="small muted">{{ word(k) }}: <b>{{ n }}</b></span><div style="width:220px"><Inp v-model="lq" icon="search" placeholder="Search" clearable aria-label="Search the Meta leads" /></div></div>
 					<Skel v-if="lg.loading && !lg.rows.length" h="40" />
-					<Empty v-else-if="!lg.rows.length" icon="users" title="No Meta leads" :text="lres || lform || lq ? 'Nothing matches these filters.' : 'Leads from your connected forms will appear here.'" />
+					<Empty v-else-if="!lg.rows.length" icon="users" title="No Meta leads" :text="lres || lform || lq || lrange.preset !== 'any' ? 'Nothing matches these filters.' : 'Leads from your connected forms will appear here.'" />
 					<div v-else class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Lead</th><th>Campaign / ad set / ad</th><th>Form</th><th>Result</th></tr></thead><tbody>
 						<tr v-for="r in lg.rows" :key="r.name"><td class="nowrap">{{ when(r.creation) }}</td>
 							<td><b>{{ r.person_name || '-' }}</b><div class="small muted">{{ r.email || r.phone }}</div></td>

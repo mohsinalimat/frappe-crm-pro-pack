@@ -14,10 +14,10 @@
 
 	V.ActivityLog = {
 		setup() {
-			const kind = ref(CM.store.get('dm-log-kind') || 'all'); const result = ref([]); const source = ref(''); const sources = ref([]); const card = ref(null); const search = ref(''); const page = ref(1)
+			const kind = ref(CM.store.get('dm-log-kind') || 'all'); const result = ref([]); const source = ref(''); const sources = ref([]); const card = ref(null); const search = ref(''); const range = CM.useRange('dm-log-range', 'any'); const page = ref(1)
 			const log = reactive({ rows: [], total: 0, loading: true, error: '', showIp: false })
 			let seq = 0, timer = null
-			const args = (p, size) => ({ kind: kind.value, result: result.value.length ? result.value.join(',') : undefined, source: source.value || undefined, search: search.value || undefined, page: p, page_size: size })
+			const args = (p, size) => ({ ...CM.rangeArgs(range.value), kind: kind.value, result: result.value.length ? result.value.join(',') : undefined, source: source.value || undefined, search: search.value || undefined, page: p, page_size: size })
 			async function load() {
 				const my = ++seq; log.loading = true; log.error = ''
 				try { const r = await CM.call('crm_addons.demos.activity_log.get_log', args(page.value, SIZE)); if (my === seq) { log.rows = r.rows; log.total = r.total; log.showIp = !!r.show_ip } } catch (e) { if (my === seq) log.error = DM.friendly(e) } finally { if (my === seq) log.loading = false }
@@ -25,14 +25,14 @@
 			function fit() { const el = card.value; if (el) el.style.height = Math.max(320, window.innerHeight - el.getBoundingClientRect().top - 16) + 'px' }
 			onMounted(async () => { load(); fit(); window.addEventListener('resize', fit); try { sources.value = (await CM.call('crm_addons.demos.activity_log.get_sources', {})) || [] } catch (e) { /* the filter stays empty */ } setTimeout(fit, 300) }); onBeforeUnmount(() => { clearTimeout(timer); window.removeEventListener('resize', fit) })
 			watch(kind, () => { CM.store.set('dm-log-kind', kind.value); result.value = []; source.value = ''; page.value = 1; load() })
-			watch([result, source], () => { page.value = 1; load() })
+			watch([result, source, () => range.value.preset, () => range.value.from, () => range.value.to], () => { page.value = 1; load() })
 			watch(page, load)
 			watch(search, () => { clearTimeout(timer); timer = setTimeout(() => { page.value = 1; load() }, 300) })
 			const BOOK = [['', 'All'], ['Confirmed', 'Booked'], ['Rescheduled', 'Rescheduled'], ['Completed', 'Held'], ['No Show', 'No-show'], ['Cancelled', 'Cancelled']]
 			const FORM = [['', 'All'], ['Created', 'New lead'], ['Duplicate', 'Already a lead'], ['Blocked', 'Blocked'], ['Failed', 'Failed']]
 			const resultOpts = computed(() => (kind.value === 'bookings' ? BOOK : kind.value === 'forms' || kind.value === 'meta' ? FORM : [...BOOK, ...FORM.slice(1)]).filter((r) => r[0]).map((r) => ({ value: r[0], label: r[1] })))
 			const sourceOpts = computed(() => sources.value.filter((x) => kind.value === 'all' || ({ bookings: 'booking', forms: 'form', meta: 'meta' }[kind.value] === x.kind)).map((x) => ({ value: x.value, label: x.label, sub: TYPE[x.kind] ? TYPE[x.kind][0] : '' })))
-			const filtered = computed(() => !!(result.value.length || source.value || search.value))
+			const filtered = computed(() => !!(result.value.length || source.value || search.value || range.value.preset !== 'any'))
 			async function exportCsv() {
 				try {
 					const out = [['When', 'Type', 'Booking page / form', 'Result', 'Name', 'Email', 'Phone', 'Source', 'Medium', 'Campaign', 'CRM lead', ...(log.showIp ? ['IP address'] : []), 'Note']]
@@ -44,7 +44,7 @@
 					CM.csv(out, 'log.csv')
 				} catch (e) { CM.toast(DM.friendly(e), 'err') }
 			}
-			return { card, resultOpts, sourceOpts, source, kind, result, search, page, log, filtered, exportCsv, RESULTS, LABEL, TONE, KINDS, TYPE, SIZE, CM, DM }
+			return { range, card, resultOpts, sourceOpts, source, kind, result, search, page, log, filtered, exportCsv, RESULTS, LABEL, TONE, KINDS, TYPE, SIZE, CM, DM }
 		},
 		template: `
 		<div class="page logpage">
@@ -54,10 +54,10 @@
 				<div class="row wrap logbar"><div class="seg logseg" role="group" aria-label="Show"><button v-for="k in KINDS" :key="k[0]" type="button" :class="{ on: kind === k[0] }" :aria-pressed="kind === k[0]" :title="k[1]" :aria-label="k[1]" @click="kind = k[0]">{{ k[1] }}</button></div>
 					<div style="width:210px"><MultiDd v-model="result" :options="resultOpts" placeholder="All results" /></div>
 					<div style="width:230px"><Dd v-model="source" :options="sourceOpts" searchable allow-empty="All websites" placeholder="All websites" aria-label="Website" /></div>
-					<div class="grow"></div><div style="width:min(200px,100%)"><Inp v-model="search" icon="search" placeholder="Search" clearable aria-label="Search the log" /></div></div>
+					<DateRange v-model="range" any one-month aria-label="Between" /><div class="grow"></div><div style="width:min(200px,100%)"><Inp v-model="search" icon="search" placeholder="Search" clearable aria-label="Search the log" /></div></div>
 				<ErrorState v-if="log.error" :message="log.error" @retry="load" />
 				<div v-else-if="log.loading && !log.rows.length" style="padding:18px"><Skel h="200" r="10" /></div>
-				<Empty v-else-if="!log.rows.length" icon="file" title="Nothing logged" :text="filtered ? 'No entry matches. Clear the filters.' : 'Nothing has been logged yet.'"><Btn v-if="filtered" @click="result = []; source = ''; search = ''">Clear filters</Btn></Empty>
+				<Empty v-else-if="!log.rows.length" icon="file" title="Nothing logged" :text="filtered ? 'No entry matches. Clear the filters.' : 'Nothing has been logged yet.'"><Btn v-if="filtered" @click="result = []; source = ''; search = ''; range = { preset: 'any', from: '', to: '' }">Clear filters</Btn></Empty>
 				<div v-else class="table-wrap logscroll" :style="{ opacity: log.loading ? .6 : 1 }"><table class="tbl"><thead><tr><th>When</th><th>Type</th><th>Result</th><th>Who</th><th>Source</th><th>CRM lead</th><th v-if="log.showIp">IP address</th></tr></thead>
 					<tbody><tr v-for="e in log.rows" :key="e.kind + e.name">
 						<td class="nowrap small">{{ CM.fmt(e.creation) }}</td>

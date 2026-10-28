@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 import frappe
 from frappe import _
 from frappe.utils.password import get_decrypted_password
-from frappe.utils import add_days, cint, cstr, get_url, now_datetime
+from frappe.utils import add_days, cint, cstr, get_url, getdate, now_datetime
 
 EMAIL_ACCOUNT = "Email Account"
 KEY_TOKEN = "crm_pro_ses_token"
@@ -614,12 +614,23 @@ def _paging(page, page_size):
 	return max(1, cint(page)), min(max(1, cint(page_size) or 25), 100)
 
 
+def _days(column, from_date, to_date, where, values):
+	"""Keep a log to the days from ``from_date`` to ``to_date`` (both included); either may be left out."""
+	if from_date:
+		where.append(f"DATE({column}) >= %(from_date)s")
+		values["from_date"] = getdate(from_date)
+	if to_date:
+		where.append(f"DATE({column}) <= %(to_date)s")
+		values["to_date"] = getdate(to_date)
+
+
 @frappe.whitelist()
-def get_email_log(page=1, page_size=25, status=None, account=None, search=None):
+def get_email_log(page=1, page_size=25, status=None, account=None, search=None, from_date=None, to_date=None):
 	"""Every email the CRM queued: state (waiting, sent, read, bounced, failed), who it went to, from which account, the lead, and the error when there is one."""
 	_admin()
 	page, size = _paging(page, page_size)
 	where, values = ["1 = 1"], {}
+	_days("q.creation", from_date, to_date, where, values)
 	if account:
 		email = frappe.db.get_value(EMAIL_ACCOUNT, account, "email_id")
 		where.append("(q.email_account = %(account)s OR q.sender = %(email)s)")
@@ -665,13 +676,14 @@ _WA_STATE = """case when m.type = 'Incoming' then 'Received'
 
 
 @frappe.whitelist()
-def get_whatsapp_log(page=1, page_size=25, status=None, account=None, search=None):
+def get_whatsapp_log(page=1, page_size=25, status=None, account=None, search=None, from_date=None, to_date=None):
 	"""Every WhatsApp message in and out: state (waiting, sent, delivered, read, failed, received), the number, the template and the lead."""
 	_admin()
 	if not frappe.db.exists("DocType", "WhatsApp Message"):
 		return {"rows": [], "total": 0, "page": 1, "page_size": 25, "counts": {}, "accounts": []}
 	page, size = _paging(page, page_size)
 	where, values = ["1 = 1"], {}
+	_days("m.creation", from_date, to_date, where, values)
 	if account:
 		where.append("m.whatsapp_account = %(account)s")
 		values["account"] = account
@@ -733,11 +745,12 @@ def get_calendar():
 
 
 @frappe.whitelist()
-def get_calendar_log(page=1, page_size=25, status=None, search=None):
+def get_calendar_log(page=1, page_size=25, status=None, search=None, from_date=None, to_date=None):
 	"""Meetings with how they synced to the calendar, newest first, failures with the reason."""
 	_admin()
 	page, size = _paging(page, page_size)
 	where, values = ["m.status != 'Cancelled'"], {}
+	_days("m.starts_on", from_date, to_date, where, values)
 	if status in ("Synced", "Failed", "Not synced"):
 		where.append("m.provider = 'Google Meet' AND m.sync_status = %(st)s")
 		values["st"] = status
