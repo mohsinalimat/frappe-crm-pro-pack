@@ -232,6 +232,9 @@
 			let saved = false; try { saved = localStorage.getItem('pro_rail_collapsed') === '1' } catch (e) { /* storage blocked */ }
 			const collapsed = ref(saved)
 			const toggleRail = () => { collapsed.value = !collapsed.value; try { localStorage.setItem('pro_rail_collapsed', collapsed.value ? '1' : '0') } catch (e) { /* not remembered */ } }
+			// a click anywhere outside the panel closes it (the menu's own Notifications button toggles it)
+			const away = (e) => { if (!e.target.closest || e.target.closest('.ntf-panel, [aria-controls="ntf"], .nav[aria-expanded]')) return; ntf.value = false }
+			watch(ntf, (on) => { if (on) setTimeout(() => document.addEventListener('pointerdown', away), 0); else document.removeEventListener('pointerdown', away) })
 			watch(() => r.parts[0], (v) => { if (v === 'notifications') { ntf.value = true; location.hash = '#/dashboard' } }, { immediate: true })
 			watch(active, () => { document.title = (current.value.label || 'Suite Pro') + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			// the unread count stays fresh while the page is open
