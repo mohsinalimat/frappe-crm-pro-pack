@@ -1,60 +1,72 @@
-/* Bookings admin: the Log. Website bookings and lead form entries together, newest first, paged on the server. The page header and the
- * table's column header stay put; the rows scroll. Administrators also see the visitor's IP address. */
+/* Bookings admin: the logs. One page for the website bookings, one for the lead forms: when, what it was, the result, who, where it came
+ * from, the CRM lead (opens on our own Leads page) and, for administrators only, the IP address. Same date range picker as the reports. */
 (() => {
 	const { ref, reactive, computed, watch, onMounted, onBeforeUnmount } = Vue
 	const CM = window.CM
 	const DM = window.DM
 	const V = DM.views
-	const SIZE = 50
-	const RESULTS = [['', 'All results'], ['Confirmed', 'Booked'], ['Rescheduled', 'Rescheduled'], ['Completed', 'Held'], ['No Show', 'No-show'], ['Cancelled', 'Cancelled'], ['Created', 'New lead'], ['Duplicate', 'Already a lead'], ['Blocked', 'Blocked'], ['Failed', 'Failed']]
-	const LABEL = { Confirmed: 'Booked', Rescheduled: 'Rescheduled', Completed: 'Held', 'No Show': 'No-show', Cancelled: 'Cancelled', Created: 'New lead', Duplicate: 'Already a lead', Blocked: 'Blocked', Failed: 'Failed' }
-	const TONE = { Confirmed: 'green', Rescheduled: 'blue', Completed: 'green', 'No Show': 'red', Cancelled: 'amber', Created: 'green', Duplicate: 'blue', Blocked: 'amber', Failed: 'red' }
-	const KINDS = [['all', 'All', 'layers'], ['bookings', 'Website bookings', 'calendar'], ['forms', 'Lead forms', 'file']]
+	const SIZE = 25
+	const KINDS = {
+		forms: {
+			title: 'Lead form log', sub: 'Every time a lead form was filled in, newest first.', back: '/forms', noun: 'Lead form', what: 'Form',
+			results: [['', 'All'], ['Created', 'New lead'], ['Duplicate', 'Already a lead'], ['Blocked', 'Blocked'], ['Failed', 'Failed']],
+			label: { Created: 'New lead', Duplicate: 'Already a lead', Blocked: 'Blocked', Failed: 'Failed' }, tone: { Created: 'green', Duplicate: 'blue', Blocked: 'amber', Failed: 'red' },
+			fetch: (a) => DM.lf('list_entries', a), result: (r) => r.result, thing: (r) => r.form_title, reason: (r) => r.reason,
+		},
+		bookings: {
+			title: 'Booking log', sub: 'Every booking made through a website widget, newest first.', back: '/bookings', noun: 'Booking', what: 'Widget',
+			results: [['', 'All'], ['Confirmed', 'Booked'], ['Rescheduled', 'Rescheduled'], ['Completed', 'Held'], ['No Show', 'No-show'], ['Cancelled', 'Cancelled']],
+			label: { Confirmed: 'Booked', Rescheduled: 'Rescheduled', Completed: 'Held', 'No Show': 'No-show', Cancelled: 'Cancelled' }, tone: { Confirmed: 'green', Rescheduled: 'blue', Completed: 'green', 'No Show': 'red', Cancelled: 'amber' },
+			fetch: (a) => DM.api('booking_log', { ...a, status: a.result, result: undefined }), result: (r) => r.status, thing: (r) => r.demo_title || r.demo_type, reason: (r) => (r.rescheduled_from ? 'Moved from an earlier booking' : ''),
+		},
+	}
 
 	V.ActivityLog = {
-		setup() {
-			const kind = ref(CM.store.get('dm-log-kind') || 'all'); const result = ref(''); const search = ref(''); const page = ref(1)
+		props: { kind: String },
+		setup(props) {
+			const K = KINDS[props.kind]
+			const range = CM.useRange('dm-log-range-' + props.kind, '30d')
+			const result = ref(''); const search = ref(''); const page = ref(1)
 			const log = reactive({ rows: [], total: 0, loading: true, error: '', showIp: false })
 			let seq = 0, timer = null
-			const args = (p, size) => ({ kind: kind.value, result: result.value || undefined, search: search.value || undefined, page: p, page_size: size })
+			const args = (p, size) => ({ ...CM.rangeArgs(range.value), result: result.value || undefined, search: search.value || undefined, page: p, page_size: size })
 			async function load() {
 				const my = ++seq; log.loading = true; log.error = ''
-				try { const r = await CM.call('crm_addons.demos.activity_log.get_log', args(page.value, SIZE)); if (my === seq) { log.rows = r.rows; log.total = r.total; log.showIp = !!r.show_ip } } catch (e) { if (my === seq) log.error = DM.friendly(e) } finally { if (my === seq) log.loading = false }
+				try { const r = await K.fetch(args(page.value, SIZE)); if (my === seq) { log.rows = r.rows; log.total = r.total; log.showIp = !!r.show_ip } } catch (e) { if (my === seq) log.error = DM.friendly(e) } finally { if (my === seq) log.loading = false }
 			}
 			onMounted(load); onBeforeUnmount(() => clearTimeout(timer))
-			watch([kind, result], () => { CM.store.set('dm-log-kind', kind.value); page.value = 1; load() })
+			watch(() => [range.value.preset, range.value.from, range.value.to, result.value], () => { page.value = 1; load() })
 			watch(page, load)
 			watch(search, () => { clearTimeout(timer); timer = setTimeout(() => { page.value = 1; load() }, 300) })
 			const filtered = computed(() => !!(result.value || search.value))
 			async function exportCsv() {
 				try {
-					const out = [['When', 'Type', 'Booking page / form', 'Result', 'Name', 'Email', 'Phone', 'Source', 'Medium', 'Campaign', 'CRM lead', ...(log.showIp ? ['IP address'] : []), 'Note']]
+					const out = [['Period', CM.rangeText(range.value) || 'Any time'], [], ['When', 'Type', K.what, 'Result', 'Name', 'Email', 'Phone', 'Source', 'Medium', 'Campaign', 'CRM lead', ...(log.showIp ? ['IP address'] : []), 'Note']]
 					for (let p = 1; p <= 40; p++) {
-						const r = await CM.call('crm_addons.demos.activity_log.get_log', args(p, 200))
-						r.rows.forEach((e) => out.push([e.creation, e.kind === 'form' ? 'Lead form' : 'Booking', e.thing, LABEL[e.result] || e.result, e.name_, e.email, e.phone, e.utm_source, e.utm_medium, e.utm_campaign, e.lead, ...(log.showIp ? [e.ip] : []), e.reason]))
-						if (p * 200 >= r.total) break
+						const r = await K.fetch(args(p, 100))
+						r.rows.forEach((e) => out.push([e.creation, K.noun, K.thing(e), K.label[K.result(e)] || K.result(e), e.name_, e.email, e.phone, e.utm_source, e.utm_medium, e.utm_campaign, e.lead, ...(log.showIp ? [e.ip] : []), K.reason(e)]))
+						if (p * 100 >= r.total) break
 					}
-					CM.csv(out, 'log.csv')
+					CM.csv(out, props.kind + '-log.csv')
 				} catch (e) { CM.toast(DM.friendly(e), 'err') }
 			}
-			return { kind, result, search, page, log, filtered, exportCsv, RESULTS, LABEL, TONE, KINDS, SIZE, CM, DM }
+			return { K, range, result, search, page, log, filtered, exportCsv, SIZE, CM, DM, go: CM.go }
 		},
 		template: `
-		<div class="page logpage">
-			<div class="pg-head"><div class="grow"><h1>Log</h1><p>Every website booking and lead form entry, newest first.</p></div>
-				<div class="actions"><div class="seg" role="group" aria-label="Show"><button v-for="k in KINDS" :key="k[0]" type="button" :class="{ on: kind === k[0] }" :aria-pressed="kind === k[0]" :title="k[1]" :aria-label="k[1]" @click="kind = k[0]"><Ico :name="k[2]" size="sm" /></button></div>
-					<div style="width:150px"><Dd v-model="result" :options="RESULTS.map((r) => ({ value: r[0], label: r[1] }))" aria-label="Result" /></div>
-					<div style="width:200px"><Inp v-model="search" icon="search" placeholder="Search" clearable aria-label="Search the log" /></div>
-					<Btn icon="download" :disabled="!log.total" @click="exportCsv">Export CSV</Btn></div></div>
-			<div class="card logcard">
+		<div class="page">
+			<div class="pg-head"><div class="grow"><h1>Log</h1><p>{{ K.sub }}</p></div>
+				<div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Log dates" /><Btn icon="download" :disabled="!log.total" @click="exportCsv">Export CSV</Btn></div></div>
+			<div class="seg" role="tablist" aria-label="Log" style="margin-bottom:14px"><button type="button" role="tab" :class="{ on: kind === 'bookings' }" :aria-selected="kind === 'bookings'" @click="go('/log')"><Ico name="calendar" size="sm" /> Website bookings</button><button type="button" role="tab" :class="{ on: kind === 'forms' }" :aria-selected="kind === 'forms'" @click="go('/log/forms')"><Ico name="file" size="sm" /> Lead forms</button></div>
+			<div class="card" style="overflow:hidden">
+				<div class="row wrap" style="padding:14px 18px;gap:10px"><div class="chips"><button v-for="r in K.results" :key="r[0]" type="button" class="fchip" :class="{ on: result === r[0] }" :aria-pressed="result === r[0]" @click="result = r[0]">{{ r[1] }}</button></div><div class="grow"></div><div style="width:min(300px,100%)"><Inp v-model="search" icon="search" placeholder="Search name, email, phone or campaign" clearable aria-label="Search the log" /></div></div>
 				<ErrorState v-if="log.error" :message="log.error" @retry="load" />
 				<div v-else-if="log.loading && !log.rows.length" style="padding:18px"><Skel h="200" r="10" /></div>
-				<Empty v-else-if="!log.rows.length" icon="file" title="Nothing logged" :text="filtered ? 'No entry matches. Clear the filters.' : 'Nothing has been logged yet.'"><Btn v-if="filtered" @click="result = ''; search = ''">Clear filters</Btn></Empty>
-				<div v-else class="table-wrap logscroll" :style="{ opacity: log.loading ? .6 : 1 }"><table class="tbl"><thead><tr><th>When</th><th>Type</th><th>Result</th><th>Who</th><th>Source</th><th>CRM lead</th><th v-if="log.showIp">IP address</th></tr></thead>
-					<tbody><tr v-for="e in log.rows" :key="e.kind + e.name">
+				<Empty v-else-if="!log.rows.length" icon="file" title="Nothing logged" :text="filtered ? 'No entry matches. Clear the filters.' : 'Nothing was logged over these dates. Pick a longer range.'"><Btn v-if="filtered" @click="result = ''; search = ''">Clear filters</Btn></Empty>
+				<div v-else class="table-wrap" :style="{ opacity: log.loading ? .6 : 1 }"><table class="tbl"><thead><tr><th>When</th><th>Type</th><th>Result</th><th>Who</th><th>Source</th><th>CRM lead</th><th v-if="log.showIp">IP address</th></tr></thead>
+					<tbody><tr v-for="e in log.rows" :key="e.name">
 						<td class="nowrap small">{{ CM.fmt(e.creation) }}</td>
-						<td><span class="badge" :class="e.kind === 'form' ? 'purple' : 'blue'">{{ e.kind === 'form' ? 'Lead form' : 'Booking' }}</span><div class="small muted ellipsis" style="max-width:160px" :title="e.thing">{{ e.thing }}</div></td>
-						<td><span class="badge" :class="TONE[e.result]" :title="e.reason">{{ LABEL[e.result] || e.result }}</span><div v-if="e.reason" class="small muted ellipsis" style="max-width:220px" :title="e.reason">{{ e.reason }}</div></td>
+						<td><span class="badge" :class="kind === 'forms' ? 'purple' : 'blue'">{{ K.noun }}</span><div class="small muted ellipsis" style="max-width:160px" :title="K.thing(e)">{{ K.thing(e) }}</div></td>
+						<td><span class="badge" :class="K.tone[K.result(e)]" :title="K.reason(e)">{{ K.label[K.result(e)] || K.result(e) }}</span><div v-if="K.reason(e)" class="small muted ellipsis" style="max-width:220px" :title="K.reason(e)">{{ K.reason(e) }}</div></td>
 						<td><b>{{ e.name_ || '-' }}</b><div class="small muted">{{ e.email }}<template v-if="e.email && e.phone"> - </template>{{ e.phone }}</div></td>
 						<td class="small"><template v-if="e.utm_source">{{ e.utm_source }}<span v-if="e.utm_medium" class="muted"> / {{ e.utm_medium }}</span></template><span v-else class="faint">direct</span><div v-if="e.utm_campaign" class="muted">{{ e.utm_campaign }}</div></td>
 						<td><a v-if="e.lead" :href="CM.leadUrl(e.lead)" target="_blank" rel="noopener" class="mono small">{{ e.lead }}</a><span v-else class="faint">-</span></td>

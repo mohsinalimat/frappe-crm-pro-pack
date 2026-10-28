@@ -28,7 +28,7 @@
 						if (p[1]) return { comp: 'LeadFormEditor', key: 'lf' + p[1], props: { name: p[1], tab: p[2] || 'details' } }
 						return { comp: 'LeadForms', key: 'forms' }
 					case 'bookings': return { comp: 'Bookings', key: 'bk' }
-					case 'log': return { comp: 'ActivityLog', key: 'log' }
+					case 'log': return { comp: 'ActivityLog', key: 'log' + (p[1] || ''), props: { kind: p[1] === 'forms' ? 'forms' : 'bookings' } }
 					case 'report': return p[1] === 'forms' ? { comp: 'LeadFormReport', key: 'lfrep' } : { comp: 'Report', key: 'rep' }
 					default: return DM.session.demos !== 'none' || DM.session.widgets === 'none' ? { comp: 'Bookings', key: 'bk' } : { comp: 'DemoTypes', key: 'types' }
 				}
