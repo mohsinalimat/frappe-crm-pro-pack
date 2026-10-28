@@ -480,8 +480,18 @@
 			}
 			const statusColor = (c) => STATUS_COLORS[c] || '#94a3b8'
 			const outcomeTone = (o) => OUTCOME_TONE[o] || ''
+			const SORTS = [{ value: 'due', label: 'Due date' }, { value: 'modified', label: 'Last modified' }, { value: 'name', label: 'Lead name' }, { value: 'owner', label: 'Owner' }]
+			const sortBy = ref(store.get('crm_addons_fu_sort') || 'due')
+			watch(sortBy, (v) => store.set('crm_addons_fu_sort', v))
+			const sortedItems = computed(() => {
+				const k = sortBy.value, a = [...items.value]
+				if (k === 'modified') return a.sort((x, y) => String(y.creation || y.followed_up_on).localeCompare(String(x.creation || x.followed_up_on)))
+				if (k === 'name') return a.sort((x, y) => String(x.reference_title).localeCompare(String(y.reference_title)))
+				if (k === 'owner') return a.sort((x, y) => String(x.assigned_name || '').localeCompare(String(y.assigned_name || '')))
+				return a
+			})
 			const rows = computed(() => {
-				if (view.value !== 'agenda' || tab.value === 'worked') return items.value.map((i) => ({ kind: 'row', key: i.name, item: i }))
+				if (view.value !== 'agenda' || tab.value === 'worked') return (view.value === 'agenda' ? items.value : sortedItems.value).map((i) => ({ kind: 'row', key: i.name, item: i }))
 				const out = []
 				let last = ''
 				for (const i of items.value) {
@@ -567,6 +577,7 @@
 			// links open the lead in the CRM; inside the CRM overlay, the CRM page itself goes there
 			function openLead(e, i) {
 				if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0) return // the browser's own "new tab" gestures
+				if (params.get('pro') === '1' && i.reference_doctype === 'CRM Lead') { e.preventDefault(); return tellParent('pro-open-lead', { name: i.reference_docname }) } // the Suite Pro app has its own lead page
 				if (EMBED && i.reference_url) { e.preventDefault(); tellParent('navigate', { url: i.reference_url }) }
 			}
 			const closeSelf = () => tellParent('close')
@@ -597,7 +608,7 @@
 
 			return {
 				EMBED, TABS, data, items, loading, more, fatal, toasts, form, frame, busy, selected, tab, scope, scopeModel, owner, outcome, search, view, range, updatedAt, searchBox,
-				isManager, everyone, everyoneLabel, scopeOptions, ownerOptions, outcomeOptions, subtitle, filtered, clearFilters, cards, pickCard, rate, due, statusColor, outcomeTone,
+				sortBy, SORTS, isManager, everyone, everyoneLabel, scopeOptions, ownerOptions, outcomeOptions, subtitle, filtered, clearFilters, cards, pickCard, rate, due, statusColor, outcomeTone,
 				rows, dayCount, canSelect, selectedNames, allSelected, toggleAll, toggle, markDone, reschedule, bulk, logFor, closeForm, openLead, closeSelf, openFull, emptyText,
 				hasMore, load, loadMore, num, plural,
 			}
@@ -607,22 +618,12 @@
 	<div class="progress" v-if="loading"></div>
 	<header class="dash-bar fu-bar">
 		<div class="fu-row">
-			<div class="dash-brand"><span class="brand-ico"><ico name="phone-call" size="lg" /></span><div><h1>Follow-ups</h1><div class="sub">{{ subtitle }}</div></div></div>
-			<label class="fu-search"><ico name="search" /><input ref="searchBox" type="search" v-model="search" placeholder="Search leads, phone numbers, remarks" aria-label="Search follow-ups" /><kbd v-if="!search">/</kbd></label>
+			<div class="dash-brand"><span class="brand-ico"><ico name="phone-call" size="lg" /></span><div><h1>Follow-ups</h1></div></div>
 			<span class="spacer"></span>
-			<span class="sub updated" v-if="updatedAt">Updated {{ updatedAt }}</span>
 			<div class="seg" role="group" aria-label="View"><button :class="{ on: view === 'table' }" @click="view = 'table'" title="Table"><ico name="list" /> List</button><button :class="{ on: view === 'agenda' }" @click="view = 'agenda'" title="Grouped by day"><ico name="agenda" /> By day</button></div>
-			<button class="btn ghost icon" @click="load()" :title="updatedAt ? 'Refresh (updated ' + updatedAt + ')' : 'Refresh'" aria-label="Refresh"><ico name="refresh" size="lg" /></button>
 			<a class="btn" href="/crm" v-if="!EMBED"><ico name="back" /> CRM</a>
 			<button class="btn ghost icon" v-if="EMBED" @click="openFull" title="Open in a new tab" aria-label="Open in a new tab"><ico name="external" size="lg" /></button>
 			<button class="btn ghost icon" v-if="EMBED" @click="closeSelf" title="Close (Esc)" aria-label="Close"><ico name="x" size="lg" /></button>
-		</div>
-		<div class="fu-row filters" v-if="data">
-			<div class="fu-pick" v-if="isManager"><pick v-model="scopeModel" :options="scopeOptions" icon="users" /></div>
-			<div class="fu-pick" v-if="everyone"><pick v-model="owner" :options="ownerOptions" placeholder="All owners" icon="user" /></div>
-			<div class="fu-pick"><pick v-model="outcome" :options="outcomeOptions" placeholder="All outcomes" icon="phone" /></div>
-			<range-picker v-model="range" />
-			<button class="btn ghost small" v-if="filtered" @click="clearFilters"><ico name="x" /> Clear filters</button>
 		</div>
 	</header>
 
@@ -630,12 +631,25 @@
 	<div class="banner fu-banner" v-if="data && !data.enabled">Follow-ups are switched off in CRM Addons Settings. You can still see the ones already logged.</div>
 
 	<main class="dash-body" v-if="data">
+		<div class="panel fu-filters">
+			<label class="fu-search"><ico name="search" /><input ref="searchBox" type="search" v-model="search" placeholder="Search anything ..." aria-label="Search follow-ups" /><kbd v-if="!search">/</kbd></label>
+			<range-picker v-model="range" />
+			<div class="fu-pick" v-if="isManager"><pick v-model="scopeModel" :options="scopeOptions" icon="users" /></div>
+			<div class="fu-pick" v-if="everyone"><pick v-model="owner" :options="ownerOptions" placeholder="All owners" icon="user" /></div>
+			<div class="fu-pick"><pick v-model="outcome" :options="outcomeOptions" placeholder="All outcomes" icon="phone" /></div>
+			<button class="btn icon" :disabled="!filtered" @click="clearFilters" title="Clear filters" aria-label="Clear filters"><ico name="x" /></button>
+		</div>
 		<section class="panel fu-panel" :class="{ busy: loading }">
 			<div class="fu-tabs" role="tablist">
 				<button v-for="t in TABS" :key="t[0]" role="tab" :aria-selected="tab === t[0]" class="fu-tab" :class="[t[0], { on: tab === t[0] }]" @click="tab = t[0]">{{ t[1] }}<span class="count">{{ num(data.counts[t[0]]) }}</span></button>
 				<span class="spacer"></span>
 				<span class="sub fu-rate" v-if="rate" :title="rate.hint">Connect rate <b>{{ rate.text }}</b> <span>{{ rate.detail }}</span></span>
-				<span class="sub fu-total" v-if="items.length">{{ items.length < data.total ? 'Showing ' + num(items.length) + ' of ' + num(data.total) : plural(data.total, 'follow-up') }}</span>
+			</div>
+			<div class="fu-lbar">
+				<span class="sub fu-total">{{ items.length ? (items.length < data.total ? 'Showing ' + num(items.length) + ' of ' + num(data.total) : plural(data.total, 'follow-up')) : '0 follow-ups' }}</span>
+				<span class="spacer"></span>
+				<button class="btn icon" @click="load()" :title="updatedAt ? 'Refresh (updated ' + updatedAt + ')' : 'Refresh'" aria-label="Refresh"><ico name="refresh" /></button>
+				<div class="fu-sort" v-if="view === 'table'"><span class="sub">Sort by</span><pick v-model="sortBy" :options="SORTS" /></div>
 			</div>
 
 			<div class="fu-bulk" v-if="selectedNames.length">
@@ -678,7 +692,6 @@
 											<button class="btn ghost icon small" :disabled="busy[r.item.name]" @click="markDone(r.item)" title="Mark done" aria-label="Mark done"><ico name="check-circle" /></button>
 											<reschedule compact :disabled="busy[r.item.name]" @pick="(w) => reschedule(r.item, w)" />
 										</template>
-										<a class="btn ghost icon small" :href="r.item.reference_url || '#'" target="_blank" rel="noopener" @click="openLead($event, r.item)" title="Open the lead" aria-label="Open the lead"><ico name="external" /></a>
 									</span>
 								</td>
 							</tr>

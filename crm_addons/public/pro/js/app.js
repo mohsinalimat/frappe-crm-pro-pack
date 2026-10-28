@@ -77,6 +77,7 @@
 	const App = {
 		setup() {
 			const r = CM.route
+			window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.source === 'crm-addons' && e.data.type === 'pro-open-lead' && e.data.name) location.hash = '#/leads/' + encodeURIComponent(e.data.name) })
 			if (!location.hash) CM.replace('/dashboard')   // the shared router starts on Campaigns; this app starts on the Sales Dashboard
 			const items = computed(() => menu(PRO.shell.config))
 			const active = computed(() => { const k = r.parts[0] && r.parts[0] !== 'notifications' ? r.parts[0] : 'dashboard'; return items.value.some((i) => i.key === k) ? k : (items.value[0] ? items.value[0].key : 'notifications') })

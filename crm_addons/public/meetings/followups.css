@@ -145,3 +145,15 @@ table.by-day .remark { width: 30%; }
 .wa-tpl-body { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--bg-soft, rgba(127,127,127,.1)); white-space: pre-wrap; font-size: 13px; }
 
 html.inline .dash-brand .brand-ico { display: none; }
+
+/* same look as the Leads screen: filters in their own card, list bar under the tabs */
+.fu-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px; }
+.fu-filters .fu-search { flex: 1 1 300px; min-width: 260px; width: auto; max-width: none; }
+.fu-filters .fu-pick { width: 170px; }
+.fu-filters .pick-btn.range { min-width: 190px; }
+.fu-filters .btn.icon:disabled { opacity: .45; cursor: default; }
+.fu-lbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.fu-lbar .fu-sort { display: flex; align-items: center; gap: 6px; } .fu-lbar .fu-sort .pick-btn { min-width: 150px; }
+.fu-table th, .fu-table td { padding-left: 8px; padding-right: 8px; }
+.fu-table .remark, table.by-day .remark { width: 20%; min-width: 120px; }
+.fu-table td.act, .fu-table th.act { white-space: nowrap; width: 1%; }
