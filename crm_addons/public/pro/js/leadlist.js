@@ -141,7 +141,7 @@
 		<Modal title="Columns" size="lg" @close="$emit('close')">
 			<div class="grid2" style="align-items:start">
 				<div><Inp v-model="q" icon="search" placeholder="Find a field" aria-label="Find a field" /><div class="colpick"><label v-for="f in shown" :key="f.fieldname" class="row" style="gap:8px;padding:5px 2px"><input type="checkbox" :checked="has(f.fieldname)" @change="flip(f)" /> {{ f.label }}</label></div></div>
-				<div><b class="small">Shown, in order</b><ul class="list"><li v-for="(c, i) in chosen" :key="c.key" class="row li dragrow" :class="{ over: overI === i && dragI !== i }" style="gap:8px;padding:6px 0" draggable="true" @dragstart="dragI = i" @dragend="dragI = overI = -1" @dragover.prevent="overI = i" @drop.prevent="drop(i)"><span class="grip" aria-hidden="true"><Ico name="grip" /></span><span class="grow">{{ c.label }}</span></li></ul></div>
+				<div><b class="small">Shown, in order</b><ul class="list"><li v-for="(c, i) in chosen" :key="c.key" class="row li dragrow" :class="{ over: overI === i && dragI !== i }" style="gap:8px;padding:6px 0" draggable="true" @dragstart="dragI = i" @dragend="dragI = overI = -1" @dragover.prevent="overI = i" @drop.prevent="drop(i)"><span class="grip" aria-hidden="true"><Ico name="grip" /></span><span class="grow">{{ c.label }}</span><Btn size="sm" variant="ghost" icon="x" :aria-label="'Remove ' + c.label" title="Remove" @click="chosen = chosen.filter((x) => x.key !== c.key)" /></li></ul></div>
 			</div>
 			<template #foot><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" :disabled="!chosen.length" @click="apply">Apply</Btn></template>
 		</Modal>`,
