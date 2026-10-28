@@ -76,7 +76,7 @@
 	// ------------------------------------------------------------------ the component
 	const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 	C.DateRange = {
-		props: { modelValue: Object, any: Boolean, size: { type: String, default: 'sm' }, align: { type: String, default: 'left' }, ariaLabel: { type: String, default: 'Date range' } },
+		props: { modelValue: Object, any: Boolean, size: { type: String, default: 'sm' }, align: { type: String, default: 'left' }, ariaLabel: { type: String, default: 'Date range' }, oneMonth: Boolean },
 		emits: ['update:modelValue', 'change'],
 		setup(props, { emit }) {
 			const btn = ref(null)
@@ -88,7 +88,7 @@
 			const W = () => (narrow.value ? Math.min(innerWidth - 16, 360) : months.value === 2 ? 700 : 450)
 			const p = CM.usePop(() => btn.value, {
 				layout(r) {
-					narrow.value = innerWidth < 640; months.value = !narrow.value && innerWidth >= 840 ? 2 : 1
+					narrow.value = innerWidth < 640; months.value = !narrow.value && !props.oneMonth && innerWidth >= 840 ? 2 : 1
 					const w = W(), h = narrow.value ? 470 : 400
 					let left = props.align === 'right' ? r.right - w : r.left
 					left = Math.max(8, Math.min(left, innerWidth - w - 8))

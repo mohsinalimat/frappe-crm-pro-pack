@@ -262,6 +262,26 @@ def create_lead(values):
 
 
 @frappe.whitelist()
+def field_values(fieldname, txt="", limit=40):
+	"""The values a lead field has (with how many leads), for the include / exclude pickers. A Select field offers all its options."""
+	_check()
+	from crm_addons.pro import form
+
+	meta = frappe.get_meta(LEAD)
+	df = meta.get_field(fieldname)
+	if fieldname not in {k for k, _l in form.export_fields()} or not df or df.fieldtype in ("Date", "Datetime", "Time", "Check", "Text", "Long Text", "Small Text") or not meta.has_permlevel_access_to(fieldname, df, "read"):
+		frappe.throw(_("That field cannot be filtered this way."))
+	txt = cstr(txt).strip().lower()
+	if df.fieldtype == "Select":
+		return [{"value": o, "count": None} for o in (df.options or "").split("\n") if o and txt in o.lower()]
+	flt = [[LEAD, "converted", "=", 0], [LEAD, fieldname, "is", "set"]]
+	if txt:
+		flt.append([LEAD, fieldname, "like", f"%{txt}%"])
+	rows = frappe.get_list(LEAD, filters=flt, fields=[fieldname, "count(name) as n"], group_by=fieldname, order_by="n desc", limit_page_length=max(1, min(cint(limit) or 40, 100)))
+	return [{"value": r.get(fieldname), "count": r.n} for r in rows]
+
+
+@frappe.whitelist()
 def search_names(text):
 	"""Names of the leads that have ``text`` in any of their text fields (name, email, phone, organization, source ...): one box searches everything.
 	Only leads this person may see (the list API's own permission rules)."""

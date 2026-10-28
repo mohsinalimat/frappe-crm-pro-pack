@@ -86,3 +86,18 @@
 .dragrow.over { box-shadow: 0 -2px 0 var(--accent, #2563eb) }
 .grip { display: inline-flex; color: var(--faint, #9ca3af) }
 .dr-tabs .btn.on { background: var(--accent-soft, #e8f0fe); border-color: var(--accent, #2563eb) }
+
+/* include / exclude value pickers */
+.vp { position: relative; display: inline-flex; align-items: center }
+.vp { width: 210px }
+.vp .dd-btn { padding-right: 30px; width: 100% }
+.vp-x { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: inline-flex; border: 0; background: transparent; color: var(--faint, #b6bcc8); padding: 3px; border-radius: 6px; cursor: default }
+.vp-x.on { color: var(--text, #111827); cursor: pointer }
+.vp-x.on:hover { background: var(--hover, #eef0f4) }
+.vp.on .dd-btn { border-color: var(--accent, #2563eb) }
+.vp-ops { display: flex; gap: 6px; padding: 8px 8px 0 }
+.vp-ops .btn.on { background: var(--accent-soft, #e8f0fe); border-color: var(--accent, #2563eb) }
+.vp-pop { min-width: 260px }
+
+.btn.icon { position: relative }
+.btn.icon .n { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent, #2563eb); color: #fff; font-size: 11px; line-height: 16px; text-align: center }

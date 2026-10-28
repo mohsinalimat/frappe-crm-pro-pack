@@ -50,3 +50,14 @@ class TestProConfig(AccessCase):
 		self.assertIn(lead.name, leads.search_names("zq.unique.mail"))
 		self.assertIn(lead.name, leads.search_names("9811223344"))
 		self.assertEqual(leads.search_names(" "), [])
+
+	def test_field_values(self):
+		frappe.set_user("Administrator")
+		lead = frappe.get_doc({"doctype": "CRM Lead", "first_name": "Zq Vals", "job_title": "Zqville"}).insert(ignore_permissions=True)
+		self.addCleanup(frappe.delete_doc, "CRM Lead", lead.name, force=True, ignore_permissions=True)
+		self.assertIn("Zqville", [v["value"] for v in leads.field_values("job_title", "zqv")])
+		self.assertTrue(leads.field_values("status"))
+		with self.assertRaises(frappe.ValidationError):
+			leads.field_values("creation")
+		with self.assertRaises(frappe.ValidationError):
+			leads.field_values("owner")

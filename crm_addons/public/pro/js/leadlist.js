@@ -8,62 +8,10 @@
 	const { csvDownload, iso } = PRO.leadUtil
 	const api = (m, a) => CM.call(m, a)
 	const DOC = 'CRM Lead'
-	const BASE = { converted: 0 }
 	const jparse = (s, d) => { if (s && typeof s !== 'string') return s; try { return s ? JSON.parse(s) : d } catch (e) { return d } }
 	const TIME_KEYS = ['modified', 'creation', 'first_response_time', 'first_responded_on', 'response_by']
 
-	// ---- filters: conditions <-> CRM's filter object
-	const T_STR = ['Data', 'Long Text', 'Small Text', 'Text', 'Text Editor', 'Phone', 'Autocomplete', 'Code']
-	const T_NUM = ['Int', 'Float', 'Currency', 'Percent']
-	const T_DATE = ['Date', 'Datetime']
-	const OPS = (ft, fn) => {
-		const eq = [['equals', 'Equals'], ['not equals', 'Not equals']], like = [['like', 'Like'], ['not like', 'Not like']], inn = [['in', 'In'], ['not in', 'Not in']], is = [['is', 'Is']]
-		if (fn === '_assign') return [...like, ...is]
-		if (T_STR.includes(ft)) return [...eq, ...like, ...inn, ...is]
-		if (T_NUM.includes(ft)) return [...eq, ...like, ...inn, ...is, ['<', '<'], ['>', '>'], ['<=', '<='], ['>=', '>=']]
-		if (ft === 'Select') return [...eq, ...inn, ...is]
-		if (ft === 'Link') return [...eq, ...like, ...inn, ...is]
-		if (ft === 'Check') return [['equals', 'Equals']]
-		if (T_DATE.includes(ft)) return [...eq, ...is, ['>', '>'], ['<', '<'], ['>=', '>='], ['<=', '<='], ['between', 'Between'], ['timespan', 'Timespan']]
-		return [...eq, ...like, ...is]
-	}
-	const SPANS = ['last week', 'last month', 'last quarter', 'last 6 months', 'last year', 'yesterday', 'today', 'tomorrow', 'this week', 'this month', 'this quarter', 'this year', 'next week', 'next month', 'next quarter', 'next 6 months', 'next year']
-	const list = (v) => String(v).split(',').map((x) => x.trim()).filter(Boolean)
-	function toFilters(conds) {
-		const out = {}
-		for (const c of conds) {
-			if (!c.field || c.value === '' || c.value == null) continue
-			const v = c.value
-			if (c.op === 'equals') out[c.field] = v
-			else if (c.op === 'not equals') out[c.field] = ['!=', v]
-			else if (c.op === 'like') out[c.field] = ['LIKE', '%' + v + '%']
-			else if (c.op === 'not like') out[c.field] = ['NOT LIKE', '%' + v + '%']
-			else if (c.op === 'in') out[c.field] = ['IN', list(v)]
-			else if (c.op === 'not in') out[c.field] = ['NOT IN', list(v)]
-			else if (c.op === 'is') out[c.field] = ['IS', v]
-			else if (c.op === 'between') { const p = String(v).split(',').map((x) => x.trim()); if (p[0] && p[1]) out[c.field] = ['BETWEEN', p] }
-			else if (c.op === 'timespan') out[c.field] = ['TIMESPAN', v]
-			else out[c.field] = [c.op, v]
-		}
-		return out
-	}
-	function toConds(filters, fields) {
-		const rows = []
-		for (const [field, val] of Object.entries(filters || {})) {
-			if (field in BASE) continue
-			if (!Array.isArray(val)) { rows.push({ field, op: 'equals', value: val }); continue }
-			const op = String(val[0]).toLowerCase(), v = val[1]
-			const strip = (x) => String(x).replace(/^%|%$/g, '')
-			if (op === '!=') rows.push({ field, op: 'not equals', value: v })
-			else if (op === 'like') rows.push({ field, op: 'like', value: strip(v) })
-			else if (op === 'not like') rows.push({ field, op: 'not like', value: strip(v) })
-			else if (op === 'in' || op === 'not in') rows.push({ field, op, value: [].concat(v).join(', ') })
-			else if (op === 'between') rows.push({ field, op, value: [].concat(v).join(', ') })
-			else rows.push({ field, op, value: v })
-		}
-		return rows
-	}
-	const describe = (filters) => Object.keys(filters || {}).filter((k) => !(k in BASE)).length
+	const BASE = { converted: 0 }
 
 	// ---- small cell components
 	V.UserPic = {
@@ -72,56 +20,6 @@
 		template: `<span class="row" style="gap:7px;min-width:0"><Pic :name="u.full_name" :image="u.image" :size="size" /><span class="ellipsis">{{ u.full_name }}</span></span>`,
 	}
 	PRO.users = reactive({})
-
-	/** Filter dialog: one row per condition, built from CRM's filterable fields. */
-	V.FilterDialog = {
-		props: { fields: Array, filters: Object, linkable: Array },
-		emits: ['close', 'apply'],
-		setup(props, { emit }) {
-			const rows = ref(toConds(props.filters, props.fields).map((r) => ({ ...r })))
-			const byName = computed(() => Object.fromEntries(props.fields.map((f) => [f.fieldname, f])))
-			const fieldOpts = computed(() => props.fields.map((f) => ({ value: f.fieldname, label: f.label })))
-			const add = () => rows.value.push({ field: '', op: 'equals', value: '' })
-			if (!rows.value.length) add()
-			const spec = (r) => byName.value[r.field] || {}
-			const ops = (r) => OPS(spec(r).fieldtype, r.field).map(([value, label]) => ({ value, label }))
-			function pickField(r, f) { r.field = f; r.op = OPS(spec(r).fieldtype, f)[0][0]; r.value = '' }
-			const kind = (r) => {
-				const s = spec(r)
-				if (r.op === 'is') return 'is'
-				if (r.op === 'timespan') return 'span'
-				if (s.fieldtype === 'Check') return 'check'
-				if (s.fieldtype === 'Select' && !['in', 'not in'].includes(r.op)) return 'select'
-				if (s.fieldtype === 'Link' && ['equals', 'not equals'].includes(r.op) && props.linkable.includes(s.options)) return 'link'
-				if (T_DATE.includes(s.fieldtype) && r.op !== 'between') return 'date'
-				if (T_NUM.includes(s.fieldtype)) return 'num'
-				return 'text'
-			}
-			const selOpts = (r) => [{ value: '', label: 'Not set' }, ...String(spec(r).options || '').split('\n').filter(Boolean).map((o) => ({ value: o, label: o }))]
-			const apply = () => emit('apply', toFilters(rows.value))
-			return { rows, fieldOpts, add, ops, pickField, kind, selOpts, apply, SPANS: SPANS.map((s) => ({ value: s, label: s })), spec, remove: (i) => rows.value.splice(i, 1) }
-		},
-		template: `
-		<Modal title="Filter" size="lg" @close="$emit('close')" @submit="apply">
-			<div v-for="(r, i) in rows" :key="i" class="frow">
-				<div style="width:200px"><Dd :modelValue="r.field" :options="fieldOpts" searchable placeholder="Field" aria-label="Field" @update:modelValue="(f) => pickField(r, f)" /></div>
-				<div style="width:140px"><Dd v-model="r.op" :options="ops(r)" :disabled="!r.field" aria-label="Operator" /></div>
-				<div class="grow" style="min-width:150px">
-					<Dd v-if="kind(r) === 'is'" v-model="r.value" :options="[{ value: 'set', label: 'Set' }, { value: 'not set', label: 'Not set' }]" placeholder="Value" aria-label="Value" />
-					<Dd v-else-if="kind(r) === 'span'" v-model="r.value" :options="SPANS" placeholder="Value" aria-label="Value" />
-					<Dd v-else-if="kind(r) === 'check'" v-model="r.value" :options="[{ value: 1, label: 'Yes' }, { value: 0, label: 'No' }]" placeholder="Value" aria-label="Value" />
-					<Dd v-else-if="kind(r) === 'select'" v-model="r.value" :options="selOpts(r)" placeholder="Value" aria-label="Value" />
-					<LinkPick v-else-if="kind(r) === 'link'" v-model="r.value" :doctype="spec(r).options" label="Value" />
-					<input v-else-if="kind(r) === 'date'" class="inp" type="date" v-model="r.value" aria-label="Value" />
-					<input v-else-if="kind(r) === 'num'" class="inp" type="number" step="any" v-model="r.value" aria-label="Value" />
-					<input v-else class="inp" v-model="r.value" :placeholder="['in', 'not in', 'between'].includes(r.op) ? 'Separate with commas' : 'Value'" aria-label="Value" />
-				</div>
-				<Btn size="sm" variant="ghost" icon="trash" aria-label="Remove this filter" @click="remove(i)" />
-			</div>
-			<Btn size="sm" icon="plus" style="margin-top:8px" @click="add">Add filter</Btn>
-			<template #foot><Btn variant="ghost" @click="rows = []; add()">Clear all</Btn><div class="grow"></div><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" @click="apply">Apply</Btn></template>
-		</Modal>`,
-	}
 
 	/** Column settings: tick the fields to show, drag to reorder. */
 	V.ColumnsDialog = {
@@ -147,22 +45,23 @@
 		</Modal>`,
 	}
 
-	const STD = [{ type: 'list', label: 'List', icon: 'list' }, { type: 'group_by', label: 'Group by', icon: 'columns' }, { type: 'kanban', label: 'Kanban', icon: 'columns' }]
-	const MODES = [{ value: 'list', label: 'List', icon: 'list' }, { value: 'grid', label: 'Grid', icon: 'grid2' }, { value: 'kanban', label: 'Kanban', icon: 'columns' }]
+	const MODES = [{ value: 'list', label: 'List', icon: 'list' }, { value: 'kanban', label: 'Kanban', icon: 'columns' }, { value: 'grid', label: 'Grid', icon: 'grid2' }]
 
 	V.Leads = {
 		setup() {
 			const data = ref(null); const loading = ref(true); const error = ref(''); const meta = reactive({ statuses: [], owners: [], linkable: [], can_create: false, can_delete: false, can_write: false })
 			const view = reactive({ type: 'list', name: '', label: 'List' }) // the view being shown
 			const p = reactive({ filters: {}, orderBy: 'modified desc', columns: null, rows: null, groupBy: 'lead_owner', columnField: 'status', titleField: null, kanbanFields: null, kanbanColumns: null, pageLength: 20 })
-			const filterFields = ref([]); const sortFields = ref([]); const groupFields = ref([]); const quick = ref([])
+			const filterFields = ref([]); const sortFields = ref([]); const groupFields = ref([])
+			const cfg = reactive({ default_view: 'list', show_date: 1, show_status: 1, filters: [], columns: null, sort: 'modified desc' })
+			const showFilters = ref(PRO.leadUtil.store.get('showFilters', false))
 			const picked = ref([]); const dlg = ref(''); const busy = ref(false); const creating = ref(false); const importing = ref(false)
-			const quickVals = reactive({}); const search = ref(''); let seq = 0, timer
+			const search = ref(''); let seq = 0, timer
 
 			function params() {
 				const f = { ...BASE, ...p.filters }
 				const body = { doctype: DOC, filters: f, order_by: p.orderBy, page_length: p.pageLength, page_length_count: 20, view: { custom_view_name: view.name || '', view_type: view.type, group_by_field: p.groupBy } }
-				if (p.columns) body.columns = JSON.stringify(p.columns)
+				if (p.columns && view.type !== 'kanban') body.columns = JSON.stringify(p.columns)
 				if (p.rows) body.rows = JSON.stringify(p.rows)
 				if (view.type === 'kanban') { body.column_field = p.columnField; if (p.titleField) body.title_field = p.titleField; if (p.kanbanFields) body.kanban_fields = JSON.stringify(p.kanbanFields); if (p.kanbanColumns) body.kanban_columns = JSON.stringify(p.kanbanColumns) }
 				return body
@@ -171,7 +70,7 @@
 				const mine = ++seq; if (!keep) loading.value = true; error.value = ''
 				try {
 					const body = params()
-					if (search.value.trim()) body.filters = { ...body.filters, lead_name: ['LIKE', '%' + search.value.trim() + '%'] }
+					if (search.value.trim()) { const names = await api('crm_addons.pro.leads.search_names', { text: search.value.trim() }); if (mine !== seq) return; body.filters = { ...body.filters, name: ['IN', names.length ? names : ['-']] } }
 					const r = await api('crm.api.doc.get_data', body)
 					if (mine !== seq) return
 					data.value = r; picked.value = []
@@ -179,90 +78,74 @@
 					if (view.type === 'kanban') { p.columnField = r.column_field || p.columnField; p.titleField = r.title_field; p.kanbanFields = r.kanban_fields; p.kanbanColumns = r.kanban_columns.map((c) => ({ name: c.name, order: c.order, page_length: c.page_length || 20, column: c.column })) }
 				} catch (e) { if (mine === seq) error.value = e.message } finally { if (mine === seq) loading.value = false }
 			}
-			const prefs = () => PRO.leadUtil.store.set('prefs', { columns: p.columns, orderBy: p.orderBy })
+			const cfgKey = () => JSON.stringify([cfg.columns, cfg.sort])
+			const prefs = () => PRO.leadUtil.store.set('prefs', { base: cfgKey(), columns: p.columns, orderBy: p.orderBy })
 			const change = () => { prefs(); load() }
 
 			onMounted(async () => {
 				try {
-					const [m, ff, sf, gf, qf] = await Promise.all([api('crm_addons.pro.leads.filter_options', {}), api('crm.api.doc.get_filterable_fields', { doctype: DOC }), api('crm.api.doc.sort_options', { doctype: DOC }), api('crm.api.doc.get_group_by_fields', { doctype: DOC }), api('crm.api.doc.get_quick_filters', { doctype: DOC })])
+					const [cf, m, ff, sf, gf] = await Promise.all([api('crm_addons.pro.config.get_config', {}), api('crm_addons.pro.leads.filter_options', {}), api('crm.api.doc.get_filterable_fields', { doctype: DOC }), api('crm.api.doc.sort_options', { doctype: DOC }), api('crm.api.doc.get_group_by_fields', { doctype: DOC })])
 					Object.assign(meta, m); m.owners.forEach((o) => (PRO.users[o.name] = { name: o.name, full_name: o.full_name, image: o.image })); m.statuses.forEach((s) => (PRO.statusColors[s.name] = s.color))
 					meta.linkable = ['CRM Lead Status', 'CRM Lead Source', 'CRM Territory', 'CRM Industry', 'CRM Organization', 'User', 'Country', 'Salutation', 'Gender']
-					filterFields.value = ff; sortFields.value = sf; groupFields.value = gf; quick.value = qf
+					filterFields.value = ff; sortFields.value = sf; groupFields.value = gf
+					Object.assign(cfg, cf)
+					const m0 = PRO.leadUtil.store.get('mode', null) || cfg.default_view
+					grid.value = m0 === 'grid'; view.type = m0 === 'kanban' ? 'kanban' : 'list'
+					p.orderBy = cfg.sort || 'modified desc'
+					if (cfg.columns && cfg.columns.length) { const by = Object.fromEntries(ff.map((f) => [f.fieldname, f])); p.columns = cfg.columns.map((k) => ({ key: k, label: (by[k] || {}).label || k, type: (by[k] || {}).fieldtype || 'Data', width: '10rem' })) }
+					const pr = PRO.leadUtil.store.get('prefs', null)   // the person's own columns and sorting, kept only while the admin's defaults are the ones they were made on
+					if (pr && pr.base === cfgKey()) { if (pr.columns && pr.columns.length) p.columns = pr.columns; if (pr.orderBy) p.orderBy = pr.orderBy }
 				} catch (e) { error.value = e.message }
-								await load()
-				applyStored()
+				await load()
 			})
-			function applyStored() {
-				const v = currentView.value; if (v) applyView(v, true)
-				const pr = PRO.leadUtil.store.get('prefs', null)
-				if (pr) { if (pr.columns && pr.columns.length) { p.columns = pr.columns; p.rows = null } if (pr.orderBy) p.orderBy = pr.orderBy }
-				load(true)
-			}
-
-			// ---- views
-			const views = computed(() => (data.value ? data.value.views : []))
-			const currentView = computed(() => views.value.find((v) => (view.name ? v.name === view.name : v.is_standard && v.type === view.type)))
-			const grid = ref(PRO.leadUtil.store.get('grid', false))
+			// ---- views: List / Kanban / Grid
+			const grid = ref(false)
 			const mode = computed(() => (view.type === 'kanban' ? 'kanban' : grid.value ? 'grid' : 'list'))
 			function setMode(m) {
-				grid.value = m === 'grid'; PRO.leadUtil.store.set('grid', grid.value)
-				if (m === 'kanban') pickView('std:kanban')
-				else if (view.type === 'kanban') pickView('std:list')
-				else if (view.type === 'group_by' && grid.value) { view.type = 'list'; load(true) }
+				grid.value = m === 'grid'; PRO.leadUtil.store.set('mode', m); picked.value = []
+				const t = m === 'kanban' ? 'kanban' : 'list'
+				if (t !== view.type) { view.type = t; if (t === 'kanban') { p.kanbanFields = null; p.kanbanColumns = null; p.titleField = null } }
+				load()
 			}
 			function setGroup(f) { if (!f) { view.type = 'list'; load(true) } else { view.type = 'group_by'; p.groupBy = f; change() } }
 			const groupPick = computed(() => [{ value: '', label: 'None' }, ...groupOpts.value])
-			function applyView(v, quiet) {
-				p.filters = jparse(v.filters, {}); p.orderBy = v.order_by || 'modified desc'
-				p.columns = jparse(v.columns, null); p.rows = jparse(v.rows, null)
-				p.groupBy = v.group_by_field || 'lead_owner'; p.columnField = v.column_field || 'status'; p.titleField = v.title_field || null
-				p.kanbanFields = jparse(v.kanban_fields, null); p.kanbanColumns = jparse(v.kanban_columns, null)
-				if (!p.columns || !p.columns.length) p.columns = null
-				if (!quiet) { const pr = PRO.leadUtil.store.get('prefs', null); if (pr && view.type !== 'kanban') { if (pr.columns && pr.columns.length) { p.columns = pr.columns; p.rows = null } if (pr.orderBy) p.orderBy = pr.orderBy } load() }
-			}
-			function pickView(key) {
-				picked.value = []
-				if (key.startsWith('std:')) { const t = key.slice(4); view.type = t; view.name = ''; view.label = STD.find((s) => s.type === t).label }
-				else return
-				const v = currentView.value
-				if (v) applyView(v)
-				else { Object.assign(p, { filters: {}, orderBy: 'modified desc', columns: null, rows: null, kanbanFields: null, kanbanColumns: null, titleField: null }); load() }
-			}
 			// ---- filters, quick filters, sort, columns
-			const nFilters = computed(() => describe(p.filters))
-			// the date control (Date added / Follow-up due) and the status picker work on the same filters as the dialog
-			const dateField = ref('creation'); const dateRange = ref({ preset: 'any', from: '', to: '' })
+			const nFilters = computed(() => PRO.filt.activeKeys(p.filters).filter((k) => !MAIN.includes(k)).length)
+			// the date control (Date added / Follow-up due) and the status picker work on the same filters as the second row
+			const MAIN = ['creation', 'next_follow_up_on', 'status']
+			const dateField = ref('creation'); const dateRange = ref({ ...PRO.filt.NONE })
 			const DATE_FIELDS = [{ id: 'creation', label: 'Date added' }, { id: 'next_follow_up_on', label: 'Follow-up due' }]
 			function setDate(r, field) {
 				if (field) dateField.value = field
-				const f = { ...p.filters }; DATE_FIELDS.forEach((d) => delete f[d.id])
-				const x = CM.resolveRange(r); if (x.from) f[dateField.value] = ['BETWEEN', [x.from, x.to || x.from]]
+				let f = { ...p.filters }; DATE_FIELDS.forEach((d) => delete f[d.id])
+				f = PRO.filt.withRange(f, dateField.value, r)
 				p.filters = f; dateRange.value = r; change()
 			}
 			function syncDate() {
-				for (const d of DATE_FIELDS) { const v = p.filters[d.id]; if (Array.isArray(v) && String(v[0]).toLowerCase() === 'between') { dateField.value = d.id; dateRange.value = { preset: 'custom', from: String(v[1][0]).slice(0, 10), to: String(v[1][1]).slice(0, 10) }; return } }
-				dateRange.value = { preset: 'any', from: '', to: '' }
+				for (const d of DATE_FIELDS) { const r = PRO.filt.rangeOf(p.filters, d.id); if (r.preset !== 'any') { dateField.value = d.id; dateRange.value = r; return } }
+				dateRange.value = { ...PRO.filt.NONE }
 			}
 			const statusSel = computed({
-				get: () => { const v = p.filters.status; return Array.isArray(v) && String(v[0]).toLowerCase() === 'in' ? v[1] : (typeof v === 'string' ? [v] : []) },
-				set: (vals) => { const f = { ...p.filters }; if (vals.length) f.status = ['IN', vals]; else delete f.status; p.filters = f; change() },
+				get: () => PRO.filt.valueOf(p.filters, 'status').values,
+				set: (vals) => { p.filters = PRO.filt.withValue(p.filters, 'status', { op: 'in', values: vals }); change() },
 			})
 			const statusOpts = computed(() => meta.statuses.map((s) => ({ value: s.name, label: s.name })))
-			function applyFilters(f) { p.filters = f; dlg.value = ''; for (const k of Object.keys(quickVals)) delete quickVals[k]; syncDate(); change() }
-			function clearAll() { p.filters = {}; search.value = ''; for (const k of Object.keys(quickVals)) delete quickVals[k]; dateRange.value = { preset: 'any', from: '', to: '' }; change() }
-			function quickSet(q, v) {
-				const f = { ...p.filters }
-				if (v === '' || v == null) delete f[q.fieldname]
-				else f[q.fieldname] = ['Data', 'Text', 'Small Text', 'Long Text'].includes(q.fieldtype) || q.fieldtype === 'Phone' ? ['LIKE', '%' + v + '%'] : v
-				quickVals[q.fieldname] = v; p.filters = f; change()
-			}
+			function applyFilters(f) { p.filters = f; dlg.value = ''; syncDate(); change() }
+			function setFilters(f) { p.filters = f; syncDate(); change() }
+			function clearAll() { p.filters = {}; search.value = ''; dateRange.value = { ...PRO.filt.NONE }; change() }
+			// the second row: the admin's default filters, plus any other filter that is switched on
+			const chips = computed(() => {
+				const by = Object.fromEntries(filterFields.value.map((f) => [f.fieldname, f]))
+				const keys = [...new Set([...(cfg.filters || []), ...PRO.filt.activeKeys(p.filters)])].filter((k) => !MAIN.includes(k) && by[k])
+				return keys.map((k) => by[k])
+			})
+			function flipFilters() { showFilters.value = !showFilters.value; PRO.leadUtil.store.set('showFilters', showFilters.value) }
 			const sortParts = computed(() => { const [f, d] = (p.orderBy || 'modified desc').split(' '); return { field: f, dir: d || 'desc' } })
 			const sortOpts = computed(() => sortFields.value.map((f) => ({ value: f.fieldname, label: f.label })))
 			function setSort(field, dir) { p.orderBy = field + ' ' + dir; change() }
 			function applyColumns(cols) { p.columns = cols; p.rows = null; dlg.value = ''; change() }
 			const colQ = computed(() => (data.value ? data.value.fields : []).map((f) => ({ ...f })))
-			const quickFor = (q) => (q.fieldtype === 'Select' ? [{ value: '', label: 'Any' }, ...String(q.options || '').split('\n').filter(Boolean).map((o) => ({ value: o, label: o }))] : null)
-			watch(search, () => { clearTimeout(timer); timer = setTimeout(() => load(true), 300) })
+						watch(search, () => { clearTimeout(timer); timer = setTimeout(() => load(true), 300) })
 			const groupOpts = computed(() => groupFields.value.map((f) => ({ value: f.fieldname, label: f.label })))
 			const groupName = computed(() => (data.value && data.value.group_by_field && data.value.group_by_field.fieldname) || p.groupBy)
 
@@ -338,7 +221,7 @@
 				} catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 			const sortDirOpts = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]
-			return { statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, quickVals, search, load, nFilters, applyFilters, quick, quickSet, quickFor, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
+			return { cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
 		},
 		template: `
 		<div class="page leads">
@@ -353,20 +236,17 @@
 
 			<section class="card fbar">
 				<div class="row wrap" style="gap:8px">
-					<div class="grow" style="min-width:200px"><Inp v-model="search" icon="search" placeholder="Search by name..." clearable aria-label="Search leads" /></div>
-					<DateRange v-model="dateRange" any aria-label="Date" @change="(r) => setDate(r)">
+					<div class="grow" style="min-width:200px"><Inp v-model="search" icon="search" placeholder="Search anything: name, email, phone ..." clearable aria-label="Search leads" /></div>
+					<DateRange v-if="cfg.show_date" v-model="dateRange" any one-month aria-label="Date" @change="(r) => setDate(r)">
 						<template #top><div class="dr-tabs row" style="gap:6px;padding:8px 12px 0"><button v-for="d in DATE_FIELDS" :key="d.id" type="button" class="btn sm" :class="{ on: dateField === d.id }" @click="dateField = d.id">{{ d.label }}</button></div></template>
 					</DateRange>
-					<div style="width:200px"><MultiPick v-model="statusSel" :options="statusOpts" label="Status" searchable /></div>
-					<button type="button" class="btn" :class="{ on: nFilters }" @click="dlg = 'filter'"><Ico name="filter" /> Filters<span v-if="nFilters" class="n">{{ nFilters }}</span></button>
-					<Btn v-if="nFilters || search" variant="ghost" @click="clearAll">Clear</Btn>
+					<div v-if="cfg.show_status" style="width:200px"><MultiPick v-model="statusSel" :options="statusOpts" label="Status" searchable /></div>
+					<button type="button" class="btn icon" :class="{ on: showFilters || nFilters }" :aria-expanded="showFilters" aria-label="Filters" title="Filters" @click="flipFilters"><Ico name="filter" /><span v-if="nFilters" class="n">{{ nFilters }}</span></button>
 				</div>
-				<div v-if="quick.length" class="row wrap fchips" style="gap:8px">
-					<template v-for="q in quick.filter((x) => x.fieldname !== 'status')" :key="q.fieldname">
-						<div v-if="q.fieldtype === 'Select'" style="width:150px"><Dd :modelValue="quickVals[q.fieldname] || ''" :options="quickFor(q)" :prefix="q.label + ':'" :aria-label="q.label" @update:modelValue="(v) => quickSet(q, v)" /></div>
-						<div v-else-if="q.fieldtype === 'Link' && ['CRM Lead Status', 'CRM Lead Source', 'CRM Territory', 'CRM Industry', 'User', 'CRM Organization'].includes(q.options)" style="width:170px"><LinkPick :modelValue="quickVals[q.fieldname] || ''" :doctype="q.options" :label="q.label" @update:modelValue="(v) => quickSet(q, v)" /></div>
-						<div v-else style="width:150px"><input class="inp" :placeholder="q.label" :value="quickVals[q.fieldname] || ''" :aria-label="q.label" @input="quickSet(q, $event.target.value)" /></div>
-					</template>
+				<div v-if="showFilters" class="row wrap fchips" style="gap:8px">
+					<FilterChip v-for="f in chips" :key="f.fieldname" :field="f" :filters="p.filters" @change="setFilters" />
+					<Btn size="sm" icon="plus" @click="dlg = 'filter'">Custom filter</Btn>
+					<Btn v-if="nFilters || search || statusSel.length || dateRange.preset !== 'any'" size="sm" variant="ghost" @click="clearAll">Clear all</Btn>
 				</div>
 			</section>
 
@@ -382,7 +262,7 @@
 			<section v-else-if="data" class="card listcard" :style="{ opacity: loading ? .6 : 1 }">
 				<div class="lbar row wrap" style="gap:8px">
 					<span class="small muted grow">{{ vt === 'kanban' ? total + (total === 1 ? ' lead' : ' leads') : (rows.length ? 'Showing 1\u2013' + rows.length + ' of ' + total + ' leads' : '0 leads') }}</span>
-					<Btn size="sm" icon="refresh" aria-label="Refresh" @click="load(true)">Refresh</Btn>
+					<Btn size="sm" icon="refresh" aria-label="Refresh" title="Refresh" @click="load(true)" />
 					<template v-if="true">
 						<div style="width:200px"><Dd :modelValue="sortParts.field" :options="sortOpts" searchable prefix="Sort by" aria-label="Sort by" @update:modelValue="(f) => setSort(f, sortParts.dir)" /></div>
 						<Btn size="sm" :icon="sortParts.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :aria-label="sortParts.dir === 'asc' ? 'Ascending' : 'Descending'" @click="setSort(sortParts.field, sortParts.dir === 'asc' ? 'desc' : 'asc')" />
@@ -390,7 +270,7 @@
 					</template>
 				</div>
 				<template v-if="vt !== 'kanban'">
-					<Empty v-if="!rows.length" icon="users" title="No leads here" :text="nFilters || search ? 'No lead matches these filters.' : 'There are no leads yet.'"><Btn v-if="nFilters || search" @click="applyFilters({}); search = ''">Clear filters</Btn></Empty>
+					<Empty v-if="!rows.length" icon="users" title="No leads here" :text="nFilters || search ? 'No lead matches these filters.' : 'There are no leads yet.'"><Btn v-if="nFilters || search" @click="clearAll">Clear filters</Btn></Empty>
 					<div v-else-if="grid" class="gridv"><div v-for="r in rows" :key="r.name" class="kcard" tabindex="0" @click="open(r.name)" @keydown.enter="open(r.name)">
 						<div class="row" style="gap:10px"><Pic :name="r.lead_name || r.first_name || '?'" :image="r.image" :size="36" /><div class="grow" style="min-width:0"><b class="ellipsis" style="display:block">{{ r.lead_name || r.name }}</b><span class="small muted ellipsis" style="display:block">{{ r.organization || '' }}</span></div><input type="checkbox" :checked="picked.includes(r.name)" :aria-label="'Select ' + (r.lead_name || r.name)" @click.stop @change="flip(r.name)" /></div>
 						<div class="row" style="gap:6px;flex-wrap:wrap"><StatusTag :status="r.status" /><span v-if="r.sla_status" class="badge nodot" :class="slaTone(r.sla_status)">{{ r.sla_status }}</span></div>
@@ -436,7 +316,7 @@
 				</div>
 			</section>
 
-			<FilterDialog v-if="dlg === 'filter'" :fields="filterFields" :filters="p.filters" :linkable="meta.linkable" @close="dlg = ''" @apply="applyFilters" />
+			<FilterDialog v-if="dlg === 'filter'" :fields="filterFields" :filters="p.filters" @close="dlg = ''" @apply="applyFilters" />
 			<ColumnsDialog v-if="dlg === 'columns' && data" :fields="colQ" :columns="columns" @close="dlg = ''" @apply="applyColumns" />
 			<Modal v-if="dlg === 'assign'" title="Assign to" size="sm" @close="dlg = ''"><Field label="People"><MultiPick v-model="assignUsers" :options="assignOpts" label="Choose people" searchable /></Field>
 				<template #foot><Btn @click="dlg = ''">Cancel</Btn><Btn variant="primary" :loading="busy" :disabled="!assignUsers.length" @click="bulk('assign')">Assign</Btn></template></Modal>
