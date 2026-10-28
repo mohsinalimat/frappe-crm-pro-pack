@@ -87,7 +87,6 @@
 				{ key: 'status', label: 'Change status', icon: 'check-circle', text: 'Move the leads to another status.' },
 				{ key: 'owner', label: 'Change lead owner', icon: 'user', text: 'Set who owns the leads, or nobody.' },
 				{ key: 'field', label: 'Edit a field', icon: 'file-text', text: 'Set one field to the same value on all of them.' },
-				{ key: 'convert', label: 'Convert to deals', icon: 'target', text: 'Turn the leads into deals.' },
 				...(props.canDelete ? [{ key: 'delete', label: 'Delete', icon: 'trash', text: 'Remove the leads for good. This cannot be undone.', danger: true }] : []),
 			])
 			const cur = computed(() => ACTIONS.value.find((a) => a.key === action.value))
@@ -284,15 +283,13 @@
 			async function runBulk({ kind, payload }) {
 				const all = [...picked.value]
 				if (kind === 'delete' && !(await CM.confirm({ title: 'Delete ' + all.length + (all.length === 1 ? ' lead?' : ' leads?'), message: 'This cannot be undone.', confirmText: 'Delete', danger: true }))) return
-				if (kind === 'convert' && !(await CM.confirm({ title: 'Convert ' + all.length + (all.length === 1 ? ' lead' : ' leads') + ' to deals?', confirmText: 'Convert' }))) return
 				Object.assign(bulkRun, { busy: true, finished: false, done: 0, total: all.length, failed: [] })
 				try {
-					for (const part of chunks(all, kind === 'convert' ? 20 : 100)) {
+					for (const part of chunks(all, 100)) {
 						const names = JSON.stringify(part)
 						if (kind === 'delete') await api('crm.api.doc.delete_bulk_docs', { doctype: DOC, items: names, delete_linked: false })
 						else if (kind === 'clear') await api('frappe.desk.form.assign_to.remove_multiple', { doctype: DOC, names, ignore_permissions: true })
 						else if (kind === 'assign') await api('frappe.desk.form.assign_to.add_multiple', { doctype: DOC, name: names, assign_to: JSON.stringify(payload.users), bulk_assign: true, re_assign: true })
-						else if (kind === 'convert') { for (const n of part) { try { await api('crm.fcrm.doctype.crm_lead.crm_lead.convert_to_deal', { lead: n }) } catch (e) { bulkRun.failed.push({ name: n, reason: e.message }) } } }
 						else { const r = await api('crm_addons.pro.leads.bulk_edit', { names, values: JSON.stringify(payload.values) }); bulkRun.failed.push(...r.failed) }
 						bulkRun.done += part.length
 					}
