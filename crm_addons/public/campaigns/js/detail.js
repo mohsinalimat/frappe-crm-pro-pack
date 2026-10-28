@@ -207,12 +207,46 @@
 		</div>`,
 	}
 
+	// ------------------------------------------------------------------ Reports: sends made from the Leads and Follow-ups screens
+	V.BulkReport = {
+		props: { range: Object },
+		setup(props) {
+			const data = ref(null); const loading = ref(true); const error = ref(''); const open = ref('')
+			let seq = 0
+			async function load() {
+				const my = ++seq; loading.value = true; error.value = ''
+				try { const d = await CM.call('crm_addons.pro.bulk_send.get_report', CM.rangeArgs(props.range)); if (my === seq) data.value = d } catch (e) { if (my === seq) error.value = e.message } finally { if (my === seq) loading.value = false }
+			}
+			onMounted(load)
+			watch(() => [props.range.preset, props.range.from, props.range.to], load)
+			const kpis = computed(() => { const t = data.value && data.value.totals; return t ? [{ l: 'Bulk sends', v: t.sends, i: 'send' }, { l: 'Leads picked', v: t.leads, i: 'users' }, { l: 'Messages sent', v: t.sent, i: 'zap' }, { l: 'Skipped', v: t.skipped, i: 'alert' }, { l: 'Emails sent', v: t.Email, i: 'mail' }, { l: 'WhatsApp sent', v: t.WhatsApp, i: 'whatsapp' }] : [] })
+			const when = (s) => new Date(String(s).replace(' ', 'T')).toLocaleString([], { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+			return { data, loading, error, open, kpis, when, load, CM }
+		},
+		template: `
+		<div>
+			<template v-if="loading"><div class="kpis"><Skel v-for="n in 6" :key="n" h="104" r="12" /></div><Skel h="200" r="12" /></template>
+			<ErrorState v-else-if="error" :message="error" @retry="load" />
+			<Empty v-else-if="!data.rows.length" icon="send" title="No bulk sends in this period" text="Pick leads on the Leads screen, or follow-ups, and choose the mail or WhatsApp icon. Every send shows here." />
+			<template v-else>
+				<div class="kpis"><div v-for="x in kpis" :key="x.l" class="kpi"><div class="l"><Ico :name="x.i" size="sm" />{{ x.l }}</div><div class="v">{{ CM.num(x.v) }}</div></div></div>
+				<div class="card" style="overflow:hidden;margin-top:14px"><div class="card-h" style="margin:0;padding:16px 18px 6px"><div class="grow"><h3>Bulk sends</h3><p>One row for each time leads were picked and a template was sent. Click a row to see who was skipped.</p></div></div>
+					<div class="table-wrap"><table class="tbl"><thead><tr><th>When</th><th>Sent by</th><th>Channel</th><th>Template</th><th>Leads picked</th><th>Sent</th><th>Skipped</th></tr></thead><tbody>
+						<template v-for="r in data.rows" :key="r.name"><tr class="click" tabindex="0" @click="open = open === r.name ? '' : r.name" @keydown.enter="open = open === r.name ? '' : r.name"><td>{{ when(r.creation) }}</td><td>{{ r.by }}</td><td><ChannelBadge :value="r.channel" /></td><td><b>{{ r.template_label }}</b></td><td>{{ CM.num(r.total) }}</td><td>{{ CM.num(r.sent) }}</td><td>{{ CM.num(r.skipped) }}</td></tr>
+						<tr v-if="open === r.name"><td colspan="7" style="background:var(--surface-2,#f6f7f9)"><span v-if="!r.skipped_rows.length" class="small muted">Every lead got the message.</span><ul v-else class="list" style="margin:0"><li v-for="x in r.skipped_rows" :key="x.lead" class="li small"><b>{{ x.title || x.lead }}</b>: {{ x.reason }}</li></ul></td></tr></template>
+					</tbody></table></div></div>
+			</template>
+		</div>`,
+	}
+
 	// ------------------------------------------------------------------ Reports
 	V.Reports = {
 		setup() {
 			const data = ref(null); const prev = ref(null); const loading = ref(true); const busy = ref(false); const error = ref('')
 			const range = CM.useRange('cm-report-range', '30d')
 			const compare = ref(CM.store.get('cm-report-compare') !== '0')
+			const mode = ref(CM.store.get('cm-report-mode') === 'bulk' ? 'bulk' : 'campaigns')
+			watch(mode, (m) => CM.store.set('cm-report-mode', m))
 			const sort = reactive({ key: 'sent', dir: -1 })
 			let seq = 0
 			// Every number, chart and table on the page comes from these two requests (the range and, if asked, the period before it)
@@ -260,13 +294,15 @@
 			const statusParts = computed(() => (data.value ? Object.entries(data.value.status_counts).map(([k, v]) => ({ label: k, value: v, color: { Completed: 'var(--green)', Running: 'var(--accent)', Draft: 'var(--border-strong)', Scheduled: 'var(--amber)', Paused: 'var(--amber)', Failed: 'var(--red)', Cancelled: 'var(--text-faint)', Queued: 'var(--accent)' }[k] || 'var(--text-faint)' })) : []))
 			const rate = (v) => (v ? v + '%' : '-')
 			const hasCost = computed(() => !!(data.value && data.value.totals && data.value.totals.cost != null))
-			return { canCreate: computed(() => CM.can('campaign_create', 1)), hasCost, data, loading, busy, error, range, compare, rangeText, prevText, t, kpis, rows, sort, setSort, load, exportCsv, statusParts, rate, CM, go: CM.go }
+			return { mode, canCreate: computed(() => CM.can('campaign_create', 1)), hasCost, data, loading, busy, error, range, compare, rangeText, prevText, t, kpis, rows, sort, setSort, load, exportCsv, statusParts, rate, CM, go: CM.go }
 		},
 		template: `
 		<div class="page">
-			<div class="pg-head"><div class="grow"><h1>Reports</h1><p>How your campaigns perform across email and WhatsApp. Only numbers that email and WhatsApp really report are shown.</p></div><div class="actions"><button v-if="range.preset !== 'any'" type="button" class="fchip" :class="{ on: compare }" :aria-pressed="compare" @click="compare = !compare"><Ico name="refresh" size="sm" />Compare to previous period</button><DateRange v-model="range" any align="right" size="" aria-label="Report dates" /><Btn icon="download" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
-				<p class="rng-note" role="status"><template v-if="rangeText">Showing <b>{{ rangeText }}</b><template v-if="prevText"> compared with <b>{{ prevText }}</b></template><template v-else-if="range.preset !== 'any' && compare && loading"> ...</template></template><template v-else>Showing <b>all time</b></template><span v-if="busy && !loading" class="spin" style="width:12px;height:12px;margin-left:8px" aria-label="Updating"></span></p>
-			<template v-if="loading"><div class="kpis"><Skel v-for="n in 6" :key="n" h="104" r="12" /></div><Skel h="280" r="12" /></template>
+			<div class="pg-head"><div class="grow"><h1>Reports</h1><p v-if="mode === 'bulk'">Emails and WhatsApp messages sent from the Leads and Follow-ups screens with a template.</p><p v-else>How your campaigns perform across email and WhatsApp. Only numbers that email and WhatsApp really report are shown.</p></div><div class="actions"><Seg v-model="mode" :options="[{ value: 'campaigns', label: 'Campaigns' }, { value: 'bulk', label: 'Bulk sends' }]" /><button v-if="mode === 'campaigns' && range.preset !== 'any'" type="button" class="fchip" :class="{ on: compare }" :aria-pressed="compare" @click="compare = !compare"><Ico name="refresh" size="sm" />Compare to previous period</button><DateRange v-model="range" any align="right" size="" aria-label="Report dates" /><Btn v-if="mode === 'campaigns'" icon="download" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
+				<BulkReport v-if="mode === 'bulk'" :range="range" />
+			<p v-if="mode === 'campaigns'" class="rng-note" role="status"><template v-if="rangeText">Showing <b>{{ rangeText }}</b><template v-if="prevText"> compared with <b>{{ prevText }}</b></template><template v-else-if="range.preset !== 'any' && compare && loading"> ...</template></template><template v-else>Showing <b>all time</b></template><span v-if="busy && !loading" class="spin" style="width:12px;height:12px;margin-left:8px" aria-label="Updating"></span></p>
+			<template v-if="mode === 'bulk'"></template>
+			<template v-else-if="loading"><div class="kpis"><Skel v-for="n in 6" :key="n" h="104" r="12" /></div><Skel h="280" r="12" /></template>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<Empty v-else-if="!t.campaigns && !t.sent" icon="chart" title="No campaign results in this period" text="Launch a campaign, or choose a longer date range."><Btn v-if="canCreate" variant="primary" icon="plus" @click="go('/campaigns/new')">Create campaign</Btn></Empty>
 			<template v-else>

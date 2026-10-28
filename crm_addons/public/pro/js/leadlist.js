@@ -80,13 +80,14 @@
 		const send = kind === 'email' || kind === 'whatsapp', n = all.length, leads = n === 1 ? ' lead' : ' leads'
 		if (kind === 'delete' && !(await CM.confirm({ title: 'Delete ' + n + leads + '?', message: 'This cannot be undone.', confirmText: 'Delete', danger: true }))) return false
 		if (send && !(await CM.confirm({ title: 'Send ' + (kind === 'email' ? 'this email' : 'this WhatsApp message') + ' to ' + n + leads + '?', message: 'It goes out right away and cannot be recalled.', confirmText: 'Send' }))) return false
+		const batch = Math.random().toString(36).slice(2, 12) + Date.now().toString(36)
 		Object.assign(run, { busy: true, finished: false, done: 0, total: n, failed: [] })
 		try {
 			for (const part of chunks(all, 100)) {
 				const names = JSON.stringify(part)
 				if (kind === 'delete') await api('crm.api.doc.delete_bulk_docs', { doctype: DOC, items: names, delete_linked: false })
-				else if (kind === 'email') { const r = await api('crm_addons.pro.bulk_send.send_email', { names, subject: payload.subject, content: payload.content }); run.failed.push(...r.skipped) }
-				else if (kind === 'whatsapp') { const r = await api('crm_addons.pro.bulk_send.send_whatsapp', { names, template: payload.template, variable_map: payload.variable_map }); run.failed.push(...r.skipped) }
+				else if (kind === 'email') { const r = await api('crm_addons.pro.bulk_send.send_email', { names, template: payload.template, batch, total: n }); run.failed.push(...r.skipped) }
+				else if (kind === 'whatsapp') { const r = await api('crm_addons.pro.bulk_send.send_whatsapp', { names, template: payload.template, batch, total: n }); run.failed.push(...r.skipped) }
 				else if (kind === 'clear') await api('frappe.desk.form.assign_to.remove_multiple', { doctype: DOC, names, ignore_permissions: true })
 				else if (kind === 'assign') await api('frappe.desk.form.assign_to.add_multiple', { doctype: DOC, name: names, assign_to: JSON.stringify(payload.users), bulk_assign: true, re_assign: true })
 				else { const r = await api('crm_addons.pro.leads.bulk_edit', { names, values: JSON.stringify(payload.values) }); run.failed.push(...r.failed) }
@@ -105,18 +106,20 @@
 		emits: ['close', 'go'],
 		setup(props, { emit }) {
 			const action = ref(props.start || 'assign')
-			const form = reactive({ users: [], status: '', owner: '', field: '', value: '', subject: '', message: '', template: '', vars: {} })
-			const send = ref(null)  // what can be sent from here: { email: {ready, problem}, whatsapp: {installed, templates} }
-			async function loadSend() { if (send.value) return; try { send.value = await CM.call('crm_addons.pro.bulk_send.options', {}) } catch (e) { send.value = { email: { ready: false, problem: e.message }, whatsapp: { installed: false, templates: [] }, variables: [] } } }
-			const tpl = computed(() => (send.value ? send.value.whatsapp.templates.find((t) => t.name === form.template) : null))
-			watch(() => form.template, () => { form.vars = tpl.value ? Object.fromEntries(tpl.value.placeholders.map((n) => [String(n), tpl.value.variable_map[String(n)] || ''])) : {} })
-			const tplOpts = computed(() => (send.value ? send.value.whatsapp.templates.map((t) => ({ value: t.name, label: t.label })) : []))
-			const preview = computed(() => (tpl.value ? tpl.value.body.replace(/\{\{\s*(\d+)\s*\}\}/g, (m, n) => '[' + (form.vars[n] || '...').replace(/\{\{\s*|\s*\}\}/g, '') + ']') : ''))
+			const form = reactive({ users: [], status: '', owner: '', field: '', value: '', template: '' })
+			const send = ref(null)  // what can be sent from here: { email: {ready, problem, templates}, whatsapp: {installed, templates} }
+			async function loadSend() { if (send.value) return; try { send.value = await CM.call('crm_addons.pro.bulk_send.options', {}) } catch (e) { send.value = { email: { ready: false, problem: e.message, templates: [] }, whatsapp: { installed: false, templates: [] } } } }
+			const list = computed(() => (send.value ? (action.value === 'email' ? send.value.email.templates : send.value.whatsapp.templates) : []))
+			const tpl = computed(() => list.value.find((t) => t.name === form.template) || null)
+			watch(action, () => { form.template = '' })
+			const tplOpts = computed(() => list.value.map((t) => ({ value: t.name, label: t.label })))
+			const plainText = (h) => { const d = new DOMParser().parseFromString(h || '', 'text/html'); d.querySelectorAll('style, script').forEach((e) => e.remove()); return (d.body.textContent || '').replace(/\n\s*\n+/g, '\n').trim() }
+			const preview = computed(() => (tpl.value ? (action.value === 'email' ? tpl.value.subject + '\n\n' + plainText(tpl.value.body) : tpl.value.body) : ''))
 			const isSend = computed(() => action.value === 'email' || action.value === 'whatsapp')
 			const specs = ref([])
 			const ACTIONS = computed(() => [
-				{ key: 'email', label: 'Send email', icon: 'mail', text: 'Write one email; each lead gets it with their own details filled in.' },
-				{ key: 'whatsapp', label: 'Send WhatsApp', icon: 'whatsapp', text: 'Send an approved WhatsApp template to the leads that have a number.' },
+				{ key: 'email', label: 'Send email', icon: 'mail', text: 'Pick an email template; each lead gets it with their own details filled in.' },
+				{ key: 'whatsapp', label: 'Send WhatsApp', icon: 'whatsapp', text: 'Pick an approved WhatsApp template and send it to the leads that have a number.' },
 				{ key: 'assign', label: 'Assign to', icon: 'users', text: 'Give the leads to one or more people.' },
 				{ key: 'clear', label: 'Clear assignment', icon: 'x', text: 'Take the leads off whoever they are assigned to.' },
 				{ key: 'status', label: 'Change status', icon: 'check-circle', text: 'Move the leads to another status.' },
@@ -137,10 +140,10 @@
 			const spec = computed(() => specs.value.find((f) => f.fieldname === form.field))
 			const pick = (k) => { if (props.run.busy) return; action.value = k; if (k === 'field') loadFields(); if (k === 'email' || k === 'whatsapp') loadSend() }
 			if (action.value === 'email' || action.value === 'whatsapp') loadSend()
-			const ready = computed(() => ({ email: !!send.value && send.value.email.ready && !!form.subject.trim() && !!form.message.trim(), whatsapp: !!tpl.value && Object.values(form.vars).every((v) => String(v).trim()), assign: form.users.length > 0, status: !!form.status, field: !!form.field && form.value !== '' && form.value != null, owner: true }[action.value] ?? true))
+			const ready = computed(() => ({ email: !!send.value && send.value.email.ready && !!tpl.value, whatsapp: !!tpl.value && !tpl.value.missing.length, assign: form.users.length > 0, status: !!form.status, field: !!form.field && form.value !== '' && form.value != null, owner: true }[action.value] ?? true))
 			function go() {
 				const k = action.value
-				const payload = k === 'email' ? { subject: form.subject, content: form.message } : k === 'whatsapp' ? { template: form.template, variable_map: JSON.stringify(form.vars) } : k === 'assign' ? { users: form.users } : k === 'status' ? { values: { status: form.status } } : k === 'owner' ? { values: { lead_owner: form.owner || '__none__' } } : k === 'field' ? { values: { [form.field]: form.value } } : {}
+				const payload = k === 'email' || k === 'whatsapp' ? { template: form.template } : k === 'assign' ? { users: form.users } : k === 'status' ? { values: { status: form.status } } : k === 'owner' ? { values: { lead_owner: form.owner || '__none__' } } : k === 'field' ? { values: { [form.field]: form.value } } : {}
 				emit('go', { kind: k, payload })
 			}
 			const pct = computed(() => (props.run.total ? Math.round((props.run.done / props.run.total) * 100) : 0))
@@ -152,23 +155,16 @@
 				<div class="bulk-list" role="listbox" aria-label="Actions"><button v-for="a in shown" :key="a.key" type="button" class="bulk-act" :class="{ on: action === a.key, danger: a.danger }" role="option" :aria-selected="action === a.key" :disabled="run.busy" @click="pick(a.key)"><Ico :name="a.icon" /><span>{{ a.label }}</span></button></div>
 				<div class="bulk-form">
 					<b>{{ cur.label }}</b><p class="small muted" style="margin:2px 0 14px">{{ cur.text }}</p>
-					<template v-if="action === 'email'">
-						<p v-if="send && !send.email.ready" class="err" role="alert">{{ send.email.problem || 'Email is not set up on this site.' }}</p>
-						<Field label="Subject"><input class="control" v-model="form.subject" placeholder="Subject" aria-label="Subject" /></Field>
-						<Field label="Message"><textarea class="control" rows="7" v-model="form.message" placeholder="Hi {{ first_name }}, ..." aria-label="Message"></textarea></Field>
-						<p class="small muted" style="margin:6px 0 0">Use <span v-pre>{{ first_name }}</span>, <span v-pre>{{ organization }}</span> and other lead fields; each lead's own value is filled in. Leads without an email, or that opted out, are skipped. An unsubscribe link is added.</p>
-					</template>
-					<template v-else-if="action === 'whatsapp'">
-						<p v-if="send && !send.whatsapp.installed" class="err" role="alert">WhatsApp is not set up on this site.</p>
-						<p v-else-if="send && !tplOpts.length" class="err" role="alert">No approved WhatsApp template yet. Add one under Campaigns, then come back.</p>
+					<template v-if="action === 'email' || action === 'whatsapp'">
+						<p v-if="action === 'email' && send && !send.email.ready" class="err" role="alert">{{ send.email.problem || 'Email is not set up on this site.' }}</p>
+						<p v-else-if="action === 'whatsapp' && send && !send.whatsapp.installed" class="err" role="alert">WhatsApp is not set up on this site.</p>
+						<p v-else-if="send && !tplOpts.length" class="err" role="alert">No {{ action === 'email' ? 'email' : 'approved WhatsApp' }} template yet. Add one under Campaigns, then come back.</p>
 						<template v-else>
 							<Field label="Template"><Dd v-model="form.template" :options="tplOpts" searchable placeholder="Choose a template" aria-label="Template" /></Field>
-							<template v-if="tpl">
-								<Field v-for="n in tpl.placeholders" :key="n" :label="'Variable {{' + n + '}}'"><input class="control" v-model="form.vars[String(n)]" placeholder="{{ first_name }}" :aria-label="'Variable ' + n" /></Field>
-								<div class="card" style="padding:10px 12px;margin-top:8px;background:var(--surface-2,#f6f7f9)"><span class="small muted">Preview</span><div style="white-space:pre-wrap">{{ preview }}</div></div>
-							</template>
+							<div v-if="tpl" class="card" style="padding:10px 12px;margin-top:8px;background:var(--surface-2,#f6f7f9);max-height:190px;overflow:auto"><span class="small muted">Preview</span><div style="white-space:pre-wrap">{{ preview }}</div></div>
+							<p v-if="tpl && tpl.missing && tpl.missing.length" class="err" role="alert" style="margin-top:8px">This template has variables with no lead field chosen yet. Set them under Campaigns, then come back.</p>
 						</template>
-						<p class="small muted" style="margin:6px 0 0">Leads without a valid number, or that opted out, are skipped.</p>
+						<p class="small muted" style="margin:8px 0 0">Each lead gets the template with their own details filled in. Leads without {{ action === 'email' ? 'an email address' : 'a valid number' }}, or that opted out, are skipped.{{ action === 'email' ? ' An unsubscribe link is added.' : '' }}</p>
 					</template>
 					<Field v-else-if="action === 'assign'" label="People"><MultiPick v-model="form.users" :options="assignOpts" label="Choose people" searchable /></Field>
 					<Field v-else-if="action === 'status'" label="New status"><Dd v-model="form.status" :options="statusOpts" placeholder="Choose a status" aria-label="New status" /></Field>
