@@ -306,6 +306,17 @@ def _build_report(from_date=None, to_date=None, user=None):
 		as_dict=True,
 	)
 
+	meta = []
+	if frappe.get_meta("CRM Lead").has_field("crm_meta_leadgen_id"):
+		meta = frappe.db.sql(
+			f"""select coalesce(nullif(l.crm_meta_campaign_name, ''), 'No campaign name') as campaign, coalesce(nullif(l.source, ''), 'Facebook') as source,
+			coalesce(nullif(l.crm_meta_form, ''), '-') as form, count(*) as leads, sum({deal_exists}) as converted
+			from `tabCRM Lead` l where l.creation >= %(start)s and l.creation < %(end)s and ifnull(l.crm_meta_leadgen_id, '') != '' {cond('l.lead_owner')}
+			group by 1, 2, 3 order by leads desc limit 30""",
+			params,
+			as_dict=True,
+		)
+
 	meeting_outcomes = frappe.db.sql(
 		f"""select coalesce(nullif(m.meeting_outcome, ''), 'Not recorded') as outcome, count(*) as count from `tabCRM Meeting` m
 		where m.status != 'Cancelled' and m.starts_on >= %(start)s and m.starts_on < %(end)s {cond('m.organizer')} group by 1 order by count desc""",
@@ -448,6 +459,7 @@ def _build_report(from_date=None, to_date=None, user=None):
 		"by_hour": by_hour,
 		"attempts": attempts_rows,
 		"sources": [{"source": r.source, "leads": cint(r.leads), "converted": cint(r.converted)} for r in sources],
+		"meta": [{"campaign": r.campaign, "source": r.source, "form": r.form, "leads": cint(r.leads), "converted": cint(r.converted)} for r in meta],
 		"meeting_outcomes": [{"outcome": r.outcome, "count": cint(r.count)} for r in meeting_outcomes],
 		"upcoming_meetings": upcoming,
 		"stale": stale_count,
@@ -663,6 +675,8 @@ def _workbook(data, log):
 		sheet("Sources", ["Source", "Leads added", "Converted"], [[x["source"], x["leads"], x["converted"]] for x in data["sources"]])
 	else:
 		sheet("Sources", ["Source", "Leads added"], [[x["source"], x["leads"]] for x in data["sources"]])
+	if data.get("meta"):
+		sheet("Meta lead ads", ["Campaign", "Platform", "Form", "Leads added", "Converted"], [[x["campaign"], x["source"], x["form"], x["leads"], x["converted"]] for x in data["meta"]])
 	sheet("Calls by hour", ["Hour", "Calls", "Connected"], [[f"{x['hour']:02d}:00", x["calls"], x["connected"]] for x in data["by_hour"]])
 	sheet(
 		"Follow-up queue",

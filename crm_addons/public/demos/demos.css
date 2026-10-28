@@ -170,5 +170,6 @@ tr.off td{opacity:.62}
 .logtype { display: flex; align-items: center; gap: 10px }
 .logic { width: 30px; height: 30px; border-radius: 8px; display: inline-grid; place-items: center; flex: none; background: var(--accent-soft, #e8ecfd); color: var(--accent, #2563eb) }
 .logic.purple { background: #efe7fb; color: #7c3aed }
+.logic.indigo { background: #e7f0ff; color: #0866ff }
 .logscroll thead th { position: sticky; top: 0; z-index: 2; background: var(--surface, #fff); box-shadow: 0 1px 0 var(--border) }
 .logcard { overflow: hidden }

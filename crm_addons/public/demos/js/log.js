@@ -7,9 +7,10 @@
 	const V = DM.views
 	const SIZE = 25
 	const RESULTS = [['', 'All results'], ['Confirmed', 'Booked'], ['Rescheduled', 'Rescheduled'], ['Completed', 'Held'], ['No Show', 'No-show'], ['Cancelled', 'Cancelled'], ['Created', 'New lead'], ['Duplicate', 'Already a lead'], ['Blocked', 'Blocked'], ['Failed', 'Failed']]
-	const LABEL = { Confirmed: 'Booked', Rescheduled: 'Rescheduled', Completed: 'Held', 'No Show': 'No-show', Cancelled: 'Cancelled', Created: 'New lead', Duplicate: 'Already a lead', Blocked: 'Blocked', Failed: 'Failed' }
-	const TONE = { Confirmed: 'green', Rescheduled: 'blue', Completed: 'green', 'No Show': 'red', Cancelled: 'amber', Created: 'green', Duplicate: 'blue', Blocked: 'amber', Failed: 'red' }
-	const KINDS = [['all', 'All', 'layers'], ['bookings', 'Website bookings', 'calendar'], ['forms', 'Lead forms', 'file']]
+	const LABEL = { Confirmed: 'Booked', Rescheduled: 'Rescheduled', Completed: 'Held', 'No Show': 'No-show', Cancelled: 'Cancelled', Created: 'New lead', Duplicate: 'Already a lead', Blocked: 'Blocked', Failed: 'Failed', Ignored: 'Skipped' }
+	const TONE = { Confirmed: 'green', Rescheduled: 'blue', Completed: 'green', 'No Show': 'red', Cancelled: 'amber', Created: 'green', Duplicate: 'blue', Blocked: 'amber', Failed: 'red', Ignored: 'amber' }
+	const KINDS = [['all', 'All', 'layers'], ['bookings', 'Website bookings', 'calendar'], ['forms', 'Lead forms', 'file'], ['meta', 'Meta ads', 'users']]
+	const TYPE = { booking: ['Website booking', 'calendar', 'blue'], form: ['Lead form', 'file', 'purple'], meta: ['Meta lead ad', 'users', 'indigo'] }
 
 	V.ActivityLog = {
 		setup() {
@@ -29,21 +30,21 @@
 			watch(search, () => { clearTimeout(timer); timer = setTimeout(() => { page.value = 1; load() }, 300) })
 			const BOOK = [['', 'All'], ['Confirmed', 'Booked'], ['Rescheduled', 'Rescheduled'], ['Completed', 'Held'], ['No Show', 'No-show'], ['Cancelled', 'Cancelled']]
 			const FORM = [['', 'All'], ['Created', 'New lead'], ['Duplicate', 'Already a lead'], ['Blocked', 'Blocked'], ['Failed', 'Failed']]
-			const resultOpts = computed(() => (kind.value === 'bookings' ? BOOK : kind.value === 'forms' ? FORM : [...BOOK, ...FORM.slice(1)]).filter((r) => r[0]).map((r) => ({ value: r[0], label: r[1] })))
-			const sourceOpts = computed(() => sources.value.filter((x) => kind.value === 'all' || (kind.value === 'bookings') === (x.kind === 'booking')).map((x) => ({ value: x.value, label: x.label, sub: x.kind === 'form' ? 'Lead form' : 'Booking page' })))
+			const resultOpts = computed(() => (kind.value === 'bookings' ? BOOK : kind.value === 'forms' || kind.value === 'meta' ? FORM : [...BOOK, ...FORM.slice(1)]).filter((r) => r[0]).map((r) => ({ value: r[0], label: r[1] })))
+			const sourceOpts = computed(() => sources.value.filter((x) => kind.value === 'all' || ({ bookings: 'booking', forms: 'form', meta: 'meta' }[kind.value] === x.kind)).map((x) => ({ value: x.value, label: x.label, sub: TYPE[x.kind] ? TYPE[x.kind][0] : '' })))
 			const filtered = computed(() => !!(result.value.length || source.value || search.value))
 			async function exportCsv() {
 				try {
 					const out = [['When', 'Type', 'Booking page / form', 'Result', 'Name', 'Email', 'Phone', 'Source', 'Medium', 'Campaign', 'CRM lead', ...(log.showIp ? ['IP address'] : []), 'Note']]
 					for (let p = 1; p <= 40; p++) {
 						const r = await CM.call('crm_addons.demos.activity_log.get_log', args(p, 200))
-						r.rows.forEach((e) => out.push([e.creation, e.kind === 'form' ? 'Lead form' : 'Booking', e.thing, LABEL[e.result] || e.result, e.name_, e.email, e.phone, e.utm_source, e.utm_medium, e.utm_campaign, e.lead, ...(log.showIp ? [e.ip] : []), e.reason]))
+						r.rows.forEach((e) => out.push([e.creation, (TYPE[e.kind] || TYPE.booking)[0], e.thing, LABEL[e.result] || e.result, e.name_, e.email, e.phone, e.utm_source, e.utm_medium, e.utm_campaign, e.lead, ...(log.showIp ? [e.ip] : []), e.reason]))
 						if (p * 200 >= r.total) break
 					}
 					CM.csv(out, 'log.csv')
 				} catch (e) { CM.toast(DM.friendly(e), 'err') }
 			}
-			return { card, resultOpts, sourceOpts, source, kind, result, search, page, log, filtered, exportCsv, RESULTS, LABEL, TONE, KINDS, SIZE, CM, DM }
+			return { card, resultOpts, sourceOpts, source, kind, result, search, page, log, filtered, exportCsv, RESULTS, LABEL, TONE, KINDS, TYPE, SIZE, CM, DM }
 		},
 		template: `
 		<div class="page logpage">
@@ -60,7 +61,7 @@
 				<div v-else class="table-wrap logscroll" :style="{ opacity: log.loading ? .6 : 1 }"><table class="tbl"><thead><tr><th>When</th><th>Type</th><th>Result</th><th>Who</th><th>Source</th><th>CRM lead</th><th v-if="log.showIp">IP address</th></tr></thead>
 					<tbody><tr v-for="e in log.rows" :key="e.kind + e.name">
 						<td class="nowrap small">{{ CM.fmt(e.creation) }}</td>
-						<td><div class="logtype"><span class="logic" :class="e.kind === 'form' ? 'purple' : 'blue'" :title="e.kind === 'form' ? 'Lead form' : 'Website booking'"><Ico :name="e.kind === 'form' ? 'file' : 'calendar'" size="sm" /></span><div style="min-width:0"><b class="ellipsis" style="display:block;max-width:170px" :title="e.thing">{{ e.thing }}</b><span class="small muted">{{ e.kind === 'form' ? 'Lead form' : 'Website booking' }}</span></div></div></td>
+						<td><div class="logtype"><span class="logic" :class="(TYPE[e.kind] || TYPE.booking)[2]" :title="(TYPE[e.kind] || TYPE.booking)[0]"><Ico :name="(TYPE[e.kind] || TYPE.booking)[1]" size="sm" /></span><div style="min-width:0"><b class="ellipsis" style="display:block;max-width:170px" :title="e.thing">{{ e.thing }}</b><span class="small muted">{{ (TYPE[e.kind] || TYPE.booking)[0] }}</span></div></div></td>
 						<td><span class="badge" :class="TONE[e.result]" :title="e.reason">{{ LABEL[e.result] || e.result }}</span><div v-if="e.reason" class="small muted ellipsis" style="max-width:220px" :title="e.reason">{{ e.reason }}</div></td>
 						<td><b>{{ e.name_ || '-' }}</b><div class="small muted">{{ e.email }}<template v-if="e.email && e.phone"> - </template>{{ e.phone }}</div></td>
 						<td class="small"><template v-if="e.utm_source">{{ e.utm_source }}<span v-if="e.utm_medium" class="muted"> / {{ e.utm_medium }}</span></template><span v-else class="faint">direct</span><div v-if="e.utm_campaign" class="muted">{{ e.utm_campaign }}</div></td>

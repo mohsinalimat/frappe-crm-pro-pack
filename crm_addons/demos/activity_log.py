@@ -11,6 +11,7 @@ from crm_addons.demos.permissions import scope_sql
 from crm_addons.team_access import access
 
 FORM, ENTRY = "CRM Lead Form", "CRM Lead Form Entry"
+META_FORM, META_LOG = "CRM Meta Form", "CRM Meta Lead Log"
 
 
 def _sources(kind):
@@ -20,6 +21,8 @@ def _sources(kind):
 		out.append("bookings")
 	if kind in ("", "all", "forms") and access.allows("demo_widgets", "view"):
 		out.append("forms")
+	if kind in ("", "all", "meta") and access.allows("demo_widgets", "view") and frappe.db.exists("DocType", META_LOG):
+		out.append("meta")
 	return out
 
 
@@ -41,6 +44,11 @@ def get_log(kind="all", result=None, search=None, source=None, from_date=None, t
 		parts.append(
 			f"""select 'form' as kind, e.form as source, e.name, e.creation, e.result, coalesce(f.title, e.form) as thing, e.name_, e.email, e.phone, e.lead,
 			e.utm_source, e.utm_medium, e.utm_campaign, e.reason, e.ip_address from `tab{ENTRY}` e left join `tab{FORM}` f on f.name = e.form"""
+		)
+	if "meta" in which:
+		parts.append(
+			f"""select 'meta' as kind, e.form as source, e.name, e.creation, e.result, coalesce(nullif(e.form_name, ''), 'Meta lead form') as thing, e.person_name as name_, e.email, e.phone, e.lead,
+			e.source as utm_source, concat_ws(' / ', nullif(e.adset_name, ''), nullif(e.ad_name, '')) as utm_medium, e.campaign_name as utm_campaign, e.error as reason, null as ip_address from `tab{META_LOG}` e"""
 		)
 	outer = ["1 = 1"]
 	if start:
@@ -84,4 +92,6 @@ def get_sources():
 		out += [{"value": r.name, "label": r.title or r.name, "kind": "booking"} for r in frappe.get_all(DEMO_TYPE, fields=["name", "title"], order_by="title asc", limit_page_length=200)]
 	if access.allows("demo_widgets", "view"):
 		out += [{"value": r.name, "label": r.title or r.name, "kind": "form"} for r in frappe.get_all(FORM, fields=["name", "title"], order_by="title asc", limit_page_length=200)]
+		if frappe.db.exists("DocType", META_FORM):
+			out += [{"value": r.name, "label": r.form_name or r.name, "kind": "meta"} for r in frappe.get_all(META_FORM, fields=["name", "form_name"], order_by="form_name asc", limit_page_length=200)]
 	return out

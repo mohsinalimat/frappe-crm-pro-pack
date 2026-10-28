@@ -172,3 +172,22 @@ class TestMeta(AccessCase):
 		self.assertTrue(out["ok"])
 		self.assertEqual(out["sample"]["first_name"], "Asha")
 		self.assertEqual(frappe.db.count("CRM Lead"), before)
+
+	def test_the_sales_report_lists_meta_leads_by_campaign(self):
+		from crm_addons import reports
+
+		meta.process_lead("R1", "F1", "Webhook", lead_payload("R1", "report.person@example.com", "fb"))
+		out = reports.get_sales_report()
+		row = next(r for r in out["meta"] if r["campaign"] == "Diwali Offer")
+		self.assertEqual((row["source"], row["form"], row["leads"]), ("Facebook", "Diwali form", 1))
+		self.assertTrue(any(s["source"] == "Facebook" for s in out["sources"]))
+
+	def test_meta_leads_show_in_the_log_and_can_be_filtered_by_form(self):
+		from crm_addons.demos import activity_log
+
+		meta.process_lead("G1", "F1", "Webhook", lead_payload("G1", "log.person@example.com"))
+		out = activity_log.get_log(kind="meta", source="F1")
+		row = next(r for r in out["rows"] if r["name_"] == "Meera Iyer")
+		self.assertEqual((row["kind"], row["result"], row["utm_source"], row["utm_campaign"]), ("meta", "Created", "Instagram", "Diwali Offer"))
+		self.assertIn({"value": "F1", "label": "Diwali form", "kind": "meta"}, activity_log.get_sources())
+		self.assertTrue(any(r["kind"] == "meta" for r in activity_log.get_log(kind="all")["rows"]))

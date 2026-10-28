@@ -106,7 +106,7 @@
 	const REGISTRY = {
 		sales: {
 			kpis: [['total_leads', 'Total leads'], ['open_leads', 'Open leads'], ['unassigned', 'Leads with no owner', { manager: true }], ['calls_today', 'Calls today'], ['due_today', 'Follow-ups due today'], ['calls', 'Calls'], ['connect_rate', 'Connect rate'], ['follow_ups', 'Follow-ups added'], ['leads', 'Leads added'], ['meetings', 'Meetings'], ['converted', 'Converted to deals', { deal: true }], ['time_to_call', 'Time to first call'], ['stale', 'Stale leads']],
-			widgets: [['daily', 'Daily activity', 4], ['outcomes', 'Call outcomes', 2], ['funnel', 'Lead funnel', 3], ['hours', 'Calls by hour', 3], ['team', 'Team performance', 6, { manager: true }], ['mix', 'Call outcomes by person', 6, { manager: true }], ['assigned', 'Leads assigned by person', 6, { manager: true }], ['pipeline', 'Lead pipeline', 3], ['sources', 'Leads by source', 3], ['attempts', 'Attempts to connect', 2], ['temperature', 'Lead temperature', 2], ['meet_outcome', 'Meetings by outcome', 2], ['queue', 'Follow-up queue', 2], ['recent', 'Recent calls', 2], ['upcoming', 'Upcoming meetings', 2]],
+			widgets: [['daily', 'Daily activity', 4], ['outcomes', 'Call outcomes', 2], ['funnel', 'Lead funnel', 3], ['hours', 'Calls by hour', 3], ['team', 'Team performance', 6, { manager: true }], ['mix', 'Call outcomes by person', 6, { manager: true }], ['assigned', 'Leads assigned by person', 6, { manager: true }], ['pipeline', 'Lead pipeline', 3], ['sources', 'Leads by source', 3], ['meta', 'Meta lead ads', 3], ['attempts', 'Attempts to connect', 2], ['temperature', 'Lead temperature', 2], ['meet_outcome', 'Meetings by outcome', 2], ['queue', 'Follow-up queue', 2], ['recent', 'Recent calls', 2], ['upcoming', 'Upcoming meetings', 2]],
 		},
 		nurturing: {
 			kpis: [['campaigns', 'Campaigns'], ['reached', 'Recipients reached'], ['delivered', 'Delivered rate'], ['read', 'Read / open rate'], ['reply', 'Reply rate'], ['failed', 'Failed'], ['optouts', 'Opt-outs']],
@@ -565,6 +565,8 @@
 			const statusMax = computed(() => Math.max(1, ...statusRows.value.map((s) => s.count)))
 			const statusTotal = computed(() => statusRows.value.reduce((n, s) => n + s.count, 0))
 			const sourceRows = computed(() => (data.value ? data.value.sources : []))
+			const metaRows = computed(() => (data.value ? data.value.meta || [] : []))
+			const metaMax = computed(() => Math.max(1, ...metaRows.value.map((s) => s.leads)))
 			const sourceMax = computed(() => Math.max(1, ...sourceRows.value.map((s) => s.leads)))
 			const bandItems = computed(() => {
 				const b = data.value ? data.value.score_bands : { hot: 0, warm: 0, cold: 0 }
@@ -748,7 +750,7 @@
 			return {
 				editing, dragOver, lay, titleOf, shownWidgets, shownCards, toggleKpi, toggleWidget, moveKpi, moveWidget, setWidth, isFirst, isLast, dragStart, dropOn, resetLayout, WIDTHS, deals,
 				EMBED, openFull, data, loading, fatal, range, user, userOptions, subtitle, updatedAt, exportItems, exportFile, metric, split, splitOptions, scope, isManager, everyone, cards,
-				dayLabels, seriesData, chartTotal, outcomeItems, outcomeTotal, pct, funnel, hourLabels, hourSeries, bestHour, attemptLabels, attemptSeries, statusRows, statusMax, statusTotal, assignedRows, assignedMax, bdOf, bdMax, sourceRows, sourceMax,
+				dayLabels, seriesData, chartTotal, outcomeItems, outcomeTotal, pct, funnel, hourLabels, hourSeries, bestHour, attemptLabels, attemptSeries, statusRows, statusMax, statusTotal, assignedRows, assignedMax, bdOf, bdMax, sourceRows, metaRows, metaMax, sourceMax,
 				teamLabel, bandItems, meetingItems, meetingTotal, view, setView, leads, leadsLoading, leadsError, leadsOn, leadKpis, leadMax, leadSrcMax, nurturingOn, nur, nurLoading, nurError, refresh, funnelChannel, nurCards, nurDayLabels, nurSeries, nurTotalSent, nurFunnel, chanRows, chanMax, statusDonut, nurturedItems, campaignUrl, pct1, nurNoCampaigns, nurQuiet, nurRateTone, NUR, loadNurturing, showTeam, people, maxCalls, columns, sort, sortBy, rateTone, mixRows, mixMax, load, open, close, fmtWhen, outcomeTone, num, OUTCOME_COLORS,
 			}
 		},
@@ -1036,6 +1038,13 @@
 					<div class="hrow" v-for="s in sourceRows" :key="s.source"><span class="hname">{{ s.source }}</span><div class="htrack"><i :style="{ width: (s.leads / sourceMax) * 100 + '%', background: '#2563eb' }"></i></div><b>{{ s.leads }}<span class="sub" v-if="deals && s.converted"> · {{ s.converted }} won</span></b></div>
 				</div>
 				<div class="chart-empty" v-else>No leads added in this period</div>
+			</template>
+<template v-else-if="w.id === 'meta'">
+				<header><div><h3>Meta lead ads</h3><div class="sub">Facebook and Instagram leads added in this period, by campaign{{ deals ? ', and how many became deals' : '' }}</div></div></header>
+				<div class="hbars" v-if="metaRows.length">
+					<div class="hrow" v-for="(s, i) in metaRows" :key="i"><span class="hname" :title="s.form">{{ s.campaign }}<span class="sub"> · {{ s.source }}</span></span><div class="htrack"><i :style="{ width: (s.leads / metaMax) * 100 + '%', background: s.source === 'Instagram' ? '#c13584' : '#0866ff' }"></i></div><b>{{ s.leads }}<span class="sub" v-if="deals && s.converted"> · {{ s.converted }} won</span></b></div>
+				</div>
+				<div class="chart-empty" v-else>No Meta leads in this period</div>
 			</template>
 <template v-else-if="w.id === 'attempts'">
 				<header><div><h3>Attempts to connect</h3><div class="sub">Which call reached the person</div></div></header>
