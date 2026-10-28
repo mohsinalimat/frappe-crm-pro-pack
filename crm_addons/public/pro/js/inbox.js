@@ -10,13 +10,18 @@
 
 	V.Inbox = {
 		setup() {
-			const acc = ref(null); const list = reactive({ rows: [], total: 0, page: 1, loading: true, view: 'all', q: '', more: false })
+			const acc = ref(null); const list = reactive({ rows: [], total: 0, page: 1, loading: true, view: 'all', q: '', more: false, counts: {} })
 			const cur = ref(CM.route.parts[1] || ''); const chat = ref(null); const chatErr = ref(''); const chatLoading = ref(false)
-			const VIEWS = computed(() => [['all', 'All'], ['unread', 'Unread'], ['new', 'New contacts'], ...(acc.value && acc.value.manager ? [['unassigned', 'Unassigned']] : []), ['notlead', 'Not a lead']])
+			const VIEWS = [['all', 'All'], ['unread', 'Unread'], ['leads', 'Leads'], ['new', 'Contacts']]
+			const MORE = computed(() => [['mine', 'Assigned to me'], ...(acc.value && acc.value.manager ? [['unassigned', 'Unassigned']] : []), ['notlead', 'Not a lead']])
+			const fmenu = ref(false); const kmenu = ref(false); const info = ref(false)
+			const fmtNum = (n) => { const d = String(n || '').replace(/\D/g, ''); if (d.length < 11) return n; const cc = d.slice(0, d.length - 10), r = d.slice(-10); return '+' + cc + ' ' + r.slice(0, 5) + ' ' + r.slice(5) }
+			const onDoc = (e) => { if (!e.target.closest || !e.target.closest('.wi-pop')) { fmenu.value = false; kmenu.value = false; info.value = false } }
+			onMounted(() => document.addEventListener('click', onDoc)); onBeforeUnmount(() => document.removeEventListener('click', onDoc))
 			let tQ = null, seq = 0
 			async function loadList(quiet) {
 				const my = ++seq; if (!quiet) list.loading = true
-				try { const r = await call('list_chats', { view: list.view, search: list.q || undefined, page: 1, page_size: 40 * list.page }); if (my === seq) { list.rows = r.rows; list.total = r.total; list.more = r.rows.length < r.total } } catch (e) { if (!quiet) CM.toast(e.message, 'err') } finally { if (my === seq) list.loading = false }
+				try { const r = await call('list_chats', { view: list.view, search: list.q || undefined, page: 1, page_size: 40 * list.page }); if (my === seq) { list.rows = r.rows; list.total = r.total; list.counts = r.counts || {}; list.more = r.rows.length < r.total } } catch (e) { if (!quiet) CM.toast(e.message, 'err') } finally { if (my === seq) list.loading = false }
 			}
 			async function loadAcc() { try { acc.value = await call('get_access'); PRO.shell.waUnread = acc.value.unread } catch (e) { acc.value = { level: 'none', unread: 0 } } }
 			async function openChat(key, quiet) {
@@ -61,16 +66,18 @@
 			async function openAssign() { asg.value = !asg.value; if (asg.value && !users.value.length) { try { users.value = await call('assignable_users') } catch (e) { CM.toast(e.message, 'err') } } }
 			async function assignTo(u) { asg.value = false; try { await call('assign', { key: cur.value, user: u }); CM.toast(u ? 'Assigned' : 'Back to unassigned'); await openChat(cur.value, true) } catch (e) { CM.toast(e.message, 'err') } }
 			const back = () => { cur.value = ''; chat.value = null }
-			return { acc, list, cur, chat, chatErr, chatLoading, VIEWS, openChat, sendWa, reactWa, tp, tpSel, preview, openTpl, sendTpl, cl, openCreate, createLead, lk, openLink, linkTo, notALead, users, asg, openAssign, assignTo, back, ago, PRO, CM, loadList }
+			return { MORE, fmenu, kmenu, info, fmtNum, acc, list, cur, chat, chatErr, chatLoading, VIEWS, openChat, sendWa, reactWa, tp, tpSel, preview, openTpl, sendTpl, cl, openCreate, createLead, lk, openLink, linkTo, notALead, users, asg, openAssign, assignTo, back, ago, PRO, CM, loadList }
 		},
 		template: `
 		<div class="wi-page">
 			<div v-if="acc && acc.level === 'none'" class="page"><Empty icon="whatsapp" title="No access to the WhatsApp inbox" text="Ask an administrator to give you access under Team." /></div>
 			<div v-else class="wi-in" :class="{ chatting: !!cur }">
 				<aside class="wi-list" aria-label="Chats">
-					<div class="wi-lh"><h1>WhatsApp</h1><span v-if="acc && acc.unread" class="pro-badge">{{ acc.unread }}</span></div>
-					<div class="wi-search"><Inp v-model="list.q" icon="search" placeholder="Search a name, number or message" clearable aria-label="Search chats" /></div>
-					<div class="wi-chips"><button v-for="v in VIEWS" :key="v[0]" type="button" class="fchip" :class="{ on: list.view === v[0] }" @click="list.view = v[0]">{{ v[1] }}</button></div>
+					<div class="wi-lh"><span class="wi-logo"><Ico name="whatsapp" /></span><h1>WhatsApp</h1></div>
+					<div class="wi-search"><div class="grow"><Inp v-model="list.q" icon="search" placeholder="Search name, number or message..." clearable aria-label="Search chats" /></div>
+						<span class="wi-pop wi-fwrap"><button type="button" class="wi-ib" :class="{ on: ['mine', 'unassigned', 'notlead'].includes(list.view) }" aria-label="More filters" title="More filters" @click="fmenu = !fmenu"><Ico name="filter" /></button>
+							<div v-if="fmenu" class="wi-menu"><button v-for="m in MORE" :key="m[0]" type="button" :class="{ on: list.view === m[0] }" @click="list.view = list.view === m[0] ? 'all' : m[0]; fmenu = false">{{ m[1] }}<span v-if="m[0] === 'unassigned' && list.counts.unassigned" class="wi-n">{{ list.counts.unassigned }}</span></button></div></span></div>
+					<div class="wi-chips"><button v-for="v in VIEWS" :key="v[0]" type="button" class="wi-chip" :class="{ on: list.view === v[0] }" @click="list.view = v[0]">{{ v[1] }}<span v-if="list.counts[v[0]] !== undefined" class="wi-c" :class="{ red: v[0] === 'unread' && list.counts.unread }">{{ list.counts[v[0]] }}</span></button></div>
 					<div class="wi-rows">
 						<template v-if="list.loading"><Skel v-for="i in 6" :key="i" h="58" r="8" style="margin:6px 10px" /></template>
 						<Empty v-else-if="!list.rows.length" icon="whatsapp" title="No chats" :text="list.view === 'all' && !list.q ? 'Chats appear here when someone messages you or you message a lead.' : 'Nothing matches.'" />
@@ -78,8 +85,8 @@
 							<button v-for="r in list.rows" :key="r.name" type="button" class="wi-row" :class="{ on: cur === r.name }" @click="openChat(r.name)">
 								<Pic :name="r.title" :size="42" />
 								<span class="wi-mid"><span class="wi-top"><b class="ellipsis">{{ r.title }}</b><span class="wi-time" :class="{ hot: r.unread }">{{ ago(r.last_at) }}</span></span>
-									<span class="wi-bot"><span class="ellipsis wi-last"><template v-if="r.last_direction === 'Outgoing'">You: </template>{{ r.last_message }}</span><span v-if="r.unread" class="wi-un">{{ r.unread }}</span></span>
-									<span class="wi-tags"><span v-if="!r.lead" class="wi-tag new">New contact</span><span v-else class="wi-tag">Lead</span><span class="wi-tag who">{{ r.owner ? r.owner_name : 'Unassigned' }}</span></span></span>
+									<span class="wi-bot"><span class="ellipsis wi-last"><svg v-if="r.last_direction === 'Outgoing'" class="wi-tk" viewBox="0 0 17 11" width="15" height="10"><path d="M1 5.8 4.2 9 10.5 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /><path d="M6 8.6 6.6 9 13 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>{{ r.last_message }}</span><span v-if="r.unread" class="wi-un">{{ r.unread }}</span></span>
+									<span class="wi-tags"><span v-if="!r.lead" class="wi-tag new">Contact</span><span v-else class="wi-tag lead">Lead</span><span class="wi-tag who">{{ r.owner ? r.owner_name : 'Unassigned' }}</span></span></span>
 							</button>
 							<button v-if="list.more" type="button" class="wi-more-btn" @click="list.page++; loadList()">Show more</button>
 						</template>
@@ -95,14 +102,24 @@
 							<div class="wi-acts">
 								<Btn v-if="chat.can_write && chat.chat.status !== 'Not a lead'" variant="primary" icon="plus" size="sm" @click="openCreate">Create lead</Btn>
 								<Btn v-if="chat.can_write" size="sm" icon="link" @click="openLink">Link to a lead</Btn>
-								<Btn v-if="chat.can_write && chat.chat.status !== 'Not a lead'" size="sm" icon="x" @click="notALead(true)">Not a lead</Btn>
-								<Btn v-if="chat.chat.status === 'Not a lead'" size="sm" @click="notALead(false)">Move back to inbox</Btn>
+																<Btn v-if="chat.chat.status === 'Not a lead'" size="sm" @click="notALead(false)">Move back to inbox</Btn>
 								<span v-if="chat.manager" class="wi-asg"><Btn size="sm" icon="users" @click="openAssign">{{ chat.chat.assigned_to ? 'Reassign' : 'Assign' }}</Btn>
 									<div v-if="asg" class="wi-asg-menu"><button v-for="u in users" :key="u.value" type="button" @click="assignTo(u.value)">{{ u.label }}</button><button v-if="chat.chat.assigned_to" type="button" class="muted" @click="assignTo('')">Unassign</button></div></span>
 							</div>
 						</div>
-						<WaChat class="wi-chat" :messages="chat.messages" :window-open="chat.window_open" :window-until="chat.window_until" :can-write="chat.can_write" :can-template="chat.can_write" :title="chat.chat.title" :subtitle="chat.chat.number" person="Contact" :send="sendWa" :react="reactWa" @template="openTpl">
-							<template #head><button type="button" class="wx-tpl wi-back" @click="back"><Ico name="arrow-left" size="sm" /> Chats</button><a v-if="chat.chat.lead" class="wx-tpl" :href="CM.leadUrl(chat.chat.lead.name)">Open lead</a><a class="wx-tpl" :href="'#/whatsapp/' + cur" target="_blank" rel="noopener" title="Open this chat in a new tab"><Ico name="external-link" size="sm" /></a></template>
+						<WaChat class="wi-chat" :messages="chat.messages" :window-open="chat.window_open" :window-until="chat.window_until" :can-write="chat.can_write" :can-template="chat.can_write" :title="chat.chat.title" :subtitle="fmtNum(chat.chat.number)" person="Contact" :send="sendWa" :react="reactWa" @template="openTpl">
+							<template #head>
+								<span class="wi-pop wi-infow"><button type="button" class="wi-chipbtn" :class="chat.chat.lead ? 'lead' : 'contact'" @click="info = !info">{{ chat.chat.lead ? (chat.chat.lead.status || 'Lead') : 'Contact' }}<Ico name="chevron-down" size="sm" /></button>
+									<div v-if="info" class="wi-card"><template v-if="chat.chat.lead"><b>{{ chat.chat.lead.lead_name }}</b><div class="small muted">{{ chat.chat.lead.name }}</div>
+										<dl><dt>Status</dt><dd>{{ chat.chat.lead.status || '-' }}</dd><dt>Owner</dt><dd>{{ chat.chat.lead.owner_name || '-' }}</dd><dt>Phone</dt><dd>{{ chat.chat.lead.mobile_no || '-' }}</dd><dt>Email</dt><dd>{{ chat.chat.lead.email || '-' }}</dd><dt>Organization</dt><dd>{{ chat.chat.lead.organization || '-' }}</dd><dt>Source</dt><dd>{{ chat.chat.lead.source || '-' }}</dd></dl>
+										<a class="btn primary sm" :href="CM.leadUrl(chat.chat.lead.name)">Open lead</a></template>
+										<template v-else><b>Not in your CRM yet</b><div class="small muted" style="margin-bottom:8px">{{ fmtNum(chat.chat.number) }}</div><Btn v-if="chat.can_write" variant="primary" size="sm" icon="plus" @click="info = false; openCreate()">Create lead</Btn></template></div></span>
+								<button type="button" class="wx-tpl wi-back" @click="back"><Ico name="arrow-left" size="sm" /> Chats</button>
+								<a v-if="chat.chat.lead" class="wx-tpl" :href="CM.leadUrl(chat.chat.lead.name)"><Ico name="user" size="sm" /> Open lead</a>
+								<a class="wx-tpl" :href="'#/whatsapp/' + cur" target="_blank" rel="noopener" title="Open this chat in a new tab" aria-label="Open this chat in a new tab"><Ico name="external-link" size="sm" /></a>
+								<span v-if="!chat.chat.lead" class="wi-pop wi-kwrap"><button type="button" class="wx-tpl" aria-label="More" @click="kmenu = !kmenu"><Ico name="more" size="sm" /></button>
+									<div v-if="kmenu" class="wi-menu right"><button v-if="chat.can_write && chat.chat.status !== 'Not a lead'" type="button" @click="kmenu = false; notALead(true)">Mark as not a lead</button><button v-if="chat.chat.status === 'Not a lead'" type="button" @click="kmenu = false; notALead(false)">Move back to inbox</button><button v-if="chat.manager" type="button" @click="kmenu = false; openAssign()">{{ chat.chat.assigned_to ? 'Reassign' : 'Assign to someone' }}</button></div></span>
+							</template>
 						</WaChat>
 					</template>
 				</section>

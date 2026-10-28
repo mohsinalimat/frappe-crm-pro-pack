@@ -613,3 +613,38 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 .wi-chat.wx { flex: 1 1 auto; min-height: 0; border: 0; border-radius: 0; }
 .wi-chat .wx-tpl { text-decoration: none; display: inline-flex; align-items: center; gap: 4px; } .wi-back { display: none !important; }
 @media (max-width: 860px) { .wi-in { grid-template-columns: 1fr; } .wi-in.chatting .wi-list { display: none; } .wi-in:not(.chatting) .wi-pane { display: none; } .wi-back { display: inline-flex !important; } }
+
+/* the inbox, closer to WhatsApp Web: light headers, a green accent, counts on the chips */
+.wi-in { grid-template-columns: 380px minmax(0, 1fr); border-radius: 14px; }
+.wi-lh { padding: 16px 18px 8px; gap: 10px; } .wi-lh h1 { font-size: 22px; font-weight: 700; }
+.wi-logo { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #25d366; color: #fff; }
+.wi-search { display: flex; gap: 8px; padding: 6px 14px; align-items: center; }
+.wi-ib { width: 40px; height: 40px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: inherit; cursor: pointer; } .wi-ib.on { border-color: #1fa855; color: #1fa855; }
+.wi-fwrap, .wi-kwrap, .wi-infow { position: relative; display: inline-flex; }
+.wi-menu { position: absolute; z-index: 30; top: 100%; right: 0; margin-top: 6px; min-width: 190px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 28px rgba(0,0,0,.16); padding: 4px; }
+.wi-menu button { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; padding: 9px 12px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; color: inherit; font: inherit; } .wi-menu button:hover { background: var(--surface-2, #eef0f3); } .wi-menu button.on { color: #1fa855; font-weight: 600; }
+.wi-n { background: #25d366; color: #fff; border-radius: 999px; min-width: 18px; text-align: center; font-size: 11px; padding: 0 5px; }
+.wi-chips { gap: 8px; padding: 6px 14px 12px; flex-wrap: nowrap; overflow-x: auto; }
+.wi-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: inherit; font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.wi-chip.on { background: #1fa855; border-color: #1fa855; color: #fff; }
+.wi-c { min-width: 20px; padding: 0 6px; height: 18px; display: inline-grid; place-items: center; border-radius: 999px; background: var(--surface-2, #e9ecef); font-size: 11.5px; } .wi-chip.on .wi-c { background: rgba(255,255,255,.28); } .wi-c.red { background: #ef4444; color: #fff; }
+.wi-row { padding: 12px 16px 12px 14px; gap: 12px; border-left: 3px solid transparent; } .wi-row.on { background: #e7f6ec; border-left-color: #1fa855; }
+.wi-row > .pic, .wi-row .pic { flex: 0 0 auto; }
+.wi-last { display: inline-flex; align-items: center; gap: 5px; color: var(--text-soft); } .wi-tk { color: #53bdeb; flex: 0 0 auto; }
+.wi-tag { font-weight: 500; } .wi-tag.lead { background: #e8eaff; color: #3b3fb0; } .wi-tag.new { background: #eef0f3; color: #4b5563; } .wi-tag.who { border: 0; background: #e7f6ec; color: #1b7a43; }
+.wi-un { background: #1fa855; }
+.wi-pane { background: #efeae2; }
+.wi-chat .wx-head { background: var(--surface); color: inherit; padding: 12px 18px; border-bottom: 1px solid var(--border); gap: 12px; }
+.wi-chat .wx-head b { font-size: 17px; } .wi-chat .wx-head .small { opacity: 1; color: var(--text-soft); }
+.wi-chat .wx-win { background: #e7f6ec; color: #1b7a43; }
+.wi-chat .wx-tpl { background: var(--surface); color: inherit; border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; font-weight: 600; }
+.wi-chat .wx-chat { padding: 18px 8%; }
+.wi-chat .wx-compose { background: var(--surface); border-top: 1px solid var(--border); padding: 12px 16px; }
+.wi-chat .wx-in { border-radius: 999px; }
+.wi-chat .wx-send { background: #1fa855; }
+.wi-chipbtn { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; border: 0; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; } .wi-chipbtn.lead { background: #e8eaff; color: #3b3fb0; } .wi-chipbtn.contact { background: #eef0f3; color: #4b5563; }
+.wi-card { position: absolute; z-index: 30; top: 100%; left: 0; margin-top: 8px; width: 290px; padding: 14px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.18); }
+.wi-card dl { display: grid; grid-template-columns: 92px 1fr; gap: 6px 8px; margin: 10px 0 12px; font-size: 13px; } .wi-card dt { color: var(--text-soft); } .wi-card dd { margin: 0; overflow-wrap: anywhere; }
+.wi-menu.right { right: 0; left: auto; } .wi-chat .wx-head .wi-infow { margin-left: 4px; }
+.wi-banner { padding: 8px 16px; }
+.wi-chips { flex-wrap: wrap; gap: 6px; } .wi-chip { padding: 5px 10px; }

@@ -316,7 +316,6 @@
 								<Skel v-if="!data.whatsapp" h="40" />
 								<Empty v-else-if="!data.whatsapp.installed" icon="whatsapp" title="WhatsApp is not set up" text="Install and connect the Frappe WhatsApp app to chat with leads here." />
 								<WaChat v-else :messages="data.whatsapp.messages" :window-open="data.whatsapp.window_open" :window-until="data.whatsapp.window_until" :can-write="!!lead.can_write" :can-template="!!lead.can_write && !!lead.mobile_no" :title="title" :image="lead.image" :subtitle="lead.mobile_no" :has-number="!!lead.mobile_no" no-number-text="Add a phone number to message this lead." person="Lead" :send="sendWa" :react="reactWa" :render="renderWa" @template="waTemplate" />
-								</div>
 							</template>
 						</section>
 					</div>

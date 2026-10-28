@@ -230,6 +230,8 @@ def list_chats(view="all", search=None, page=1, page_size=40):
 		where.append("c.unread > 0")
 	elif view == "new":
 		where.append("c.lead IS NULL")
+	elif view == "leads":
+		where.append("c.lead IS NOT NULL")
 	elif view == "mine":
 		where.append("((c.lead IS NOT NULL AND l.lead_owner = %(me)s) OR (c.lead IS NULL AND c.assigned_to = %(me)s))")
 	elif view == "unassigned":
@@ -252,7 +254,17 @@ def list_chats(view="all", search=None, page=1, page_size=40):
 		r["mine"] = owner == frappe.session.user or (not owner and _level() == "all")
 		if not r["mine"]:
 			r["unread"] = 0  # the number belongs to whoever the chat is assigned to
-	return {"rows": rows, "total": total, "page": page, "page_size": size}
+	return {"rows": rows, "total": total, "page": page, "page_size": size, "counts": _counts()}
+
+
+def _counts():
+	"""The numbers on the filter chips, for what the person may open (chats marked not a lead are left out)."""
+	where, vals = _visible_sql(frappe.session.user)
+	vals["me"] = frappe.session.user
+	mine = "((c.lead IS NOT NULL AND l.lead_owner = %(me)s) OR (c.lead IS NULL AND c.assigned_to = %(me)s)" + (" OR (c.lead IS NULL AND (c.assigned_to IS NULL OR c.assigned_to = ''))" if _level() == "all" else "") + ")"
+	row = frappe.db.sql(f"""SELECT COUNT(*), SUM(c.unread > 0 AND {mine}), SUM(c.lead IS NOT NULL), SUM(c.lead IS NULL), SUM(c.lead IS NULL AND (c.assigned_to IS NULL OR c.assigned_to = ''))
+		FROM `tabCRM WhatsApp Chat` c LEFT JOIN `tabCRM Lead` l ON l.name = c.lead WHERE c.status = 'Open' AND {where}""", vals)[0]
+	return {"all": cint(row[0]), "unread": cint(row[1]), "leads": cint(row[2]), "new": cint(row[3]), "unassigned": cint(row[4])}
 
 
 def _messages(chat):
@@ -299,7 +311,10 @@ def get_chat(key):
 	owner = frappe.db.get_value(LEAD, chat.lead, "lead_owner") if chat.lead else chat.assigned_to
 	if cint(chat.unread) and (owner == frappe.session.user or (not owner and _level() == "all")):
 		chat.db_set("unread", 0, update_modified=False)
-	lead = frappe.db.get_value(LEAD, chat.lead, ["name", "lead_name", "status", "lead_owner"], as_dict=True) if chat.lead else None
+	lead = frappe.db.get_value(LEAD, chat.lead, ["name", "lead_name", "status", "lead_owner", "email", "organization", "mobile_no", "source"], as_dict=True) if chat.lead else None
+	if lead:
+		lead["owner_name"] = frappe.db.get_value("User", lead.lead_owner, "full_name") if lead.lead_owner else None
+		lead["status_color"] = frappe.db.get_value("CRM Lead Status", lead.status, "color") if lead.status else None
 	can_write = True
 	if chat.lead:
 		try:

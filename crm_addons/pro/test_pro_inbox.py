@@ -147,3 +147,19 @@ class TestInbox(AccessCase):
 		self.assertEqual(len(msgs), 2)
 		self.assertEqual(msgs[0]["reaction"], "\U0001f44d")
 		self.assertEqual(msgs[1]["reply_message"], "hello")
+
+	def test_the_filter_numbers_count_what_the_person_may_open(self):
+		self._msg(NEW, "hello")
+		lead = self._lead("9822200002")
+		self._msg("919822200002", "from a lead", name="Lead")
+		before = inbox.list_chats()["counts"]
+		frappe.set_user(self.rep)
+		mine = inbox.list_chats()["counts"]
+		self.assertEqual((mine["all"], mine["leads"], mine["new"], mine["unread"]), (1, 1, 0, 1))
+		frappe.set_user(self.boss)
+		out = inbox.list_chats()["counts"]
+		self.assertGreaterEqual(out["new"], 1)
+		self.assertGreaterEqual(out["unassigned"], 1)
+		self.assertEqual(inbox.list_chats(view="leads")["total"], out["leads"])
+		info = inbox.get_chat("9822200002")["chat"]["lead"]
+		self.assertEqual((info["name"], info["owner_name"] is not None), (lead.name, True))
