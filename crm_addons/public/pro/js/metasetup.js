@@ -55,13 +55,14 @@
 				const r = await run('e' + f.form_id, () => call('form_detail', { form_id: f.form_id })); if (!r) return
 				Object.keys(map).forEach((k) => delete map[k]); Object.assign(map, r.mapping); edit.value = r
 			}
+			const refreshQ = () => run('rq', async () => { const r = await call('form_detail', { form_id: edit.value.form_id, refresh: 1 }); Object.keys(map).forEach((k) => delete map[k]); Object.assign(map, r.mapping); edit.value = r; CM.toast('Questions refreshed from Meta') })
 			const saveMap = () => run('sm', async () => { await call('save_mapping', { form_id: edit.value.form_id, mapping: JSON.stringify(map) }); CM.toast('Mapping saved'); edit.value = null; await load() })
 			async function copy(text) { try { await navigator.clipboard.writeText(text); CM.toast('Copied') } catch (e) { CM.toast('Select it and copy', 'err') } }
 			const when = (s) => (s ? CM.fmt(s) : '')
 			const fieldOpts = computed(() => [{ value: '', label: 'Do not import' }, ...d.value.fields])
 			const tone = (r) => ({ Created: 'green', Duplicate: 'blue', Failed: 'red', Ignored: 'amber' }[r] || '')
 			const word = (r) => ({ Created: 'New lead', Duplicate: 'Already a lead', Failed: 'Failed', Ignored: 'Skipped' }[r] || r)
-			return { loading, error, d, c, busy, res, formRes, wiz, pages, page, forms, pick, map, loadingF, edit, gone, guide, GUIDE, save, test, disconnect, toggle, testForm, retry, remove, openWizard, choosePage, current, choose, formOpts, addForm, openEdit, saveMap, copy, when, fieldOpts, tone, word, CM }
+			return { loading, error, d, c, busy, res, formRes, wiz, pages, page, forms, pick, map, loadingF, edit, gone, guide, GUIDE, save, test, disconnect, toggle, testForm, retry, remove, openWizard, choosePage, current, choose, formOpts, addForm, openEdit, saveMap, refreshQ, copy, when, fieldOpts, tone, word, CM }
 		},
 		template: `
 		<div class="page it-page">
@@ -129,7 +130,7 @@
 			<Modal v-if="edit" size="lg" :title="'Mapping: ' + edit.form_name" subtitle="Which question goes into which CRM field." @close="edit = null">
 				<div class="mt-map"><div class="mt-maph"><span>Question on the form</span><span>CRM field</span></div>
 					<div v-for="q in edit.questions" :key="q.key" class="mt-mapr"><span><b>{{ q.label }}</b><span class="small muted"> {{ q.key }}</span></span><Dd v-model="map[q.key]" :options="fieldOpts" searchable /></div></div>
-				<template #foot><Btn @click="edit = null">Cancel</Btn><Btn variant="primary" :loading="busy === 'sm'" @click="saveMap">Save mapping</Btn></template>
+				<template #foot><Btn variant="ghost" icon="refresh" :loading="busy === 'rq'" @click="refreshQ">Refresh questions from Meta</Btn><div class="grow"></div><Btn @click="edit = null">Cancel</Btn><Btn variant="primary" :loading="busy === 'sm'" @click="saveMap">Save mapping</Btn></template>
 			</Modal>
 			<Modal v-if="gone" size="sm" :title="'Remove ' + gone.form_name + '?'" @close="gone = null">
 				<p>The CRM stops receiving leads from this form. The leads already imported and the log stay.</p>

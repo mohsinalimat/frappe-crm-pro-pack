@@ -336,10 +336,24 @@ def set_form(form_id, enabled):
 
 
 @frappe.whitelist()
-def form_detail(form_id):
+def form_detail(form_id, refresh=0):
+	"""A connected form's questions and mapping. ``refresh`` asks Meta again, so questions added to the form after it was connected show up (unmapped)."""
 	_admin()
 	f = frappe.get_doc(FORM, form_id)
-	return {"form_id": f.form_id, "form_name": f.form_name, "questions": _json(f.questions) if False else json.loads(f.questions or "[]"), "mapping": _json(f.mapping)}
+	questions = json.loads(f.questions or "[]")
+	mapping = _json(f.mapping)
+	if cint(refresh):
+		try:
+			data = graph(f.form_id, _page_token(f), {"fields": "id,name,questions"})
+		except MetaError as exc:
+			frappe.throw(cstr(exc))
+		questions = [{"key": q.get("key"), "label": q.get("label") or q.get("key"), "type": q.get("type")} for q in data.get("questions", []) if q.get("key")]
+		fresh = default_mapping([q for q in questions if q["key"] not in mapping])
+		mapping = {**{q["key"]: mapping.get(q["key"], fresh.get(q["key"], "")) for q in questions}}
+		f.questions = json.dumps(questions)
+		f.form_name = data.get("name") or f.form_name
+		f.save(ignore_permissions=True)
+	return {"form_id": f.form_id, "form_name": f.form_name, "questions": questions, "mapping": mapping}
 
 
 @frappe.whitelist()

@@ -191,3 +191,11 @@ class TestMeta(AccessCase):
 		self.assertEqual((row["kind"], row["result"], row["utm_source"], row["utm_campaign"]), ("meta", "Created", "Instagram", "Diwali Offer"))
 		self.assertIn({"value": "F1", "label": "Diwali form", "kind": "meta"}, activity_log.get_sources())
 		self.assertTrue(any(r["kind"] == "meta" for r in activity_log.get_log(kind="all")["rows"]))
+
+	def test_questions_added_to_the_form_later_can_be_refreshed_and_keep_their_mapping(self):
+		more = {"id": "F1", "name": "Diwali form v2", "questions": QUESTIONS + [{"key": "city", "label": "City", "type": "CITY"}]}
+		with patch.object(meta, "graph", return_value=more):
+			out = meta.form_detail("F1", 1)
+		self.assertEqual(out["mapping"]["email"], "email")
+		self.assertIn("city", out["mapping"])
+		self.assertEqual(out["form_name"], "Diwali form v2")
