@@ -275,7 +275,7 @@ def _attendees(demo, contact, guests):
 
 
 def _description(demo, contact, extra, utm):
-	lines = [f"{demo.title}", "", f"{_('Booked by')}: {contact['name']} <{contact['email']}>", f"{_('Phone')}: +{contact['phone']}"]
+	lines = [f"{demo.title}", "", f"{_('Booked by')}: {contact['name']} ({contact['email']})", f"{_('Phone')}: +{contact['phone']}"]
 	if contact["organization"]:
 		lines.append(f"{_('School / company')}: {contact['organization']}")
 	labels = {row.key: row.label for row in demo.get("fields") or []}

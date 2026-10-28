@@ -194,7 +194,7 @@
 	// ------------------------------------------------------------------ actions menu (Export)
 	const Menu = {
 		components: { Ico },
-		props: { label: String, icon: String, items: Array },
+		props: { label: String, icon: String, items: Array, title: String },
 		emits: ['select'],
 		setup(props, { emit }) {
 			const open = ref(false)
@@ -214,7 +214,7 @@
 		},
 		template: `
 <div class="pick">
-	<button type="button" class="btn" ref="btn" @click="open ? (open = false) : show()" aria-haspopup="menu" :aria-expanded="open"><ico :name="icon" /> {{ label }}</button>
+	<button type="button" class="btn" :class="{ icon: !label }" ref="btn" :title="title || label" :aria-label="title || label" @click="open ? (open = false) : show()" aria-haspopup="menu" :aria-expanded="open"><ico :name="icon" /><template v-if="label"> {{ label }}</template></button>
 	<div class="pick-pop menu" ref="pop" v-if="open" :style="style" role="menu">
 		<button v-for="it in items" :key="it.key" type="button" class="pick-opt two" role="menuitem" @mousedown.prevent="choose(it)"><span class="pick-label">{{ it.label }}<small>{{ it.hint }}</small></span></button>
 	</div>
@@ -434,9 +434,10 @@
 			const userOptions = computed(() => [{ value: '', label: teamLabel.value }, ...(scope.value ? scope.value.users.map((u) => ({ value: u.name, label: u.full_name })) : [])])
 			const subtitle = computed(() => (!scope.value ? '' : scope.value.user ? (isManager.value ? scope.value.user_name : 'Your numbers') : (scope.value.label === 'My team' ? 'My team' : 'Whole team')))
 			const exportItems = computed(() => (view.value === 'sales'
-				? [{ key: 'xlsx', label: 'Excel workbook (.xlsx)', hint: 'Every section on its own sheet, plus the call log' }, { key: 'csv', label: 'Call log (.csv)', hint: 'Every call in this period' }]
-				: [{ key: 'xlsx', label: 'Excel workbook (.xlsx)', hint: 'Summary, by day, channels and every campaign' }, { key: 'csv', label: 'Campaigns (.csv)', hint: 'One row per campaign in this period' }]))
+				? [{ key: 'xlsx', label: 'Excel workbook (.xlsx)', hint: 'Every section on its own sheet, plus the call log' }, { key: 'csv', label: 'Call log (.csv)', hint: 'Every call in this period' }, { key: 'pdf', label: 'PDF', hint: 'Print this dashboard, or save it as a PDF' }]
+				: [{ key: 'xlsx', label: 'Excel workbook (.xlsx)', hint: 'Summary, by day, channels and every campaign' }, { key: 'csv', label: 'Campaigns (.csv)', hint: 'One row per campaign in this period' }, { key: 'pdf', label: 'PDF', hint: 'Print this dashboard, or save it as a PDF' }]))
 			function exportFile(format) {
+				if (format === 'pdf') { window.print(); return }
 				const [a, b] = rangeOf(range.value)
 				const q = new URLSearchParams({ from_date: ymd(a), to_date: ymd(b), format })
 				if (user.value) q.set('user', user.value)
@@ -751,8 +752,8 @@
 		<span class="spacer"></span>
 		<span class="sub updated" v-if="updatedAt">Updated {{ updatedAt }}</span>
 		<button class="btn ghost icon" @click="refresh()" :title="updatedAt ? 'Refresh (updated ' + updatedAt + ')' : 'Refresh'" aria-label="Refresh"><ico name="refresh" size="lg" /></button>
-		<button class="btn" v-if="isManager" :class="{ primary: editing }" @click="editing = !editing" :aria-pressed="editing" title="Choose what this dashboard shows"><ico name="sliders" /> {{ editing ? 'Done' : 'Customize' }}</button>
-		<v-menu label="Export" icon="download" :items="exportItems" @select="exportFile" />
+		<button class="btn icon" v-if="isManager" :class="{ primary: editing }" @click="editing = !editing" :aria-pressed="editing" :title="editing ? 'Done customizing' : 'Customize: choose what this dashboard shows'" :aria-label="editing ? 'Done customizing' : 'Customize'"><ico :name="editing ? 'check' : 'sliders'" /></button>
+		<v-menu title="Export" icon="download" :items="exportItems" @select="exportFile" />
 		<a class="btn" href="/crm" v-if="!EMBED"><ico name="back" /> CRM</a>
 		<button class="btn ghost icon" v-if="EMBED" @click="openFull" title="Open in a new tab" aria-label="Open in a new tab"><ico name="external" size="lg" /></button>
 		<button class="btn ghost icon" v-if="EMBED" @click="close" title="Close (Esc)" aria-label="Close"><ico name="x" size="lg" /></button>
