@@ -96,6 +96,24 @@ class TestProLeads(AccessCase):
 		with self.assertRaises(frappe.PermissionError):
 			admin.save_user_access(user, overrides=json.dumps({"leads": "all"}))
 
+	def test_add_and_edit_people_can_be_given_but_never_over_a_system_manager(self):
+		from crm_addons.team_access import admin
+
+		user = self.person("manager.pro@example.org", "Sales User")
+		boss = self.person("sysmgr.pro@example.org", "System Manager")
+		frappe.set_user("Administrator")
+		self.configure(user, overrides={"team": "manage"})
+		frappe.set_user(user)
+		self.assertTrue(admin.get_overview()["can_manage"])
+		with self.assertRaises(frappe.PermissionError):
+			admin.set_active(boss, 0)
+		with self.assertRaises(frappe.PermissionError):
+			admin.save_user_access(boss, overrides=json.dumps({"leads": "none"}))
+		res = admin.add_person("added.pro@example.org", "Added", send_invite=0)
+		self.addCleanup(frappe.delete_doc, "User", "added.pro@example.org", force=True, ignore_permissions=True)
+		self.assertTrue(res["created"])
+		admin.save_user_access("added.pro@example.org", overrides=json.dumps({"leads": "own"}))
+
 	def test_guest_is_refused(self):
 		frappe.set_user("Guest")
 		with self.assertRaises(frappe.PermissionError):

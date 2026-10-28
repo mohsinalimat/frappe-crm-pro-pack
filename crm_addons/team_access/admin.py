@@ -20,8 +20,20 @@ def _admin():
 
 def _viewer():
 	"""The Team page can be looked at by anyone Team and access gives "View only"; changing anything is for System Managers."""
-	if not (access.is_admin() or access.allows("team", "view")):
+	if not (access.is_admin() or access.allows("team", "view")):  # "manage" ranks above "view"
 		frappe.throw(_("You do not have access to the Team page."), frappe.PermissionError)
+
+
+def _manager():
+	"""Adding and editing people, presets and the hierarchy: System Managers, and anyone Team and access gives "Manage"."""
+	if not (access.is_admin() or access.allows("team", "manage")):
+		frappe.throw(_("You do not have permission to change people or their access."), frappe.PermissionError)
+
+
+def _no_admins(user):
+	"""Someone who is not a System Manager can never touch a System Manager, nor make one."""
+	if not access.is_admin() and "System Manager" in frappe.get_roles(user):
+		frappe.throw(_("Only a System Manager can change a System Manager."), frappe.PermissionError)
 
 
 def _registry():
@@ -124,7 +136,7 @@ def _people():
 def get_overview():
 	"""Everything the screen needs in one call."""
 	_viewer()
-	return {**_registry(), "can_manage": access.is_admin(), "presets": _presets(), "people": _people(), "hierarchy": access.hierarchy_info(), "me": frappe.session.user, "login_template": _login_template()}
+	return {**_registry(), "can_manage": access.is_admin() or access.allows("team", "manage"), "presets": _presets(), "people": _people(), "hierarchy": access.hierarchy_info(), "me": frappe.session.user, "login_template": _login_template()}
 
 
 @frappe.whitelist()
@@ -143,7 +155,8 @@ def get_user_access(user):
 @frappe.whitelist()
 def save_user_access(user, preset=None, overrides=None):
 	"""Give a person a preset and changes on top. Neither = back to what their role gives them."""
-	_admin()
+	_manager()
+	_no_admins(user)
 	if not frappe.db.exists("User", user) or user in ("Administrator", "Guest"):
 		frappe.throw(_("User {0} was not found.").format(frappe.bold(user)))
 	preset = cstr(preset).strip() or None
@@ -168,7 +181,7 @@ def save_user_access(user, preset=None, overrides=None):
 
 @frappe.whitelist()
 def save_preset(preset_name, description="", grants=None, name=None):
-	_admin()
+	_manager()
 	grants = clean_grants(grants or {})
 	preset_name = cstr(preset_name).strip()
 	if not preset_name:
@@ -189,14 +202,14 @@ def save_preset(preset_name, description="", grants=None, name=None):
 
 @frappe.whitelist()
 def duplicate_preset(name, new_name):
-	_admin()
+	_manager()
 	src = frappe.get_doc("CRM Access Preset", name)
 	return save_preset(new_name, src.description, access._loads(src.grants))
 
 
 @frappe.whitelist()
 def delete_preset(name):
-	_admin()
+	_manager()
 	frappe.delete_doc("CRM Access Preset", name, ignore_permissions=True)  # refused by the preset itself while people use it
 	access.clear()
 	return True
@@ -205,7 +218,8 @@ def delete_preset(name):
 @frappe.whitelist()
 def send_password_reset(user):
 	"""Email the person a link to choose a new password (Frappe's own reset). Needs an outgoing email account."""
-	_admin()
+	_manager()
+	_no_admins(user)
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
 		frappe.throw(_("User {0} was not found.").format(frappe.bold(user)))
 	try:
@@ -312,8 +326,10 @@ def add_person(email, first_name, last_name="", role="Sales User", preset=None, 
 	welcome email with the link to set a password.
 
 	An existing user (for example a website user, or someone without a CRM role) is given the role instead of being created again."""
-	_admin()
+	_manager()
 	email = cstr(email).strip().lower()
+	if frappe.db.exists("User", email):
+		_no_admins(email)
 	first_name, last_name = cstr(first_name).strip(), cstr(last_name).strip()
 	if not frappe.utils.validate_email_address(email):
 		frappe.throw(_("{0} is not a valid email address.").format(frappe.bold(email or "-")))
@@ -379,7 +395,8 @@ def add_person(email, first_name, last_name="", role="Sales User", preset=None, 
 @frappe.whitelist()
 def update_person(user, first_name=None, last_name=None, mobile_no=None, designation=None, company=None, user_image=None, reports_to=None, set_leader=0):
 	"""Change a person's profile and, when ``set_leader`` is on, who they report to (empty = nobody)."""
-	_admin()
+	_manager()
+	_no_admins(user)
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
 		frappe.throw(_("User {0} was not found.").format(frappe.bold(user)))
 	doc = frappe.get_doc("User", user)
@@ -394,7 +411,8 @@ def update_person(user, first_name=None, last_name=None, mobile_no=None, designa
 @frappe.whitelist()
 def set_active(user, enabled):
 	"""Switch a person's account on or off. Off = they can no longer log in (their data stays). Not for yourself or the last administrator."""
-	_admin()
+	_manager()
+	_no_admins(user)
 	enabled = cint(enabled)
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
 		frappe.throw(_("User {0} was not found.").format(frappe.bold(user)))
@@ -478,7 +496,8 @@ def get_hierarchy():
 @frappe.whitelist()
 def set_leader(user, reports_to=None):
 	"""Put a person under a team leader (or at the top when none is given). Adds them to the hierarchy when they are not in it yet."""
-	_admin()
+	_manager()
+	_no_admins(user)
 	if not frappe.db.exists("DocType", access.HIERARCHY):
 		frappe.throw(_("This CRM has no Sales Hierarchy."))
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
@@ -498,7 +517,8 @@ def set_leader(user, reports_to=None):
 @frappe.whitelist()
 def remove_from_hierarchy(user):
 	"""Take a person out of the hierarchy. Not possible while people report to them: move their team first."""
-	_admin()
+	_manager()
+	_no_admins(user)
 	node = _node(user)
 	if not node:
 		return get_hierarchy()
