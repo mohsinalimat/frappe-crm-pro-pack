@@ -18,7 +18,7 @@
 			search('')
 			return { opts, id, input }
 		},
-		template: `<span><input class="inp" :list="id" :value="modelValue" :disabled="disabled" :aria-label="label" autocomplete="off" @input="input" /><datalist :id="id"><option v-for="o in opts" :key="o.value" :value="o.value">{{ o.label !== o.value ? o.label : '' }}</option></datalist></span>`,
+		template: `<span><input class="inp" :list="id" :value="modelValue" :disabled="disabled" :aria-label="label" :placeholder="label" autocomplete="off" @input="input" /><datalist :id="id"><option v-for="o in opts" :key="o.value" :value="o.value">{{ o.label !== o.value ? o.label : '' }}</option></datalist></span>`,
 	}
 
 	V.FormField = {

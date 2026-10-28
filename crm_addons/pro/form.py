@@ -156,6 +156,14 @@ def export_fields():
 	return cols
 
 
+@frappe.whitelist()
+def export_columns():
+	"""[{key, label}] of every exportable lead field, for the download button."""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in."), frappe.PermissionError)
+	return [{"key": k, "label": l} for k, l in export_fields()]
+
+
 def safe_cell(value):
 	"""A spreadsheet runs a cell that starts with = + - or @ as a formula; such text gets a leading quote. A phone number's own plus sign is kept."""
 	text = cstr(value)

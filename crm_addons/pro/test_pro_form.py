@@ -78,3 +78,9 @@ class TestProForm(AccessCase):
 		compat.NEEDS["CRM Lead"].append("zz_not_a_field")
 		self.addCleanup(compat.NEEDS["CRM Lead"].remove, "zz_not_a_field")
 		self.assertTrue(any("zz_not_a_field" in p["text"] and p["level"] == "error" for p in compat.problems()))
+
+	def test_export_columns_for_the_download_button(self):
+		frappe.set_user("Administrator")
+		cols = form.export_columns()
+		self.assertEqual(cols[0], {"key": "name", "label": "ID"})
+		self.assertTrue(any(c["key"] == "mobile_no" for c in cols))
