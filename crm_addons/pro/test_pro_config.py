@@ -44,6 +44,11 @@ class TestProConfig(AccessCase):
 		self.assertEqual(config.save_orgs_config(json.dumps({"filters": ["territory"]}))["filters"], ["territory"])
 		with self.assertRaises(frappe.ValidationError):
 			config.save_orgs_config(json.dumps({"filters": ["creation"]}))
+		out = config.save_orgs_config(json.dumps({"filters": [], "columns": ["organization_name", "leads"]}))
+		self.assertEqual(out["columns"], ["organization_name", "leads"])
+		self.assertEqual(config.get_orgs_config()["columns"], ["organization_name", "leads"])
+		with self.assertRaises(frappe.ValidationError):
+			config.save_orgs_config(json.dumps({"filters": [], "columns": ["no_such_column"]}))
 
 	def test_only_admins_save(self):
 		frappe.set_user("Guest")

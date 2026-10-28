@@ -37,6 +37,9 @@
 	V.Organizations = {
 		setup() {
 			const opts = reactive({ industries: [], territories: [], sizes: [], can_create: false })
+			const COLS_KEY = 'pro_orgs_cols'
+			const colInfo = ref([]); const defCols = ref([]); const mine = ref(null); const colDlg = ref(false)
+			try { const m = JSON.parse(localStorage.getItem(COLS_KEY) || 'null'); if (Array.isArray(m) && m.length) mine.value = m } catch (e) { /* storage blocked */ }
 			const search = ref(''); const fv = reactive({ industry: '', territory: '', no_of_employees: '' }); const cfgFilters = ref(['industry', 'territory']); const sort = reactive({ by: 'organization_name', dir: 'asc' })
 			const rows = ref([]); const total = ref(0); const page = ref(1); const perPage = ref(25); const loading = ref(true); const error = ref(''); const creating = ref(false)
 			let timer, seq = 0
@@ -44,7 +47,7 @@
 				const mine = ++seq; loading.value = true; error.value = ''
 				try { const r = await call('list_orgs', { search: search.value || undefined, industry: fv.industry || undefined, territory: fv.territory || undefined, no_of_employees: fv.no_of_employees || undefined, order_by: sort.by, order_dir: sort.dir, start: (page.value - 1) * perPage.value, page_length: perPage.value }); if (mine === seq) { rows.value = r.rows; total.value = r.total } } catch (e) { if (mine === seq) error.value = e.message } finally { if (mine === seq) loading.value = false }
 			}
-			onMounted(async () => { try { cfgFilters.value = (await CM.call('crm_addons.pro.config.get_orgs_config', {})).filters } catch (e) { /* the default two stay */ } try { Object.assign(opts, await call('options', {})) } catch (e) { error.value = e.message } load() })
+			onMounted(async () => { try { const oc = await CM.call('crm_addons.pro.config.get_orgs_config', {}); cfgFilters.value = oc.filters; colInfo.value = oc.all_columns; defCols.value = oc.columns } catch (e) { /* the defaults stay */ } try { Object.assign(opts, await call('options', {})) } catch (e) { error.value = e.message } load() })
 			watch([() => JSON.stringify(fv), () => sort.by + sort.dir, perPage], () => { page.value = 1; load() })
 			watch(search, () => { clearTimeout(timer); timer = setTimeout(() => { page.value = 1; load() }, 300) })
 			const pages = computed(() => Math.max(1, Math.ceil(total.value / perPage.value)))
@@ -56,7 +59,13 @@
 			const FILTERS = { industry: ['All industries', () => opts.industries], territory: ['All territories', () => opts.territories], no_of_employees: ['Any size', () => opts.sizes] }
 			const filterOpts = (k) => pick(FILTERS[k][1](), FILTERS[k][0])
 			const anyFv = computed(() => !!(search.value || Object.values(fv).some(Boolean)))
-			return { fv, cfgFilters, filterOpts, anyFv, opts, search, sort, rows, total, page, perPage, loading, error, creating, load, pages, go, open, sortOpts, pick, clear, money }
+			const byCol = computed(() => Object.fromEntries(colInfo.value.map((c) => [c.fieldname, c])))
+			const cols = computed(() => (mine.value || defCols.value).filter((k) => byCol.value[k]).map((k) => ({ key: k, label: byCol.value[k].label, type: byCol.value[k].fieldtype })))
+			const COL_SORT = { organization_name: 1, annual_revenue: 1, creation: 1 }
+			function applyCols(chosen) { mine.value = chosen.map((c) => c.key); try { localStorage.setItem(COLS_KEY, JSON.stringify(mine.value)) } catch (e) { /* not stored */ } colDlg.value = false }
+			function resetCols() { mine.value = null; try { localStorage.removeItem(COLS_KEY) } catch (e) { /* not stored */ } }
+			const cell = (r, c) => (c.type === 'Int' ? String(r[c.key] || 0) : c.type === 'Currency' ? money(r[c.key]) : c.type === 'Datetime' ? (r[c.key] ? CM.ago ? CM.ago(r[c.key]) : String(r[c.key]).slice(0, 10) : '') : r[c.key] == null ? '' : r[c.key])
+			return { cols, colDlg, colInfo, applyCols, resetCols, mine, cell, fv, cfgFilters, filterOpts, anyFv, opts, search, sort, rows, total, page, perPage, loading, error, creating, load, pages, go, open, sortOpts, pick, clear, money }
 		},
 		template: `
 		<div class="page leads">
@@ -71,17 +80,17 @@
 			<div v-else-if="loading && !rows.length" class="card" style="padding:0"><div v-for="n in 6" :key="n" style="padding:16px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div>
 			<section v-else class="card listcard" :style="{ opacity: loading ? .6 : 1 }">
 				<div class="row wrap lbar" style="gap:10px"><span class="muted">Showing {{ total ? (page - 1) * perPage + 1 : 0 }}&ndash;{{ Math.min(total, page * perPage) }} of {{ total }}</span><div class="grow"></div>
-					<button type="button" class="btn sm icon" aria-label="Refresh" title="Refresh" @click="load"><Ico name="refresh" /></button><span class="small muted">Sort by</span><div style="width:150px"><Dd v-model="sort.by" :options="sortOpts" size="sm" aria-label="Sort by" /></div>
+					<button type="button" class="btn sm icon" aria-label="Refresh" title="Refresh" @click="load"><Ico name="refresh" /></button><button type="button" class="btn sm icon" aria-label="Choose columns" title="Choose columns" @click="colDlg = true"><Ico name="columns" /></button><button v-if="mine" type="button" class="link small" @click="resetCols">Default columns</button><span class="small muted">Sort by</span><div style="width:150px"><Dd v-model="sort.by" :options="sortOpts" size="sm" aria-label="Sort by" /></div>
 					<Btn size="sm" :icon="sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :aria-label="sort.dir === 'asc' ? 'Ascending' : 'Descending'" @click="sort.dir = sort.dir === 'asc' ? 'desc' : 'asc'" /></div>
 				<Empty v-if="!rows.length" icon="users" title="No organizations"   :text="anyFv ? 'No organization matches these filters.' : 'Add your first organization.'" />
-				<div v-else class="table-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Website</th><th>Industry</th><th>Territory</th><th>Employees</th><th class="num">Leads</th><th class="num">Deals</th><th class="num">Annual revenue</th></tr></thead>
+				<div v-else class="table-wrap"><table class="tbl"><thead><tr><th v-for="c in cols" :key="c.key" :class="{ num: ['Int', 'Currency'].includes(c.type) }">{{ c.label }}</th></tr></thead>
 					<tbody><tr v-for="r in rows" :key="r.name" class="click" tabindex="0" @click="open(r.name)" @keydown.enter="open(r.name)">
-						<td><div class="row" style="gap:10px"><Pic :name="r.organization_name" :image="r.organization_logo" :size="28" /><b>{{ r.organization_name }}</b></div></td>
-						<td>{{ r.website || '-' }}</td><td>{{ r.industry || '-' }}</td><td>{{ r.territory || '-' }}</td><td>{{ r.no_of_employees || '-' }}</td><td class="num">{{ r.leads }}</td><td class="num">{{ r.deals }}</td><td class="num">{{ money(r.annual_revenue) || '-' }}</td></tr></tbody></table></div>
+						<td v-for="c in cols" :key="c.key" :class="{ num: ['Int', 'Currency'].includes(c.type) }"><div v-if="c.key === 'organization_name'" class="row" style="gap:10px"><Pic :name="r.organization_name" :image="r.organization_logo" :size="28" /><b>{{ r.organization_name }}</b></div><template v-else>{{ cell(r, c) || '-' }}</template></td></tr></tbody></table></div>
 				<div v-if="rows.length" class="pager row" style="gap:10px;padding:10px 14px;border-top:1px solid var(--border)"><div class="grow"></div>
 					<div style="width:110px"><Dd v-model="perPage" :options="[{ value: 10, label: '10 / page' }, { value: 25, label: '25 / page' }, { value: 50, label: '50 / page' }]" size="sm" aria-label="Rows per page" /></div>
 					<Btn size="sm" icon="chevron-left" :disabled="page <= 1" aria-label="Previous page" @click="go(page - 1)" /><span class="small">{{ page }} / {{ pages }}</span><Btn size="sm" icon="chevron-right" :disabled="page >= pages" aria-label="Next page" @click="go(page + 1)" /></div>
 			</section>
+			<ColumnsDialog v-if="colDlg" :fields="colInfo" :columns="cols" @close="colDlg = false" @apply="applyCols" />
 			<OrgForm v-if="creating" :opts="opts" @close="creating = false" @saved="(n) => { creating = false; open(n) }" />
 		</div>`,
 	}

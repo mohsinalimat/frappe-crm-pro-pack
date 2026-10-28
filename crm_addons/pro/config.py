@@ -119,29 +119,42 @@ ORG_KEY = "crm_pro_orgs_config"
 ORG_FILTERS = {"industry": "Industry", "territory": "Territory", "no_of_employees": "Number of employees"}
 
 
+ORG_COLUMNS = {
+	"organization_name": ("Name", "Data"), "website": ("Website", "Data"), "industry": ("Industry", "Data"), "territory": ("Territory", "Data"),
+	"no_of_employees": ("Employees", "Data"), "leads": ("Leads", "Int"), "deals": ("Deals", "Int"), "annual_revenue": ("Annual revenue", "Currency"),
+	"creation": ("Added", "Datetime"), "modified": ("Last modified", "Datetime"),
+}
+ORG_DEFAULT_COLUMNS = ["organization_name", "website", "industry", "territory", "no_of_employees", "leads", "deals", "annual_revenue"]
+
+
 def load_orgs():
 	try:
 		saved = json.loads(frappe.db.get_default(ORG_KEY) or "{}")
 	except ValueError:
 		saved = {}
 	got = saved.get("filters") if isinstance(saved, dict) else None
-	return {"filters": [f for f in got if f in ORG_FILTERS] if isinstance(got, list) else ["industry", "territory"]}
+	cols = saved.get("columns") if isinstance(saved, dict) else None
+	cols = [c for c in cols if c in ORG_COLUMNS] if isinstance(cols, list) else []
+	return {"filters": [f for f in got if f in ORG_FILTERS] if isinstance(got, list) else ["industry", "territory"], "columns": cols or list(ORG_DEFAULT_COLUMNS)}
 
 
 @frappe.whitelist()
 def get_orgs_config():
 	_check()
-	return {**load_orgs(), "choices": [{"fieldname": k, "label": v} for k, v in ORG_FILTERS.items()]}
+	return {**load_orgs(), "choices": [{"fieldname": k, "label": v} for k, v in ORG_FILTERS.items()], "all_columns": [{"fieldname": k, "label": v[0], "fieldtype": v[1]} for k, v in ORG_COLUMNS.items()], "default_columns": ORG_DEFAULT_COLUMNS}
 
 
 @frappe.whitelist()
 def save_orgs_config(config):
-	"""System Managers only: which filters sit in the top row of the Organizations screen."""
+	"""System Managers only: which filters sit in the top row of the Organizations screen, and which columns it starts with."""
 	_admin()
 	cfg = json.loads(config) if isinstance(config, str) else config
 	names = (cfg or {}).get("filters") if isinstance(cfg, dict) else None
 	if not isinstance(names, list) or any(n not in ORG_FILTERS for n in names):
 		frappe.throw(_("Choose the filters from the list."))
-	out = {"filters": list(dict.fromkeys(names))}
+	cols = cfg.get("columns") or []
+	if not isinstance(cols, list) or any(c not in ORG_COLUMNS for c in cols):
+		frappe.throw(_("Choose the columns from the list."))
+	out = {"filters": list(dict.fromkeys(names)), "columns": list(dict.fromkeys(cols)) or list(ORG_DEFAULT_COLUMNS)}
 	frappe.db.set_default(ORG_KEY, json.dumps(out))
 	return out

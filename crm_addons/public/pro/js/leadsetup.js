@@ -125,16 +125,19 @@
 		setup() {
 			const hdr = ref(false); onMounted(() => nextTick(() => (hdr.value = true)))
 			const loading = ref(true); const error = ref(''); const busy = ref(false)
-			const pool = ref([]); const have = ref([])
+			const pool = ref([]); const have = ref([]); const allCols = ref([]); const cols = ref([]); const defaults = ref([])
 			const label = (k) => (pool.value.find((x) => x.fieldname === k) || {}).label || k
 			const rows = computed({ get: () => have.value.map((k) => ({ key: k, label: label(k) })), set: (v) => (have.value = v.map((x) => x.key)) })
 			const addOpts = computed(() => [{ value: '', label: 'Add a filter' }, ...pool.value.filter((f) => !have.value.includes(f.fieldname)).map((f) => ({ value: f.fieldname, label: f.label }))])
-			onMounted(async () => { try { const r = await call('get_orgs_config', {}); pool.value = r.choices; have.value = r.filters } catch (e) { error.value = e.message } finally { loading.value = false } })
+			onMounted(async () => { try { const r = await call('get_orgs_config', {}); pool.value = r.choices; have.value = r.filters; allCols.value = r.all_columns; cols.value = r.columns; defaults.value = r.default_columns } catch (e) { error.value = e.message } finally { loading.value = false } })
 			async function save() {
 				busy.value = true
-				try { await call('save_orgs_config', { config: JSON.stringify({ filters: have.value }) }); CM.toast('Saved. The Organizations screen now shows these filters.') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
+				try { await call('save_orgs_config', { config: JSON.stringify({ filters: have.value, columns: cols.value }) }); CM.toast('Saved. The Organizations screen now shows these filters.') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
-			return { hdr, loading, error, busy, rows, addOpts, have, save, add: (k) => k && have.value.push(k) }
+			const colLabel = (k) => (allCols.value.find((x) => x.fieldname === k) || {}).label || k
+			const colRows = computed({ get: () => cols.value.map((k) => ({ key: k, label: colLabel(k) })), set: (v) => (cols.value = v.map((x) => x.key)) })
+			const colAdd = computed(() => [{ value: '', label: 'Add a column' }, ...allCols.value.filter((f) => !cols.value.includes(f.fieldname)).map((f) => ({ value: f.fieldname, label: f.label }))])
+			return { colRows, colAdd, addCol: (k) => k && cols.value.push(k), useDefault: () => (cols.value = [...defaults.value]), cols, hdr, loading, error, busy, rows, addOpts, have, save, add: (k) => k && have.value.push(k) }
 		},
 		template: `
 		<div class="page">
@@ -144,6 +147,9 @@
 			<section v-else class="card" style="padding:16px 18px"><b>Top row filters</b><p class="small muted" style="margin:2px 0 8px">These sit next to search on the Organizations screen, in this order.</p>
 				<DragList v-model="rows" empty="No filters: only search shows." />
 				<div style="width:240px;margin-top:8px"><Dd modelValue="" :options="addOpts" placeholder="Add a filter" aria-label="Add a filter" @update:modelValue="add" /></div></section>
+			<section v-if="!loading && !error" class="card" style="padding:16px 18px"><b>Columns</b><p class="small muted" style="margin:2px 0 8px">What the list starts with, in this order. People can still choose their own columns.</p>
+				<DragList v-model="colRows" empty="" />
+				<div class="row" style="gap:8px;margin-top:8px"><div style="width:240px"><Dd modelValue="" :options="colAdd" searchable placeholder="Add a column" aria-label="Add a column" @update:modelValue="addCol" /></div><Btn size="sm" variant="ghost" @click="useDefault">Use the default columns</Btn></div></section>
 		</div>`,
 	}
 })()
