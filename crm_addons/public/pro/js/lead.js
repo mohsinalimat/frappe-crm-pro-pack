@@ -1,6 +1,6 @@
-/* Suite Pro: the lead page. Activity, emails, comments, data, meetings, follow-ups, campaigns, WhatsApp, calls and notes of one lead, with its details beside them. */
+/* Suite Pro: the lead page. Activity, emails, comments, data, meetings, follow-ups, campaigns, WhatsApp, of one lead, with its details beside them. */
 (() => {
-	const { ref, reactive, computed, onMounted, watch, nextTick } = Vue
+	const { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } = Vue
 	const CM = window.CM
 	const PRO = window.PRO
 	const V = PRO.views
@@ -11,9 +11,8 @@
 	const TABS = [
 		{ id: 'activity', label: 'Activity', icon: 'clock' }, { id: 'emails', label: 'Emails', icon: 'mail' }, { id: 'comments', label: 'Comments', icon: 'message' }, { id: 'data', label: 'Data', icon: 'list' },
 		{ id: 'meetings', label: 'Meetings', icon: 'calendar' }, { id: 'followups', label: 'Follow-ups', icon: 'phone' }, { id: 'campaigns', label: 'Campaign', icon: 'send' }, { id: 'whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
-		{ id: 'calls', label: 'Calls', icon: 'phone' }, { id: 'notes', label: 'Notes', icon: 'file-text' },
 	]
-	const LOADERS = { activity: 'get_activity', emails: 'get_emails', comments: 'get_timeline', data: 'get_data', meetings: 'get_meetings', followups: 'get_followups', campaigns: 'get_campaigns', whatsapp: 'get_whatsapp', calls: 'get_calls', notes: 'get_notes' }
+	const LOADERS = { activity: 'get_activity', emails: 'get_emails', comments: 'get_timeline', data: 'get_data', meetings: 'get_meetings', followups: 'get_followups', campaigns: 'get_campaigns', whatsapp: 'get_whatsapp' }
 
 	V.Fact = {
 		props: { label: String, value: [String, Number] },
@@ -42,6 +41,13 @@
 			})
 			watch(tab, (t) => loadTab(t))
 			const back = () => { location.hash = '#/leads' }
+			// the leads of the list the person came from, so they can step through them without going back
+			const around = computed(() => {
+				let list = []; try { list = JSON.parse(sessionStorage.getItem('pro.leadlist') || '[]') } catch (e) { /* no list kept */ }
+				const i = list.indexOf(props.name)
+				return { i, n: list.length, prev: i > 0 ? list[i - 1] : '', next: i >= 0 && i < list.length - 1 ? list[i + 1] : '' }
+			})
+			const step = (n) => { if (n) location.hash = '#/leads/' + encodeURIComponent(n) }
 			const statusOpts = computed(() => (lead.value ? lead.value.statuses.map((s) => ({ value: s.name, label: s.name })) : []))
 			const ownerOpts = computed(() => {
 				const l = owners.value.map((o) => ({ value: o.name, label: o.full_name })); const cur = lead.value && lead.value.lead_owner_info
@@ -66,54 +72,61 @@
 			}
 			async function saveEdit() { edit.busy = true; edit.error = ''; try { lead.value = await call('update_lead', { name: props.name, values: JSON.stringify(edit.v) }); delete data.activity; delete data.comments; delete data.data; edit.open = false; CM.toast('Saved') } catch (e) { edit.error = e.message } finally { edit.busy = false } }
 
-			// notes
-			const noteForm = reactive({ title: '', content: '', busy: false })
-			async function addNote() { noteForm.busy = true; try { await call('add_note', { name: props.name, title: noteForm.title, content: noteForm.content }); noteForm.title = ''; noteForm.content = ''; delete data.activity; await loadTab('notes', true) } catch (e) { CM.toast(e.message, 'err') } finally { noteForm.busy = false } }
-			async function dropNote(n) { if (!(await CM.confirm({ title: 'Delete this note?', confirmText: 'Delete', danger: true }))) return; try { await call('delete_note', { name: props.name, note: n.name }); delete data.activity; await loadTab('notes', true) } catch (e) { CM.toast(e.message, 'err') } }
-
 			// comments
 			const comment = ref('')
 			async function addComment() { try { await call('add_comment', { name: props.name, content: comment.value }); comment.value = ''; delete data.activity; await loadTab('comments', true) } catch (e) { CM.toast(e.message, 'err') } }
 			const comments = computed(() => (data.comments || []).filter((e) => e.kind === 'comment'))
 
-			// follow-ups
-			const fu = reactive({ open: false, busy: false, opts: null, v: {}, error: '' })
-			async function openFollowup() {
-				if (!fu.opts) { try { fu.opts = await call('followup_options', {}) } catch (e) { CM.toast(e.message, 'err'); return } }
-				fu.v = { mode: fu.opts.modes[0] || '', call_status: '', outcome: '', remark: '', next_follow_up_on: '', lead_status: '' }; fu.error = ''; fu.open = true
+			// follow-ups and meetings: the same forms as the Meetings page, shown over this page
+			const ovl = reactive({ open: false, src: '', title: '', height: 560, kind: '' })
+			function openOverlay(kind) {
+				const q = new URLSearchParams({ embed: '1', mode: kind === 'followups' ? 'followup' : 'editor', reference_name: props.name, theme: document.documentElement.getAttribute('data-theme') || '', v: String(Date.now()) })
+				if (kind !== 'followups') { q.set('reference_doctype', 'CRM Lead'); q.set('reference_title', title.value) }
+				Object.assign(ovl, { open: true, kind, title: kind === 'followups' ? 'Log a follow-up' : 'Schedule a meeting', src: '/assets/crm_addons/meetings/index.html?' + q.toString(), height: 560 })
 			}
-			async function saveFollowup() {
-				fu.busy = true; fu.error = ''
-				try { const v = { ...fu.v, followed_up_on: local(new Date()) }; if (v.next_follow_up_on) v.next_follow_up_on = v.next_follow_up_on.replace('T', ' ') + ':00'; await call('log_followup', { name: props.name, data: JSON.stringify(v) }); fu.open = false; delete data.activity; await reload('followups'); load(); CM.toast('Follow-up logged') } catch (e) { fu.error = e.message } finally { fu.busy = false }
+			const frame = ref(null)
+			function onMessage(e) {
+				if (e.origin !== location.origin || !e.data || e.data.source !== 'crm-addons' || !ovl.open) return
+				if (frame.value && e.source !== frame.value.contentWindow) return
+				if (e.data.type === 'close') ovl.open = false
+				else if (e.data.type === 'resize' && e.data.height) ovl.height = Math.min(e.data.height + 2, window.innerHeight - 120)
+				else if (e.data.type === 'saved') { const k = ovl.kind; ovl.open = false; delete data.activity; reload(k).then(load); CM.toast(k === 'followups' ? 'Follow-up saved' : 'Meeting scheduled') }
 			}
+			onMounted(() => window.addEventListener('message', onMessage))
+			onBeforeUnmount(() => window.removeEventListener('message', onMessage))
 			async function doneFollowup(f) { try { await call('complete_followup', { name: props.name, followup: f.name }); delete data.activity; await reload('followups'); load() } catch (e) { CM.toast(e.message, 'err') } }
-			const fuOpts = (k) => [{ value: '', label: 'Not set' }, ...(fu.opts ? fu.opts[k] : []).map((x) => ({ value: x, label: x }))]
 
-			// meetings
-			const mt = reactive({ open: false, busy: false, v: {}, error: '' })
-			function openMeeting() { const s = new Date(Date.now() + 36e5); s.setMinutes(0, 0, 0); const e = new Date(s.getTime() + 36e5); const f = (d) => local(d).slice(0, 16).replace(' ', 'T'); mt.v = { subject: 'Meeting with ' + title.value, starts_on: f(s), ends_on: f(e), video: false, description: '', invite: !!lead.value.email }; mt.open = true }
-			async function saveMeeting() {
-				mt.busy = true; mt.error = ''
-				try { const v = mt.v; await call('schedule_meeting', { name: props.name, subject: v.subject, starts_on: v.starts_on.replace('T', ' ') + ':00', ends_on: v.ends_on.replace('T', ' ') + ':00', video: v.video ? 1 : 0, description: v.description, invite: v.invite ? 1 : 0 }); mt.open = false; delete data.activity; await reload('meetings'); load(); CM.toast('Meeting scheduled') } catch (e) { mt.error = e.message } finally { mt.busy = false }
+			// emails: write one, or start from one of the app's templates and edit it before it goes
+			const em = reactive({ open: false, busy: false, loading: false, v: {}, error: '', tpl: '', info: null, cc: false, bcc: false })
+			const body = ref(null)
+			async function openEmail() {
+				em.v = { recipients: lead.value.email || '', cc: '', bcc: '', subject: '', content: '' }; em.tpl = ''; em.error = ''; em.cc = false; em.bcc = false; em.open = true; em.loading = true
+				try { em.info = await call('email_templates', { name: props.name }) } catch (e) { em.error = e.message } finally { em.loading = false }
 			}
-
-			// emails
-			const em = reactive({ open: false, busy: false, v: {}, error: '' })
-			const openEmail = () => { em.v = { recipients: lead.value.email || '', subject: '', content: '' }; em.open = true }
-			async function sendEmail() { em.busy = true; em.error = ''; try { await call('send_email', { name: props.name, ...em.v }); em.open = false; delete data.activity; await reload('emails'); CM.toast('Email queued to send') } catch (e) { em.error = e.message } finally { em.busy = false } }
+			const tplOpts = computed(() => [{ value: '', label: 'No template - write my own' }, ...((em.info && em.info.templates) || []).map((t) => ({ value: t.name, label: t.label }))])
+			function pickTemplate(v) {
+				em.tpl = v; const t = ((em.info && em.info.templates) || []).find((x) => x.name === v)
+				if (!t) return
+				em.v.subject = t.subject; em.v.content = t.body; if (body.value) body.value.innerHTML = t.body
+			}
+			const typed = (e) => { em.v.content = e.target.innerHTML }
+			function format(cmd) { if (body.value) body.value.focus(); if (cmd === 'link') { const u = window.prompt('Link address', 'https://'); if (u) document.execCommand('createLink', false, u) } else document.execCommand(cmd); if (body.value) em.v.content = body.value.innerHTML }
+			async function sendEmail() { em.busy = true; em.error = ''; try { await call('send_email', { name: props.name, ...em.v, html: 1 }); em.open = false; delete data.activity; await reload('emails'); CM.toast('Email queued to send') } catch (e) { em.error = e.message } finally { em.busy = false } }
 
 			// whatsapp
 			const wa = reactive({ text: '', busy: false }); const chat = ref(null)
+			const waTemplate = () => window.postMessage({ source: 'crm-addons', type: 'pro-send', kind: 'whatsapp', names: [props.name] }, location.origin)
 			const waMessages = computed(() => (data.whatsapp ? data.whatsapp.messages : []))
 			watch(waMessages, () => nextTick(() => { if (chat.value) chat.value.scrollTop = chat.value.scrollHeight }))
 			async function sendWa() { wa.busy = true; try { await call('send_whatsapp', { name: props.name, message: wa.text }); wa.text = ''; delete data.activity; await reload('whatsapp') } catch (e) { CM.toast(e.message, 'err') } finally { wa.busy = false } }
 
 			const ICON = { change: 'edit', comment: 'message', assigned: 'users' }
-			return { lead, error, loading, tab, TABS, data, busyTab, back, statusOpts, ownerOpts, setStatus, setOwner, title, copy, edit, openEdit, saveEdit, noteForm, addNote, dropNote, comment, addComment, comments, fu, openFollowup, saveFollowup, doneFollowup, fuOpts, mt, openMeeting, saveMeeting, em, openEmail, sendEmail, wa, sendWa, chat, waMessages, ICON, day, digits, load, PRO, CM }
+			return { lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, edit, openEdit, saveEdit, comment, addComment, comments, ovl, openOverlay, frame, doneFollowup, em, openEmail, tplOpts, pickTemplate, typed, format, body, sendEmail, wa, waTemplate, sendWa, chat, waMessages, ICON, day, digits, load, PRO, CM }
 		},
 		template: `
 		<div class="page lead-page">
-			<button type="button" class="btn ghost sm back" @click="back"><Ico name="chevron-left" /> Leads</button>
+			<div class="row lead-nav"><button type="button" class="btn ghost sm back" @click="back"><Ico name="chevron-left" /> Leads</button><span class="grow"></span>
+				<template v-if="around.i >= 0"><span class="small muted">{{ around.i + 1 }} of {{ around.n }}</span><button type="button" class="btn icon sm" aria-label="Previous lead" title="Previous lead" :disabled="!around.prev" @click="step(around.prev)"><Ico name="chevron-up" /></button><button type="button" class="btn icon sm" aria-label="Next lead" title="Next lead" :disabled="!around.next" @click="step(around.next)"><Ico name="chevron-down" /></button></template></div>
 			<ErrorState v-if="error" :message="error" @retry="load" />
 			<div v-else-if="loading && !lead" class="card"><Skel h="60" /><Skel h="200" /></div>
 			<template v-else-if="lead">
@@ -127,9 +140,9 @@
 							<span v-if="lead.organization">{{ lead.organization }}</span>
 						</div>
 					</div>
-					<StatusTag :status="lead.status" />
+					<div class="head-dd"><Dd :modelValue="lead.status" :options="statusOpts" :disabled="!lead.can_write" aria-label="Status" @update:modelValue="setStatus" /></div>
+					<div class="head-dd"><Dd :modelValue="lead.lead_owner || ''" :options="ownerOpts" searchable :disabled="!lead.can_write" aria-label="Assigned to" @update:modelValue="setOwner" /></div>
 					<a v-if="lead.mobile_no" class="btn" :href="'tel:' + lead.mobile_no"><Ico name="phone" /> Call</a>
-					<a v-if="lead.mobile_no" class="btn" :href="'https://wa.me/' + digits(lead.mobile_no)" target="_blank" rel="noopener"><Ico name="whatsapp" /> WhatsApp</a>
 					<Btn v-if="lead.can_write" icon="edit" @click="openEdit">Edit</Btn>
 				</header>
 
@@ -176,14 +189,14 @@
 							</template>
 
 							<template v-else-if="tab === 'meetings'">
-								<div class="row" style="justify-content:space-between"><h3>Meetings</h3><Btn v-if="lead.can_write" size="sm" icon="plus" @click="openMeeting">Schedule meeting</Btn></div>
+								<div class="row" style="justify-content:space-between"><h3>Meetings</h3><Btn v-if="lead.can_write" size="sm" icon="plus" @click="openOverlay('meetings')">Schedule meeting</Btn></div>
 								<Skel v-if="!data.meetings" h="40" />
 								<Empty v-else-if="!data.meetings.length" icon="calendar" title="No meetings" text="Schedule a meeting or a demo with this lead." />
 								<ul v-else class="list"><li v-for="m in data.meetings" :key="m.name" class="li row" style="gap:12px"><Ico name="calendar" /><div class="grow"><b>{{ m.subject }}</b><div class="small muted">{{ day(m.starts_on) }}<template v-if="m.by"> - {{ m.by.full_name }}</template></div><div v-if="m.meeting_outcome" class="small">{{ m.meeting_outcome }}</div></div><a v-if="m.google_meet_link" class="btn sm" :href="m.google_meet_link" target="_blank" rel="noopener">Join</a><span class="badge nodot" :class="m.status === 'Completed' ? 'green' : m.status === 'Cancelled' ? 'red' : 'blue'">{{ m.status }}</span></li></ul>
 							</template>
 
 							<template v-else-if="tab === 'followups'">
-								<div class="row" style="justify-content:space-between"><h3>Follow-ups</h3><Btn v-if="lead.can_write" size="sm" icon="plus" @click="openFollowup">Log follow-up</Btn></div>
+								<div class="row" style="justify-content:space-between"><h3>Follow-ups</h3><Btn v-if="lead.can_write" size="sm" icon="plus" @click="openOverlay('followups')">Log follow-up</Btn></div>
 								<Skel v-if="!data.followups" h="40" />
 								<Empty v-else-if="!data.followups.length" icon="phone" title="No follow-ups yet" text="Log each call or visit so the next step is never missed." />
 								<ul v-else class="list"><li v-for="f in data.followups" :key="f.name" class="li row" style="gap:12px;align-items:flex-start"><Ico name="phone" /><div class="grow"><b>{{ [f.mode, f.call_status, f.outcome].filter(Boolean).join(' - ') }}</b><span class="small muted"> attempt {{ f.attempt_no }}</span><div v-if="f.remark" class="small">{{ f.remark }}</div><div class="small muted">{{ day(f.followed_up_on) }}<template v-if="f.by"> - {{ f.by.full_name }}</template></div>
@@ -199,7 +212,7 @@
 							</template>
 
 							<template v-else-if="tab === 'whatsapp'">
-								<h3>WhatsApp</h3>
+								<div class="row" style="justify-content:space-between"><h3>WhatsApp</h3><Btn v-if="lead.can_write && lead.mobile_no && data.whatsapp && data.whatsapp.installed" size="sm" icon="send" @click="waTemplate">Send a template</Btn></div>
 								<Skel v-if="!data.whatsapp" h="40" />
 								<Empty v-else-if="!data.whatsapp.installed" icon="whatsapp" title="WhatsApp is not set up" text="Install and connect the Frappe WhatsApp app to chat with leads here." />
 								<template v-else>
@@ -210,31 +223,10 @@
 								</template>
 							</template>
 
-							<template v-else-if="tab === 'calls'">
-								<h3>Calls</h3>
-								<Skel v-if="!data.calls" h="40" />
-								<Empty v-else-if="!data.calls.length" icon="phone" title="No calls logged" text="Calls made through the CRM's telephony show up here." />
-								<ul v-else class="list"><li v-for="c in data.calls" :key="c.name" class="li row" style="gap:12px"><Ico name="phone" /><div class="grow"><b>{{ c.type }} call - {{ c.status }}</b><div class="small muted">{{ day(c.start_time) }}<template v-if="c.by"> - {{ c.by.full_name }}</template><template v-if="c.duration"> - {{ Math.round(c.duration) }}s</template></div></div></li></ul>
-							</template>
-
-							<template v-else-if="tab === 'notes'">
-								<h3>Notes</h3>
-								<form v-if="lead.can_write" class="stack" style="gap:8px;margin-bottom:14px" @submit.prevent="addNote">
-									<Inp v-model="noteForm.title" placeholder="Title" aria-label="Note title" /><textarea class="inp" rows="3" v-model="noteForm.content" placeholder="Write a note" aria-label="Note"></textarea>
-									<div><Btn variant="primary" type="submit" :loading="noteForm.busy" :disabled="!noteForm.title.trim() && !noteForm.content.trim()">Add note</Btn></div>
-								</form>
-								<Skel v-if="!data.notes" h="40" />
-								<Empty v-else-if="!data.notes.length" icon="file-text" title="No notes yet" text="Keep what you learn about this lead here." />
-								<ul v-else class="list"><li v-for="n in data.notes" :key="n.name" class="li"><div class="row" style="justify-content:space-between"><b>{{ n.title }}</b><Btn v-if="lead.can_write" size="sm" variant="ghost" icon="trash" aria-label="Delete note" @click="dropNote(n)" /></div><div class="note-body" v-html="n.content"></div><div class="small muted">{{ n.by ? n.by.full_name : '' }} - {{ PRO.ago(n.creation) }}</div></li></ul>
-							</template>
 						</section>
 					</div>
 
 					<aside class="lead-side">
-						<section class="card"><h3>Status and owner</h3>
-							<Field label="Status"><Dd :modelValue="lead.status" :options="statusOpts" :disabled="!lead.can_write" aria-label="Status" @update:modelValue="setStatus" /></Field>
-							<Field label="Assigned to"><Dd :modelValue="lead.lead_owner || ''" :options="ownerOpts" searchable :disabled="!lead.can_write" aria-label="Assigned to" @update:modelValue="setOwner" /></Field>
-						</section>
 						<section v-for="(s, i) in lead.side_panel" :key="'sp' + i" class="card"><h3>{{ s.label || 'Details' }}</h3>
 							<div class="facts one"><Fact v-for="f in s.fields" :key="f.fieldname" :label="f.label" :value="f.display" /></div>
 						</section>
@@ -253,30 +245,18 @@
 					<div v-if="edit.error" class="err" role="alert" style="margin-top:10px">{{ edit.error }}</div>
 					<template #foot><Btn @click="edit.open = false">Cancel</Btn><Btn variant="primary" :loading="edit.busy" @click="saveEdit">Save</Btn></template>
 				</Modal>
-				<Modal v-if="fu.open" title="Log a follow-up" @close="fu.open = false">
-					<div class="grid2">
-						<Field label="How"><Dd v-model="fu.v.mode" :options="fuOpts('modes')" aria-label="Mode" /></Field><Field label="Call result"><Dd v-model="fu.v.call_status" :options="fuOpts('call_statuses')" aria-label="Call result" /></Field>
-						<Field label="Outcome" required><Dd v-model="fu.v.outcome" :options="fuOpts('outcomes')" aria-label="Outcome" /></Field><Field label="Move the lead to"><Dd v-model="fu.v.lead_status" :options="[{ value: '', label: 'Keep ' + lead.status }, ...statusOpts]" aria-label="Lead status" /></Field>
-					</div>
-					<Field label="Remark"><textarea class="inp" rows="3" v-model="fu.v.remark" aria-label="Remark"></textarea></Field>
-					<Field label="Next follow-up"><input class="inp" type="datetime-local" v-model="fu.v.next_follow_up_on" aria-label="Next follow-up" /></Field>
-					<div v-if="fu.error" class="err" role="alert">{{ fu.error }}</div>
-					<template #foot><Btn @click="fu.open = false">Cancel</Btn><Btn variant="primary" :loading="fu.busy" @click="saveFollowup">Save</Btn></template>
-				</Modal>
-				<Modal v-if="mt.open" title="Schedule a meeting" @close="mt.open = false">
-					<Field label="Subject"><Inp v-model="mt.v.subject" aria-label="Subject" /></Field>
-					<div class="grid2"><Field label="Starts"><input class="inp" type="datetime-local" v-model="mt.v.starts_on" aria-label="Starts" /></Field><Field label="Ends"><input class="inp" type="datetime-local" v-model="mt.v.ends_on" aria-label="Ends" /></Field></div>
-					<Field label="Description"><textarea class="inp" rows="3" v-model="mt.v.description" aria-label="Description"></textarea></Field>
-					<div class="row" style="gap:18px"><Switch v-model="mt.v.video" label="Add a Google Meet link" /><Switch v-if="lead.email" v-model="mt.v.invite" label="Invite the lead by email" /></div>
-					<div v-if="mt.error" class="err" role="alert" style="margin-top:10px">{{ mt.error }}</div>
-					<template #foot><Btn @click="mt.open = false">Cancel</Btn><Btn variant="primary" :loading="mt.busy" @click="saveMeeting">Schedule</Btn></template>
-				</Modal>
-				<Modal v-if="em.open" title="New email" @close="em.open = false">
-					<Field label="To"><Inp v-model="em.v.recipients" aria-label="To" /></Field><Field label="Subject"><Inp v-model="em.v.subject" aria-label="Subject" /></Field>
-					<Field label="Message"><textarea class="inp" rows="8" v-model="em.v.content" aria-label="Message"></textarea></Field>
-					<div v-if="em.error" class="err" role="alert">{{ em.error }}</div>
-					<template #foot><Btn @click="em.open = false">Cancel</Btn><Btn variant="primary" icon="send" :loading="em.busy" @click="sendEmail">Send</Btn></template>
-				</Modal>
+					<div v-if="ovl.open" class="ovl" role="dialog" aria-modal="true" :aria-label="ovl.title" @click.self="ovl.open = false"><div class="ovl-box"><iframe ref="frame" :src="ovl.src" :title="ovl.title" :style="{ height: ovl.height + 'px' }"></iframe></div></div>
+					<Modal v-if="em.open" title="New email" size="lg" @close="em.open = false">
+						<div v-if="em.info && em.info.problem" class="err" role="alert" style="margin-bottom:10px">{{ em.info.problem }}</div>
+						<Field label="Template"><Dd :modelValue="em.tpl" :options="tplOpts" searchable aria-label="Email template" @update:modelValue="pickTemplate" /></Field>
+						<Field label="To"><div class="row" style="gap:8px"><div class="grow"><Inp v-model="em.v.recipients" aria-label="To" /></div><button v-if="!em.cc" type="button" class="btn ghost sm" @click="em.cc = true">CC</button><button v-if="!em.bcc" type="button" class="btn ghost sm" @click="em.bcc = true">BCC</button></div></Field>
+						<Field v-if="em.cc" label="CC"><Inp v-model="em.v.cc" placeholder="Separate addresses with commas" aria-label="CC" /></Field>
+						<Field v-if="em.bcc" label="BCC"><Inp v-model="em.v.bcc" placeholder="Separate addresses with commas" aria-label="BCC" /></Field>
+						<Field label="Subject"><Inp v-model="em.v.subject" aria-label="Subject" /></Field>
+						<Field label="Message"><div class="mail-ed"><div class="mail-bar"><button type="button" class="btn ghost sm" aria-label="Bold" @click="format('bold')"><b>B</b></button><button type="button" class="btn ghost sm" aria-label="Italic" @click="format('italic')"><i>I</i></button><button type="button" class="btn ghost sm" aria-label="Add a link" @click="format('link')">Link</button></div><div ref="body" class="mail-body" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message" @input="typed"></div></div></Field>
+						<div v-if="em.error" class="err" role="alert">{{ em.error }}</div>
+						<template #foot><Btn @click="em.open = false">Cancel</Btn><Btn variant="primary" icon="send" :loading="em.busy" :disabled="em.loading" @click="sendEmail">Send</Btn></template>
+					</Modal>
 			</template>
 		</div>`,
 	}

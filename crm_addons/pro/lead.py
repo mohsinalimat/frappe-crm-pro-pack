@@ -197,17 +197,47 @@ def get_emails(name):
 
 
 @frappe.whitelist()
-def send_email(name, recipients, subject, content):
-	"""Send an email from the lead page. It is stored on the lead like any CRM email."""
+def email_templates(name):
+	"""The app's email templates, filled in for this lead, plus whether mail can go out from this site."""
+	from crm_addons.campaigns import personalization
+	from crm_addons.campaigns.common import email_account_problem
+
+	doc = _lead(name)
+	who = frappe._dict(campaign_owner=frappe.session.user, owner=frappe.session.user)
+	ctx = personalization.build_context(doc, who)
+	rows = frappe.get_all("CRM Campaign Email Template", filters={"enabled": 1}, fields=["name", "template_name", "subject", "body_html"], order_by="template_name asc", limit_page_length=500)
+	templates = [{"name": r.name, "label": r.template_name or r.name, "subject": personalization.render(r.subject, ctx), "body": personalization.render(r.body_html, ctx, html=True)} for r in rows]
+	return {"templates": templates, "problem": email_account_problem() or "", "from": frappe.db.get_value("User", frappe.session.user, "email")}
+
+
+def _addresses(value, label):
+	from frappe.utils import validate_email_address
+
+	out = []
+	for part in cstr(value).replace(";", ",").split(","):
+		part = part.strip()
+		if not part:
+			continue
+		if not validate_email_address(part, throw=False):
+			frappe.throw(_("{0} is not a valid email address ({1}).").format(part, label))
+		out.append(part)
+	return ", ".join(out)
+
+
+@frappe.whitelist()
+def send_email(name, recipients, subject, content, cc=None, bcc=None, html=0):
+	"""Send an email from the lead page. It is stored on the lead like any CRM email. ``html`` means the message is already HTML (from the editor)."""
 	doc = _lead(name, "write")
-	recipients, subject, content = cstr(recipients).strip(), cstr(subject).strip(), cstr(content).strip()
-	if not recipients or not subject or not content:
+	recipients, subject, content = _addresses(recipients, _("To")), cstr(subject).strip(), cstr(content).strip()
+	cc, bcc = _addresses(cc, "CC"), _addresses(bcc, "BCC")
+	if not recipients or not subject or not strip_html(content).strip():
 		frappe.throw(_("Add the address, a subject and a message."))
 	from frappe.core.doctype.communication.email import make
 	from frappe.utils import escape_html
+	from frappe.utils.html_utils import clean_html
 
-	body = escape_html(content).replace("\n", "<br>")
-	make(doctype=LEAD, name=doc.name, content=body, subject=subject, recipients=recipients, sender=frappe.db.get_value("User", frappe.session.user, "email"), communication_medium="Email", send_email=True, sent_or_received="Sent")
+	body = clean_html(content) if cint(html) else escape_html(content).replace("\n", "<br>")
+	make(doctype=LEAD, name=doc.name, content=body, subject=subject, recipients=recipients, cc=cc, bcc=bcc, sender=frappe.db.get_value("User", frappe.session.user, "email"), communication_medium="Email", send_email=True, sent_or_received="Sent")
 	return True
 
 

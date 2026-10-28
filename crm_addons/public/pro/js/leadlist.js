@@ -212,6 +212,7 @@
 					if (mine !== seq) return
 					if (view.type !== 'kanban' && !r.data.length && page.value > 1 && r.total_count > 0) { page.value = Math.ceil(r.total_count / pageSize.value); return load(true) }
 					data.value = r
+					try { sessionStorage.setItem('pro.leadlist', JSON.stringify((view.type === 'kanban' ? r.data.flatMap((c) => c.data || []) : r.data).map((x) => x.name).filter(Boolean))) } catch (e) { /* the lead page just has no next / previous */ }
 					if (r.columns && !p.columns) p.columns = r.columns
 					if (view.type === 'kanban') { p.columnField = r.column_field || p.columnField; p.titleField = r.title_field; p.kanbanFields = r.kanban_fields; p.kanbanColumns = r.kanban_columns.map((c) => ({ name: c.name, order: c.order, page_length: c.page_length || 20, column: c.column })) }
 				} catch (e) { if (mine === seq) error.value = e.message } finally { if (mine === seq) loading.value = false }

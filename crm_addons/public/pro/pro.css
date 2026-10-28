@@ -228,3 +228,14 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 .page.leads .board .col-body::-webkit-scrollbar-thumb { background: var(--border-strong, #c4cad4); border-radius: 4px }
 /* sideways gestures over a column move the board, never the column: only up and down belong to the column's leads */
 .board .col-body { overflow-x: hidden; overscroll-behavior: auto contain }
+
+/* lead page: stepping through the list, header pickers, the email editor and the follow-up / meeting form */
+.lead-nav { gap: 8px; align-items: center; margin-bottom: 8px; } .lead-nav .back { margin: 0; }
+.head-dd { width: 170px; }
+.ovl { position: fixed; inset: 0; z-index: 60; background: rgba(15, 23, 42, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ovl-box { width: min(640px, 100%); background: var(--card, #fff); border-radius: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0, 0, 0, .3); }
+.ovl-box iframe { width: 100%; border: 0; display: block; }
+.mail-ed { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.mail-bar { display: flex; gap: 2px; padding: 4px; border-bottom: 1px solid var(--border); }
+.mail-body { min-height: 180px; max-height: 360px; overflow: auto; padding: 10px 12px; outline: none; }
+.lead-page .ltab { padding: 10px 9px; }
