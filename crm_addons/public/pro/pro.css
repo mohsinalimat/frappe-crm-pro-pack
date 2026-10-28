@@ -661,7 +661,7 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 }
 
 /* notifications: the redesigned panel */
-.ntf-in > .pg-head.ntf-head { align-items: flex-start; padding: 16px; min-height: 0; border-bottom: 0 }
+.ntf-in > .pg-head.ntf-head { align-items: center; padding: 16px; min-height: 0; border-bottom: 0 }
 .ntf-head h1 { display: flex; align-items: center; gap: 8px }
 .ntf-head p { margin: 2px 0 0 }
 .ntf-count { min-width: 22px; height: 22px; padding: 0 7px; display: inline-grid; place-items: center; border-radius: 999px; background: #ef4444; color: #fff; font-size: 12px; font-weight: 650 }
@@ -691,3 +691,5 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 .ntf-tabs { cursor: grab; scrollbar-width: none; user-select: none } .ntf-tabs::-webkit-scrollbar { display: none } .ntf-tabs.drag { cursor: grabbing }
 .ntf-sound { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-soft); white-space: nowrap }
 .ntf-sub { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; flex: none }
+.ntf-head .actions .btn.ntf-on { color: var(--accent) }
+.ntf-head .actions { gap: 2px }
