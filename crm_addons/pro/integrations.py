@@ -595,3 +595,97 @@ def disconnect_whatsapp(account):
 		doc.token = ""
 		doc.save()
 		return {"removed": False}
+
+
+# -- logs: every email and every WhatsApp message, with what happened to it ---------------------------------------------------
+
+_EMAIL_STATE = """case when q.status in ('Error', 'Expired') then 'Failed'
+	when c.delivery_status in ('Bounced', 'Rejected', 'Marked As Spam') then 'Bounced'
+	when c.delivery_status = 'Soft-Bounced' then 'Soft bounce'
+	when q.status in ('Sent', 'Partially Sent') and (c.read_by_recipient = 1 or c.delivery_status = 'Opened') then 'Read'
+	when q.status in ('Sent', 'Partially Sent') then 'Sent'
+	else 'Waiting' end"""
+
+
+def _paging(page, page_size):
+	return max(1, cint(page)), min(max(1, cint(page_size) or 25), 100)
+
+
+@frappe.whitelist()
+def get_email_log(page=1, page_size=25, status=None, account=None, search=None):
+	"""Every email the CRM queued: state (waiting, sent, read, bounced, failed), who it went to, from which account, the lead, and the error when there is one."""
+	_admin()
+	page, size = _paging(page, page_size)
+	where, values = ["1 = 1"], {}
+	if account:
+		email = frappe.db.get_value(EMAIL_ACCOUNT, account, "email_id")
+		where.append("(q.email_account = %(account)s OR q.sender = %(email)s)")
+		values.update({"account": account, "email": email})
+	txt = cstr(search).strip()
+	if txt:
+		where.append("(c.subject LIKE %(q)s OR q.sender LIKE %(q)s OR q.reference_name LIKE %(q)s OR r.recipient LIKE %(q)s)")
+		values["q"] = f"%{txt}%"
+	base = f"""FROM `tabEmail Queue` q LEFT JOIN `tabCommunication` c ON c.name = q.communication
+		LEFT JOIN (SELECT parent, MIN(recipient) AS recipient FROM `tabEmail Queue Recipient` GROUP BY parent) r ON r.parent = q.name WHERE {' AND '.join(where)}"""
+	picked = [x.strip() for x in cstr(status).split(",") if x.strip()]
+	outer = "WHERE u.state IN %(picked)s" if picked else ""
+	if picked:
+		values["picked"] = tuple(picked)
+	inner = f"SELECT q.name, q.creation, q.status AS queue_status, q.error, q.sender, q.email_account, q.reference_doctype, q.reference_name, q.retry, c.subject, c.delivery_status, r.recipient, {_EMAIL_STATE} AS state {base}"
+	total = frappe.db.sql(f"SELECT COUNT(*) FROM ({inner}) u {outer}", values)[0][0]
+	rows = frappe.db.sql(f"SELECT u.* FROM ({inner}) u {outer} ORDER BY u.creation DESC LIMIT %(limit)s OFFSET %(offset)s", {**values, "limit": size, "offset": (page - 1) * size}, as_dict=True)
+	counts = {s: n for s, n in frappe.db.sql(f"SELECT state, COUNT(*) FROM (SELECT {_EMAIL_STATE} AS state {base}) u GROUP BY state", {k: v for k, v in values.items() if k != "picked"})}
+	for r in rows:
+		r["creation"] = cstr(r["creation"])
+	accounts = [{"value": a.name, "label": a.email_id} for a in frappe.get_all(EMAIL_ACCOUNT, fields=["name", "email_id"], limit_page_length=50)]
+	return {"rows": rows, "total": total, "page": page, "page_size": size, "counts": counts, "accounts": accounts}
+
+
+@frappe.whitelist()
+def retry_email(queue):
+	"""Put a failed email back in line; Frappe's mail queue sends it on its next run."""
+	_admin()
+	status = frappe.db.get_value("Email Queue", queue, "status")
+	if status not in ("Error", "Expired"):
+		frappe.throw(_("Only a failed email can be sent again."))
+	frappe.db.set_value("Email Queue", queue, {"status": "Not Sent", "retry": 0, "error": ""})
+	frappe.db.sql("UPDATE `tabEmail Queue Recipient` SET status = 'Not Sent' WHERE parent = %s", queue)
+	return {"queued": True}
+
+
+_WA_STATE = """case when m.type = 'Incoming' then 'Received'
+	when lower(m.status) = 'failed' then 'Failed'
+	when lower(m.status) = 'read' then 'Read'
+	when lower(m.status) = 'delivered' then 'Delivered'
+	when lower(m.status) in ('sent', 'success') then 'Sent'
+	else 'Waiting' end"""
+
+
+@frappe.whitelist()
+def get_whatsapp_log(page=1, page_size=25, status=None, account=None, search=None):
+	"""Every WhatsApp message in and out: state (waiting, sent, delivered, read, failed, received), the number, the template and the lead."""
+	_admin()
+	if not frappe.db.exists("DocType", "WhatsApp Message"):
+		return {"rows": [], "total": 0, "page": 1, "page_size": 25, "counts": {}, "accounts": []}
+	page, size = _paging(page, page_size)
+	where, values = ["1 = 1"], {}
+	if account:
+		where.append("m.whatsapp_account = %(account)s")
+		values["account"] = account
+	txt = cstr(search).strip()
+	if txt:
+		where.append("(m.`to` LIKE %(q)s OR m.`from` LIKE %(q)s OR m.template LIKE %(q)s OR m.reference_name LIKE %(q)s OR m.profile_name LIKE %(q)s OR m.message LIKE %(q)s)")
+		values["q"] = f"%{txt}%"
+	picked = [x.strip() for x in cstr(status).split(",") if x.strip()]
+	outer = "WHERE u.state IN %(picked)s" if picked else ""
+	if picked:
+		values["picked"] = tuple(picked)
+	inner = f"""SELECT m.name, m.creation, m.type, m.status AS provider_status, m.`to` AS to_number, m.`from` AS from_number, m.template, m.content_type, LEFT(m.message, 160) AS message,
+		m.whatsapp_account, m.reference_doctype, m.reference_name, m.profile_name, {_WA_STATE} AS state FROM `tabWhatsApp Message` m WHERE {' AND '.join(where)}"""
+	total = frappe.db.sql(f"SELECT COUNT(*) FROM ({inner}) u {outer}", values)[0][0]
+	rows = frappe.db.sql(f"SELECT u.* FROM ({inner}) u {outer} ORDER BY u.creation DESC LIMIT %(limit)s OFFSET %(offset)s", {**values, "limit": size, "offset": (page - 1) * size}, as_dict=True)
+	counts = {s: n for s, n in frappe.db.sql(f"SELECT state, COUNT(*) FROM (SELECT {_WA_STATE} AS state FROM `tabWhatsApp Message` m WHERE {' AND '.join(where)}) u GROUP BY state", {k: v for k, v in values.items() if k != "picked"})}
+	for r in rows:
+		r["creation"] = cstr(r["creation"])
+	accounts = [{"value": a.name, "label": a.account_name or a.name} for a in frappe.get_all("WhatsApp Account", fields=["name", "account_name"], limit_page_length=20)]
+	return {"rows": rows, "total": total, "page": page, "page_size": size, "counts": counts, "accounts": accounts}

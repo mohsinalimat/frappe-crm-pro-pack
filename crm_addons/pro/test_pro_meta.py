@@ -235,3 +235,39 @@ class TestMeta(AccessCase):
 		self.assertEqual(meta.get_leads(search="page1@example.com")["total"], 1)
 		self.assertEqual(meta.get_leads(form="F1")["total"], 3)
 		self.assertEqual((out["counts"]["Created"], out["counts"]["Duplicate"]), (1, 2))
+
+	def test_it_finds_what_the_system_already_has(self):
+		frappe.get_doc({"doctype": "WhatsApp Account", "account_name": "WA Found", "app_id": "777", "business_id": "888", "phone_id": "999", "token": "WA-TOKEN", "url": "https://graph.facebook.com", "version": "v21.0", "status": "Active"}).insert(ignore_permissions=True)
+		found = meta.detect()
+		self.assertIn({"name": "WA Found", "title": "WA Found", "app_id": "777", "business_id": "888", "has_token": True}, found["whatsapp"])
+		self.assertEqual(meta.use_whatsapp_app("WA Found")["app_id"], "777")
+		self.assertNotIn("WA-TOKEN", json.dumps(meta.get_overview()))
+		with patch.object(meta, "graph", return_value={"data": [{"permission": "whatsapp_business_messaging", "status": "granted"}]}):
+			with self.assertRaises(frappe.ValidationError) as ctx:
+				meta.use_whatsapp_token("WA Found")
+		self.assertIn("leads_retrieval", str(ctx.exception))
+		self.assertEqual(meta._system_token(), "TOKEN-SECRET")  # nothing replaced
+		ok = {"data": [{"permission": p[0], "status": "granted"} for p in meta.PERMISSIONS]}
+		with patch.object(meta, "graph", return_value=ok):
+			meta.use_whatsapp_token("WA Found")
+		self.assertEqual(meta._system_token(), "WA-TOKEN")
+
+	def test_a_form_frappe_crm_already_syncs_can_be_taken_over(self):
+		page = frappe.get_doc({"doctype": "Facebook Page", "id": "PG9", "page_name": "Old Page", "access_token": "OLD-PAGE-TOKEN", "account_id": "1"}).insert(ignore_permissions=True)
+		form = frappe.get_doc({"doctype": "Facebook Lead Form", "id": "OLD1", "form_name": "Old CRM form", "page": page.name, "questions": [
+			{"key": "full_name", "label": "Full name", "type": "FULL_NAME", "mapped_to_crm_field": "first_name"}, {"key": "email", "label": "Email", "type": "EMAIL", "mapped_to_crm_field": "email"}]}).insert(ignore_permissions=True)
+		src = frappe.new_doc("Lead Sync Source")
+		src.update({"type": "Facebook", "facebook_page": page.name, "facebook_lead_form": form.name, "enabled": 1, "background_sync_frequency": "Every 5 Minutes"})
+		src.name = "LSS-TEST"
+		src.db_insert()  # its own insert checks the token with Facebook
+		row = next(f for f in meta.detect()["forms"] if f["form_id"] == "OLD1")
+		self.assertEqual((row["mapped"], row["connected"], row["crm_sync_on"], row["page_name"]), (2, False, True, "Old Page"))
+		with patch.object(meta, "graph", return_value={"success": True}):
+			out = meta.import_crm_form("OLD1")
+		self.assertEqual(out["frappe_sync_switched_off"], 1)
+		self.assertEqual(frappe.db.get_value("Lead Sync Source", src.name, "enabled"), 0)
+		doc = frappe.get_doc(meta.FORM, "OLD1")
+		self.assertEqual(json.loads(doc.mapping), {"full_name": "first_name", "email": "email"})
+		self.assertEqual(meta._page_token(doc), "OLD-PAGE-TOKEN")
+		with self.assertRaises(frappe.ValidationError):
+			meta.import_crm_form("OLD1")

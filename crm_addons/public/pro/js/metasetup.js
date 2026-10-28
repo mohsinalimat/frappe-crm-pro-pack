@@ -24,8 +24,8 @@
 			const c = reactive({ token: '', app_id: '', app_secret: '', version: 'v23.0' }); const busy = ref(''); const res = ref(null); const formRes = reactive({})
 			const wiz = ref(false); const pages = ref([]); const page = ref(''); const forms = ref([]); const pick = ref(''); const map = reactive({}); const loadingF = ref(false)
 			const edit = ref(null); const gone = ref(null); const guide = ref(false)
-			const SUBS = [['connection', 'Meta connection', 'check-circle'], ['instant', 'Instant leads', 'send'], ['forms', 'Lead forms', 'file'], ['leads', 'Recent Meta leads', 'users']]
-			const sub = ref(['connection', 'instant', 'forms', 'leads'].includes(CM.store.get('meta-sub')) ? CM.store.get('meta-sub') : 'connection'); watch(sub, (v) => { CM.store.set('meta-sub', v); if (v === 'leads') loadLog() })
+			const SUBS = [['leads', 'Recent Meta leads', 'users'], ['forms', 'Lead forms', 'file'], ['connection', 'Meta connection', 'meta']]
+			const sub = ref(['leads', 'forms', 'connection'].includes(CM.store.get('meta-sub')) ? CM.store.get('meta-sub') : 'leads'); watch(sub, (v) => { CM.store.set('meta-sub', v); if (v === 'leads') loadLog() })
 			const lg = reactive({ rows: [], total: 0, counts: {}, forms: [], sync: {}, loading: false }); const lres = ref(''); const lform = ref(''); const lq = ref(''); const lpage = ref(1); const LSIZE = 20
 			let seq = 0, timer = null, poll = null
 			async function loadLog(quiet) {
@@ -39,10 +39,16 @@
 			const syncNow = () => run('sync', async () => { await call('sync_now'); CM.toast('Sync started. New leads appear in a moment.'); setTimeout(() => loadLog(true), 4000) })
 			const setSync = (on) => run('ss', async () => { lg.sync = await call('set_sync', { running: on ? 1 : 0 }); CM.toast(on ? 'Sync started. Waiting leads are being imported.' : 'Sync stopped. New leads wait until you start it again.'); await load(); setTimeout(() => loadLog(true), on ? 4000 : 0) })
 			const RES = [{ value: '', label: 'All results' }, { value: 'Created', label: 'New lead' }, { value: 'Duplicate', label: 'Already a lead' }, { value: 'Failed', label: 'Failed' }, { value: 'Waiting', label: 'Waiting (sync stopped)' }, { value: 'Ignored', label: 'Skipped' }]
+			const found = ref({ whatsapp: [], pages: [], forms: [] })
+			async function detect() { try { found.value = await call('detect') } catch (e) { /* nothing to show */ } }
+			const useApp = (w) => run('ua' + w.name, async () => { const r = await call('use_whatsapp_app', { account: w.name }); c.app_id = r.app_id; CM.toast('App ID ' + r.app_id + ' saved. Add the App secret from Meta.'); await load() })
+			const useToken = (w) => run('ut' + w.name, async () => { await call('use_whatsapp_token', { account: w.name }); CM.toast('Token accepted and saved'); await Promise.all([load(), detect()]) })
+			const importForm = (f) => run('im' + f.form_id, async () => { const r = await call('import_crm_form', { form_id: f.form_id }); CM.toast('Form taken over.' + (r.frappe_sync_switched_off ? " Frappe CRM's own sync of it was switched off so leads are not imported twice." : '') + (r.subscribed ? '' : ' Instant delivery needs the connection token.')); await Promise.all([load(), detect()]) })
+			const todo = computed(() => found.value.forms.filter((f) => !f.connected))
 			async function load() {
 				try { d.value = await call('get_overview'); c.app_id = d.value.app_id || c.app_id; c.version = d.value.version; error.value = '' } catch (e) { error.value = e.message } finally { loading.value = false }
 			}
-			onMounted(load)
+			onMounted(() => { load(); detect() })
 			async function run(key, fn) { busy.value = key; try { return await fn() } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = '' } }
 			const save = () => run('save', async () => { await call('save_connection', { token: c.token, app_id: c.app_id, app_secret: c.app_secret, api_version: c.version }); c.token = c.app_secret = ''; CM.toast('Saved'); await load() })
 			const test = () => run('test', async () => { res.value = await call('test_connection') })
@@ -77,7 +83,7 @@
 			const fieldOpts = computed(() => [{ value: '', label: 'Do not import' }, ...d.value.fields])
 			const tone = (r) => ({ Created: 'green', Duplicate: 'blue', Failed: 'red', Ignored: 'amber', Waiting: 'amber' }[r] || '')
 			const word = (r) => ({ Created: 'New lead', Duplicate: 'Already a lead', Failed: 'Failed', Ignored: 'Skipped', Waiting: 'Waiting' }[r] || r)
-			return { SUBS, sub, lg, lres, lform, lq, lpage, LSIZE, RES, syncNow, setSync, loading, error, d, c, busy, res, formRes, wiz, pages, page, forms, pick, map, loadingF, edit, gone, guide, GUIDE, save, test, disconnect, toggle, testForm, retry, remove, openWizard, choosePage, current, choose, formOpts, addForm, openEdit, saveMap, refreshQ, copy, when, fieldOpts, tone, word, CM }
+			return { found, todo, useApp, useToken, importForm, SUBS, sub, lg, lres, lform, lq, lpage, LSIZE, RES, syncNow, setSync, loading, error, d, c, busy, res, formRes, wiz, pages, page, forms, pick, map, loadingF, edit, gone, guide, GUIDE, save, test, disconnect, toggle, testForm, retry, remove, openWizard, choosePage, current, choose, formOpts, addForm, openEdit, saveMap, refreshQ, copy, when, fieldOpts, tone, word, CM }
 		},
 		template: `
 		<div class="page it-page">
@@ -85,6 +91,11 @@
 			<div v-else-if="loading" class="card" style="padding:18px"><Skel h="20" /></div>
 			<template v-else>
 				<div class="row fs-kinds" style="margin-top:6px"><div class="fs-seg" role="tablist" aria-label="Meta"><button v-for="t in SUBS" :key="t[0]" type="button" role="tab" :class="{ on: sub === t[0] }" :aria-selected="sub === t[0]" @click="sub = t[0]"><Ico :name="t[2]" size="sm" />{{ t[1] }}</button></div></div>
+				<section v-if="sub === 'connection' && found.whatsapp.length" class="card it-card mt-found">
+					<div class="row it-h"><div class="grow"><b class="it-t">Found in your system</b><div class="small muted">Your WhatsApp connection already uses a Meta app. You can reuse its App ID. Its token is used only if Meta confirms it may read leads.</div></div></div>
+					<div v-for="w in found.whatsapp" :key="w.name" class="row mt-fr"><Ico name="whatsapp" /><div class="grow"><b>{{ w.title }}</b><div class="small muted">App ID {{ w.app_id || 'not set' }}<template v-if="w.business_id"> · Business account {{ w.business_id }}</template></div></div>
+						<Btn size="sm" :disabled="!w.app_id" :loading="busy === 'ua' + w.name" @click="useApp(w)">Use this App ID</Btn><Btn size="sm" :disabled="!w.has_token" :loading="busy === 'ut' + w.name" @click="useToken(w)">Try its token</Btn></div>
+				</section>
 				<section v-if="sub === 'connection'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">Meta connection</b><div class="small muted">Facebook and Instagram lead ads. New leads come straight into Leads with the campaign, ad set and ad they came from.</div></div>
 						<span class="badge" :class="d.connected ? 'green' : 'amber'">{{ d.connected ? 'Token saved' : 'Not connected' }}</span><Btn icon="file" @click="guide = true">Setup guide</Btn></div>
@@ -99,11 +110,15 @@
 						<ul v-if="res.permissions" class="mt-perms"><li v-for="p in res.permissions" :key="p.key"><Ico :name="p.granted ? 'check-circle' : 'x-circle'" size="sm" :class="p.granted ? 'okc' : p.required ? 'badc' : 'mutedc'" /><b>{{ p.key }}</b><span class="muted">{{ p.label }}{{ p.required ? '' : ' (optional)' }}</span></li></ul></div>
 				</section>
 
+				<section v-if="sub === 'forms' && todo.length" class="card it-card mt-found">
+					<div class="row it-h"><div class="grow"><b class="it-t">Already connected in Frappe CRM</b><div class="small muted">These lead forms are set up in Frappe CRM's own Facebook sync. Take one over to keep its Page and mapping, get leads instantly, and see it here with the campaign and ad. Frappe's own sync of that form is switched off, so nothing is imported twice.</div></div></div>
+					<div v-for="f in todo" :key="f.form_id" class="row mt-fr"><Ico name="facebook" /><div class="grow"><b>{{ f.name }}</b><div class="small muted">{{ f.page_name }} · {{ f.mapped }} of {{ f.questions }} questions mapped<template v-if="f.crm_sync_on"> · syncing every few minutes in Frappe CRM</template></div></div><Btn size="sm" variant="primary" :loading="busy === 'im' + f.form_id" @click="importForm(f)">Take over</Btn></div>
+				</section>
 				<section v-if="sub === 'forms'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">Lead forms</b><div class="small muted">Each connected form sends its leads to the CRM. You choose which question goes into which CRM field.</div></div><Btn variant="primary" icon="plus" :disabled="!d.connected" @click="openWizard">Add a form</Btn></div>
 					<Empty v-if="!d.forms.length" icon="file" title="No form connected" :text="d.connected ? 'Add a form to start receiving leads.' : 'Save your token first, then add a form.'" />
 					<div v-for="f in d.forms" :key="f.form_id" class="it-acc" :class="{ on: f.enabled }">
-						<div class="it-ic meta"><Ico name="file" /></div>
+						<div class="it-ic meta"><Ico name="meta" /></div>
 						<div class="it-main">
 							<div class="row" style="gap:8px;flex-wrap:wrap"><b>{{ f.form_name }}</b><span class="muted">{{ f.page_name }}</span><span class="badge" :class="f.enabled ? 'green' : ''">{{ f.enabled ? 'On' : 'Off' }}</span><span class="badge" :class="f.subscribed ? 'blue' : 'amber'">{{ f.subscribed ? 'Instant' : 'Not instant yet' }}</span></div>
 							<div class="it-stats"><span class="it-s"><b>{{ f.stats.received }}</b>Received</span><span class="it-s green"><b>{{ f.stats.created }}</b>New leads</span><span class="it-s blue"><b>{{ f.stats.duplicate }}</b>Already leads</span><span class="it-s red"><b>{{ f.stats.failed }}</b>Failed</span><span class="small faint">last 30 days</span><span class="small faint">{{ f.mapped }} questions mapped</span><span v-if="f.last_lead_at" class="small faint">Last lead {{ when(f.last_lead_at) }}</span></div>
@@ -114,7 +129,7 @@
 					</div>
 				</section>
 
-				<section v-if="sub === 'instant'" class="card it-card">
+				<section v-if="sub === 'connection'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">Instant leads</b><div class="small muted">Give Meta this address (app, Webhooks, Page, field <i>leadgen</i>) so leads arrive in seconds. The guide shows where. Without it the CRM still catches up every hour.</div></div>
 						<span class="badge" :class="d.last_event ? 'green' : 'amber'">{{ d.last_event ? 'Receiving' : 'Nothing received yet' }}</span></div>
 					<div class="it-kv"><span>Callback address</span><b class="it-code">{{ d.webhook_url }} <Btn size="sm" variant="ghost" icon="copy" @click="copy(d.webhook_url)">Copy</Btn></b><span>Verify token</span><b class="it-code">{{ d.verify_token }} <Btn size="sm" variant="ghost" icon="copy" @click="copy(d.verify_token)">Copy</Btn></b></div>
@@ -134,7 +149,7 @@
 					<div v-else class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Lead</th><th>Campaign / ad set / ad</th><th>Form</th><th>Result</th></tr></thead><tbody>
 						<tr v-for="r in lg.rows" :key="r.name"><td class="nowrap">{{ when(r.creation) }}</td>
 							<td><b>{{ r.person_name || '-' }}</b><div class="small muted">{{ r.email || r.phone }}</div></td>
-							<td><span class="badge" :class="r.source === 'Instagram' ? 'purple' : 'blue'">{{ r.source }}</span><div class="small muted">{{ r.campaign_name }}<template v-if="r.adset_name"> / {{ r.adset_name }}</template><template v-if="r.ad_name"> / {{ r.ad_name }}</template></div></td>
+							<td><span class="badge" :class="r.source === 'Instagram' ? 'purple' : 'blue'"><Ico :name="r.source === 'Instagram' ? 'instagram' : 'facebook'" size="sm" /> {{ r.source }}</span><div class="small muted">{{ r.campaign_name }}<template v-if="r.adset_name"> / {{ r.adset_name }}</template><template v-if="r.ad_name"> / {{ r.ad_name }}</template></div></td>
 							<td>{{ r.form_name }}<div class="small muted">{{ r.via }}</div></td>
 							<td><span class="badge" :class="tone(r.result)">{{ word(r.result) }}</span><div v-if="r.error" class="small it-res bad">{{ r.error }}</div><div v-if="r.lead"><a class="mono small" :href="CM.leadUrl(r.lead)">{{ r.lead }}</a></div><Btn v-if="['Failed', 'Ignored', 'Waiting'].includes(r.result)" size="sm" :loading="busy === 'r' + r.name" @click="retry(r)">{{ r.result === 'Waiting' ? 'Import now' : 'Retry' }}</Btn></td></tr></tbody></table></div>
 					<Pager v-if="lg.rows.length" v-model:page="lpage" :size="LSIZE" :total="lg.total" />

@@ -223,3 +223,52 @@ class TestWhatsAppIntegration(AccessCase):
 		for call in (lambda: integrations.add_whatsapp("x", "1", "2", "t"), lambda: integrations.test_whatsapp("x"), lambda: integrations.disconnect_whatsapp("x"), lambda: integrations.test_email("x")):
 			with self.assertRaises(frappe.PermissionError):
 				call()
+
+
+class TestLogs(AccessCase):
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("Administrator")
+
+	def _email(self, mid, status="Sent", delivery="Sent", read=0, error=""):
+		comm = frappe.get_doc({"doctype": "Communication", "communication_type": "Communication", "communication_medium": "Email", "sent_or_received": "Sent", "subject": f"Subject {mid}",
+			"content": "x", "delivery_status": delivery, "read_by_recipient": read, "recipients": "lead@example.com"}).insert(ignore_permissions=True)
+		q = frappe.get_doc({"doctype": "Email Queue", "sender": "log@example.com", "message": "x", "message_id": mid, "status": status, "error": error, "communication": comm.name,
+			"recipients": [{"recipient": f"{mid.strip('<>').split('@')[0]}@logtest.example.com"}]}).insert(ignore_permissions=True)
+		return q.name
+
+	def test_the_email_log_shows_each_state_and_filters(self):
+		self._email("<a1@x>", "Sent", "Sent")
+		self._email("<a2@x>", "Sent", "Opened")
+		self._email("<a3@x>", "Sent", "Bounced")
+		self._email("<a4@x>", "Error", "Error", error="Connection refused")
+		waiting = self._email("<a5@x>", "Not Sent", "")
+		out = integrations.get_email_log(search="logtest.example.com")
+		self.assertEqual(out["total"], 5)
+		self.assertEqual({k: out["counts"][k] for k in ("Sent", "Read", "Bounced", "Failed", "Waiting")}, {"Sent": 1, "Read": 1, "Bounced": 1, "Failed": 1, "Waiting": 1})
+		self.assertEqual(integrations.get_email_log(status="Failed,Bounced", search="logtest.example.com")["total"], 2)
+		failed = next(r for r in integrations.get_email_log(status="Failed", search="logtest.example.com")["rows"])
+		self.assertEqual((failed["error"], failed["recipient"]), ("Connection refused", "a4@logtest.example.com"))
+		self.assertEqual(len(integrations.get_email_log(page=1, page_size=2, search="logtest.example.com")["rows"]), 2)
+
+	def test_a_failed_email_can_be_sent_again_but_a_sent_one_cannot(self):
+		bad = self._email("<b1@x>", "Error", "Error", error="boom")
+		good = self._email("<b2@x>", "Sent", "Sent")
+		integrations.retry_email(bad)
+		self.assertEqual(frappe.db.get_value("Email Queue", bad, ["status", "error"]), ("Not Sent", ""))
+		with self.assertRaises(frappe.ValidationError):
+			integrations.retry_email(good)
+
+	def test_the_whatsapp_log_maps_provider_status_to_a_state(self):
+		for i, (typ, status) in enumerate((("Outgoing", "Success"), ("Outgoing", "delivered"), ("Outgoing", "read"), ("Outgoing", "failed"), ("Outgoing", "Queued"), ("Incoming", "Success"))):
+			frappe.get_doc({"doctype": "WhatsApp Message", "type": typ, "to": f"91999000{i}", "message": f"hello {i}", "status": status}).db_insert()
+		out = integrations.get_whatsapp_log(search="hello")
+		self.assertEqual(out["total"], 6)
+		self.assertEqual({k: out["counts"][k] for k in ("Sent", "Delivered", "Read", "Failed", "Waiting", "Received")}, {"Sent": 1, "Delivered": 1, "Read": 1, "Failed": 1, "Waiting": 1, "Received": 1})
+		self.assertEqual(integrations.get_whatsapp_log(status="Failed", search="hello")["rows"][0]["provider_status"], "failed")
+
+	def test_the_logs_are_for_administrators_only(self):
+		frappe.set_user(self.person("log-sales@example.com", "Sales User"))
+		for call in (integrations.get_email_log, integrations.get_whatsapp_log, lambda: integrations.retry_email("x")):
+			with self.assertRaises(frappe.PermissionError):
+				call()

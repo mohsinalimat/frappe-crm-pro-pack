@@ -24,6 +24,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, cint, cstr, get_url, now_datetime
 from frappe.utils.html_utils import escape_html
+from frappe.utils.password import get_decrypted_password
 
 SETTINGS = "CRM Meta Settings"
 FORM = "CRM Meta Form"
@@ -103,7 +104,7 @@ def _system_token():
 
 
 def _page_token(form):
-	return frappe.utils.password.get_decrypted_password(FORM, form if isinstance(form, str) else form.name, "page_token", raise_exception=False)
+	return get_decrypted_password(FORM, form if isinstance(form, str) else form.name, "page_token", raise_exception=False)
 
 
 def _pages(token):
@@ -137,7 +138,7 @@ def get_overview():
 			"stats": {"received": sum(c.values()), "created": c.get("Created", 0), "duplicate": c.get("Duplicate", 0), "failed": c.get("Failed", 0)},
 		})
 	return {
-		"connected": bool(_system_token()), "app_id": cstr(s.app_id), "has_secret": bool(s.get_password("app_secret", raise_exception=False)), "version": s.api_version or "v23.0",
+		"connected": bool(_system_token()), "app_id": cstr(s.app_id) or _suggest_app_id(), "has_secret": bool(s.get_password("app_secret", raise_exception=False)), "version": s.api_version or "v23.0",
 		"webhook_url": f"{get_url()}{METHOD}", "verify_token": _verify_token(), "last_event": cstr(s.last_event or ""), "forms": forms,
 		"permissions": [{"key": k, "label": label, "required": req} for k, label, req in PERMISSIONS],
 		"sync": sync_state(), "recent": recent_log(8), "fields": crm_fields(),
@@ -710,3 +711,93 @@ def set_sync(running):
 	if on:
 		frappe.enqueue("crm_addons.pro.meta.run_sync", queue="short", enqueue_after_commit=True)
 	return sync_state()
+
+
+# -- what the system already has ----------------------------------------------------------------------------------------
+
+
+def _suggest_app_id():
+	if frappe.db.exists("DocType", "WhatsApp Account"):
+		return cstr(next(iter(frappe.get_all("WhatsApp Account", filters={"app_id": ["is", "set"]}, pluck="app_id", limit_page_length=1)), ""))
+	return ""
+
+
+@frappe.whitelist()
+def detect():
+	"""Meta connections the system already has: the WhatsApp account's app, and the Pages and lead forms Frappe CRM's own Facebook sync knows."""
+	_admin()
+	out = {"whatsapp": [], "pages": [], "forms": []}
+	if frappe.db.exists("DocType", "WhatsApp Account"):
+		for w in frappe.get_all("WhatsApp Account", fields=["name", "account_name", "app_id", "business_id"], limit_page_length=20):
+			out["whatsapp"].append({"name": w.name, "title": w.account_name or w.name, "app_id": cstr(w.app_id), "business_id": cstr(w.business_id),
+				"has_token": bool(get_decrypted_password("WhatsApp Account", w.name, "token", raise_exception=False))})
+	if frappe.db.exists("DocType", "Facebook Lead Form"):
+		pages = {p.name: p for p in frappe.get_all("Facebook Page", fields=["name", "id", "page_name", "access_token"], limit_page_length=100)}
+		out["pages"] = [{"id": p.id, "name": p.page_name, "has_token": bool(p.access_token)} for p in pages.values()]
+		for f in frappe.get_all("Facebook Lead Form", fields=["name", "id", "form_name", "page"], limit_page_length=200):
+			qs = frappe.get_all("Facebook Lead Form Question", filters={"parent": f.name}, fields=["key", "mapped_to_crm_field"], limit_page_length=100)
+			page = pages.get(f.page)
+			out["forms"].append({"form_id": cstr(f.id), "name": f.form_name or f.id, "page_id": cstr(page.id) if page else "", "page_name": cstr(page.page_name) if page else "",
+				"questions": len(qs), "mapped": len([q for q in qs if q.mapped_to_crm_field]), "connected": bool(frappe.db.exists(FORM, cstr(f.id))),
+				"crm_sync_on": bool(frappe.db.exists("Lead Sync Source", {"facebook_lead_form": f.name, "enabled": 1}))})
+	return out
+
+
+@frappe.whitelist()
+def use_whatsapp_app(account):
+	"""Use the Meta app of a connected WhatsApp account (its App ID). The App secret is not stored there: it still has to be typed."""
+	_admin()
+	app_id = cstr(frappe.db.get_value("WhatsApp Account", account, "app_id")).strip()
+	if not app_id:
+		frappe.throw(_("This WhatsApp account has no App ID."))
+	frappe.db.set_single_value(SETTINGS, "app_id", app_id)
+	return {"app_id": app_id}
+
+
+@frappe.whitelist()
+def use_whatsapp_token(account):
+	"""Try the access token of a connected WhatsApp account for lead ads. It is only saved when Meta confirms it may read leads."""
+	_admin()
+	token = get_decrypted_password("WhatsApp Account", account, "token", raise_exception=False)
+	if not token:
+		frappe.throw(_("This WhatsApp account has no access token."))
+	try:
+		granted = {p.get("permission") for p in graph("me/permissions", token).get("data", []) if p.get("status") == "granted"}
+	except MetaError as exc:
+		frappe.throw(cstr(exc))
+	missing = [k for k, _label, req in PERMISSIONS if req and k not in granted]
+	if missing:
+		frappe.throw(_("This token cannot be used for lead ads. It lacks: {0}. Make a token for the system user with these permissions (see the setup guide).").format(", ".join(missing)))
+	s = _settings()
+	s.system_token = token
+	s.flags.ignore_permissions = True
+	s.save()
+	return {"saved": True}
+
+
+@frappe.whitelist()
+def import_crm_form(form_id):
+	"""Take over a lead form Frappe CRM's own Facebook sync already knows: its Page token and its question mapping. Frappe's sync of that form is switched off, so leads are not imported twice."""
+	_admin()
+	f = frappe.db.get_value("Facebook Lead Form", {"id": form_id}, ["name", "id", "form_name", "page"], as_dict=True)
+	if not f:
+		frappe.throw(_("This form is not known to Frappe CRM."))
+	if frappe.db.exists(FORM, form_id):
+		frappe.throw(_("This form is already connected."))
+	page = frappe.db.get_value("Facebook Page", f.page, ["id", "page_name", "access_token"], as_dict=True)
+	if not page or not page.access_token:
+		frappe.throw(_("The Page of this form has no access token saved."))
+	qs = frappe.get_all("Facebook Lead Form Question", filters={"parent": f.name}, fields=["key", "label", "type", "mapped_to_crm_field"], limit_page_length=100)
+	questions = [{"key": q.key, "label": q.label or q.key, "type": q.type} for q in qs if q.key]
+	allowed = {c["value"] for c in crm_fields()}
+	fallback = default_mapping(questions)
+	mapping = {q.key: (q.mapped_to_crm_field if q.mapped_to_crm_field in allowed else fallback.get(q.key, "")) for q in qs if q.key}
+	doc = frappe.get_doc({"doctype": FORM, "form_id": f.id, "form_name": f.form_name, "page_id": page.id, "page_name": page.page_name, "page_token": page.access_token, "enabled": 1,
+		"mapping": json.dumps(mapping), "questions": json.dumps(questions)}).insert(ignore_permissions=True)
+	subscribed, note = _subscribe(page.id, page.access_token)
+	doc.db_set("subscribed", 1 if subscribed else 0)
+	switched = 0
+	for src in frappe.get_all("Lead Sync Source", filters={"facebook_lead_form": f.name, "enabled": 1}, pluck="name"):
+		frappe.db.set_value("Lead Sync Source", src, "enabled", 0)
+		switched += 1
+	return {"form_id": doc.form_id, "subscribed": subscribed, "note": note, "frappe_sync_switched_off": switched}

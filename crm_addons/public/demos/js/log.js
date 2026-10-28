@@ -9,8 +9,8 @@
 	const RESULTS = [['', 'All results'], ['Confirmed', 'Booked'], ['Rescheduled', 'Rescheduled'], ['Completed', 'Held'], ['No Show', 'No-show'], ['Cancelled', 'Cancelled'], ['Created', 'New lead'], ['Duplicate', 'Already a lead'], ['Blocked', 'Blocked'], ['Failed', 'Failed']]
 	const LABEL = { Confirmed: 'Booked', Rescheduled: 'Rescheduled', Completed: 'Held', 'No Show': 'No-show', Cancelled: 'Cancelled', Created: 'New lead', Duplicate: 'Already a lead', Blocked: 'Blocked', Failed: 'Failed', Ignored: 'Skipped' }
 	const TONE = { Confirmed: 'green', Rescheduled: 'blue', Completed: 'green', 'No Show': 'red', Cancelled: 'amber', Created: 'green', Duplicate: 'blue', Blocked: 'amber', Failed: 'red', Ignored: 'amber' }
-	const KINDS = [['all', 'All', 'layers'], ['bookings', 'Website bookings', 'calendar'], ['forms', 'Lead forms', 'file'], ['meta', 'Meta ads', 'users']]
-	const TYPE = { booking: ['Website booking', 'calendar', 'blue'], form: ['Lead form', 'file', 'purple'], meta: ['Meta lead ad', 'users', 'indigo'] }
+	const KINDS = [['all', 'All', 'layers'], ['bookings', 'Website bookings', 'calendar'], ['forms', 'Lead forms', 'file'], ['meta', 'Meta ads', 'meta']]
+	const TYPE = { booking: ['Website booking', 'calendar', 'blue'], form: ['Lead form', 'file', 'purple'], meta: ['Meta lead ad', 'meta', 'indigo'] }
 
 	V.ActivityLog = {
 		setup() {

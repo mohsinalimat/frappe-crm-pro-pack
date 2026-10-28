@@ -1,7 +1,7 @@
 /* Suite Pro: Settings, Integrations. The email senders (Gmail, Amazon SES, and what the site already has) and the WhatsApp account in one place.
    Only an administrator sees it. Passwords are typed once and never shown again. */
 (() => {
-	const { ref, reactive, computed, onMounted } = Vue
+	const { ref, reactive, computed, watch, onMounted } = Vue
 	const CM = window.CM
 	const PRO = window.PRO
 	const V = PRO.views
@@ -32,10 +32,24 @@
 
 	V.Integrations = {
 		props: { part: { type: String, default: 'email' } },
-		setup() {
+		setup(props) {
 			const loading = ref(true); const error = ref(''); const d = ref({ email: [], whatsapp: { installed: false, accounts: [] }, regions: [], ses: {}, limits: {} })
 			const dlg = ref(''); const busy = ref(false); const f = reactive({ email_id: '', region: 'ap-south-1', smtp_user: '', smtp_password: '', app_password: '', receive: true, use: false, server: '', port: '587', security: 'TLS', login: '', imap: '', imap_port: '993' })
-			const pw = ref(''); const remove = ref(null); const newPw = ref(null)
+			const pw = ref(''); const remove = ref(null); const newPw = ref(null); const guide = ref('')
+			const SUBS = { email: [['logs', 'Email logs', 'mail'], ['connection', 'Email connection', 'plug']], whatsapp: [['logs', 'WhatsApp logs', 'whatsapp'], ['connection', 'WhatsApp connection', 'plug']] }
+			const sub = ref(CM.store.get('int-sub-' + props.part) === 'connection' ? 'connection' : 'logs'); watch(sub, (v) => { CM.store.set('int-sub-' + props.part, v); if (v === 'logs') (props.part === 'email' ? loadEmail() : loadWa()) })
+			const ESTATES = [['Sent', 'green', 'Sent'], ['Read', 'blue', 'Read'], ['Waiting', 'amber', 'Not sent yet'], ['Bounced', 'red', 'Bounced'], ['Soft bounce', 'amber', 'Soft bounce'], ['Failed', 'red', 'Failed']]
+			const WSTATES = [['Sent', 'green', 'Sent'], ['Delivered', 'blue', 'Delivered'], ['Read', 'blue', 'Read'], ['Waiting', 'amber', 'Waiting'], ['Failed', 'red', 'Failed'], ['Received', '', 'Received']]
+			const el = reactive({ rows: [], total: 0, counts: {}, accounts: [], loading: false, status: '', account: '', q: '', page: 1 }); const wl = reactive({ rows: [], total: 0, counts: {}, accounts: [], loading: false, status: '', account: '', q: '', page: 1 })
+			let tE = null, tW = null, sE = 0, sW = 0
+			async function loadEmail(quiet) { const my = ++sE; if (!quiet) el.loading = true; try { const r = await call('get_email_log', { page: el.page, page_size: 25, status: el.status || undefined, account: el.account || undefined, search: el.q || undefined }); if (my === sE) Object.assign(el, r) } catch (e) { CM.toast(e.message, 'err') } finally { if (my === sE) el.loading = false } }
+			async function loadWa(quiet) { const my = ++sW; if (!quiet) wl.loading = true; try { const r = await call('get_whatsapp_log', { page: wl.page, page_size: 25, status: wl.status || undefined, account: wl.account || undefined, search: wl.q || undefined }); if (my === sW) Object.assign(wl, r) } catch (e) { CM.toast(e.message, 'err') } finally { if (my === sW) wl.loading = false } }
+			watch(() => [el.status, el.account], () => { el.page = 1; loadEmail() }); watch(() => el.page, () => loadEmail()); watch(() => el.q, () => { clearTimeout(tE); tE = setTimeout(() => { el.page = 1; loadEmail() }, 300) })
+			watch(() => [wl.status, wl.account], () => { wl.page = 1; loadWa() }); watch(() => wl.page, () => loadWa()); watch(() => wl.q, () => { clearTimeout(tW); tW = setTimeout(() => { wl.page = 1; loadWa() }, 300) })
+			onMounted(() => { if (sub.value === 'logs') (props.part === 'email' ? loadEmail() : loadWa()) })
+			const retryEmail = async (r) => { working.value = 'e' + r.name; try { await call('retry_email', { queue: r.name }); CM.toast('Queued to send again'); await loadEmail(true) } catch (e) { CM.toast(e.message, 'err') } finally { working.value = '' } }
+			const etone = (s) => ({ Sent: 'green', Read: 'blue', Waiting: 'amber', Bounced: 'red', 'Soft bounce': 'amber', Failed: 'red' }[s] || '')
+			const wtone = (s) => ({ Sent: 'green', Delivered: 'blue', Read: 'blue', Waiting: 'amber', Failed: 'red', Received: '' }[s] || '')
 			const working = ref(''); const res = reactive({}); const wd = ref(''); const wf = reactive({ name: '', account_name: '', phone_id: '', business_id: '', app_id: '', version: 'v21.0', token: '', send: false, recv: false }); const gone = ref(null)
 			async function load() {
 				try { d.value = await call('get_integrations'); error.value = '' } catch (e) { error.value = e.message } finally { loading.value = false }
@@ -103,22 +117,50 @@
 			}
 			async function copy(text) { try { await navigator.clipboard.writeText(text); CM.toast('Copied') } catch (e) { CM.toast('Select the address and copy it', 'err') } }
 			const when = (s) => (s ? CM.fmt(s) : '')
-			return { PROV, prov, pw, remove, newPw, removeAcc, savePw, loading, error, d, dlg, f, busy, working, sending, hasSes, open, add, use, test, copy, NAME, STATS, when, res, testConn, wd, wf, gone, openWa, saveWa, setWa, testWa, disconnect, WSTATS }
+			const leadUrl = n => CM.leadUrl(n)
+			return { leadUrl, guide, SUBS, sub, ESTATES, WSTATES, el, wl, loadEmail, loadWa, retryEmail, etone, wtone, PROV, prov, pw, remove, newPw, removeAcc, savePw, loading, error, d, dlg, f, busy, working, sending, hasSes, open, add, use, test, copy, NAME, STATS, when, res, testConn, wd, wf, gone, openWa, saveWa, setWa, testWa, disconnect, WSTATS }
 		},
 		template: `
 		<div class="page it-page">
 			<ErrorState v-if="error" :message="error" />
 			<div v-else-if="loading" class="card" style="padding:18px"><Skel h="20" /></div>
 			<template v-else>
-				<section v-if="part !== 'whatsapp'" class="card it-card">
+				<div class="row fs-kinds" style="margin-top:6px"><div class="fs-seg" role="tablist" :aria-label="part"><button v-for="t in SUBS[part]" :key="t[0]" type="button" role="tab" :class="{ on: sub === t[0] }" :aria-selected="sub === t[0]" @click="sub = t[0]"><Ico :name="t[2]" size="sm" />{{ t[1] }}</button></div></div>
+				<section v-if="part === 'email' && sub === 'logs'" class="card it-card">
+					<div class="row it-h"><div class="grow"><b class="it-t">Email logs</b><div class="small muted">Every email the CRM sent: whether it went out, was read, bounced or failed, and why.</div></div><Btn icon="refresh" :loading="el.loading" @click="loadEmail()">Refresh</Btn></div>
+					<div class="it-counts"><button v-for="k in ESTATES" :key="k[0]" type="button" class="it-cnt" :class="[k[1], { on: el.status === k[0] }]" @click="el.status = el.status === k[0] ? '' : k[0]"><b>{{ el.counts[k[0]] || 0 }}</b>{{ k[2] }}</button></div>
+					<div class="row wrap" style="gap:10px;margin:12px 0"><div style="width:240px"><Dd v-model="el.account" :options="el.accounts" allow-empty="All accounts" placeholder="All accounts" aria-label="Account" /></div><div class="grow"></div><div style="width:240px"><Inp v-model="el.q" icon="search" placeholder="Search subject, address or lead" clearable aria-label="Search the email log" /></div></div>
+					<Skel v-if="el.loading && !el.rows.length" h="40" />
+					<Empty v-else-if="!el.rows.length" icon="mail" title="No emails" :text="el.status || el.account || el.q ? 'Nothing matches these filters.' : 'Emails the CRM sends will appear here.'" />
+					<div v-else class="table-wrap"><table class="table"><thead><tr><th>When</th><th>To</th><th>Subject</th><th>From</th><th>State</th></tr></thead><tbody>
+						<tr v-for="r in el.rows" :key="r.name"><td class="nowrap">{{ when(r.creation) }}</td><td>{{ r.recipient }}<div v-if="r.reference_name" class="small muted"><a v-if="r.reference_doctype === 'CRM Lead'" class="mono" :href="leadUrl(r.reference_name)">{{ r.reference_name }}</a></div></td>
+							<td class="ellipsis" style="max-width:260px" :title="r.subject">{{ r.subject }}</td><td class="small muted">{{ r.sender }}</td>
+							<td><span class="badge" :class="etone(r.state)">{{ r.state }}</span><div v-if="r.error" class="small it-res bad">{{ r.error.slice(-200) }}</div><Btn v-if="r.state === 'Failed'" size="sm" :loading="working === 'e' + r.name" @click="retryEmail(r)">Send again</Btn></td></tr></tbody></table></div>
+					<Pager v-if="el.rows.length" v-model:page="el.page" :size="25" :total="el.total" />
+				</section>
+				<section v-if="part === 'whatsapp' && sub === 'logs'" class="card it-card">
+					<div class="row it-h"><div class="grow"><b class="it-t">WhatsApp logs</b><div class="small muted">Every WhatsApp message in and out: sent, delivered, read, failed, and the replies you received.</div></div><Btn icon="refresh" :loading="wl.loading" @click="loadWa()">Refresh</Btn></div>
+					<div class="it-counts"><button v-for="k in WSTATES" :key="k[0]" type="button" class="it-cnt" :class="[k[1], { on: wl.status === k[0] }]" @click="wl.status = wl.status === k[0] ? '' : k[0]"><b>{{ wl.counts[k[0]] || 0 }}</b>{{ k[2] }}</button></div>
+					<div class="row wrap" style="gap:10px;margin:12px 0"><div style="width:240px"><Dd v-model="wl.account" :options="wl.accounts" allow-empty="All numbers" placeholder="All numbers" aria-label="Number" /></div><div class="grow"></div><div style="width:240px"><Inp v-model="wl.q" icon="search" placeholder="Search number, template or lead" clearable aria-label="Search the WhatsApp log" /></div></div>
+					<Skel v-if="wl.loading && !wl.rows.length" h="40" />
+					<Empty v-else-if="!wl.rows.length" icon="whatsapp" title="No messages" :text="wl.status || wl.account || wl.q ? 'Nothing matches these filters.' : 'WhatsApp messages will appear here.'" />
+					<div v-else class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Number</th><th>Message</th><th>Lead</th><th>State</th></tr></thead><tbody>
+						<tr v-for="r in wl.rows" :key="r.name"><td class="nowrap">{{ when(r.creation) }}</td><td>{{ r.type === 'Incoming' ? (r.from_number || r.profile_name) : r.to_number }}<div class="small muted">{{ r.type === 'Incoming' ? 'Received' : 'Sent' }}<template v-if="r.profile_name && r.type === 'Incoming'"> · {{ r.profile_name }}</template></div></td>
+							<td class="ellipsis" style="max-width:300px" :title="r.message"><span v-if="r.template" class="badge">{{ r.template }}</span> {{ r.message }}</td>
+							<td><a v-if="r.reference_doctype === 'CRM Lead'" class="mono small" :href="leadUrl(r.reference_name)">{{ r.reference_name }}</a></td>
+							<td><span class="badge" :class="wtone(r.state)">{{ r.state }}</span><div v-if="r.state === 'Failed'" class="small it-res bad">Meta did not deliver it. The reason is in Meta's WhatsApp Manager under the message.</div></td></tr></tbody></table></div>
+					<Pager v-if="wl.rows.length" v-model:page="wl.page" :size="25" :total="wl.total" />
+				</section>
+
+				<section v-if="part === 'email' && sub === 'connection'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">Email</b><div class="small muted">Every email the CRM sends (campaigns, lead emails, notifications) goes out from the account marked <b>Sending</b>. Only an administrator can change it.</div></div>
-						<Btn variant="primary" icon="plus" @click="open('pick')">Add email account</Btn></div>
+						<Btn icon="file" @click="guide = 'email'">Setup guide</Btn><Btn variant="primary" icon="plus" @click="open('pick')">Add email account</Btn></div>
 					<Empty v-if="!d.email.length" icon="mail" title="No email account yet" text="Add Gmail, Amazon SES, Outlook, SendGrid or any SMTP server to start sending." />
 					<div v-for="a in d.email" :key="a.name" class="it-acc" :class="{ on: a.sending }">
 						<BrandIcon :name="a.kind" />
 						<div class="it-main">
 							<div class="row" style="gap:8px;flex-wrap:wrap"><b>{{ NAME[a.kind] }}</b><span class="muted">{{ a.email_id }}</span>
-								<span v-if="a.sending" class="badge green">Sending</span><span v-if="!a.outgoing" class="badge">Receives only</span><span v-if="a.incoming" class="badge blue">Receives replies</span><span v-if="a.region" class="badge">{{ a.region }}</span><span v-if="a.needs_password" class="badge amber">Password needed</span></div>
+								<span v-if="a.sending" class="badge green">Sending</span><span v-if="!a.outgoing" class="badge">Receives only</span><span v-if="a.incoming" class="badge blue">Receives replies</span><span v-if="a.region" class="badge">{{ a.region }}</span><button v-if="a.kind === 'ses'" type="button" class="badge it-chip" :class="d.ses.last_event ? 'green' : 'amber'" title="Delivery tracking" @click="guide = 'ses'">{{ d.ses.last_event ? 'Delivery tracking on' : 'Set up delivery tracking' }}</button><span v-if="a.needs_password" class="badge amber">Password needed</span></div>
 							<div class="it-stats"><span v-for="s in STATS" :key="s[0]" class="it-s" :class="s[2]"><b>{{ a.stats[s[0]] }}</b>{{ s[1] }}</span><span class="small faint">last 30 days</span></div>
 							<div v-if="res[a.name]" class="small it-res" :class="res[a.name].ok ? 'ok' : 'bad'" role="status"><Ico :name="res[a.name].ok ? 'check-circle' : 'x-circle'" size="sm" /> {{ res[a.name].message }}</div>
 							<div v-if="a.sending && a.kind === 'gmail'" class="small it-warn"><Ico name="alert" size="sm" /> Gmail stops after about {{ d.limits.gmail }} emails a day. For bigger campaigns connect Amazon SES and switch sending to it.</div>
@@ -126,24 +168,10 @@
 						<div class="it-act"><Btn v-if="a.outgoing && !a.sending" size="sm" :loading="working === a.name" @click="use(a)">Use for sending</Btn><Btn size="sm" variant="ghost" icon="check-circle" :loading="working === 'c' + a.name" @click="testConn(a)">Test connection</Btn><Btn v-if="a.outgoing" size="sm" variant="ghost" icon="send" :loading="working === 't' + a.name" @click="test(a)">Send test email</Btn><Btn size="sm" variant="ghost" icon="edit" @click="newPw = a; pw = ''">New password</Btn><Btn v-if="!a.sending" size="sm" variant="ghost" icon="trash" @click="remove = a">Remove</Btn></div>
 					</div>
 				</section>
-
-				<section v-if="part !== 'whatsapp'" class="card it-card">
-					<div class="row it-h"><div class="grow"><b class="it-t">Amazon SES delivery tracking</b><div class="small muted">SES tells the CRM what happened to each email: delivered, bounced or marked as spam. Bounced and spam addresses are kept off future campaigns.</div></div>
-						<span class="badge" :class="d.ses.subscribed ? 'green' : 'amber'">{{ d.ses.subscribed ? 'Connected' : 'Not connected yet' }}</span></div>
-					<ol class="it-steps">
-						<li>In the AWS console open <b>Amazon SNS</b>, create a <b>Standard</b> topic (for example <i>crm-email-events</i>).</li>
-						<li>On that topic choose <b>Create subscription</b>, protocol <b>HTTPS</b>, and paste this address. It confirms itself.</li>
-						<li>In <b>Amazon SES</b> open your verified domain or address, then <b>Notifications</b>, and pick that topic for <b>Bounces</b>, <b>Complaints</b> and <b>Deliveries</b>.</li>
-					</ol>
-					<div class="row it-url"><code class="grow">{{ d.ses.webhook_url }}</code><Btn size="sm" icon="copy" @click="copy(d.ses.webhook_url)">Copy</Btn></div>
-					<div class="small muted" style="margin-top:8px">{{ d.ses.last_event ? 'Last report from SES: ' + when(d.ses.last_event) : 'No report from SES yet.' }} Anyone with this address cannot change anything without Amazon's signature.</div>
-					<div class="small muted" style="margin-top:4px">New SES accounts can only send to verified addresses until Amazon moves them out of the <b>sandbox</b>; request production access in the SES console. Read and not-read counts come from the CRM's own tracking and work with every provider.</div>
-				</section>
-
 				<template v-if="part === 'whatsapp'">
-					<section class="card it-card">
+					<section v-if="part === 'whatsapp' && sub === 'connection'" class="card it-card">
 						<div class="row it-h"><div class="grow"><b class="it-t">WhatsApp numbers</b><div class="small muted">The WhatsApp Business numbers the CRM sends from. One number sends all messages and one receives replies; only an administrator can change that. To use a different number, connect it here, make it the sending number, then disconnect the old one.</div></div>
-							<Btn v-if="d.whatsapp.installed" variant="primary" icon="plus" @click="openWa(null)">Connect a number</Btn></div>
+							<Btn icon="file" @click="guide = 'whatsapp'">Setup guide</Btn><Btn v-if="d.whatsapp.installed" variant="primary" icon="plus" @click="openWa(null)">Connect a number</Btn></div>
 						<div v-if="!d.whatsapp.installed" class="small muted">WhatsApp is not installed on this site.</div>
 						<Empty v-else-if="!d.whatsapp.accounts.length" icon="whatsapp" title="No WhatsApp number connected" text="Connect a number from your Meta WhatsApp Business account to send and receive WhatsApp messages." />
 						<div v-for="w in d.whatsapp.accounts" :key="w.name" class="it-acc" :class="{ on: w.sending }">
@@ -164,20 +192,34 @@
 							</div>
 						</div>
 					</section>
-					<section v-if="d.whatsapp.installed" class="card it-card">
-						<div class="row it-h"><div class="grow"><b class="it-t">Where to find the details</b><div class="small muted">All of these are in your Meta account. Nothing here creates anything at Meta.</div></div></div>
-						<ol class="it-steps">
-							<li>Open <b>developers.facebook.com</b>, your app, then <b>WhatsApp</b> and <b>API Setup</b>. Copy the <b>Phone number ID</b> and the <b>WhatsApp Business Account ID</b>. The <b>App ID</b> is under App settings, Basic.</li>
-							<li>For the <b>access token</b> use a permanent one: in Business Settings create a <b>System user</b>, give it the app and the permissions <i>whatsapp_business_messaging</i> and <i>whatsapp_business_management</i>, then generate the token. The temporary token on API Setup stops working after a day.</li>
-							<li>To receive replies and delivery updates, open <b>WhatsApp, Configuration</b> in the same app. Paste the callback address and verify token below, verify, and subscribe to <b>messages</b>.</li>
-						</ol>
-						<div class="it-kv"><span>Callback address</span><b class="it-code">{{ d.whatsapp.webhook_url }} <Btn size="sm" variant="ghost" icon="copy" @click="copy(d.whatsapp.webhook_url)">Copy</Btn></b>
-							<template v-for="w in d.whatsapp.accounts" :key="w.name"><span>Verify token ({{ w.title }})</span><b class="it-code">{{ w.verify_token }} <Btn size="sm" variant="ghost" icon="copy" @click="copy(w.verify_token)">Copy</Btn></b></template></div>
-						<div class="small muted" style="margin-top:10px">Message templates belong to the Meta business account. If you move to a number in a different business account, create and get approval for the templates there; campaigns can only use approved templates.</div>
-					</section>
 				</template>
 			</template>
 
+			<Modal v-if="guide === 'email'" size="xl" title="Connect an email provider: where to find the details" subtitle="Everything below is done in the provider's own settings." @close="guide = ''">
+				<div class="mt-guide">
+					<section><h3>Gmail</h3><ul><li>Turn on <b>2-Step Verification</b>, then create an <b>App password</b> (Google Account, Security). Use that 16-letter password here, not your normal one.</li><li>Gmail stops after about {{ d.limits.gmail }} emails a day.</li></ul><a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" class="btn sm">Open App passwords</a></section>
+					<section><h3>Amazon SES</h3><ul><li>Open <b>Amazon SES</b> in the AWS console, then <b>Verified identities</b> and verify your domain or sending address. Ask AWS to move the account out of the <b>sandbox</b>, otherwise it only sends to verified addresses.</li><li>Open <b>SMTP settings</b>, choose <b>Create SMTP credentials</b>. The SMTP user name and password are different from your AWS access keys. Note the region.</li></ul><a href="https://console.aws.amazon.com/ses/home#/smtp" target="_blank" rel="noopener noreferrer" class="btn sm">Open SES SMTP settings</a></section>
+					<section><h3>Outlook, Microsoft 365, Yahoo, Yandex</h3><ul><li>Create an <b>app password</b> in the account's security settings and use it here. For Microsoft 365 your administrator must allow SMTP sign-in for the mailbox.</li></ul></section>
+					<section><h3>SendGrid and SparkPost</h3><ul><li>Create an <b>API key</b> that may send mail and paste it as the password. The user name (apikey, SMTP_Injection) is filled in for you.</li></ul></section>
+					<section><h3>Any other server</h3><ul><li>Ask your mail host for the SMTP server, port, security type and user name. For receiving replies you also need the IMAP server.</li></ul></section>
+					<section><h3>Delivery tracking</h3><ul><li>Bounces, spam complaints and delivered reports come from <button type="button" class="linkish" @click="guide = 'ses'">Amazon SES delivery tracking</button>. Read and not-read need nothing: the CRM's own tracking works with every provider.</li></ul></section>
+				</div><template #foot><Btn variant="primary" @click="guide = ''">Close</Btn></template>
+			</Modal>
+			<Modal v-if="guide === 'ses'" size="lg" title="Amazon SES delivery tracking" subtitle="SES tells the CRM what happened to each email. Bounced and spam addresses are kept off future campaigns." @close="guide = ''">
+				<div class="row" style="gap:8px;margin-bottom:10px"><span class="badge" :class="d.ses.subscribed ? 'green' : 'amber'">{{ d.ses.subscribed ? 'Connected' : 'Not connected yet' }}</span><span class="small muted">{{ d.ses.last_event ? 'Last report from SES: ' + when(d.ses.last_event) : 'No report from SES yet. This page checks again whenever you open it.' }}</span></div>
+				<div class="mt-guide"><section><h3>Set it up once</h3><ul><li>In the AWS console open <b>Amazon SNS</b> and create a <b>Standard</b> topic (for example <i>crm-email-events</i>).</li><li>On that topic choose <b>Create subscription</b>, protocol <b>HTTPS</b>, and paste the address below. It confirms itself.</li><li>In <b>Amazon SES</b> open your verified domain or address, then <b>Notifications</b>, and pick that topic for <b>Bounces</b>, <b>Complaints</b> and <b>Deliveries</b>.</li></ul>
+					<div class="row it-url"><code class="grow">{{ d.ses.webhook_url }}</code><Btn size="sm" icon="copy" @click="copy(d.ses.webhook_url)">Copy</Btn></div><div class="small muted" style="margin-top:8px">Nobody can change anything with this address without Amazon's signature.</div></section></div>
+				<template #foot><Btn variant="primary" @click="guide = ''">Close</Btn></template>
+			</Modal>
+			<Modal v-if="guide === 'whatsapp'" size="lg" title="Connect WhatsApp: where to find the details" subtitle="All of these are in your Meta account. Nothing here creates anything at Meta." @close="guide = ''">
+				<div class="mt-guide"><section><h3>The three IDs</h3><ul><li>Open <b>developers.facebook.com</b>, your app, then <b>WhatsApp</b> and <b>API Setup</b>. Copy the <b>Phone number ID</b> and the <b>WhatsApp Business Account ID</b>. The <b>App ID</b> is under App settings, Basic.</li></ul></section>
+					<section><h3>The access token</h3><ul><li>Use a permanent one: in Business Settings create a <b>System user</b>, give it the app, and the permissions <i>whatsapp_business_messaging</i> and <i>whatsapp_business_management</i>, then generate the token. The temporary token on API Setup stops working after a day.</li></ul></section>
+					<section><h3>Receive replies and delivery updates</h3><ul><li>Open <b>WhatsApp, Configuration</b> in the same app. Paste the callback address and verify token below, verify, and subscribe to <b>messages</b>.</li></ul>
+						<div class="it-kv"><span>Callback address</span><b class="it-code">{{ d.whatsapp.webhook_url }} <Btn size="sm" variant="ghost" icon="copy" @click="copy(d.whatsapp.webhook_url)">Copy</Btn></b>
+							<template v-for="w in d.whatsapp.accounts" :key="w.name"><span>Verify token ({{ w.title }})</span><b class="it-code">{{ w.verify_token }} <Btn size="sm" variant="ghost" icon="copy" @click="copy(w.verify_token)">Copy</Btn></b></template></div></section>
+					<section><h3>Templates</h3><ul><li>Message templates belong to the Meta business account. If you move to a number in a different business account, create and get approval for the templates there; campaigns can only use approved templates.</li></ul></section></div>
+				<template #foot><Btn variant="primary" @click="guide = ''">Close</Btn></template>
+			</Modal>
 			<Modal v-if="dlg === 'pick'" size="lg" title="Add an email account" subtitle="Choose where your email is sent from." @close="dlg = ''">
 				<div class="it-pick"><button v-for="p in PROV" :key="p.key" type="button" class="it-pk" @click="open(p.key)"><BrandIcon :name="p.key" :size="42" /><span><b>{{ p.key === 'smtp' ? 'Other SMTP server' : NAME[p.key] }}</b><span class="small muted">{{ p.blurb }}</span></span></button></div>
 			</Modal>
