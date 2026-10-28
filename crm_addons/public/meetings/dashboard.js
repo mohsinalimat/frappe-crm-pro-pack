@@ -740,7 +740,7 @@
 <div class="dash">
 	<div class="progress" v-if="loading || nurLoading"></div>
 	<header class="dash-bar">
-		<div class="dash-brand"><span class="brand-ico"><ico name="chart" size="lg" /></span><div><h1>Sales Dashboard</h1><div class="sub">{{ subtitle }}</div></div></div>
+		<div class="dash-brand"><span class="brand-ico"><ico name="chart" size="lg" /></span><div><h1>Sales Dashboard</h1></div></div>
 		<div class="seg dash-tabs" role="tablist" aria-label="Dashboard" v-if="nurturingOn">
 			<button role="tab" :aria-selected="view === 'sales'" :class="{ on: view === 'sales' }" @click="setView('sales')">Sales</button>
 			<button role="tab" :aria-selected="view === 'nurturing'" :class="{ on: view === 'nurturing' }" @click="setView('nurturing')">Campaigns</button>
