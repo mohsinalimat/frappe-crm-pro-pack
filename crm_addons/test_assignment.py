@@ -129,6 +129,13 @@ class TestAssignment(FrappeTestCase):
 		self.assertEqual(sum(1 for n in names if self.owner(n) == self.b), 3)
 		self.assertEqual(sum(1 for n in names if self.owner(n) == src), 1)
 
+	def test_the_count_is_shown_before_anyone_is_chosen(self):
+		lead("Pre1")
+		pre = asg.preview_manual({"conditions": [["first_name", "=", "Pre1"]], "assignees": []})
+		self.assertEqual(pre["count"], 1)
+		with self.assertRaises(frappe.ValidationError):
+			asg.assign_manual({"conditions": [["first_name", "=", "Pre1"]], "assignees": []})
+
 	def test_only_a_system_manager_can_use_it(self):
 		frappe.set_user(self.a)
 		for fn, args in ((asg.list_rules, ()), (asg.list_people, ()), (asg.list_log, ()), (asg.transfer, ([self.a], [self.b], "Round robin"))):

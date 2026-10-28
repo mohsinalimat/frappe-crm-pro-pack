@@ -590,14 +590,14 @@ def _plan(names, people, counts):
 	return list(plan), plan
 
 
-def _manual_args(data):
+def _manual_args(data, need_people=True):
 	data = _json(data, {})
 	conditions, mode = _definition(data)
 	people = _enabled_users(_clean_users(data.get("assignees")))
-	if not people:
+	if not people and need_people:
 		frappe.throw(_("Choose at least one person."))
 	dist = data.get("distribution")
-	if dist not in MODES:
+	if dist not in MODES and need_people:
 		frappe.throw(_("Choose how the people share the leads."))
 	scope = data.get("scope") if data.get("scope") in SCOPES else "unassigned"
 	return conditions, mode, people, dist, scope
@@ -606,7 +606,7 @@ def _manual_args(data):
 @frappe.whitelist()
 def preview_manual(data):
 	_move()
-	conditions, mode, people, _dist, scope = _manual_args(data)
+	conditions, mode, people, _dist, scope = _manual_args(data, need_people=False)  # the count is shown before anyone is chosen
 	names = _my_leads(_targets(conditions, mode, scope))
 	total = len(names)
 	d = _json(data, {})

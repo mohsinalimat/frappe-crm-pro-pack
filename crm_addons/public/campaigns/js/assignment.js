@@ -246,7 +246,8 @@
 		setup(props, { emit }) {
 			const m = reactive({ rules: [], match_mode: 'All conditions', assignees: [], distribution: 'Round robin', takeOver: false })
 			const amt = newAmount(); const pre = ref(null); const busy = ref(false)
-			const ok = computed(() => ready(m.rules) && m.assignees.length)
+			const ok = computed(() => ready(m.rules))
+			const canGive = computed(() => ok.value && m.assignees.length)
 			const data = () => ({ conditions: A.rulesToJson(m.rules), match_mode: m.match_mode, assignees: m.assignees, distribution: m.distribution, scope: m.takeOver ? 'all' : 'unassigned', limit: amountLimit(amt), counts: amountCounts(amt, m.assignees) })
 			const count = CM.debounce(async () => { if (!ok.value) { pre.value = null; return } try { pre.value = await CM.apiA('preview_manual', { data: data() }) } catch (e) { pre.value = null } }, 500)
 			watch(() => [JSON.stringify(m.rules), m.match_mode, m.assignees.join(), m.takeOver, amountKey(amt)], count)
@@ -257,7 +258,7 @@
 			}
 			const avail = computed(() => (pre.value ? (pre.value.available ?? pre.value.count) : null))
 			const over = computed(() => amt.mode === 'each' && m.assignees.length > 1 && pre.value && eachTotal(amt, m.assignees) > avail.value)
-			return { m, amt, pre, avail, over, busy, ok, go, plural, join, sample, CM }
+			return { m, amt, pre, avail, over, canGive, busy, ok, go, plural, join, sample, CM }
 		},
 		template: `
 		<div class="mv">
@@ -274,9 +275,8 @@
 					<div v-if="amt.mode !== 'each' || m.assignees.length < 2" style="margin-top:12px"><AmountField :amount="amt" :available="avail" noun="matching leads" /></div>
 					<p class="small muted" style="margin:12px 0 0">{{ m.takeOver ? 'Leads that already have an owner move to the new people.' : 'Leads that already have an owner stay with them.' }}</p>
 					<div v-if="over" class="alert err" style="margin-top:10px"><Ico name="alert" /><div class="grow">More leads are given out than there are.</div></div>
-					<div v-if="pre" v-html="sample(pre.sample)" style="margin-top:12px"></div>
 				</section>
-				<Btn variant="primary" icon="users" class="mv-go" :loading="busy" :disabled="!pre || !pre.count || over" @click="go">Assign {{ pre ? plural(pre.count, 'lead') : '0 leads' }}</Btn>
+				<Btn variant="primary" icon="users" class="mv-go" :loading="busy" :disabled="!canGive || !pre || !pre.count || over" @click="go">Assign {{ pre ? plural(pre.count, 'lead') : '0 leads' }}</Btn>
 			</aside>
 		</div>`,
 	}
