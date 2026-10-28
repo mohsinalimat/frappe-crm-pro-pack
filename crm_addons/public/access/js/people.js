@@ -242,7 +242,7 @@
 			<div v-if="d.loaded && !d.hierarchy.available" class="alert warn"><Ico name="info" /><div class="grow"><b>This CRM has no Sales Hierarchy.</b> "My team" then means just the person themselves. Newer Frappe CRM versions have the hierarchy in Settings, under User Management.</div></div>
 			<div v-else-if="d.loaded && !d.hierarchy.enabled" class="alert info"><Ico name="info" /><div class="grow"><b>The Sales Hierarchy is switched off in CRM.</b> "My team" still follows the tree ({{ d.hierarchy.people }} people in it); CRM itself only uses it for leads once you switch it on in Settings.</div></div>
 			<div class="row wrap" style="gap:10px">
-				<HdrSlot><div style="width:300px"><Inp v-model="q" icon="search" placeholder="Search people" clearable aria-label="Search people" /></div></HdrSlot>
+				<div style="width:300px"><Inp v-model="q" icon="search" placeholder="Search people" clearable aria-label="Search people" /></div>
 				<Seg v-model="filter" :options="[{ value: 'all', label: 'All (' + counts.all + ')' }, { value: 'custom', label: 'Customised (' + counts.custom + ')' }, { value: 'default', label: 'Role default (' + counts.default + ')' }, ...(counts.inactive ? [{ value: 'inactive', label: 'Inactive (' + counts.inactive + ')' }] : [])]" />
 			</div>
 			<div v-if="!d.loaded && !d.error" class="col" style="gap:10px"><Skel h="56" r="10" v-for="n in 6" :key="n" /></div>

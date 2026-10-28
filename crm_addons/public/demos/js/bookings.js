@@ -196,12 +196,13 @@
 		template: `
 		<div class="page wide">
 			<div class="pg-head"><div class="grow"><h1>Bookings</h1><p>Everyone who booked, where they came from, and how it went.</p></div><div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
+			<HdrSlot><LayoutSwitch v-model="layout" /></HdrSlot>
 			<div class="row wrap tools">
 				<div class="chips" role="group" aria-label="Status"><button v-for="c in chips" :key="c[0]" type="button" class="fchip" :class="{ on: status === c[0] }" :aria-pressed="status === c[0]" @click="status = c[0]">{{ c[1] }}</button></div>
 				<div class="grow"></div>
 				<div style="width:200px"><Dd v-model="demoType" :options="typeOpts" allow-empty="All widgets" placeholder="All widgets" aria-label="Widget" size="sm" /></div>
 				<div style="width:180px"><Dd v-model="owner" :options="ownerOpts" allow-empty="All hosts" placeholder="All hosts" aria-label="Host" size="sm" /></div>
-				<HdrSlot><div style="width:min(260px,100%)"><Inp v-model="q" icon="search" placeholder="Search name, email or phone" clearable aria-label="Search bookings" /></div><LayoutSwitch v-model="layout" /></HdrSlot>
+				<div style="width:min(260px,100%)"><Inp v-model="q" icon="search" placeholder="Search name, email or phone" clearable aria-label="Search bookings" /></div>
 			</div>
 			<template v-if="loading"><div class="card"><div v-for="n in 6" :key="n" style="padding:14px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div></template>
 			<ErrorState v-else-if="error" :message="error" @retry="load()" />

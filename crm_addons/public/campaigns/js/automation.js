@@ -55,7 +55,7 @@
 		template: `
 		<div class="page">
 			<div class="pg-head"><div class="grow"><h1>Automations</h1><p>Do things for you when something happens to a lead: send messages, change a status, create a follow-up. Each lead goes through an automation once.</p></div><div v-if="canManage" class="actions"><Btn variant="primary" icon="plus" @click="go('/automations/new')">Create automation</Btn></div></div>
-			<div v-if="rows.length || q" class="row wrap tool"><HdrSlot><div style="width:280px;max-width:100%"><Inp v-model="q" icon="search" placeholder="Search automations" clearable aria-label="Search automations" /></div></HdrSlot></div>
+			<div v-if="rows.length || q" class="row wrap tool"><div style="width:280px;max-width:100%"><Inp v-model="q" icon="search" placeholder="Search automations" clearable aria-label="Search automations" /></div></div>
 			<div v-if="loading" class="card pad col"><Skel v-for="n in 3" :key="n" h="64" /></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<template v-else-if="!rows.length && !q">

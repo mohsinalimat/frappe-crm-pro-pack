@@ -136,7 +136,7 @@
 			<div v-if="data && !data.installed"><Empty icon="whatsapp" title="WhatsApp is not set up" text="The frappe_whatsapp app is not installed on this site, so there are no WhatsApp templates. Email campaigns work without it." /></div>
 			<template v-else>
 				<div class="row wrap tool">
-					<HdrSlot><div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search templates" clearable aria-label="Search templates" /></div></HdrSlot>
+					<div style="width:300px;max-width:100%"><Inp v-model="q.search" icon="search" placeholder="Search templates" clearable aria-label="Search templates" /></div>
  					<div class="chips"><button v-for="p in ['', 'System']" :key="p" type="button" class="fchip" :class="{ on: q.purpose === p }" :aria-pressed="q.purpose === p" @click="q.purpose = p">{{ p || 'All' }} <span class="n">{{ purposeCount(p) }}</span></button></div>
 					<div style="width:180px"><Dd v-model="q.category" :options="cats" placeholder="All categories" allow-empty="All categories" size="sm" /></div>
 					<div class="chips"><button v-for="s in STATUSES" :key="s[0]" type="button" class="fchip" :class="{ on: q.status === s[0] }" @click="q.status = s[0]">{{ s[1] }} <span class="n">{{ count(s[0]) }}</span></button></div>
