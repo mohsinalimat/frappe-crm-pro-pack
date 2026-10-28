@@ -52,6 +52,10 @@
 			watch(() => cl.status, () => { cl.page = 1; loadCal() }); watch(() => cl.page, () => loadCal()); watch(() => cl.q, () => { clearTimeout(tC); tC = setTimeout(() => { cl.page = 1; loadCal() }, 300) })
 			const retryMeeting = async (r) => { working.value = 'm' + r.name; try { const o = await call('retry_meeting', { name: r.name }); if (o.status === 'Synced') CM.toast('Synced to the calendar'); else CM.toast(o.error || 'Still not synced', 'err'); await loadCal(true) } catch (e) { CM.toast(e.message, 'err') } finally { working.value = '' } }
 			async function testCal() { cTest.value = { busy: true }; try { cTest.value = await CM.call('crm_addons.api.test_google_connection') } catch (e) { cTest.value = { ok: false, message: e.message } } }
+			const gf = reactive({ client_id: '', client_secret: '', calendar_name: 'CRM Meetings', show: false }); const gdisc = ref(false)
+			async function connectGoogle() { busy.value = true; try { const r = await call('connect_google', { client_id: gf.client_id, client_secret: gf.client_secret, calendar_name: gf.calendar_name }); window.location.href = r.url } catch (e) { CM.toast(e.message, 'err'); busy.value = false } }
+			async function disconnectGoogle() { busy.value = true; try { await call('disconnect_google'); CM.toast('Google Calendar disconnected'); gdisc.value = false; cTest.value = null; await loadCal(true) } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false } }
+			watch(cal, (c, old) => { if (c && !old) { gf.client_id = c.client_id || ''; if (c.result) { if (c.result === 'ok') CM.toast('Google Calendar connected'); else CM.toast(c.result, 'err'); sub.value = 'connection' } } })
 			const ctone = (s) => ({ Synced: 'green', Failed: 'red', 'Not synced': 'amber' }[s] || '')
 			onMounted(() => { if (sub.value === 'logs') loadLogs(); if (props.part === 'calendar') loadCal() })
 			const retryEmail = async (r) => { working.value = 'e' + r.name; try { await call('retry_email', { queue: r.name }); CM.toast('Queued to send again'); await loadEmail(true) } catch (e) { CM.toast(e.message, 'err') } finally { working.value = '' } }
@@ -125,7 +129,7 @@
 			async function copy(text) { try { await navigator.clipboard.writeText(text); CM.toast('Copied') } catch (e) { CM.toast('Select the address and copy it', 'err') } }
 			const when = (s) => (s ? CM.fmt(s) : '')
 			const leadUrl = n => CM.leadUrl(n)
-			return { cal, cl, loadCal, retryMeeting, testCal, cTest, ctone, leadUrl, guide, SUBS, sub, ESTATES, WSTATES, el, wl, loadEmail, loadWa, retryEmail, etone, wtone, PROV, prov, pw, remove, newPw, removeAcc, savePw, loading, error, d, dlg, f, busy, working, sending, hasSes, open, add, use, test, copy, NAME, STATS, when, res, testConn, wd, wf, gone, openWa, saveWa, setWa, testWa, disconnect, WSTATS }
+			return { gf, gdisc, connectGoogle, disconnectGoogle, cal, cl, loadCal, retryMeeting, testCal, cTest, ctone, leadUrl, guide, SUBS, sub, ESTATES, WSTATES, el, wl, loadEmail, loadWa, retryEmail, etone, wtone, PROV, prov, pw, remove, newPw, removeAcc, savePw, loading, error, d, dlg, f, busy, working, sending, hasSes, open, add, use, test, copy, NAME, STATS, when, res, testConn, wd, wf, gone, openWa, saveWa, setWa, testWa, disconnect, WSTATS }
 		},
 		template: `
 		<div class="page it-page">
@@ -173,11 +177,19 @@
 				</section>
 				<section v-if="part === 'calendar' && sub === 'connection'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">Google Calendar and Google Meet</b><div class="small muted">Meetings are created on one company calendar with a Meet link, so sales users never log in to Google.</div></div>
-						<Btn icon="file" @click="guide = 'calendar'">Setup guide</Btn><Btn icon="check" :loading="cTest && cTest.busy" @click="testCal">Test connection</Btn><a class="btn" href="#/settings/meetings">Change settings</a></div>
+						<Btn icon="file" @click="guide = 'calendar'">Setup guide</Btn><Btn v-if="cal && cal.ready" icon="check" :loading="cTest && cTest.busy" @click="testCal">Test connection</Btn><Btn v-if="cal && cal.ready" variant="danger" icon="trash" @click="gdisc = true">Disconnect</Btn></div>
 					<div v-if="cTest && cTest.message" class="it-res" :class="cTest.ok ? 'ok' : 'bad'" style="margin-bottom:10px">{{ cTest.message }}</div>
 					<Skel v-if="!cal" h="40" />
 					<template v-else>
 						<div class="it-acc" :class="{ on: cal.ready }"><span class="it-ic"><Ico name="calendar" /></span><div class="grow"><b>{{ cal.ready ? 'Connected' : 'Not connected' }}</b><div class="small muted">{{ cal.message }}</div></div><span class="badge" :class="cal.ready ? 'green' : 'amber'">{{ cal.ready ? 'Ready' : 'Needs setup' }}</span></div>
+						<div v-if="!cal.ready || gf.show" class="it-acc" style="display:block">
+							<b>{{ cal.ready ? 'Sign in with Google again' : 'Connect Google' }}</b><div class="small muted" style="margin:2px 0 10px">Paste the OAuth client from Google Cloud (the Setup guide shows where), then sign in with the Google account that should own the calendar. Meetings are created on a calendar named below.</div>
+							<div class="row wrap" style="gap:12px"><Field label="Client ID" class="grow"><Inp v-model="gf.client_id" placeholder="xxxx.apps.googleusercontent.com" /></Field><Field label="Client secret" class="grow"><Inp v-model="gf.client_secret" type="password" :placeholder="cal.has_secret ? 'Saved. Leave empty to keep it.' : 'GOCSPX-...'" /></Field></div>
+							<Field label="Calendar name" hint="Created in Google Calendar if it does not exist."><Inp v-model="gf.calendar_name" /></Field>
+							<div class="small muted" style="margin:8px 0">Add this as an Authorized redirect URI in Google Cloud first: <b class="it-code">{{ cal.redirect_uri }}</b> <Btn size="sm" variant="ghost" icon="copy" @click="copy(cal.redirect_uri)">Copy</Btn></div>
+							<Btn variant="primary" icon="calendar" :loading="busy" @click="connectGoogle">Connect with Google</Btn>
+						</div>
+						<div v-else style="margin:10px 0"><Btn icon="refresh" @click="gf.show = true">Sign in with Google again</Btn></div>
 						<div class="it-kv" style="margin:12px 0"><span>Meeting provider</span><b>{{ cal.provider }}</b><span>Google Settings</span><b>{{ cal.google_enabled ? 'On' : 'Off' }}, {{ cal.has_client ? 'client ID and secret saved' : 'client ID and secret missing' }}</b><span>Company calendar</span><b>{{ cal.company || 'Not chosen' }}</b><span>Personal calendars</span><b>{{ cal.personal ? 'Used when a person has one' : 'Not used' }}</b></div>
 						<Empty v-if="!cal.calendars.length" icon="calendar" title="No Google Calendar yet" text="Open the Setup guide to connect one." />
 						<div v-for="c in cal.calendars" :key="c.name" class="it-acc" :class="{ on: c.company }"><span class="it-ic"><Ico name="calendar" /></span><div class="grow"><b>{{ c.name }}</b><div class="small muted">{{ c.user || 'Company' }} {{ c.google_calendar_id ? '· ' + c.google_calendar_id : '' }}</div></div><span v-if="c.company" class="badge blue">Company calendar</span><span class="badge" :class="c.usable ? 'green' : 'amber'">{{ c.usable ? 'Can create events' : 'Not authorised' }}</span></div>
@@ -243,11 +255,12 @@
 					<div class="row it-url"><code class="grow">{{ d.ses.webhook_url }}</code><Btn size="sm" icon="copy" @click="copy(d.ses.webhook_url)">Copy</Btn></div><div class="small muted" style="margin-top:8px">Nobody can change anything with this address without Amazon's signature.</div></section></div>
 				<template #foot><Btn variant="primary" @click="guide = ''">Close</Btn></template>
 			</Modal>
+			<Modal v-if="gdisc" size="sm" title="Disconnect Google Calendar?" subtitle="New meetings will not be added to Google Calendar until you connect again. Existing meetings and their Google events stay." @close="gdisc = false"><template #foot><Btn @click="gdisc = false">Keep it</Btn><Btn variant="danger" :loading="busy" @click="disconnectGoogle">Disconnect</Btn></template></Modal>
 			<Modal v-if="guide === 'calendar'" size="lg" title="Connect Google Calendar and Meet: where to find the details" subtitle="Done once by an administrator. Nothing here creates anything at Google except the sign-in you approve." @close="guide = ''">
 				<div class="mt-guide" v-if="cal"><section><h3>1. Google Cloud project</h3><ul><li>Open <b>console.cloud.google.com</b>, create or pick a project, and turn on the <b>Google Calendar API</b> under APIs and services, Library.</li></ul></section>
 					<section><h3>2. OAuth client</h3><ul><li>Under APIs and services, Credentials, create an <b>OAuth client ID</b> of type <i>Web application</i>. Add this as an <b>Authorized redirect URI</b>:</li></ul>
 						<div class="it-kv"><span>Redirect address</span><b class="it-code">{{ cal.redirect_uri }} <Btn size="sm" variant="ghost" icon="copy" @click="copy(cal.redirect_uri)">Copy</Btn></b><span>Site address</span><b class="it-code">{{ cal.site_url }} <Btn size="sm" variant="ghost" icon="copy" @click="copy(cal.site_url)">Copy</Btn></b></div></section>
-					<section><h3>3. Save it in the CRM</h3><ul><li>Open Google Settings, turn it on and paste the <b>Client ID</b> and <b>Client Secret</b>. Then create a <b>Google Calendar</b>, tick <i>Push to Google Calendar</i> and press <b>Authorize</b>.</li><li>Choose it as the company calendar in <a href="#/settings/meetings">Meetings settings</a>, then press <b>Test connection</b> here.</li></ul></section>
+					<section><h3>3. Save it in the CRM</h3><ul><li>On the <b>Calendar connection</b> page paste the <b>Client ID</b> and <b>Client secret</b> and press <b>Connect with Google</b>. Sign in with the Google account that should own the calendar and allow access. You come back here connected, and the calendar is made for you.</li><li>Press <b>Test connection</b> to confirm.</li></ul></section>
 					<section><h3>If a meeting fails to sync</h3><ul><li>The Meeting logs tab shows Google's reason. "Authorize again" means the saved login expired; "API not enabled" means step 1 was missed. Press <b>Try again</b> once fixed.</li></ul></section></div>
 				<template #foot><Btn variant="primary" @click="guide = ''">Close</Btn></template>
 			</Modal>

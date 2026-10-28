@@ -721,8 +721,11 @@ def get_calendar():
 		"has_client": bool(google.client_id and google.get_password("client_secret", raise_exception=False)),
 		"calendars": calendars,
 		"counts": {"Synced": counts.get("Synced", 0), "Failed": counts.get("Failed", 0), "Not synced": counts.get("Not synced", 0)},
-		"redirect_uri": get_url() + "?cmd=frappe.integrations.doctype.google_calendar.google_calendar.google_callback",
+		"redirect_uri": _google_redirect(),
 		"site_url": get_url(),
+		"client_id": google.client_id or "",
+		"has_secret": bool(google.get_password("client_secret", raise_exception=False)),
+		"result": _take_google_result(),
 	}
 
 
@@ -761,3 +764,112 @@ def retry_meeting(name):
 		frappe.throw(_("A cancelled meeting is not synced."))
 	out = doc.sync("update" if doc.external_event_id else "create", False)
 	return {"status": out["status"], "error": out["error"]}
+
+
+GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar"
+GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
+
+
+def _google_redirect():
+	from frappe.utils import get_url
+
+	return get_url() + "?cmd=crm_addons.pro.integrations.google_callback"
+
+
+def _take_google_result():
+	"""What the last sign-in with Google ended in, shown once on the page."""
+	key = f"crm_google_result:{frappe.session.user}"
+	out = frappe.cache.get_value(key)
+	if out:
+		frappe.cache.delete_value(key)
+	return out
+
+
+@frappe.whitelist()
+def connect_google(client_id=None, client_secret=None, calendar_name=None):
+	"""Save the Google OAuth client, make the company calendar record, and return the Google sign-in address. The person signs in once; the callback below saves the login."""
+	_admin()
+	client_id = cstr(client_id).strip()
+	secret = cstr(client_secret).strip()
+	settings = frappe.get_doc("Google Settings")
+	if not (client_id or settings.client_id):
+		frappe.throw(_("Paste the Client ID from your Google Cloud OAuth client."))
+	if not (secret or settings.get_password("client_secret", raise_exception=False)):
+		frappe.throw(_("Paste the Client secret from your Google Cloud OAuth client."))
+	settings.enable = 1
+	if client_id:
+		settings.client_id = client_id
+	if secret:
+		settings.client_secret = secret
+	settings.save(ignore_permissions=True)
+
+	from crm_addons.utils import get_settings
+
+	current = get_settings().google_calendar
+	if current and frappe.db.exists("Google Calendar", current):
+		name = current
+	else:
+		title = cstr(calendar_name).strip() or "CRM Meetings"
+		name = frappe.db.get_value("Google Calendar", {"calendar_name": title})
+		if not name:
+			name = frappe.get_doc({"doctype": "Google Calendar", "calendar_name": title, "user": frappe.session.user, "enable": 1, "push_to_google_calendar": 1}).insert(ignore_permissions=True).name
+	frappe.db.set_value("Google Calendar", name, {"enable": 1, "push_to_google_calendar": 1})
+	state = frappe.generate_hash(length=24)
+	frappe.cache.set_value(f"crm_google_state:{state}", {"calendar": name, "user": frappe.session.user}, expires_in_sec=900)
+	from urllib.parse import urlencode
+
+	query = urlencode({"access_type": "offline", "response_type": "code", "prompt": "consent", "client_id": settings.client_id, "scope": GOOGLE_SCOPE, "redirect_uri": _google_redirect(), "state": state, "include_granted_scopes": "true"})
+	return {"url": f"{GOOGLE_AUTH}?{query}"}
+
+
+@frappe.whitelist()
+def google_callback(code=None, state=None, error=None):
+	"""Google sends the person back here. Swap the code for a lasting login, make it the company calendar, and return to the Calendar page."""
+	import requests
+
+	pending = frappe.cache.get_value(f"crm_google_state:{state}") if state else None
+	message = ""
+	if not pending or pending.get("user") != frappe.session.user:
+		message = _("This sign-in link expired. Press Connect with Google again.")
+	elif error or not code:
+		message = _("Google sign-in was cancelled ({0}).").format(error or _("no code"))
+	else:
+		settings = frappe.get_doc("Google Settings")
+		try:
+			r = requests.post(GOOGLE_TOKEN, data={"code": code, "client_id": settings.client_id, "client_secret": settings.get_password("client_secret", raise_exception=False), "redirect_uri": _google_redirect(), "grant_type": "authorization_code"}, timeout=20).json()
+		except Exception as e:
+			r = {"error_description": str(e)}
+		if not r.get("refresh_token"):
+			message = _("Google did not give a lasting login: {0}. If the redirect address does not match, add the one shown on the page in Google Cloud.").format(r.get("error_description") or r.get("error") or _("unknown error"))
+		else:
+			name = pending["calendar"]
+			frappe.db.set_value("Google Calendar", name, "refresh_token", r["refresh_token"])
+			frappe.db.set_value("CRM Addons Settings", None, {"google_calendar": name, "default_provider": "Google Meet"})
+			frappe.clear_cache(doctype="CRM Addons Settings")
+			message = "ok"
+			try:
+				from frappe.integrations.doctype.google_calendar.google_calendar import get_google_calendar_object
+
+				get_google_calendar_object(name)  # makes the calendar at Google if it has none yet
+			except Exception as e:
+				message = _("Signed in, but the calendar could not be created: {0}").format(str(e)[:200])
+	frappe.cache.delete_value(f"crm_google_state:{state}")
+	frappe.cache.set_value(f"crm_google_result:{frappe.session.user}", message or "ok", expires_in_sec=600)
+	frappe.db.commit()
+	frappe.local.response["type"] = "redirect"
+	frappe.local.response["location"] = "/crm-pro#/settings/calendar"
+
+
+@frappe.whitelist()
+def disconnect_google():
+	"""Forget the company calendar's Google login. Past meetings and their Google events stay."""
+	_admin()
+	from crm_addons.utils import get_settings
+
+	name = get_settings().google_calendar
+	if name and frappe.db.exists("Google Calendar", name):
+		frappe.db.set_value("Google Calendar", name, {"refresh_token": "", "authorization_code": ""})
+	frappe.db.set_value("CRM Addons Settings", None, "google_calendar", "")
+	frappe.clear_cache(doctype="CRM Addons Settings")
+	return {"ok": True}

@@ -294,3 +294,31 @@ class TestCalendar(AccessCase):
 		frappe.set_user("Guest")
 		with self.assertRaises(frappe.PermissionError):
 			integrations.get_calendar()
+
+
+class TestGoogleConnect(AccessCase):
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("Administrator")
+
+	def test_connect_needs_a_client_and_returns_the_google_address(self):
+		settings = frappe.get_doc("Google Settings")
+		before = (settings.enable, settings.client_id)
+		try:
+			out = integrations.connect_google(client_id="abc.apps.googleusercontent.com", client_secret="shh", calendar_name="Test Meetings Cal")
+			self.assertIn("accounts.google.com", out["url"])
+			self.assertIn("state=", out["url"])
+			self.assertIn("crm_addons.pro.integrations.google_callback", out["url"].replace("%3D", "=").replace("%2E", "."))
+			self.assertTrue(frappe.db.exists("Google Calendar", {"calendar_name": "Test Meetings Cal"}))
+		finally:
+			frappe.db.set_value("Google Settings", None, {"enable": before[0], "client_id": before[1]})
+
+	def test_a_stale_callback_never_saves_a_login(self):
+		with patch.object(frappe.db, "commit"):  # the real callback commits; a test must not
+			integrations.google_callback(code="x", state="nope")
+		self.assertIn("expired", integrations._take_google_result())
+
+	def test_only_an_admin_can_connect(self):
+		frappe.set_user("Guest")
+		with self.assertRaises(frappe.PermissionError):
+			integrations.connect_google(client_id="a", client_secret="b")
