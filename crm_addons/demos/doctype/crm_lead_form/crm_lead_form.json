@@ -1,0 +1,202 @@
+{
+ "actions": [],
+ "creation": "2026-10-28 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "slug",
+  "enabled",
+  "sb_brand",
+  "brand_name",
+  "logo",
+  "accent_color",
+  "theme",
+  "heading",
+  "description",
+  "button_text",
+  "success_title",
+  "success_text",
+  "redirect_url",
+  "footer_text",
+  "sb_fields",
+  "fields_json",
+  "sb_lead",
+  "lead_source",
+  "lead_status",
+  "assignment_mode",
+  "assign_to",
+  "notify_owner"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Slug",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sb_brand",
+   "fieldtype": "Section Break",
+   "label": "Page"
+  },
+  {
+   "fieldname": "brand_name",
+   "fieldtype": "Data",
+   "label": "Brand Name"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo"
+  },
+  {
+   "fieldname": "accent_color",
+   "fieldtype": "Data",
+   "label": "Accent Color"
+  },
+  {
+   "fieldname": "theme",
+   "fieldtype": "Select",
+   "label": "Theme",
+   "options": "Auto\nLight\nDark",
+   "default": "Auto"
+  },
+  {
+   "fieldname": "heading",
+   "fieldtype": "Data",
+   "label": "Heading"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "button_text",
+   "fieldtype": "Data",
+   "label": "Button Text"
+  },
+  {
+   "fieldname": "success_title",
+   "fieldtype": "Data",
+   "label": "Success Title"
+  },
+  {
+   "fieldname": "success_text",
+   "fieldtype": "Small Text",
+   "label": "Success Text"
+  },
+  {
+   "fieldname": "redirect_url",
+   "fieldtype": "Data",
+   "label": "Redirect Url"
+  },
+  {
+   "fieldname": "footer_text",
+   "fieldtype": "Small Text",
+   "label": "Footer Text"
+  },
+  {
+   "fieldname": "sb_fields",
+   "fieldtype": "Section Break",
+   "label": "Fields"
+  },
+  {
+   "fieldname": "fields_json",
+   "fieldtype": "Code",
+   "label": "Fields",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "sb_lead",
+   "fieldtype": "Section Break",
+   "label": "New leads"
+  },
+  {
+   "fieldname": "lead_source",
+   "fieldtype": "Link",
+   "label": "Lead Source",
+   "options": "CRM Lead Source"
+  },
+  {
+   "fieldname": "lead_status",
+   "fieldtype": "Link",
+   "label": "Lead Status",
+   "options": "CRM Lead Status"
+  },
+  {
+   "fieldname": "assignment_mode",
+   "fieldtype": "Select",
+   "label": "Assignment Mode",
+   "options": "Follow assignment rules\nSpecific person\nUnassigned",
+   "default": "Follow assignment rules"
+  },
+  {
+   "fieldname": "assign_to",
+   "fieldtype": "Link",
+   "label": "Assign To",
+   "options": "User"
+  },
+  {
+   "fieldname": "notify_owner",
+   "fieldtype": "Check",
+   "label": "Notify Owner",
+   "default": "1"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-28 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Demos",
+ "name": "CRM Lead Form",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "field:slug",
+ "naming_rule": "By fieldname",
+ "search_fields": "title,slug",
+ "title_field": "title",
+ "track_changes": 1
+}

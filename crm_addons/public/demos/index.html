@@ -47,7 +47,7 @@
 			var v = new URLSearchParams(location.search).get('v') || Date.now()
 			var css = ['../campaigns/campaigns.css', '../campaigns/views.css', 'demos.css']
 			var C = '../campaigns/js/'
-			var js = ['../debug.js', '../meetings/vendor/vue.global.prod.js', C + 'core.js', C + 'ui.js', C + 'daterange.js', C + 'email-blocks.js', C + 'email-editors.js', C + 'email-views.js', C + 'whatsapp.js', C + 'wizard-steps.js', 'js/common.js', 'js/types.js', 'js/team.js', 'js/availability.js', 'js/editor.js', 'js/messages.js', 'js/branding.js', 'js/bookings.js', 'js/report.js', 'js/app.js']
+			var js = ['../debug.js', '../meetings/vendor/vue.global.prod.js', C + 'core.js', C + 'ui.js', C + 'daterange.js', C + 'email-blocks.js', C + 'email-editors.js', C + 'email-views.js', C + 'whatsapp.js', C + 'wizard-steps.js', 'js/common.js', 'js/types.js', 'js/team.js', 'js/availability.js', 'js/editor.js', 'js/messages.js', 'js/branding.js', 'js/bookings.js', 'js/leadforms.js', 'js/report.js', 'js/app.js']
 			css.forEach(function (f) { document.write('<link rel="stylesheet" href="' + f + '?v=' + v + '">') })
 			js.forEach(function (f) { document.write('<script src="' + f + '?v=' + v + '"><\/script>') })
 		})()

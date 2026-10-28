@@ -1,0 +1,16 @@
+/* Frappe CRM Suite Pro - public lead form. Builds on book.css (bk- prefix). */
+.lf-card { max-width: 600px; margin: 0 auto; background: var(--card); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); animation: bk-in .35s ease both; overflow: hidden; }
+.lf-head { padding: 28px 32px 0; }
+.lf-head .bk-title { font-size: 26px; }
+.lf-head .bk-desc { margin-top: 8px; }
+.lf-body { padding: 22px 32px 30px; }
+.lf-body .bk-form { gap: 18px; }
+.lf-help { margin: 0; color: var(--faint); font-size: 12.5px; }
+.lf-foot { padding: 0 32px 22px; color: var(--faint); font-size: 12.5px; text-align: center; }
+.lf-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.lf-card .bk-done { padding: 44px 32px 40px; }
+@media (max-width: 640px) {
+	.lf-head, .lf-body { padding-left: 20px; padding-right: 20px; }
+	.lf-cols { grid-template-columns: 1fr; }
+	.lf-card { border-radius: 18px; }
+}

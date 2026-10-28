@@ -94,6 +94,7 @@ website_redirects = [
 website_route_rules = [
 	{"from_route": "/book/manage/<token>", "to_route": "book"},
 	{"from_route": "/book/<slug>", "to_route": "book"},
+	{"from_route": "/lead-form/<slug>", "to_route": "leadform"},
 ]
 
 scheduler_events = {

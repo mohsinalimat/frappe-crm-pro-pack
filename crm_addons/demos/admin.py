@@ -356,7 +356,7 @@ def get_lead_field_choices():
 
 
 @frappe.whitelist()
-def search_team(txt=""):
+def search_team(txt="", limit=15):
 	"""Team members (people with a CRM role) for the host and CC pickers of a widget. Unlike the meeting guest search it never offers contacts or
 	leads. Whole-name matches come first, then names that start with the text, then the rest."""
 	_widgets("view")
@@ -379,7 +379,7 @@ def search_team(txt=""):
 		return 2 if (needle in name or needle in mail) else None
 
 	ranked = sorted(((rank(r), cstr(r.full_name).lower(), r) for r in rows if rank(r) is not None), key=lambda x: (x[0], x[1]))
-	return [{"email": r.email, "full_name": r.full_name or r.email, "attendee_type": "Team", "image": r.user_image} for _k, _n, r in ranked[:15]]
+	return [{"email": r.email, "full_name": r.full_name or r.email, "attendee_type": "Team", "image": r.user_image} for _k, _n, r in ranked[: max(1, min(cint(limit) or 15, 300))]]
 
 
 @frappe.whitelist()

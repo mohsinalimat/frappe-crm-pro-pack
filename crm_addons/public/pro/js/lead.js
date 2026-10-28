@@ -221,6 +221,14 @@
 			const REACTS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
 			function startReply(m) { wa.reply = m; wa.menuFor = ''; nextTick(() => { const el = document.querySelector('.wx-in'); if (el) el.focus() }) }
 			async function copyText(m) { wa.menuFor = ''; copy(bubbleText(m) || m.message || '') }
+			async function applyEntry(e) {
+				try {
+					const done = await call('apply_form_entry', { name: props.name, entry: e.form_entry.entry })
+					CM.toast(done && done.length ? 'Updated: ' + done.join(', ') : 'Nothing was different, so nothing changed')
+					e.form_entry.applied = 1
+					await Promise.all([reload('activity'), reload('comments'), load()])
+				} catch (err) { CM.toast(err.message, 'err') }
+			}
 			async function react(m, x) { wa.menuFor = ''; try { await call('react_whatsapp', { name: props.name, message: m.name, emoji: m.reaction === x ? '' : x }); await reload('whatsapp') } catch (e) { CM.toast(e.message, 'err') } }
 			async function sendWa(file) {
 				wa.busy = true
@@ -236,7 +244,7 @@
 			const shortTime = (s) => { const d = new Date(String(s || '').replace(' ', 'T')); if (isNaN(d)) return ''; const t = new Date(); const sameDay = d.toDateString() === t.toDateString(); return (sameDay ? '' : d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ', ') + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }
 
 			const ICON = { change: 'edit', comment: 'message', assigned: 'users' }
-			return { wt, wtSel, sendTemplate, openTemplates, selTemplate, useTemplate, lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, dropLead, edit, openEdit, saveEdit, comment, commenting, addComment, comments, ovl, openOverlay, frame, doneFollowup, dropFollowup, fu, overdue, attemptTone, bandTone, em, opened, openEmail, attach, sendEmail, mailState, wa, waTemplate, sendWa, pickFile, pics, vids, docs, addEmoji, EMOJI, EMOJI_TABS, REACTS, startReply, copyText, react, slash, useReply, onKeys, shortTime, grouped, chat, waMessages, waDays, mediaOf, fileName, caption, bubbleText, tick, clock, ICON, day, load, PRO, CM }
+			return { applyEntry, wt, wtSel, sendTemplate, openTemplates, selTemplate, useTemplate, lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, dropLead, edit, openEdit, saveEdit, comment, commenting, addComment, comments, ovl, openOverlay, frame, doneFollowup, dropFollowup, fu, overdue, attemptTone, bandTone, em, opened, openEmail, attach, sendEmail, mailState, wa, waTemplate, sendWa, pickFile, pics, vids, docs, addEmoji, EMOJI, EMOJI_TABS, REACTS, startReply, copyText, react, slash, useReply, onKeys, shortTime, grouped, chat, waMessages, waDays, mediaOf, fileName, caption, bubbleText, tick, clock, ICON, day, load, PRO, CM }
 		},
 		template: `
 		<div class="page lead-page">
@@ -280,7 +288,9 @@
 									<div class="grow">
 										<div v-if="e.kind === 'change'"><b>{{ e.by ? e.by.full_name : 'System' }}</b> changed <b>{{ e.field }}</b><template v-if="e.old"> from {{ e.old }}</template> to <b>{{ e.new || 'empty' }}</b></div>
 										<div v-else-if="e.kind === 'assigned'" class="muted">{{ e.text }}</div>
-										<div v-else-if="e.kind === 'comment'"><b>{{ e.by ? e.by.full_name : 'System' }}</b> commented<div class="cbub">{{ e.text }}</div></div>
+										<div v-else-if="e.kind === 'comment' && e.form_entry"><b>Lead form</b> - someone who is already a lead tried to register<div class="cbub" v-html="e.html"></div>
+											<div v-if="lead.can_write" class="row" style="gap:8px;margin-top:6px"><Btn v-if="!e.form_entry.applied" size="sm" variant="primary" icon="refresh" @click="applyEntry(e)">Update details</Btn><span v-else class="small muted">Details updated</span></div></div>
+										<div v-else-if="e.kind === 'comment'"><b>{{ e.by && e.by.full_name !== 'Guest' ? e.by.full_name : 'Lead form' }}</b> commented<div class="cbub" v-html="e.html || e.text"></div></div>
 										<div v-else><b>{{ e.title }}</b><span v-if="e.by" class="muted"> - {{ e.by.full_name }}</span><div v-if="e.detail" class="small muted">{{ e.detail }}</div></div>
 									</div><span class="small muted nowrap">{{ PRO.ago(e.creation) }}</span></li></ul>
 							</template>
@@ -305,7 +315,7 @@
 								<div v-if="lead.can_write" class="comment-box"><RichEditor v-model="comment" placeholder="Write a comment" label="Comment" :min-height="90" /><div class="row" style="justify-content:flex-end;margin-top:8px"><Btn variant="primary" icon="send" :loading="commenting" :disabled="!comment" @click="addComment">Comment</Btn></div></div>
 								<Skel v-if="!data.comments" h="40" />
 								<Empty v-else-if="!comments.length" icon="message" title="No comments yet" text="Leave a note for your team." />
-								<ul v-else class="list"><li v-for="(e, i) in comments" :key="i" class="li row" style="gap:12px;align-items:flex-start"><Pic :name="e.by && e.by.full_name" :image="e.by && e.by.image" :size="32" /><div class="grow"><div><b>{{ e.by ? e.by.full_name : 'System' }}</b> <span class="small muted">{{ PRO.ago(e.creation) }}</span></div><div class="cbub" v-html="e.html || e.text"></div></div></li></ul>
+								<ul v-else class="list"><li v-for="(e, i) in comments" :key="i" class="li row" style="gap:12px;align-items:flex-start"><Pic :name="e.by && e.by.full_name" :image="e.by && e.by.image" :size="32" /><div class="grow"><div><b>{{ e.by && e.by.full_name !== 'Guest' ? e.by.full_name : 'Lead form' }}</b> <span class="small muted">{{ PRO.ago(e.creation) }}</span></div><div class="cbub" v-html="e.html || e.text"></div><div v-if="e.form_entry && lead.can_write" class="row" style="gap:8px;margin-top:6px"><Btn v-if="!e.form_entry.applied" size="sm" variant="primary" icon="refresh" @click="applyEntry(e)">Update details</Btn><span v-else class="small muted">Details updated</span></div></div></li></ul>
 							</template>
 
 							<template v-else-if="tab === 'data'">

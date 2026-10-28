@@ -172,14 +172,26 @@ def add_comment(name, content):
 
 
 @frappe.whitelist()
+def apply_form_entry(name, entry):
+	"""The "Update details" button on a lead-form note: put what the person shared on the lead."""
+	_lead(name, "write")
+	from crm_addons.demos import leadforms
+
+	return leadforms.apply_entry(entry, name)
+
+
+@frappe.whitelist()
 def get_timeline(name):
 	"""Newest first: comments, assignments, and what changed on the lead (from CRM's version history)."""
 	_lead(name)
 	from frappe.utils.html_utils import clean_html
 
+	from crm_addons.demos import leadforms
+
+	forms = leadforms.entries_for_lead(name)
 	out = []
 	for c in frappe.get_all("Comment", filters={"reference_doctype": LEAD, "reference_name": name, "comment_type": ["in", ["Comment", "Assigned"]]}, fields=["name", "comment_type", "content", "owner", "creation"], limit_page_length=200):
-		out.append({"kind": "comment" if c.comment_type == "Comment" else "assigned", "text": strip_html(c.content or ""), "html": clean_html(c.content or "") if c.comment_type == "Comment" else "", "by": _person(c.owner), "creation": c.creation})
+		out.append({"kind": "comment" if c.comment_type == "Comment" else "assigned", "text": strip_html(c.content or ""), "html": clean_html(c.content or "") if c.comment_type == "Comment" else "", "by": _person(c.owner), "creation": c.creation, "form_entry": forms.get(c.name)})
 	for v in frappe.get_all("Version", filters={"ref_doctype": LEAD, "docname": name}, fields=["data", "owner", "creation"], order_by="creation desc", limit_page_length=100):
 		try:
 			data = json.loads(v.data or "{}")
