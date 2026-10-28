@@ -20,6 +20,10 @@ def _check():
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please log in."), frappe.PermissionError)
 	frappe.has_permission(LEAD, "read", throw=True)
+	from crm_addons.team_access import access
+
+	if access.scope_users("leads") == set():
+		frappe.throw(_("You do not have access to Leads."), frappe.PermissionError)
 
 
 def _loads(value, default):
@@ -32,13 +36,17 @@ def _loads(value, default):
 
 
 def _scope_users(scope):
-	if scope == "mine":
-		return {frappe.session.user}
-	if scope == "team":
-		from crm_addons.team_access import access
+	"""The owners the page asked for (all, mine, team), kept inside what Team and access lets this person see."""
+	from crm_addons.team_access import access
 
-		return access.team_users(frappe.session.user)
-	return None
+	allowed = access.scope_users("leads")
+	if scope == "mine":
+		asked = {frappe.session.user}
+	elif scope == "team":
+		asked = access.team_users(frappe.session.user)
+	else:
+		return allowed
+	return asked if allowed is None else asked & allowed
 
 
 def _conditions(filters, search, scope):

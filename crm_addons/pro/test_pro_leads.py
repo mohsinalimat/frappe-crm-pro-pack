@@ -5,6 +5,7 @@ import json
 import frappe
 
 from crm_addons.pro import form, lead, leads
+from crm_addons.team_access import access
 from crm_addons.team_access.test_access import AccessCase
 
 
@@ -61,6 +62,25 @@ class TestProLeads(AccessCase):
 		self.assertEqual(lead.get_tasks(doc.name)[0]["status"], "Done")
 		self.assertTrue(any(e["kind"] == "comment" for e in lead.get_timeline(doc.name)))
 		self.addCleanup(lambda: [frappe.delete_doc(d, n, force=1, ignore_permissions=True) for d, f in (("FCRM Note", {"reference_docname": doc.name}), ("CRM Task", {"reference_docname": doc.name})) for n in frappe.get_all(d, filters=f, pluck="name")])
+
+	def test_the_leads_and_organizations_pages_follow_team_and_access(self):
+		user = self.person("pages.pro@example.org", "Sales User")
+		mine, theirs = self.make_lead(user), self.make_lead(None)
+		self.configure(user, overrides={"leads": "own", "organizations": 0})
+		frappe.set_user(user)
+		names = {r.name for r in leads.list_leads(scope="all", page_length=200)["rows"]}
+		self.assertIn(mine.name, names)
+		self.assertNotIn(theirs.name, names)  # "own" holds even when the page asks for everyone
+		with self.assertRaises(frappe.PermissionError):
+			from crm_addons.pro import orgs
+
+			orgs.options()
+		frappe.set_user("Administrator")
+		frappe.db.set_value("CRM User Access", {"user": user}, "overrides", json.dumps({"leads": "none"}))
+		access.clear()
+		frappe.set_user(user)
+		with self.assertRaises(frappe.PermissionError):
+			leads.list_leads()
 
 	def test_guest_is_refused(self):
 		frappe.set_user("Guest")

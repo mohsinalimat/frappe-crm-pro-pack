@@ -16,6 +16,9 @@ def _check(perm="read"):
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please log in."), frappe.PermissionError)
 	frappe.has_permission(ORG, perm, throw=True)
+	from crm_addons.team_access import access
+
+	access.require("organizations", 1, _("You do not have access to Organizations."))
 
 
 def _counts(names):

@@ -17,14 +17,13 @@
 		if (!c) return []
 		const a = c.access || {}
 		const campaignAccess = ['campaigns', 'automations', 'email_templates', 'whatsapp_templates', 'audiences'].some((k) => a[k] !== undefined && a[k] !== 'none') || !!Number(a.campaign_reports) || !!Number(a.list_cleanup)
-		const rows = [
-			{ key: 'notifications', label: 'Notifications', icon: 'bell', native: true, badge: true },
-			{ key: 'dashboard', label: 'Sales Dashboard', icon: 'chart' },
-			{ key: 'leads', label: 'Leads', icon: 'users', native: true },
-		]
-		if (c.follow_ups_enabled !== 0) rows.push({ key: 'followups', label: 'Follow-ups', icon: 'phone' })
-		rows.push({ key: 'organizations', label: 'Organizations', icon: 'building', native: true })
-		rows.push({ key: 'meetings', label: 'Meetings', icon: 'calendar' })
+		const shown = (k) => a[k] === undefined || (typeof a[k] === 'string' ? a[k] !== 'none' : !!Number(a[k])) // a page the person has no access to is hidden, not greyed out
+		const rows = [{ key: 'notifications', label: 'Notifications', icon: 'bell', native: true, badge: true }]
+		if (shown('dashboard')) rows.push({ key: 'dashboard', label: 'Sales Dashboard', icon: 'chart' })
+		if (shown('leads')) rows.push({ key: 'leads', label: 'Leads', icon: 'users', native: true })
+		if (c.follow_ups_enabled !== 0 && shown('followups')) rows.push({ key: 'followups', label: 'Follow-ups', icon: 'phone' })
+		if (shown('organizations')) rows.push({ key: 'organizations', label: 'Organizations', icon: 'building', native: true })
+		if (shown('meetings')) rows.push({ key: 'meetings', label: 'Meetings', icon: 'calendar' })
 		if (c.campaigns_enabled !== 0 && campaignAccess) rows.push({ key: 'campaigns', label: 'Campaigns', icon: 'send' })
 		if (c.can_assign) rows.push({ key: 'assignment', label: 'Assignment', icon: 'users' })
 		if (c.demos_enabled !== 0 && (a.demos !== 'none' || (a.demo_widgets || 'none') !== 'none' || Number(a.demo_report))) rows.push({ key: 'bookings', label: 'Bookings', icon: 'target' })

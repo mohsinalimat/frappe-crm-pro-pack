@@ -15,6 +15,7 @@ SCOPE = [(NONE, "No access"), (OWN, "Own only"), (TEAM, "My team"), (ALL, "Every
 SWITCH = [(0, "Off"), (1, "On")]
 
 GROUPS = [
+	("crm", "Leads and organizations", "The Leads and Organizations pages, and whose leads the person sees."),
 	("sales", "Sales", "Meetings, follow-ups and the Sales Dashboard."),
 	("demos", "Bookings", "Website bookings, and the widgets (booking pages) that visitors book through."),
 	("assignment", "Lead assignment", "Moving leads between people, and the rules that do it automatically."),
@@ -31,6 +32,8 @@ def _level(*pairs):
 
 
 FEATURES = [
+	_f("leads", "crm", "Leads", "scope", (ALL, ALL, ALL), "Whose leads the person sees on the Leads page. No access hides the page."),
+	_f("organizations", "crm", "Organizations", "switch", (1, 1, 1), "Show the Organizations page."),
 	_f("meetings", "sales", "Meetings", "scope", (ALL, OWN, OWN), "Whose meetings the person sees in Meetings."),
 	_f("meetings_demos_tab", "sales", "Bookings tab inside Meetings", "switch", (1, 1, 1), "Show the Bookings view next to Mine and Everyone."),
 	_f("followups", "sales", "Follow-ups", "scope", (ALL, OWN, OWN), "Whose follow-ups the person sees."),
