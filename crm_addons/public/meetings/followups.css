@@ -170,3 +170,5 @@ html.inline .dash-brand .brand-ico { display: none; }
 .fu-filters { padding: 10px 14px; }
 .fu-lbar { padding: 6px 14px; }
 .fu-tabs { overflow: visible; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; gap: 4px 8px } .fu-tabs .fu-sort { display: flex; align-items: center; gap: 6px } .fu-tabs .fu-sort .pick-btn { min-width: 150px }
+
+.fu-pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 4px 24px; font-size: 13px; }

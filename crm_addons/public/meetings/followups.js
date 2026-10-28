@@ -345,6 +345,7 @@
 			// ---------- loading
 			let seq = 0
 			let serverOffset = 0
+			const pageNo = ref(1)
 			function query(page) {
 				const r = rangeOf(range.value)
 				return {
@@ -358,7 +359,7 @@
 				const my = ++seq
 				if (!opts.quiet) loading.value = true
 				try {
-					const res = await call('crm_addons.followups.get_workspace', query(1))
+					const res = await call('crm_addons.followups.get_workspace', query(pageNo.value))
 					if (my !== seq) return
 					// the first time, open the first tab that has something in it
 					if (autoTab) {
@@ -375,6 +376,7 @@
 					updatedAt.value = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 				} catch (e) { if (my === seq) fatal.value = e.message } finally { if (my === seq) loading.value = false }
 			}
+			function goPage(n) { const last = Math.max(1, Math.ceil(((data.value && data.value.total) || 0) / PAGE)); pageNo.value = Math.min(Math.max(1, n), last); load(); window.scrollTo(0, 0) }
 			async function loadMore() {
 				if (!data.value || more.value) return
 				more.value = true
@@ -388,10 +390,10 @@
 				} catch (e) { toast(e.message, 'err') } finally { more.value = false }
 			}
 			let searchTimer
-			watch(search, () => { clearTimeout(searchTimer); searchTimer = setTimeout(load, 300) })
-			watch([tab, scope, owner, outcome], () => { if (data.value) load() })
+			watch(search, () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { pageNo.value = 1; load() }, 300) })
+			watch([tab, scope, owner, outcome], () => { if (data.value) { pageNo.value = 1; load() } })
 			watch(scope, () => { owner.value = '' })
-			watch(range, () => { store.set(RANGE_KEY, JSON.stringify(range.value)); if (data.value) load() })
+			watch(range, () => { store.set(RANGE_KEY, JSON.stringify(range.value)); if (data.value) { pageNo.value = 1; load() } })
 			watch(view, () => store.set(VIEW_KEY, view.value))
 
 			let timer, tick
@@ -613,13 +615,14 @@
 					done: ['Nothing done yet in this period', 'Follow-ups you complete, or follow up with a newer call, are listed here.'],
 				}[tab.value]
 			})
-			const hasMore = computed(() => !!data.value && items.value.length < data.value.total)
+			const hasMore = computed(() => !!data.value && data.value.total > PAGE)
+			const pageInfo = computed(() => { const t = data.value ? data.value.total : 0; return { from: (pageNo.value - 1) * PAGE + 1, to: Math.min(t, pageNo.value * PAGE), total: t, last: Math.max(1, Math.ceil(t / PAGE)) } })
 
 			return {
 				EMBED, TABS, data, items, loading, more, fatal, toasts, form, frame, busy, selected, tab, scope, scopeModel, owner, outcome, search, view, range, updatedAt, searchBox,
 				PRO, sendTo, sortBy, SORTS, isManager, everyone, everyoneLabel, scopeOptions, ownerOptions, outcomeOptions, subtitle, filtered, clearFilters, cards, pickCard, rate, due, statusColor, outcomeTone,
 				rows, dayCount, canSelect, selectedNames, allSelected, toggleAll, toggle, markDone, reschedule, bulk, logFor, closeForm, openLead, closeSelf, openFull, emptyText,
-				hasMore, load, loadMore, num, plural,
+				hasMore, pageNo, pageInfo, goPage, load, loadMore, num, plural,
 			}
 		},
 		template: `
@@ -716,7 +719,7 @@
 				<p>{{ emptyText[1] }}</p>
 				<button class="btn" v-if="filtered" @click="clearFilters">Clear filters</button>
 			</div>
-			<div class="fu-more" v-if="hasMore"><button class="btn" :disabled="more" @click="loadMore"><span class="spin" v-if="more"></span> Show {{ Math.min(50, data.total - items.length) }} more</button></div>
+			<div class="fu-pager" v-if="hasMore"><span class="muted">{{ pageInfo.from }}-{{ pageInfo.to }} of {{ num(pageInfo.total) }}</span><button class="btn small icon" :disabled="pageNo <= 1 || loading" aria-label="Previous page" @click="goPage(pageNo - 1)">&lsaquo;</button><span class="muted">Page {{ pageNo }} of {{ pageInfo.last }}</span><button class="btn small icon" :disabled="pageNo >= pageInfo.last || loading" aria-label="Next page" @click="goPage(pageNo + 1)">&rsaquo;</button></div>
 		</section>
 	</main>
 
