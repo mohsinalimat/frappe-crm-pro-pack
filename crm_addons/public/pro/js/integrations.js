@@ -10,6 +10,7 @@
 	const STATS = [['sent', 'Sent', 'green'], ['waiting', 'Not sent yet', 'amber'], ['failed', 'Failed', 'red'], ['read', 'Read', 'blue'], ['not_read', 'Not read', '']]
 
 	V.Integrations = {
+		props: { part: { type: String, default: 'email' } },
 		setup() {
 			const loading = ref(true); const error = ref(''); const d = ref({ email: [], whatsapp: { installed: false, accounts: [] }, regions: [], ses: {}, limits: {} })
 			const dlg = ref(''); const busy = ref(false); const f = reactive({ email_id: '', region: 'ap-south-1', smtp_user: '', smtp_password: '', app_password: '', receive: true, use: false })
@@ -46,7 +47,7 @@
 			<ErrorState v-if="error" :message="error" />
 			<div v-else-if="loading" class="card" style="padding:18px"><Skel h="20" /></div>
 			<template v-else>
-				<section class="card it-card">
+				<section v-if="part !== 'whatsapp'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">Email</b><div class="small muted">Every email the CRM sends (campaigns, lead emails, notifications) goes out from the account marked <b>Sending</b>. Only an administrator can change it.</div></div>
 						<Btn icon="plus" @click="open('gmail')">Add Gmail</Btn><Btn variant="primary" icon="plus" @click="open('ses')">Add Amazon SES</Btn></div>
 					<Empty v-if="!d.email.length" icon="mail" title="No email account yet" text="Add Gmail or Amazon SES to start sending." />
@@ -62,7 +63,7 @@
 					</div>
 				</section>
 
-				<section class="card it-card">
+				<section v-if="part !== 'whatsapp'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">Amazon SES delivery tracking</b><div class="small muted">SES tells the CRM what happened to each email: delivered, bounced or marked as spam. Bounced and spam addresses are kept off future campaigns.</div></div>
 						<span class="badge" :class="d.ses.subscribed ? 'green' : 'amber'">{{ d.ses.subscribed ? 'Connected' : 'Not connected yet' }}</span></div>
 					<ol class="it-steps">
@@ -75,7 +76,7 @@
 					<div class="small muted" style="margin-top:4px">New SES accounts can only send to verified addresses until Amazon moves them out of the <b>sandbox</b>; request production access in the SES console. Read and not-read counts come from the CRM's own tracking and work with every provider.</div>
 				</section>
 
-				<section class="card it-card">
+				<section v-if="part === 'whatsapp'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">WhatsApp</b><div class="small muted">The WhatsApp Business account the CRM sends from. It is connected in the WhatsApp app; this is only what is connected now.</div></div></div>
 					<div v-if="!d.whatsapp.installed" class="small muted">WhatsApp is not installed on this site.</div>
 					<Empty v-else-if="!d.whatsapp.accounts.length" icon="whatsapp" title="No WhatsApp account" text="Connect one in the WhatsApp app and it will appear here." />
