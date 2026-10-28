@@ -353,7 +353,8 @@
 			}
 			const menu = (r) => CM.canManageRules() ? [{ label: 'Give existing leads to them', icon: 'users', run: () => CM.go('/rules/run/' + encodeURIComponent(r.name)) }, { label: 'Edit', icon: 'edit', run: () => CM.go('/rules/edit/' + encodeURIComponent(r.name)) }, { label: r.enabled ? 'Switch off' : 'Switch on', icon: 'refresh', run: () => toggle(r) }, { sep: true }, { label: 'Delete', icon: 'trash', danger: true, run: () => remove(r) }] : [{ label: 'View', icon: 'eye', run: () => CM.go('/rules/edit/' + encodeURIComponent(r.name)) }]
 			const when = (r) => r.conditions.map((c) => asText(c)).join(r.match_mode === 'Any condition' ? ' or ' : ' and ')
-			return { layout, rules, loading, error, load, q, shown, count, toggle, menu, when, join, nameOf, HOW_TEXT, CM, plural, go: CM.go }
+			const pg = CM.usePaged(() => shown.value)
+			return { pg, layout, rules, loading, error, load, q, shown, count, toggle, menu, when, join, nameOf, HOW_TEXT, CM, plural, go: CM.go }
 		},
 		template: `
 		<div class="page">
@@ -366,8 +367,8 @@
 			<Empty v-else-if="!rules.length" icon="users" title="Create your first rule" text="A rule says: leads like this go to these people. For example, every lead with State = Gujarat goes to Siddharth and Aayushi."><Btn v-if="CM.canManageRules()" variant="primary" icon="plus" @click="go('/rules/new')">Create rule</Btn></Empty>
 			<Empty v-else-if="!shown.length" icon="search" title="No rules match" text="Try a different search or filter."><Btn @click="q.search = ''; q.state = ''">Clear filters</Btn></Empty>
 			<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl"><thead><tr><th>Rule</th><th>When</th><th>Given to</th><th>Leads assigned</th><th>On</th><th></th></tr></thead><tbody>
-				<tr v-for="r in shown" :key="r.name" class="click" :class="{ 'asg-off': !r.enabled }" tabindex="0" @click="go('/rules/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/rules/edit/' + encodeURIComponent(r.name))"><td><b>{{ r.name }}</b><div v-if="r.overlaps.length" class="small rule-overlap"><Ico name="alert" size="sm" /> Also matches {{ r.overlaps.join(', ') }}</div></td><td class="small">{{ r.match_mode === 'Any condition' ? 'Any of' : 'All of' }}: {{ when(r) }}</td><td class="small">{{ r.assignees.map(nameOf).join(', ') }}<span class="badge blue nodot" v-if="r.assignees.length > 1" style="margin-left:6px">{{ HOW_TEXT[r.distribution] }}</span></td><td>{{ CM.num(r.assigned_count) }}</td>
-					<td @click.stop><button type="button" class="sw" :class="{ on: r.enabled }" role="switch" :aria-checked="!!r.enabled" :aria-label="(r.enabled ? 'Turn off ' : 'Turn on ') + r.name" :disabled="!CM.canManageRules()" @click="toggle(r)"><span class="sw-k"></span></button></td><td @click.stop style="text-align:right"><Menu :items="menu(r)" :label="'Actions for ' + r.name" /></td></tr></tbody></table></div></div>
+				<tr v-for="r in pg.rows" :key="r.name" class="click" :class="{ 'asg-off': !r.enabled }" tabindex="0" @click="go('/rules/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/rules/edit/' + encodeURIComponent(r.name))"><td><b>{{ r.name }}</b><div v-if="r.overlaps.length" class="small rule-overlap"><Ico name="alert" size="sm" /> Also matches {{ r.overlaps.join(', ') }}</div></td><td class="small">{{ r.match_mode === 'Any condition' ? 'Any of' : 'All of' }}: {{ when(r) }}</td><td class="small">{{ r.assignees.map(nameOf).join(', ') }}<span class="badge blue nodot" v-if="r.assignees.length > 1" style="margin-left:6px">{{ HOW_TEXT[r.distribution] }}</span></td><td>{{ CM.num(r.assigned_count) }}</td>
+					<td @click.stop><button type="button" class="sw" :class="{ on: r.enabled }" role="switch" :aria-checked="!!r.enabled" :aria-label="(r.enabled ? 'Turn off ' : 'Turn on ') + r.name" :disabled="!CM.canManageRules()" @click="toggle(r)"><span class="sw-k"></span></button></td><td @click.stop style="text-align:right"><Menu :items="menu(r)" :label="'Actions for ' + r.name" /></td></tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 			<div v-else class="cgrid">
 				<article v-for="r in shown" :key="r.name" class="ccard card hover" tabindex="0" @click="go('/rules/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/rules/edit/' + encodeURIComponent(r.name))" :class="{ 'asg-off': !r.enabled }">
 					<div class="row" style="align-items:flex-start"><div class="grow" style="min-width:0"><div class="ccard-t" :title="r.name">{{ r.name }}</div><div class="small faint">{{ r.match_mode === 'Any condition' ? 'Any of' : 'All of' }}: {{ when(r) }}</div></div><span class="badge nodot" :class="r.enabled ? 'green' : 'neutral'">{{ r.enabled ? 'On' : 'Off' }}</span><span @click.stop><Menu :items="menu(r)" /></span></div>
@@ -434,7 +435,8 @@
 				return `Gave ${n}`
 			}
 			const shown = computed(() => hist.value.groups.filter((g) => !q.value || (what(g) + peopleText(g.to_users)).toLowerCase().includes(q.value.toLowerCase())))
-			return { hist, loading, error, load, q, shown, undo, what, peopleText, nameOf, CM }
+			const pg = CM.usePaged(() => shown.value)
+			return { pg, hist, loading, error, load, q, shown, undo, what, peopleText, nameOf, CM }
 		},
 		template: `
 		<div class="page">
@@ -445,11 +447,11 @@
 			<Empty v-else-if="!hist.groups.length" icon="clock" title="Nothing assigned yet" text="Every assignment made here is listed with who it went to, and can be undone for a day." />
 			<Empty v-else-if="!shown.length" icon="search" title="Nothing matches" text="Try a different search." />
 			<div v-else class="card" style="overflow:hidden"><div class="table-wrap"><table class="tbl asg-hist"><thead><tr><th>When</th><th>What</th><th>To</th><th>By</th><th></th></tr></thead><tbody>
-				<tr v-for="g in shown" :key="g.id"><td class="nowrap small muted">{{ CM.ago(g.creation) }}</td>
+				<tr v-for="g in pg.rows" :key="g.id"><td class="nowrap small muted">{{ CM.ago(g.creation) }}</td>
 					<td><b>{{ what(g) }}</b><div class="small faint" v-if="g.count > 1">{{ g.sample.map((s) => s.lead_name || s.lead).join(', ') }} ...</div></td>
 					<td class="small">{{ peopleText(g.to_users) }}</td><td class="small">{{ nameOf(g.by_user) }}</td>
 					<td class="nowrap" style="text-align:right"><Btn v-if="g.open" size="sm" icon="undo" @click="undo(g)">Undo{{ g.count > 1 ? ' all' : '' }}</Btn><span v-else-if="g.undone" class="badge neutral nodot">Undone</span><span v-else class="small faint">Too late to undo</span></td></tr>
-			</tbody></table></div></div>
+			</tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 		</div>`,
 	}
 })()

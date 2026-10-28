@@ -221,7 +221,8 @@
 			watch(() => [props.range.preset, props.range.from, props.range.to], load)
 			const kpis = computed(() => { const t = data.value && data.value.totals; return t ? [{ l: 'Bulk sends', v: t.sends, i: 'send' }, { l: 'Leads picked', v: t.leads, i: 'users' }, { l: 'Messages sent', v: t.sent, i: 'zap' }, { l: 'Skipped', v: t.skipped, i: 'alert' }, { l: 'Emails sent', v: t.Email, i: 'mail' }, { l: 'WhatsApp sent', v: t.WhatsApp, i: 'whatsapp' }] : [] })
 			const when = (s) => new Date(String(s).replace(' ', 'T')).toLocaleString([], { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
-			return { data, loading, error, open, kpis, when, load, CM }
+			const pg = CM.usePaged(() => (data.value ? data.value.rows : []))
+			return { pg, data, loading, error, open, kpis, when, load, CM }
 		},
 		template: `
 		<div>
@@ -232,9 +233,9 @@
 				<div class="kpis"><div v-for="x in kpis" :key="x.l" class="kpi"><div class="l"><Ico :name="x.i" size="sm" />{{ x.l }}</div><div class="v">{{ CM.num(x.v) }}</div></div></div>
 				<div class="card" style="overflow:hidden;margin-top:14px"><div class="card-h" style="margin:0;padding:16px 18px 6px"><div class="grow"><h3>Bulk sends</h3><p>One row for each time leads were picked and a template was sent. Click a row to see who was skipped.</p></div></div>
 					<div class="table-wrap"><table class="tbl"><thead><tr><th>When</th><th>Sent by</th><th>Channel</th><th>Template</th><th>Leads picked</th><th>Sent</th><th>Skipped</th></tr></thead><tbody>
-						<template v-for="r in data.rows" :key="r.name"><tr class="click" tabindex="0" @click="open = open === r.name ? '' : r.name" @keydown.enter="open = open === r.name ? '' : r.name"><td>{{ when(r.creation) }}</td><td>{{ r.by }}</td><td><ChannelBadge :value="r.channel" /></td><td><b>{{ r.template_label }}</b></td><td>{{ CM.num(r.total) }}</td><td>{{ CM.num(r.sent) }}</td><td>{{ CM.num(r.skipped) }}</td></tr>
+						<template v-for="r in pg.rows" :key="r.name"><tr class="click" tabindex="0" @click="open = open === r.name ? '' : r.name" @keydown.enter="open = open === r.name ? '' : r.name"><td>{{ when(r.creation) }}</td><td>{{ r.by }}</td><td><ChannelBadge :value="r.channel" /></td><td><b>{{ r.template_label }}</b></td><td>{{ CM.num(r.total) }}</td><td>{{ CM.num(r.sent) }}</td><td>{{ CM.num(r.skipped) }}</td></tr>
 						<tr v-if="open === r.name"><td colspan="7" style="background:var(--surface-2,#f6f7f9)"><span v-if="!r.skipped_rows.length" class="small muted">Every lead got the message.</span><ul v-else class="list" style="margin:0"><li v-for="x in r.skipped_rows" :key="x.lead" class="li small"><b>{{ x.title || x.lead }}</b>: {{ x.reason }}</li></ul></td></tr></template>
-					</tbody></table></div></div>
+					</tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 			</template>
 		</div>`,
 	}
@@ -294,7 +295,8 @@
 			const statusParts = computed(() => (data.value ? Object.entries(data.value.status_counts).map(([k, v]) => ({ label: k, value: v, color: { Completed: 'var(--green)', Running: 'var(--accent)', Draft: 'var(--border-strong)', Scheduled: 'var(--amber)', Paused: 'var(--amber)', Failed: 'var(--red)', Cancelled: 'var(--text-faint)', Queued: 'var(--accent)' }[k] || 'var(--text-faint)' })) : []))
 			const rate = (v) => (v ? v + '%' : '-')
 			const hasCost = computed(() => !!(data.value && data.value.totals && data.value.totals.cost != null))
-			return { mode, canCreate: computed(() => CM.can('campaign_create', 1)), hasCost, data, loading, busy, error, range, compare, rangeText, prevText, t, kpis, rows, sort, setSort, load, exportCsv, statusParts, rate, CM, go: CM.go }
+			const pg = CM.usePaged(() => rows.value)
+			return { pg, mode, canCreate: computed(() => CM.can('campaign_create', 1)), hasCost, data, loading, busy, error, range, compare, rangeText, prevText, t, kpis, rows, sort, setSort, load, exportCsv, statusParts, rate, CM, go: CM.go }
 		},
 		template: `
 		<div class="page">
@@ -319,7 +321,7 @@
 				</div>
 				<div class="card" style="overflow:hidden"><div class="card-h" style="margin:0;padding:16px 18px 6px"><div class="grow"><h3>Compare campaigns</h3><p>Click a column to sort. Click a row for its full report.</p></div></div>
 					<div class="table-wrap"><table class="tbl"><thead><tr><th class="sort" :class="{ on: sort.key === 'title' }" @click="setSort('title')">Campaign</th><th>Channel</th><th>Status</th><th v-for="c in [['recipients', 'Recipients'], ['sent', 'Sent'], ['delivery_rate', 'Delivered %'], ['read_rate', 'Read / opened %'], ['reply_rate', 'Reply %'], ['failed', 'Failed']].concat(hasCost ? [['cost', 'Cost']] : [])" :key="c[0]" class="num sort" :class="{ on: sort.key === c[0] }" @click="setSort(c[0])">{{ c[1] }}<Ico v-if="sort.key === c[0]" :name="sort.dir < 0 ? 'chevron-down' : 'chevron-up'" size="sm" /></th></tr></thead><tbody>
-						<tr v-for="r in rows" :key="r.name" class="click" tabindex="0" @click="go('/c/' + encodeURIComponent(r.name))" @keydown.enter="go('/c/' + encodeURIComponent(r.name))"><td><b>{{ r.title }}</b></td><td><ChannelBadge :value="r.channel" /></td><td><StatusBadge :value="r.status" /></td><td class="num">{{ CM.num(r.recipients) }}</td><td class="num">{{ CM.num(r.sent) }}</td><td class="num">{{ rate(r.delivery_rate) }}</td><td class="num">{{ rate(r.read_rate) }}</td><td class="num">{{ rate(r.reply_rate) }}</td><td class="num" :style="r.failed ? 'color:var(--red)' : ''">{{ CM.num(r.failed) }}</td><td v-if="hasCost" class="num">{{ r.cost == null ? '-' : CM.num(r.cost) }}</td></tr></tbody></table></div></div>
+						<tr v-for="r in pg.rows" :key="r.name" class="click" tabindex="0" @click="go('/c/' + encodeURIComponent(r.name))" @keydown.enter="go('/c/' + encodeURIComponent(r.name))"><td><b>{{ r.title }}</b></td><td><ChannelBadge :value="r.channel" /></td><td><StatusBadge :value="r.status" /></td><td class="num">{{ CM.num(r.recipients) }}</td><td class="num">{{ CM.num(r.sent) }}</td><td class="num">{{ rate(r.delivery_rate) }}</td><td class="num">{{ rate(r.read_rate) }}</td><td class="num">{{ rate(r.reply_rate) }}</td><td class="num" :style="r.failed ? 'color:var(--red)' : ''">{{ CM.num(r.failed) }}</td><td v-if="hasCost" class="num">{{ r.cost == null ? '-' : CM.num(r.cost) }}</td></tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 				</div>
 			</template>
 		</div>`,

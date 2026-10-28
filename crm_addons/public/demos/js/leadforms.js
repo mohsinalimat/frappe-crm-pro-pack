@@ -52,7 +52,8 @@
 				{ sep: true },
 				{ label: 'Delete', icon: 'trash', danger: true, run: () => remove(r) },
 			]
-			return { rows, shown, counts, loading, error, busy, q, filter, layout, canManage, edit, setEnabled, menu, load, DM, CM, go: CM.go }
+			const pg = CM.usePaged(() => shown.value)
+			return { pg, rows, shown, counts, loading, error, busy, q, filter, layout, canManage, edit, setEnabled, menu, load, DM, CM, go: CM.go }
 		},
 		template: `
 		<div class="page">
@@ -77,14 +78,14 @@
 			</div>
 			<div v-else class="card" style="padding:0"><div class="table-wrap"><table class="tbl wl-tbl">
 				<thead><tr><th>Form</th><th>Page</th><th>New leads go to</th><th class="num">Fields</th><th class="num">Messages</th><th>On</th><th></th></tr></thead>
-				<tbody><tr v-for="r in shown" :key="r.name" class="click" :class="{ off: !DM.bool(r.enabled) }" tabindex="0" @click="edit(r)" @keydown.enter="edit(r)">
+				<tbody><tr v-for="r in pg.rows" :key="r.name" class="click" :class="{ off: !DM.bool(r.enabled) }" tabindex="0" @click="edit(r)" @keydown.enter="edit(r)">
 					<td><b class="ellipsis" style="display:block;max-width:230px">{{ r.title }}</b><div class="small muted"><template v-if="r.lead_source">Source {{ r.lead_source }}</template></div></td>
 					<td @click.stop><span class="row" style="gap:4px;flex-wrap:nowrap"><a :href="r.url" target="_blank" rel="noopener" class="mono ellipsis" style="max-width:170px">/lead-form/{{ r.slug }}</a><CopyBtn :text="r.url" bare label="Copy link" what="Link" /></span></td>
 					<td>{{ r.assignment_mode }}</td><td class="num">{{ r.field_count }}</td><td class="num">{{ r.message_count }}</td>
 					<td @click.stop><Switch :model-value="DM.bool(r.enabled)" :aria-disabled="!canManage" :label="'Turn ' + r.title + (DM.bool(r.enabled) ? ' off' : ' on')" :disabled="!canManage || busy[r.name]" @update:model-value="canManage && setEnabled(r, $event)" /></td>
 					<td class="num nowrap" @click.stop><Menu v-if="canManage" :items="menu(r)" :label="'Actions for ' + r.title" /></td>
 				</tr></tbody>
-			</table></div></div>
+			</table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 		</div>`,
 	}
 

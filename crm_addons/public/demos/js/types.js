@@ -86,7 +86,8 @@
 				{ label: 'Delete', icon: 'trash', danger: true, run: () => remove(r) },
 			]
 			const canManage = computed(() => DM.session.widgets === 'manage')
-			return { layout, canManage, extra, nextSlot, monthCount, rows, shown, loading, error, q, filter, counts, busy, url, owners, edit, setEnabled, load, menu, DM, CM, go: CM.go }
+			const pg = CM.usePaged(() => shown.value)
+			return { pg, layout, canManage, extra, nextSlot, monthCount, rows, shown, loading, error, q, filter, counts, busy, url, owners, edit, setEnabled, load, menu, DM, CM, go: CM.go }
 		},
 		template: `
 		<div class="page">
@@ -114,7 +115,7 @@
 			</div>
 			<div v-else class="card" style="padding:0"><div class="table-wrap"><table class="tbl wl-tbl">
 				<thead><tr><th>Widget</th><th>Page</th><th>Hosts</th><th>Next free slot</th><th class="num">This month</th><th>On</th><th></th></tr></thead>
-				<tbody><tr v-for="r in shown" :key="r.name" class="click" :class="{ off: !DM.bool(r.enabled) }" tabindex="0" @click="edit(r)" @keydown.enter="edit(r)">
+				<tbody><tr v-for="r in pg.rows" :key="r.name" class="click" :class="{ off: !DM.bool(r.enabled) }" tabindex="0" @click="edit(r)" @keydown.enter="edit(r)">
 					<td><b class="ellipsis" style="display:block;max-width:230px">{{ r.title }}</b><div class="small muted">{{ DM.durationLabel(r.duration_minutes) }}<template v-if="r.provider"> - <Ico v-if="r.provider === 'Google Meet'" name="gmeet" size="sm" style="vertical-align:-3px" /> {{ r.provider }}</template></div></td>
 					<td @click.stop><span class="row" style="gap:4px;flex-wrap:nowrap"><a :href="url(r)" target="_blank" rel="noopener" class="mono ellipsis" style="max-width:170px">/book/{{ r.slug }}</a><CopyBtn :text="url(r)" bare label="Copy link" what="Link" /></span></td>
 					<td><AvatarStack v-if="owners(r).length" :people="owners(r)" /><span v-else class="small" style="color:var(--amber)">No host yet</span></td>
@@ -123,7 +124,7 @@
 					<td @click.stop><Switch :model-value="DM.bool(r.enabled)" :aria-disabled="!canManage" :label="'Turn ' + r.title + (DM.bool(r.enabled) ? ' off' : ' on')" :disabled="!canManage || busy[r.name]" @update:model-value="canManage && setEnabled(r, $event)" /></td>
 					<td class="num nowrap" @click.stop><Menu v-if="canManage" :items="menu(r)" :label="'Actions for ' + r.title" /></td>
 				</tr></tbody>
-			</table></div></div>
+			</table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 		</div>`,
 	}
 })()

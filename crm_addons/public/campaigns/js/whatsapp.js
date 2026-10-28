@@ -119,7 +119,8 @@
 			async function attach(e) { const f = e.target.files[0]; e.target.value = ''; if (!f) return; upBusy.value = true; try { const up = await CM.upload(f, { isPrivate: false }); ed.value.attach_url = up.file_url; ed.value.attach_name = up.file_name } catch (x) { CM.toast(x.message, 'err') } finally { upBusy.value = false } }
 			async function save() { busy.value = true; try { const r = await CM.api('save_whatsapp_reply', { title: ed.value.title, text: ed.value.text, reply_id: ed.value.id || undefined, attach_url: ed.value.attach_url || undefined, attach_name: ed.value.attach_name || undefined }); rows.value = r.rows; ed.value = null; CM.toast('Saved reply stored') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false } }
 			async function drop(r) { if (!(await CM.confirm({ title: 'Delete "' + r.title + '"?', confirmText: 'Delete', danger: true }))) return; try { rows.value = (await CM.api('delete_whatsapp_reply', { reply_id: r.id })).rows } catch (e) { CM.toast(e.message, 'err') } }
-			return { rows, shown, q, layout, loading, error, canEdit, ed, busy, box, upBusy, openNew, openEdit, vars, insert, bubble, attach, save, drop, load }
+			const pg = CM.usePaged(() => shown.value)
+			return { pg, rows, shown, q, layout, loading, error, canEdit, ed, busy, box, upBusy, openNew, openEdit, vars, insert, bubble, attach, save, drop, load }
 		},
 		template: `
 		<div class="page">
@@ -132,11 +133,11 @@
 			<Empty v-else-if="!shown.length" icon="whatsapp" :title="rows.length ? 'No saved replies match' : 'No saved replies yet'" :text="rows.length ? 'Try a different search.' : (canEdit ? 'Add the messages your team sends again and again, such as an introduction or a thank-you.' : 'Someone who edits templates can add them.')" />
 			<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
 				<thead><tr><th>Reply</th><th>Variables</th><th>File</th><th></th></tr></thead>
-				<tbody><tr v-for="r in shown" :key="r.id" class="click" tabindex="0" @click="canEdit && openEdit(r)" @keydown.enter="canEdit && openEdit(r)">
+				<tbody><tr v-for="r in pg.rows" :key="r.id" class="click" tabindex="0" @click="canEdit && openEdit(r)" @keydown.enter="canEdit && openEdit(r)">
 					<td><b>{{ r.title }}</b><div class="small muted ellipsis" style="max-width:420px">{{ r.text }}</div></td>
 					<td><span v-for="v in vars(r.text)" :key="v" class="tchip" style="margin-right:4px">{{ v }}</span><span v-if="!vars(r.text).length" class="faint">-</span></td>
 					<td><span v-if="r.attach_name" class="small"><Ico name="paperclip" size="sm" /> {{ r.attach_name }}</span><span v-else class="faint">-</span></td>
-					<td class="num" @click.stop><Btn v-if="canEdit" size="sm" variant="ghost" icon="trash" aria-label="Delete reply" @click="drop(r)" /></td></tr></tbody></table></div></div>
+					<td class="num" @click.stop><Btn v-if="canEdit" size="sm" variant="ghost" icon="trash" aria-label="Delete reply" @click="drop(r)" /></td></tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 			<div v-else class="wgrid">
 				<article v-for="r in shown" :key="r.id" class="wcard card hover" tabindex="0" @click="canEdit && openEdit(r)" @keydown.enter="canEdit && openEdit(r)">
 					<div class="wcard-pv"><WaTemplateBubble :t="bubble(r)" compact /></div>
@@ -179,7 +180,8 @@
 			async function refresh() { await load(true); CM.toast('List refreshed') }
 			const use = (t) => { if (!t.approved) return CM.toast('Only templates approved by Meta can be used in a campaign.', 'warn'); CM.go('/campaigns/new?wa=' + encodeURIComponent(t.name)) }
 			const cats = computed(() => CATEGORIES.filter((c) => rows.value.some((r) => r.category === c)).map((c) => ({ value: c, label: catLabel(c) })))
-			return { protectedDel, layout, purposeCount, createOpen, created, data, loading, error, syncing, q, shown, rows, count, sync, refresh, detail, use, load, STATUSES, cats, stateTone, stateLabel, catLabel, CM }
+			const pg = CM.usePaged(() => shown.value)
+			return { pg, protectedDel, layout, purposeCount, createOpen, created, data, loading, error, syncing, q, shown, rows, count, sync, refresh, detail, use, load, STATUSES, cats, stateTone, stateLabel, catLabel, CM }
 		},
 		template: `
 		<div class="page">
@@ -202,11 +204,11 @@
 				<Empty v-else-if="!shown.length" icon="whatsapp" :title="rows.length ? 'No templates match' : 'No WhatsApp templates yet'" :text="rows.length ? 'Try a different search or status.' : 'Create a template in Meta (WhatsApp Manager), then press Sync from Meta. It appears here once synced.'"><Btn v-if="!rows.length && data && data.can_sync" variant="primary" icon="download" :loading="syncing" @click="sync">Sync from Meta</Btn></Empty>
  				<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
 					<thead><tr><th>Template</th><th>Group</th><th>Category</th><th>Status</th><th>Language</th><th></th></tr></thead>
-					<tbody><tr v-for="t in shown" :key="t.name" class="click" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
+					<tbody><tr v-for="t in pg.rows" :key="t.name" class="click" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
 						<td><b class="ellipsis" style="display:block;max-width:300px" :title="t.template_name">{{ t.template_name }}</b><div class="small muted ellipsis" style="max-width:300px">{{ t.template }}</div></td>
 						<td><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-else class="faint">-</span></td><td>{{ catLabel(t.category) || '-' }}</td><td><span class="badge" :class="stateTone(t.state)">{{ stateLabel(t.state) }}</span></td><td>{{ t.language_code || 'en' }}</td>
 						<td class="num" @click.stop><Btn v-if="data && data.can_create" size="sm" :variant="t.approved ? 'primary' : ''" :disabled="!t.approved" @click="use(t)">Use in campaign</Btn></td>
-					</tr></tbody></table></div></div>
+					</tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 				<div v-else class="wgrid">
 					<article v-for="t in shown" :key="t.name" class="wcard card hover" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
 						<div class="wcard-pv"><WaTemplateBubble :t="t" compact /></div>

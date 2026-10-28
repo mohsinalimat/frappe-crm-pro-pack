@@ -219,7 +219,8 @@
 				if (!isManager()) return [{ label: 'Preview', icon: 'eye', run: () => (preview.value = t) }]
 				return [{ label: 'Edit', icon: 'edit', run: () => CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) }, { label: 'Preview', icon: 'eye', run: () => (preview.value = t) }, { label: 'Duplicate', icon: 'copy', run: () => duplicate(t) }, { sep: true }, t.enabled ? { label: 'Archive', icon: 'bookmark', disabled: lockedForMe(t), run: () => archive(t, true) } : { label: 'Restore', icon: 'refresh', run: () => archive(t, false) }, { label: 'Delete', icon: 'trash', danger: true, disabled: lockedForMe(t), title: lockedForMe(t) ? 'Ready-made template: only a System Manager can delete it' : '', run: () => remove(t) }]
 			}
-			return { protectedDel, layout, purposeCount, items, loading, error, q, shown, load, createOpen, startOpen, preview, cats, create, startFrom, menu, favs, toggleFav, isManager, archivedCount, CM, MODE_INFO, open: (t) => (isManager() ? CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) : (preview.value = t)) }
+			const pg = CM.usePaged(() => shown.value)
+			return { pg, protectedDel, layout, purposeCount, items, loading, error, q, shown, load, createOpen, startOpen, preview, cats, create, startFrom, menu, favs, toggleFav, isManager, archivedCount, CM, MODE_INFO, open: (t) => (isManager() ? CM.go('/templates/email/edit/' + encodeURIComponent(t.name)) : (preview.value = t)) }
 		},
 		template: `
 		<div class="page">
@@ -237,11 +238,11 @@
 			<Empty v-else-if="!shown.length" icon="mail" :title="items.length ? 'No templates match' : 'No email templates yet'" :text="items.length ? 'Try a different search or filter.' : (isManager() ? 'Create your first template with the visual builder, or paste your own HTML.' : 'Templates your team creates will show up here.')"><Btn v-if="isManager() && !items.length" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn></Empty>
  			<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
 				<thead><tr><th>Template</th><th>Group</th><th>Category</th><th>Built with</th><th class="num">Used in</th><th></th></tr></thead>
-				<tbody><tr v-for="t in shown" :key="t.name" class="click" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
+				<tbody><tr v-for="t in pg.rows" :key="t.name" class="click" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
 					<td><b class="ellipsis" style="display:block;max-width:300px">{{ t.template_name }}</b><div class="small muted ellipsis" style="max-width:300px">{{ t.subject }}</div></td>
 					<td><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-else class="faint">-</span></td><td>{{ t.purpose ? '-' : (t.category || '-') }}</td><td class="nowrap">{{ t.editor_mode }}</td><td class="num">{{ t.used_in }}</td>
 					<td class="num" @click.stop><Menu :items="menu(t)" :label="'Actions for ' + t.template_name" /></td>
-				</tr></tbody></table></div></div>
+				</tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 			<div v-else class="tgrid">
 				<article v-for="t in shown" :key="t.name" class="tcard card hover" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
 					<div class="tcard-th"><Thumb :html="CM.sampleFill(t.body_html)" /><button type="button" class="star" :class="{ on: favs.includes(t.name) }" :aria-pressed="favs.includes(t.name)" :aria-label="favs.includes(t.name) ? 'Remove from favourites' : 'Add to favourites'" @click.stop="toggleFav(t.name)"><Ico name="star" /></button><span v-if="!t.enabled" class="badge neutral nodot arch">Archived</span></div>

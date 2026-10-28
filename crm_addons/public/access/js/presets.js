@@ -66,7 +66,8 @@
 				const pick = ['followups', 'meetings', 'demos', 'campaigns']
 				return pick.map((k) => AX.feature(k)).filter(Boolean).map((f) => ({ label: f.label, value: AX.label(f, p.grants[f.key] !== undefined ? p.grants[f.key] : AX.legacy(f, ['Sales User'])) }))
 			}
-			return { layout, d, editing, copyOf, open, duplicate, remove, summary }
+			const pg = CM.usePaged(() => d.presets)
+			return { pg, layout, d, editing, copyOf, open, duplicate, remove, summary }
 		},
 		template: `
 		<div class="page wide">
@@ -76,13 +77,13 @@
 			<div v-if="!d.loaded && !d.error" class="ax-cards"><Skel h="170" r="12" v-for="n in 4" :key="n" /></div>
 			<div v-else-if="d.loaded && layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
 				<thead><tr><th>Preset</th><th>What it is for</th><th v-for="s in summary(d.presets[0] || { grants: {} })" :key="s.label">{{ s.label }}</th><th class="num">People</th><th></th></tr></thead>
-				<tbody><tr v-for="p in d.presets" :key="p.name" class="click" tabindex="0" @click="open(p.name)" @keydown.enter="open(p.name)">
+				<tbody><tr v-for="p in pg.rows" :key="p.name" class="click" tabindex="0" @click="open(p.name)" @keydown.enter="open(p.name)">
 					<td><b>{{ p.preset_name }}</b><span v-if="p.is_system" class="badge sm nodot" style="margin-left:6px">Ready-made</span></td>
 					<td class="small muted" style="max-width:320px">{{ p.description || '-' }}</td>
 					<td v-for="s in summary(p)" :key="s.label" class="nowrap">{{ s.value }}</td>
 					<td class="num">{{ p.users }}</td>
 					<td class="num nowrap" @click.stop><Btn size="sm" variant="ghost" icon="copy" aria-label="Duplicate" title="Duplicate" @click="duplicate(p)" /><Btn size="sm" variant="ghost" icon="trash" aria-label="Delete" title="Delete" @click="remove(p)" /></td>
-				</tr></tbody></table></div></div>
+				</tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 			<div v-else-if="d.loaded" class="ax-cards">
 				<article v-for="p in d.presets" :key="p.name" class="card pad ax-preset">
 					<div class="row" style="gap:8px"><b class="grow" style="font-size:15px">{{ p.preset_name }}</b><span v-if="p.is_system" class="badge sm nodot">Ready-made</span></div>

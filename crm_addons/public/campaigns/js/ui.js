@@ -351,6 +351,15 @@
 		emits: ['update:page'],
 		template: `<div v-if="total > size" class="pager"><span class="small muted">{{ page * size + 1 }}-{{ Math.min(total, (page + 1) * size) }} of {{ total.toLocaleString() }}</span><Btn size="sm" icon="chevron-left" :disabled="page === 0" aria-label="Previous page" @click="$emit('update:page', page - 1)" /><Btn size="sm" icon="chevron-right" :disabled="(page + 1) * size >= total" aria-label="Next page" @click="$emit('update:page', page + 1)" /></div>`,
 	}
+	/** Pages a list the page already holds: ``pg.rows`` is the current page, drawn with <Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" />. Goes back a page when a filter leaves fewer. */
+	CM.usePaged = (source, size = 25) => {
+		const page = ref(0)
+		const all = computed(() => (typeof source === 'function' ? source() : source.value) || [])
+		const total = computed(() => all.value.length)
+		const rows = computed(() => all.value.slice(page.value * size, (page.value + 1) * size))
+		watch(total, (n) => { const last = Math.max(0, Math.ceil(n / size) - 1); if (page.value > last) page.value = last })
+		return reactive({ page, size, rows, total })
+	}
 	C.Avatar = {
 		props: { name: String, size: { type: Number, default: 28 } },
 		computed: { bg() { let h = 0; for (const c of String(this.name)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 45% 45%)` } },

@@ -237,7 +237,8 @@
 				return !s || (p.full_name + ' ' + p.user).toLowerCase().includes(s)
 			}))
 			const counts = computed(() => ({ all: d.people.length, custom: d.people.filter((p) => p.configured).length, default: d.people.filter((p) => !p.configured).length, inactive: d.people.filter((p) => !p.enabled).length }))
-			return { linkOpen, openLink, saveLink, ltOptions, ltPicked, pickTpl, linking, createTpl, creatingTpl, d, q, filter, editing, adding, people, counts, AX }
+			const pg = CM.usePaged(() => people.value)
+			return { pg, linkOpen, openLink, saveLink, ltOptions, ltPicked, pickTpl, linking, createTpl, creatingTpl, d, q, filter, editing, adding, people, counts, AX }
 		},
 		template: `
 		<div class="page wide">
@@ -263,14 +264,14 @@
 			<Empty v-else-if="d.loaded && !people.length" icon="users" title="Nobody matches" text="Only people with a Sales User, Sales Manager, System Manager or Campaign Manager role are listed. Use Add person to invite someone." />
 			<div v-else-if="d.loaded" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl ax-tbl">
 				<thead><tr><th>Person</th><th>Roles</th><th>Reports to</th><th>Access</th><th></th></tr></thead>
-				<tbody><tr v-for="p in people" :key="p.user" class="click" :class="{ inactive: !p.enabled }" tabindex="0" @click="editing = p.user" @keydown.enter="editing = p.user">
+				<tbody><tr v-for="p in pg.rows" :key="p.user" class="click" :class="{ inactive: !p.enabled }" tabindex="0" @click="editing = p.user" @keydown.enter="editing = p.user">
 					<td><div class="row" style="gap:10px"><Pic :name="p.full_name" :image="p.image" :size="32" /><div><b>{{ p.full_name }}</b><span v-if="!p.enabled" class="badge sm nodot" style="margin-left:6px">Inactive</span><div class="small muted">{{ p.designation ? p.designation + ' - ' : '' }}{{ p.user }}</div></div></div></td>
 					<td><div class="row wrap" style="gap:4px"><span v-for="r in p.roles" :key="r" class="badge sm nodot">{{ r }}</span></div></td>
 					<td><template v-if="p.reports_to">{{ p.reports_to }}</template><span v-else class="muted">-</span><div v-if="p.team_size" class="small muted">{{ p.team_size }} below</div></td>
 					<td><span v-if="p.admin" class="badge sm nodot green">Full access</span><template v-else><span v-if="p.preset" class="badge sm nodot blue">{{ p.preset }}</span><span v-else class="small muted">Role default</span><span v-if="p.overrides" class="badge sm nodot amber" style="margin-left:6px">{{ p.overrides }} change{{ p.overrides === 1 ? '' : 's' }}</span></template></td>
 					<td style="text-align:right"><Btn size="sm" @click.stop="editing = p.user">Edit access</Btn></td>
 				</tr></tbody>
-			</table></div></div>
+			</table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
 			<PersonEditor v-if="editing" :user="editing" @close="editing = null" />
 			<AddPerson v-if="adding" @close="adding = false" @added="(u) => { adding = false; editing = u }" />
 		</div>`,
