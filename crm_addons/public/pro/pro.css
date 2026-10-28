@@ -648,3 +648,6 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 .wi-menu.right { right: 0; left: auto; } .wi-chat .wx-head .wi-infow { margin-left: 4px; }
 .wi-banner { padding: 8px 16px; }
 .wi-chips { flex-wrap: wrap; gap: 6px; } .wi-chip { padding: 5px 10px; }
+.wi-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 10px; } .wi-chip { flex: 0 0 auto; }
+.wi-chipbtn.static { cursor: default; } .wx-tlink { color: inherit; text-decoration: none; } .wx-tlink:hover { text-decoration: underline; color: #1b7a43; }
+.wi-card.right { left: auto; right: 0; } .wi-chat .wx-head .small { max-width: 46ch; }

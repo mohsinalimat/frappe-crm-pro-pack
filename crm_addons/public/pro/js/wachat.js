@@ -22,7 +22,7 @@
 	/** Props: the messages and what the person may do. ``send({ text, attach, type, replyTo })``, ``react(message, emoji)`` and ``render(text)``
 	    are the page's own calls (a lead and an inbox chat are different records); a rejected promise shows its message. */
 	V.WaChat = {
-		props: { messages: { type: Array, default: () => [] }, windowOpen: Boolean, windowUntil: String, canWrite: Boolean, canTemplate: Boolean, title: String, image: String, subtitle: String, hasNumber: { type: Boolean, default: true }, noNumberText: String, person: { type: String, default: 'Lead' }, send: Function, react: Function, render: Function },
+		props: { messages: { type: Array, default: () => [] }, windowOpen: Boolean, windowUntil: String, canWrite: Boolean, canTemplate: Boolean, title: String, titleHref: String, image: String, subtitle: String, hasNumber: { type: Boolean, default: true }, noNumberText: String, person: { type: String, default: 'Lead' }, send: Function, react: Function, render: Function },
 		emits: ['template'],
 		setup(props, { emit }) {
 			const wa = reactive({ text: '', busy: false, emoji: false, cat: '😀', menu: false, replies: [], hi: 0, reply: null, pending: null, menuFor: '' }); const chat = ref(null); const pics = ref(null); const vids = ref(null); const docs = ref(null)
@@ -74,7 +74,7 @@
 		},
 		template: `
 								<div class="wx">
-									<div class="wx-head"><Pic :name="title" :image="image" :size="30" /><div class="grow"><b>{{ title }}</b><div class="small">{{ subtitle || 'No phone number' }}</div></div><slot name="head" />
+									<div class="wx-head"><Pic :name="title" :image="image" :size="30" /><div class="grow"><b><a v-if="titleHref" class="wx-tlink" :href="titleHref" title="Open the lead">{{ title }}</a><template v-else>{{ title }}</template></b><div class="small">{{ subtitle || 'No phone number' }}</div></div><slot name="head" />
 										<span class="wx-win" :class="{ on: windowOpen }" :title="windowOpen ? 'Free chat is open until ' + day(windowUntil) : 'They have not written in 24 hours'">{{ windowOpen ? 'Open till ' + shortTime(windowUntil) : 'Template needed' }}</span>
 										<button v-if="canTemplate && hasNumber" type="button" class="wx-tpl" @click="$emit('template')"><Ico name="send" size="sm" /> Template</button></div>
 									<div ref="chat" class="wx-chat" @click="wa.menuFor = ''"><p v-if="!waMessages.length" class="wx-note">No messages yet. Start with a template.</p>

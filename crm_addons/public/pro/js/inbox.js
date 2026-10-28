@@ -73,7 +73,7 @@
 			<div v-if="acc && acc.level === 'none'" class="page"><Empty icon="whatsapp" title="No access to the WhatsApp inbox" text="Ask an administrator to give you access under Team." /></div>
 			<div v-else class="wi-in" :class="{ chatting: !!cur }">
 				<aside class="wi-list" aria-label="Chats">
-					<div class="wi-lh"><span class="wi-logo"><Ico name="whatsapp" /></span><h1>WhatsApp</h1></div>
+					<div class="wi-lh"><span class="wi-logo"><Ico name="whatsapp" /></span><h1>WhatsApp Business</h1></div>
 					<div class="wi-search"><div class="grow"><Inp v-model="list.q" icon="search" placeholder="Search name, number or message..." clearable aria-label="Search chats" /></div>
 						<span class="wi-pop wi-fwrap"><button type="button" class="wi-ib" :class="{ on: ['mine', 'unassigned', 'notlead'].includes(list.view) }" aria-label="More filters" title="More filters" @click="fmenu = !fmenu"><Ico name="filter" /></button>
 							<div v-if="fmenu" class="wi-menu"><button v-for="m in MORE" :key="m[0]" type="button" :class="{ on: list.view === m[0] }" @click="list.view = list.view === m[0] ? 'all' : m[0]; fmenu = false">{{ m[1] }}<span v-if="m[0] === 'unassigned' && list.counts.unassigned" class="wi-n">{{ list.counts.unassigned }}</span></button></div></span></div>
@@ -107,18 +107,16 @@
 									<div v-if="asg" class="wi-asg-menu"><button v-for="u in users" :key="u.value" type="button" @click="assignTo(u.value)">{{ u.label }}</button><button v-if="chat.chat.assigned_to" type="button" class="muted" @click="assignTo('')">Unassign</button></div></span>
 							</div>
 						</div>
-						<WaChat class="wi-chat" :messages="chat.messages" :window-open="chat.window_open" :window-until="chat.window_until" :can-write="chat.can_write" :can-template="chat.can_write" :title="chat.chat.title" :subtitle="fmtNum(chat.chat.number)" person="Contact" :send="sendWa" :react="reactWa" @template="openTpl">
+						<WaChat class="wi-chat" :messages="chat.messages" :window-open="chat.window_open" :window-until="chat.window_until" :can-write="chat.can_write" :can-template="chat.can_write" :title="chat.chat.title" :title-href="chat.chat.lead ? CM.leadUrl(chat.chat.lead.name) : ''" :subtitle="(chat.chat.lead && chat.chat.lead.organization ? chat.chat.lead.organization + ' \u00b7 ' : '') + fmtNum(chat.chat.number)" person="Contact" :send="sendWa" :react="reactWa" @template="openTpl">
 							<template #head>
-								<span class="wi-pop wi-infow"><button type="button" class="wi-chipbtn" :class="chat.chat.lead ? 'lead' : 'contact'" @click="info = !info">{{ chat.chat.lead ? (chat.chat.lead.status || 'Lead') : 'Contact' }}<Ico name="chevron-down" size="sm" /></button>
-									<div v-if="info" class="wi-card"><template v-if="chat.chat.lead"><b>{{ chat.chat.lead.lead_name }}</b><div class="small muted">{{ chat.chat.lead.name }}</div>
-										<dl><dt>Status</dt><dd>{{ chat.chat.lead.status || '-' }}</dd><dt>Owner</dt><dd>{{ chat.chat.lead.owner_name || '-' }}</dd><dt>Phone</dt><dd>{{ chat.chat.lead.mobile_no || '-' }}</dd><dt>Email</dt><dd>{{ chat.chat.lead.email || '-' }}</dd><dt>Organization</dt><dd>{{ chat.chat.lead.organization || '-' }}</dd><dt>Source</dt><dd>{{ chat.chat.lead.source || '-' }}</dd></dl>
-										<a class="btn primary sm" :href="CM.leadUrl(chat.chat.lead.name)">Open lead</a></template>
-										<template v-else><b>Not in your CRM yet</b><div class="small muted" style="margin-bottom:8px">{{ fmtNum(chat.chat.number) }}</div><Btn v-if="chat.can_write" variant="primary" size="sm" icon="plus" @click="info = false; openCreate()">Create lead</Btn></template></div></span>
+								<span class="wi-chipbtn static" :class="chat.chat.lead ? 'lead' : 'contact'">{{ chat.chat.lead ? 'Lead' : 'Contact' }}</span>
 								<button type="button" class="wx-tpl wi-back" @click="back"><Ico name="arrow-left" size="sm" /> Chats</button>
-								<a v-if="chat.chat.lead" class="wx-tpl" :href="CM.leadUrl(chat.chat.lead.name)"><Ico name="user" size="sm" /> Open lead</a>
 								<a class="wx-tpl" :href="'#/whatsapp/' + cur" target="_blank" rel="noopener" title="Open this chat in a new tab" aria-label="Open this chat in a new tab"><Ico name="external-link" size="sm" /></a>
-								<span v-if="!chat.chat.lead" class="wi-pop wi-kwrap"><button type="button" class="wx-tpl" aria-label="More" @click="kmenu = !kmenu"><Ico name="more" size="sm" /></button>
-									<div v-if="kmenu" class="wi-menu right"><button v-if="chat.can_write && chat.chat.status !== 'Not a lead'" type="button" @click="kmenu = false; notALead(true)">Mark as not a lead</button><button v-if="chat.chat.status === 'Not a lead'" type="button" @click="kmenu = false; notALead(false)">Move back to inbox</button><button v-if="chat.manager" type="button" @click="kmenu = false; openAssign()">{{ chat.chat.assigned_to ? 'Reassign' : 'Assign to someone' }}</button></div></span>
+								<span class="wi-pop wi-kwrap"><button type="button" class="wx-tpl" aria-label="More" @click="chat.chat.lead ? (info = !info) : (kmenu = !kmenu)"><Ico name="more" size="sm" /></button>
+									<div v-if="info && chat.chat.lead" class="wi-card right"><b>{{ chat.chat.lead.lead_name }}</b><div class="small muted">{{ chat.chat.lead.name }}</div>
+										<dl><dt>Company</dt><dd>{{ chat.chat.lead.organization || '-' }}</dd><dt>Status</dt><dd>{{ chat.chat.lead.status || '-' }}</dd><dt>Owner</dt><dd>{{ chat.chat.lead.owner_name || '-' }}</dd><dt>Phone</dt><dd>{{ chat.chat.lead.mobile_no || '-' }}</dd><dt>Email</dt><dd>{{ chat.chat.lead.email || '-' }}</dd><dt>Source</dt><dd>{{ chat.chat.lead.source || '-' }}</dd></dl>
+										<a class="btn primary sm" :href="CM.leadUrl(chat.chat.lead.name)">Open lead</a></div>
+									<div v-if="kmenu && !chat.chat.lead" class="wi-menu right"><button v-if="chat.can_write && chat.chat.status !== 'Not a lead'" type="button" @click="kmenu = false; notALead(true)">Mark as not a lead</button><button v-if="chat.chat.status === 'Not a lead'" type="button" @click="kmenu = false; notALead(false)">Move back to inbox</button><button v-if="chat.manager" type="button" @click="kmenu = false; openAssign()">{{ chat.chat.assigned_to ? 'Reassign' : 'Assign to someone' }}</button><button v-if="chat.can_write" type="button" @click="kmenu = false; openCreate()">Create lead</button></div></span>
 							</template>
 						</WaChat>
 					</template>
