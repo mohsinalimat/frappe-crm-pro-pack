@@ -261,3 +261,20 @@ def import_csv(content, dry_run=1):
 			if len(failed) >= 200:
 				break
 	return {"created": created, "failed": failed, "unknown": unknown, "total": len(rows) - 1, "dry_run": bool(cint(dry_run))}
+
+
+@frappe.whitelist()
+def to_xlsx(columns, rows):
+	"""An Excel file (base64) of ``rows`` under the header ``columns``; cells that a spreadsheet would run as a formula are quoted."""
+	import base64
+
+	from frappe.utils.xlsxutils import make_xlsx
+
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in."), frappe.PermissionError)
+	cols = json.loads(columns) if isinstance(columns, str) else columns
+	data = json.loads(rows) if isinstance(rows, str) else rows
+	if not isinstance(cols, list) or not isinstance(data, list) or len(data) > 20000 or len(cols) > 300:
+		frappe.throw(_("That is too much to export in one file."))
+	table = [[safe_cell(c) for c in cols]] + [[safe_cell(v) if v is not None else "" for v in r[: len(cols)]] for r in data if isinstance(r, list)]
+	return base64.b64encode(make_xlsx(table, "Leads").getvalue()).decode()

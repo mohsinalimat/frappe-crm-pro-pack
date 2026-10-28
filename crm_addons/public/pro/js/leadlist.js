@@ -47,6 +47,32 @@
 
 	const MODES = [{ value: 'list', label: 'List', icon: 'list' }, { value: 'kanban', label: 'Kanban', icon: 'columns' }, { value: 'grid', label: 'Grid', icon: 'grid2' }]
 
+	/** Download: choose the columns and their order, then Excel or CSV. */
+	V.ExportDialog = {
+		props: { fields: Array, start: Array, count: Number, selected: Number, busy: Boolean },
+		emits: ['close', 'go'],
+		setup(props, { emit }) {
+			const by = Object.fromEntries(props.fields.map((f) => [f.key, f]))
+			const chosen = ref((props.start || []).filter((k) => by[k]).map((k) => ({ key: k, label: by[k].label })))
+			const q = ref(''); const format = ref(PRO.leadUtil.store.get('exportFormat', 'xlsx'))
+			const has = (k) => chosen.value.some((c) => c.key === k)
+			const flip = (f) => { chosen.value = has(f.key) ? chosen.value.filter((c) => c.key !== f.key) : [...chosen.value, { key: f.key, label: f.label }] }
+			const shown = computed(() => props.fields.filter((f) => f.label.toLowerCase().includes(q.value.trim().toLowerCase())))
+			function go() { PRO.leadUtil.store.set('exportFormat', format.value); PRO.leadUtil.store.set('exportCols', chosen.value.map((c) => c.key)); emit('go', { cols: chosen.value, format: format.value }) }
+			return { chosen, q, format, has, flip, shown, go, all: () => (chosen.value = props.fields.map((f) => ({ key: f.key, label: f.label }))), none: () => (chosen.value = []), FORMATS: [{ value: 'xlsx', label: 'Excel' }, { value: 'csv', label: 'CSV' }] }
+		},
+		template: `
+		<Modal title="Download leads" :subtitle="(selected ? selected + ' selected' : count + ' leads in these filters')" size="lg" @close="$emit('close')">
+			<div class="grid2" style="align-items:start">
+				<div><Inp v-model="q" icon="search" placeholder="Find a field" aria-label="Find a field" />
+					<div class="row small" style="gap:10px;margin:6px 0"><button type="button" class="link" @click="all">Select all</button><button type="button" class="link" @click="none">None</button></div>
+					<div class="colpick"><label v-for="f in shown" :key="f.key" class="row" style="gap:8px;padding:5px 2px"><input type="checkbox" :checked="has(f.key)" @change="flip(f)" /> {{ f.label }}</label></div></div>
+				<div><b class="small">Columns in the file, in order</b><DragList v-model="chosen" empty="Pick at least one field." /></div>
+			</div>
+			<template #foot><Seg v-model="format" :options="FORMATS" /><div class="grow"></div><Btn @click="$emit('close')">Cancel</Btn><Btn variant="primary" icon="download" :loading="busy" :disabled="!chosen.length" @click="go">Download</Btn></template>
+		</Modal>`,
+	}
+
 	V.Leads = {
 		setup() {
 			const data = ref(null); const loading = ref(true); const error = ref(''); const meta = reactive({ statuses: [], owners: [], linkable: [], can_create: false, can_delete: false, can_write: false })
@@ -208,27 +234,40 @@
 
 			// ---- export: every field, of the selected rows or of the current filters
 			const exporting = ref(false)
-			async function exportCsv() {
+			const exportFields = ref([])
+			async function openExport() {
+				try { if (!exportFields.value.length) exportFields.value = await api('crm_addons.pro.form.export_columns', {}); dlg.value = 'export' } catch (e) { CM.toast(e.message, 'err') }
+			}
+			const exportStart = computed(() => PRO.leadUtil.store.get('exportCols', null) || (columns.value || []).map((c) => c.key).filter((k) => k && k !== '_assign'))
+			async function exportCsv({ cols, format }) {
 				exporting.value = true
 				try {
-					const cols = await api('crm_addons.pro.form.export_columns', {})
 					const f = { ...BASE, ...p.filters }; if (picked.value.length) f.name = ['IN', picked.value]
+					if (search.value.trim()) { const names = await api('crm_addons.pro.leads.search_names', { text: search.value.trim() }); f.name = ['IN', picked.value.length ? picked.value.filter((n) => names.includes(n)) : names.length ? names : ['-']] }
 					const r = await api('crm.api.doc.get_data', { doctype: DOC, filters: f, order_by: p.orderBy, page_length: 20000, page_length_count: 20, columns: JSON.stringify(cols.map((c) => ({ label: c.label, type: 'Data', key: c.key }))), rows: JSON.stringify(cols.map((c) => c.key)), view: { view_type: 'list' } })
-					const cell = (v) => { let t = v == null ? '' : String(v); if (/^[=@-]/.test(t) || (t.startsWith('+') && !/^\+[\d\s-]*$/.test(t))) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"' }
-					const text = [cols.map((c) => cell(c.label)).join(','), ...r.data.map((row) => cols.map((c) => cell(row[c.key])).join(','))].join('\r\n')
-					csvDownload(text, 'leads-' + iso(new Date()) + '.csv')
-					CM.toast(r.data.length + (r.data.length === 1 ? ' lead' : ' leads') + ' exported' + (r.total_count > r.data.length ? ' (the first 20,000; narrow the filters for the rest)' : ''))
+					const val = (v) => (v == null ? '' : v)
+					const stamp = 'leads-' + iso(new Date())
+					if (format === 'xlsx') {
+						const b64 = await api('crm_addons.pro.form.to_xlsx', { columns: JSON.stringify(cols.map((c) => c.label)), rows: JSON.stringify(r.data.map((row) => cols.map((c) => val(row[c.key])))) })
+						const bin = atob(b64); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+						const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); a.download = stamp + '.xlsx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+					} else {
+						const cell = (v) => { let t = String(val(v)); if (/^[=@-]/.test(t) || (t.startsWith('+') && !/^\+[\d\s-]*$/.test(t))) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"' }
+						csvDownload([cols.map((c) => cell(c.label)).join(','), ...r.data.map((row) => cols.map((c) => cell(row[c.key])).join(','))].join('\r\n'), stamp + '.csv')
+					}
+					dlg.value = ''
+					CM.toast(r.data.length + (r.data.length === 1 ? ' lead' : ' leads') + ' downloaded' + (r.total_count > r.data.length ? ' (the first 20,000; narrow the filters for the rest)' : ''))
 				} catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 			const sortDirOpts = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]
-			return { cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
+			return { openExport, exportFields, exportStart, cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
 		},
 		template: `
 		<div class="page leads">
 			<div class="pg-head"><div class="grow"><h1>Leads</h1><p class="muted small">{{ loading && !data ? '' : total + (total === 1 ? ' lead' : ' leads') }}</p></div>
 				<div class="actions">
 					<Seg :modelValue="mode" :options="MODES" @update:modelValue="setMode" />
-					<Btn icon="download" :loading="exporting" title="Download every field of the leads (the selected ones, or all of these filters) as CSV" aria-label="Export leads" @click="exportCsv" />
+					<Btn icon="download" :loading="exporting" title="Download leads: choose the columns and their order" aria-label="Download leads" @click="openExport" />
 					<Btn v-if="meta.can_create" icon="upload" title="Upload leads from a CSV file" aria-label="Upload leads" @click="importing = true" />
 					<Btn v-if="meta.can_create" variant="primary" icon="plus" @click="creating = true">Create</Btn>
 				</div>
@@ -316,6 +355,7 @@
 				</div>
 			</section>
 
+			<ExportDialog v-if="dlg === 'export'" :fields="exportFields" :start="exportStart" :count="total" :selected="picked.length" :busy="exporting" @close="dlg = ''" @go="exportCsv" />
 			<FilterDialog v-if="dlg === 'filter'" :fields="filterFields" :filters="p.filters" @close="dlg = ''" @apply="applyFilters" />
 			<ColumnsDialog v-if="dlg === 'columns' && data" :fields="colQ" :columns="columns" @close="dlg = ''" @apply="applyColumns" />
 			<Modal v-if="dlg === 'assign'" title="Assign to" size="sm" @close="dlg = ''"><Field label="People"><MultiPick v-model="assignUsers" :options="assignOpts" label="Choose people" searchable /></Field>

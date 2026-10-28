@@ -84,3 +84,21 @@ class TestProForm(AccessCase):
 		cols = form.export_columns()
 		self.assertEqual(cols[0], {"key": "name", "label": "ID"})
 		self.assertTrue(any(c["key"] == "mobile_no" for c in cols))
+
+
+class TestToXlsx(AccessCase):
+	def test_builds_a_workbook_and_quotes_formulas(self):
+		import base64
+		import io
+
+		import openpyxl
+
+		frappe.set_user("Administrator")
+		raw = form.to_xlsx(json.dumps(["Name", "Phone"]), json.dumps([["=cmd()", "+919800000000"], ["Ann", None]]))
+		ws = openpyxl.load_workbook(io.BytesIO(base64.b64decode(raw))).active
+		self.assertEqual([c.value for c in ws[1]], ["Name", "Phone"])
+		self.assertEqual(ws["A2"].value, "'=cmd()")
+		self.assertEqual(ws["B2"].value, "+919800000000")
+		frappe.set_user("Guest")
+		with self.assertRaises(frappe.PermissionError):
+			form.to_xlsx("[]", "[]")

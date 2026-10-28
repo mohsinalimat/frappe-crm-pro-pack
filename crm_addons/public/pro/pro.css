@@ -115,3 +115,4 @@
 
 .pv.grow { justify-content: flex-start }
 .pv.ico { white-space: nowrap }
+button.link { border: 0; background: none; padding: 0; color: var(--accent, #2563eb); cursor: pointer; font: inherit }
