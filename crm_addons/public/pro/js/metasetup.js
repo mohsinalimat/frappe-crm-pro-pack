@@ -138,11 +138,11 @@
 
 				<section v-if="sub === 'leads'" class="card it-card">
 					<div class="row it-h"><div class="grow"><b class="it-t">Recent Meta leads</b><div class="small muted">Every lead, duplicate and failure from your Meta forms, newest first. The same entries show in the Log under Meta ads.</div></div>
-						<span class="badge" :class="lg.sync.running === false ? 'amber' : 'green'">{{ lg.sync.running === false ? 'Sync stopped' : 'Sync running' }}</span>
+						<DateRange v-model="lrange" any one-month align="right" aria-label="Received between" /><span class="badge" :class="lg.sync.running === false ? 'amber' : 'green'">{{ lg.sync.running === false ? 'Sync stopped' : 'Sync running' }}</span>
 						<Btn icon="refresh" :loading="busy === 'sync'" :disabled="!d.connected" @click="syncNow">Sync now</Btn>
 						<Btn v-if="lg.sync.running !== false" icon="x-circle" :loading="busy === 'ss'" @click="setSync(false)">Stop sync</Btn><Btn v-else variant="primary" icon="check-circle" :loading="busy === 'ss'" @click="setSync(true)">Start sync</Btn></div>
 					<div class="small muted" style="margin:-4px 0 10px">{{ lg.sync.running === false ? 'While stopped, new leads from Meta are kept as Waiting and nothing is lost. Start the sync to import them. ' : '' }}{{ lg.sync.waiting ? lg.sync.waiting + ' waiting. ' : '' }}Last sync: {{ lg.sync.last_sync ? when(lg.sync.last_sync) : 'not yet' }}. Last notice from Meta: {{ lg.sync.last_event ? when(lg.sync.last_event) : 'none yet' }}.</div>
-					<div class="row wrap" style="gap:10px;margin-bottom:12px"><div style="width:200px"><Dd v-model="lres" :options="RES" aria-label="Result" /></div><div style="width:240px"><Dd v-model="lform" :options="lg.forms" searchable allow-empty="All forms" placeholder="All forms" aria-label="Form" /></div><DateRange v-model="lrange" any one-month aria-label="Received between" /><div class="grow"></div>
+					<div class="row wrap" style="gap:10px;margin-bottom:12px"><div style="width:200px"><Dd v-model="lres" :options="RES" aria-label="Result" /></div><div style="width:240px"><Dd v-model="lform" :options="lg.forms" searchable allow-empty="All forms" placeholder="All forms" aria-label="Form" /></div><div class="grow"></div>
 						<span v-for="(n, k) in lg.counts" :key="k" class="small muted">{{ word(k) }}: <b>{{ n }}</b></span><div style="width:220px"><Inp v-model="lq" icon="search" placeholder="Search" clearable aria-label="Search the Meta leads" /></div></div>
 					<Skel v-if="lg.loading && !lg.rows.length" h="40" />
 					<Empty v-else-if="!lg.rows.length" icon="users" title="No Meta leads" :text="lres || lform || lq || lrange.preset !== 'any' ? 'Nothing matches these filters.' : 'Leads from your connected forms will appear here.'" />

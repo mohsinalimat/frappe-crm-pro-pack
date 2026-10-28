@@ -49,12 +49,12 @@
 		template: `
 		<div class="page logpage">
 			<div class="pg-head"><div class="grow"><h1>Log</h1><p>Every website booking and lead form entry, newest first.</p></div>
-				<div class="actions"><Btn icon="download" :disabled="!log.total" @click="exportCsv">Export CSV</Btn></div></div>
+				<div class="actions"><DateRange v-model="range" any one-month align="right" aria-label="Between" /><Btn icon="download" :disabled="!log.total" @click="exportCsv">Export CSV</Btn></div></div>
 			<div ref="card" class="card logcard">
 				<div class="row wrap logbar"><div class="seg logseg" role="group" aria-label="Show"><button v-for="k in KINDS" :key="k[0]" type="button" :class="{ on: kind === k[0] }" :aria-pressed="kind === k[0]" :title="k[1]" :aria-label="k[1]" @click="kind = k[0]">{{ k[1] }}</button></div>
 					<div style="width:210px"><MultiDd v-model="result" :options="resultOpts" placeholder="All results" /></div>
 					<div style="width:230px"><Dd v-model="source" :options="sourceOpts" searchable allow-empty="All websites" placeholder="All websites" aria-label="Website" /></div>
-					<DateRange v-model="range" any one-month aria-label="Between" /><div class="grow"></div><div style="width:min(200px,100%)"><Inp v-model="search" icon="search" placeholder="Search" clearable aria-label="Search the log" /></div></div>
+					<div class="grow"></div><div style="width:min(200px,100%)"><Inp v-model="search" icon="search" placeholder="Search" clearable aria-label="Search the log" /></div></div>
 				<ErrorState v-if="log.error" :message="log.error" @retry="load" />
 				<div v-else-if="log.loading && !log.rows.length" style="padding:18px"><Skel h="200" r="10" /></div>
 				<Empty v-else-if="!log.rows.length" icon="file" title="Nothing logged" :text="filtered ? 'No entry matches. Clear the filters.' : 'Nothing has been logged yet.'"><Btn v-if="filtered" @click="result = []; source = ''; search = ''; range = { preset: 'any', from: '', to: '' }">Clear filters</Btn></Empty>
