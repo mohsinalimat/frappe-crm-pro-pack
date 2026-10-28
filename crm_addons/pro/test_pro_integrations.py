@@ -103,3 +103,77 @@ class TestProIntegrations(AccessCase):
 			integrations._certificate("http://sns.us-east-1.amazonaws.com/cert.pem")
 		with patch.object(integrations, "_verify_sns"):
 			self.assertEqual(integrations.ses_events(token), "ok")
+
+
+class TestWhatsAppIntegration(AccessCase):
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("Administrator")
+
+	def _add(self, phone="1111111111", name="WA One", sending=0, receiving=0):
+		with patch.object(integrations, "_graph", return_value=({"verified_name": "Acme", "display_phone_number": "+91 99999 00000"}, "")), patch(
+			"frappe_whatsapp.frappe_whatsapp.doctype.whatsapp_account.whatsapp_account.WhatsAppAccount.subscribe_app", return_value={"success": True}
+		):
+			return integrations.add_whatsapp(name, phone, "2222222222", "EAAB-secret-token", "3333", "v21.0", sending, receiving)
+
+	def test_a_number_is_connected_only_when_whatsapp_accepts_the_token(self):
+		with patch.object(integrations, "_graph", return_value=(None, "Invalid OAuth access token")):
+			with self.assertRaises(frappe.ValidationError):
+				integrations.add_whatsapp("Bad", "1", "2", "nope")
+		self.assertFalse(frappe.db.exists("WhatsApp Account", "Bad"))
+		out = self._add()
+		self.assertEqual(out["number"], "+91 99999 00000")
+		row = next(a for a in integrations.get_integrations()["whatsapp"]["accounts"] if a["name"] == "WA One")
+		self.assertTrue(row["has_token"])
+		self.assertTrue(row["verify_token"])
+		self.assertNotIn("EAAB-secret-token", json.dumps(integrations.get_integrations()))
+		with self.assertRaises(frappe.ValidationError):
+			self._add()  # the same number twice
+
+	def test_sending_and_receiving_move_to_the_chosen_number(self):
+		self._add("1111111111", "WA One", 1, 1)
+		self._add("4444444444", "WA Two")
+		integrations.set_whatsapp("WA Two", "sending", 1)
+		self.assertEqual(frappe.db.get_value("WhatsApp Account", "WA One", "is_default_outgoing"), 0)
+		self.assertEqual(frappe.db.get_value("WhatsApp Account", "WA Two", "is_default_outgoing"), 1)
+		self.assertEqual(frappe.db.get_value("WhatsApp Account", "WA One", "is_default_incoming"), 1)
+
+	def test_switching_off_clears_the_defaults_and_a_switched_off_number_cannot_be_chosen(self):
+		self._add("1111111111", "WA One", 1, 1)
+		integrations.set_whatsapp("WA One", "active", 0)
+		self.assertEqual(frappe.db.get_value("WhatsApp Account", "WA One", ["status", "is_default_outgoing"]), ("Inactive", 0))
+		with self.assertRaises(frappe.ValidationError):
+			integrations.set_whatsapp("WA One", "sending", 1)
+
+	def test_disconnect_removes_a_number_or_keeps_the_history_switched_off(self):
+		self._add("1111111111", "WA One")
+		self.assertTrue(integrations.disconnect_whatsapp("WA One")["removed"])
+		self._add("5555555555", "WA Used", 1)
+		frappe.get_doc({"doctype": "WhatsApp Message", "type": "Outgoing", "to": "919999900000", "message": "hi", "whatsapp_account": "WA Used", "flags": {}}).db_insert()
+		out = integrations.disconnect_whatsapp("WA Used")
+		self.assertFalse(out["removed"])
+		self.assertEqual(frappe.db.get_value("WhatsApp Account", "WA Used", ["status", "is_default_outgoing"]), ("Inactive", 0))
+		self.assertFalse(next(a for a in integrations.get_integrations()["whatsapp"]["accounts"] if a["name"] == "WA Used")["has_token"])
+
+	def test_the_connection_tests_report_instead_of_raising(self):
+		self._add("1111111111", "WA One")
+		with patch.object(integrations, "_graph", return_value=(None, "Session expired")):
+			self.assertEqual(integrations.test_whatsapp("WA One"), {"ok": False, "message": "Session expired"})
+		with patch.object(integrations, "_graph", return_value=({"verified_name": "Acme", "display_phone_number": "+91 1", "quality_rating": "GREEN"}, "")):
+			out = integrations.test_whatsapp("WA One")
+			self.assertTrue(out["ok"])
+			self.assertEqual(out["quality"], "GREEN")
+
+	def test_the_email_connection_test_reports_a_failed_login(self):
+		with patch(VALIDATE):
+			name = integrations.add_ses("ses-conn@example.com", "ap-south-1", "AKIA", "pw")["name"]
+		with patch("frappe.email.doctype.email_account.email_account.EmailAccount.get_smtp_server", side_effect=Exception("535 Authentication Credentials Invalid")):
+			out = integrations.test_email(name)
+		self.assertFalse(out["ok"])
+		self.assertIn("535", out["message"])
+
+	def test_only_administrators(self):
+		frappe.set_user(self.person("wa-sales@example.com", "Sales User"))
+		for call in (lambda: integrations.add_whatsapp("x", "1", "2", "t"), lambda: integrations.test_whatsapp("x"), lambda: integrations.disconnect_whatsapp("x"), lambda: integrations.test_email("x")):
+			with self.assertRaises(frappe.PermissionError):
+				call()

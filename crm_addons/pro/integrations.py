@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 
 import frappe
 from frappe import _
+from frappe.utils.password import get_decrypted_password
 from frappe.utils import add_days, cint, cstr, get_url, now_datetime
 
 EMAIL_ACCOUNT = "Email Account"
@@ -125,19 +126,36 @@ def _stats(account, since):
 	}
 
 
+WA = "WhatsApp Account"
+WA_URL = "https://graph.facebook.com"
+WA_WEBHOOK = "/api/method/frappe_whatsapp.utils.webhook.webhook"
+
+
 def _whatsapp():
-	if not frappe.db.exists("DocType", "WhatsApp Account"):
-		return {"installed": False, "accounts": []}
+	if not frappe.db.exists("DocType", WA):
+		return {"installed": False, "accounts": [], "webhook_url": ""}
+	since = add_days(now_datetime(), -30)
 	rows = frappe.get_all(
-		"WhatsApp Account", fields=["name", "account_name", "status", "phone_id", "is_default_outgoing", "is_default_incoming"], limit_page_length=20
+		WA,
+		fields=["name", "account_name", "status", "phone_id", "business_id", "app_id", "version", "webhook_verify_token", "is_default_outgoing", "is_default_incoming", "token"],
+		order_by="is_default_outgoing desc, creation asc", limit_page_length=20,
 	)
-	return {
-		"installed": True,
-		"accounts": [
-			{"name": r.name, "title": r.account_name or r.name, "status": cstr(r.status), "phone_id": cstr(r.phone_id), "sending": cint(r.is_default_outgoing), "receiving": cint(r.is_default_incoming)}
-			for r in rows
-		],
-	}
+	out = []
+	for r in rows:
+		counts = {k: n for k, n in frappe.db.sql(
+			"SELECT status, COUNT(*) FROM `tabWhatsApp Message` WHERE whatsapp_account = %s AND type = 'Outgoing' AND creation >= %s GROUP BY status", (r.name, since))}
+		low = {cstr(k).lower(): n for k, n in counts.items()}
+		failed = low.get("failed", 0)
+		read = low.get("read", 0)
+		delivered = low.get("delivered", 0)
+		sent = sum(low.values())
+		out.append({
+			"name": r.name, "title": r.account_name or r.name, "status": cstr(r.status), "phone_id": cstr(r.phone_id), "business_id": cstr(r.business_id),
+			"app_id": cstr(r.app_id), "version": cstr(r.version), "verify_token": cstr(r.webhook_verify_token), "sending": cint(r.is_default_outgoing),
+			"receiving": cint(r.is_default_incoming), "has_token": bool(get_decrypted_password(WA, r.name, "token", raise_exception=False)),
+			"stats": {"sent": sent, "delivered": delivered + read, "read": read, "failed": failed, "not_read": max(delivered, 0)},
+		})
+	return {"installed": True, "accounts": out, "webhook_url": f"{get_url()}{WA_WEBHOOK}", "versions": ["v23.0", "v22.0", "v21.0", "v20.0"]}
 
 
 # -- adding senders -----------------------------------------------------------------------------------------------
@@ -354,3 +372,156 @@ def _advance_recipient(queue_name, status, reason):
 			advance(recipient, "Failed", failure_reason=f"{status}: {reason}"[:500], provider_status=status, failed_at=cstr(now_datetime()))
 	except Exception:
 		frappe.log_error(frappe.get_traceback(), "Amazon SES event: could not update the campaign recipient")
+
+
+# -- connection tests ---------------------------------------------------------------------------------------------
+
+
+@frappe.whitelist()
+def test_email(account):
+	"""Log in to the mail server with the saved details without sending anything."""
+	_admin()
+	doc = frappe.get_doc(EMAIL_ACCOUNT, account)
+	problems = []
+	if cint(doc.enable_outgoing):
+		try:
+			doc.get_smtp_server().session  # opens the connection and logs in
+		except Exception as exc:
+			problems.append(_("Sending: {0}").format(frappe.utils.strip_html(cstr(exc))[:200]))
+	if cint(doc.enable_incoming):
+		try:
+			doc.get_incoming_server()
+		except Exception as exc:
+			problems.append(_("Receiving: {0}").format(frappe.utils.strip_html(cstr(exc))[:200]))
+	if problems:
+		return {"ok": False, "message": " ".join(problems)}
+	return {"ok": True, "message": _("Connected to {0}.").format(doc.smtp_server or doc.email_server)}
+
+
+def _graph(doc, path="", token=None, method="get"):
+	import requests
+
+	token = token or doc.get_password("token", raise_exception=False)
+	if not token:
+		return None, _("No access token is saved.")
+	try:
+		res = requests.request(method, f"{doc.url or WA_URL}/{doc.version or 'v21.0'}/{path}", headers={"Authorization": f"Bearer {token}"}, timeout=10)
+		data = res.json()
+	except Exception as exc:
+		return None, _("Could not reach WhatsApp: {0}").format(cstr(exc)[:150])
+	if res.status_code != 200 or data.get("error"):
+		return None, cstr((data.get("error") or {}).get("message") or res.status_code)[:300]
+	return data, ""
+
+
+@frappe.whitelist()
+def test_whatsapp(account):
+	"""Ask WhatsApp who this phone number is, with the saved token: proves the token, the phone number ID and the version work together."""
+	_admin()
+	doc = frappe.get_doc(WA, account)
+	data, err = _graph(doc, f"{doc.phone_id}?fields=verified_name,display_phone_number,quality_rating,code_verification_status")
+	if err:
+		return {"ok": False, "message": err}
+	biz, berr = _graph(doc, f"{doc.business_id}/subscribed_apps") if doc.business_id else (None, "")
+	listening = bool(biz and biz.get("data"))
+	return {
+		"ok": True, "name": data.get("verified_name"), "number": data.get("display_phone_number"), "quality": data.get("quality_rating"),
+		"receiving": listening, "message": _("Connected as {0} ({1}).").format(data.get("verified_name") or "", data.get("display_phone_number") or ""),
+	}
+
+
+# -- WhatsApp accounts -----------------------------------------------------------------------------------------
+
+
+def _wa_fields(values):
+	out = {}
+	for key, label in (("account_name", "account name"), ("phone_id", "phone number ID"), ("business_id", "business account ID")):
+		out[key] = cstr(values.get(key)).strip()
+		if not out[key]:
+			frappe.throw(_("Enter the {0}.").format(label))
+		if key != "account_name" and not out[key].isdigit():
+			frappe.throw(_("The {0} is a number, copy it from the Meta dashboard.").format(label))
+	out["app_id"] = cstr(values.get("app_id")).strip()
+	out["version"] = cstr(values.get("version") or "v21.0").strip()
+	if not re.match(r"^v\d+\.\d+$", out["version"]):
+		frappe.throw(_("The API version looks like v21.0."))
+	return out
+
+
+@frappe.whitelist()
+def add_whatsapp(account_name, phone_id, business_id, token, app_id="", version="v21.0", use_for_sending=0, use_for_receiving=0):
+	"""Connect a WhatsApp number. The token is checked against WhatsApp first, so a wrong token or number is refused."""
+	_admin()
+	values = _wa_fields({"account_name": account_name, "phone_id": phone_id, "business_id": business_id, "app_id": app_id, "version": version})
+	token = cstr(token).strip()
+	if not token:
+		frappe.throw(_("Enter the access token."))
+	if frappe.db.exists(WA, {"phone_id": values["phone_id"]}) or frappe.db.exists(WA, values["account_name"]):
+		frappe.throw(_("This WhatsApp number or name is already connected."))
+	doc = frappe.new_doc(WA)
+	doc.update({**values, "url": WA_URL, "token": token, "status": "Active", "webhook_verify_token": secrets.token_urlsafe(16),
+		"is_default_outgoing": 1 if cint(use_for_sending) else 0, "is_default_incoming": 1 if cint(use_for_receiving) else 0, "allow_auto_read_receipt": 1})
+	data, err = _graph(doc, f"{doc.phone_id}?fields=verified_name,display_phone_number", token=token)
+	if err:
+		frappe.throw(_("WhatsApp did not accept these details: {0}").format(err))
+	doc.insert()
+	subscribed = True
+	try:
+		doc.subscribe_app()  # needed to receive replies
+	except Exception:
+		subscribed = False
+	return {"name": doc.name, "number": data.get("display_phone_number"), "verified_name": data.get("verified_name"), "subscribed": subscribed}
+
+
+@frappe.whitelist()
+def update_whatsapp(account, account_name=None, phone_id=None, business_id=None, app_id=None, version=None, token=None):
+	"""Change the details of a connected number. Leave the token empty to keep the saved one."""
+	_admin()
+	doc = frappe.get_doc(WA, account)
+	values = _wa_fields({"account_name": account_name or doc.account_name, "phone_id": phone_id or doc.phone_id, "business_id": business_id or doc.business_id,
+		"app_id": app_id if app_id is not None else doc.app_id, "version": version or doc.version})
+	if cstr(token).strip():
+		values["token"] = cstr(token).strip()
+	doc.update(values)
+	data, err = _graph(doc, f"{doc.phone_id}?fields=verified_name", token=cstr(token).strip() or None)
+	if err:
+		frappe.throw(_("WhatsApp did not accept these details: {0}").format(err))
+	doc.save()
+	return {"name": doc.name}
+
+
+@frappe.whitelist()
+def set_whatsapp(account, what, value):
+	"""what: sending | receiving | active. Switching sending or receiving on moves it from the other account."""
+	_admin()
+	doc = frappe.get_doc(WA, account)
+	on = 1 if cint(value) else 0
+	if what == "active":
+		doc.status = "Active" if on else "Inactive"
+		if not on:
+			doc.is_default_outgoing = doc.is_default_incoming = 0
+	elif what in ("sending", "receiving"):
+		if on and cstr(doc.status) != "Active":
+			frappe.throw(_("Switch this number on first."))
+		doc.set("is_default_outgoing" if what == "sending" else "is_default_incoming", on)
+	else:
+		frappe.throw(_("Unknown setting."))
+	doc.save()
+	return {"name": doc.name}
+
+
+@frappe.whitelist()
+def disconnect_whatsapp(account):
+	"""Remove a number. When messages were sent from it, the history needs the record, so it is switched off and its token erased instead."""
+	_admin()
+	doc = frappe.get_doc(WA, account)
+	try:
+		frappe.delete_doc(WA, account)
+		return {"removed": True}
+	except frappe.LinkExistsError:
+		doc = frappe.get_doc(WA, account)
+		doc.status = "Inactive"
+		doc.is_default_outgoing = doc.is_default_incoming = 0
+		doc.token = ""
+		doc.save()
+		return {"removed": False}

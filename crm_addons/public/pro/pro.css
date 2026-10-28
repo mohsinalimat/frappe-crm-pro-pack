@@ -550,3 +550,9 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 .it-form { display: grid; gap: 14px }
 .it-sw { gap: 12px; padding-top: 4px; align-items: center }
 .it-page { padding-top: 16px }
+.it-res { margin-top: 8px; display: flex; gap: 6px; align-items: flex-start }
+.it-res.ok { color: #15803d } .it-res.bad { color: #b91c1c }
+.it-wrap { flex-wrap: wrap; justify-content: flex-end; max-width: 330px }
+.it-kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin-top: 8px; font-size: 13px }
+.it-kv span { color: var(--text-muted) } .it-kv b { font-weight: 500; min-width: 0; word-break: break-all }
+.it-code { display: flex; align-items: center; gap: 8px; font-family: ui-monospace, monospace; font-size: 12.5px }
