@@ -40,3 +40,15 @@ input[type="color"] { border-radius: var(--r-ctl); }
 /* Meetings' filled grey picker buttons become the same outlined control as everywhere else */
 .pick-btn { border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--r-ctl); }
 .pick-btn:hover { border-color: var(--ring, var(--border-strong)); background: var(--surface); }
+
+/* a button never squashes below its height inside a flex column (the "Load more" under a kanban column did) */
+.btn { flex-shrink: 0; }
+.btn.sm, .btn.small { min-height: 30px; }
+
+/* touch screens: small icon buttons get a finger-sized hit area without growing visually */
+@media (max-width: 720px), (pointer: coarse) {
+	.nav-chev, .vp-x, .btn.icon.sm, .btn.icon.small, .clear { position: relative; }
+	.nav-chev::after, .vp-x::after, .btn.icon.sm::after, .btn.icon.small::after, .clear::after { content: ""; position: absolute; inset: -8px; }
+	.pk-day { height: 38px; }
+	.pk-opt, .pk-item { min-height: 38px; }
+}
