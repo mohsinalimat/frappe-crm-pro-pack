@@ -335,3 +335,21 @@ html.inline .brand-ico { display: none; }
 /* website bookings: teal, so they are not mistaken for the accent blue */
 :root { --web: #0d9488; --web-soft: #d9f4f0; --web-text: #0b6b62; }
 :root[data-theme="dark"] { --web: #2dd4bf; --web-soft: #12332f; --web-text: #7eeadb; }
+
+/* the calendar picker in the toolbar (same as the Sales Dashboard) */
+.mt-range .pick-btn.range { min-width: 210px; height: 32px }
+.pick-pop.range-pop { display: flex; padding: 0; max-width: calc(100vw - 16px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain }
+.range-pop .presets { display: flex; flex-direction: column; gap: 2px; width: 160px; padding: 10px; border-right: 1px solid var(--border) }
+.range-pop .cal { width: 340px; padding: 12px 14px 14px }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px 0 }
+.cal-grid.dow { margin-bottom: 4px }
+.cal-grid.dow span { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-faint) }
+.cal-grid .day { height: 34px; border: 0; background: transparent; border-radius: 0; font-size: 13px; color: var(--text); cursor: pointer }
+.cal-grid .day:hover { background: var(--bg-hover); border-radius: 8px }
+.cal-grid .day.today { font-weight: 700; color: var(--accent) }
+.cal-grid .day.mid { background: var(--accent-soft); color: var(--accent-text) }
+.cal-grid .day.on { background: var(--accent); color: #fff; border-radius: 8px }
+.cal-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px }
+.cal-foot .control { flex: 1; min-width: 0; padding: 0 6px }
+.pick-btn .lead { color: var(--text-faint) }

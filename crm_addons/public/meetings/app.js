@@ -161,7 +161,7 @@
 				date: dateInput(start0),
 				start: timeInput(start0),
 				end: timeInput(end0),
-				description: props.meeting ? props.meeting.description || '' : '',
+				description: props.meeting ? plain(props.meeting.description) : '',
 				provider: props.meeting ? props.meeting.provider || props.config.default_provider : props.config.default_provider,
 				addVideo: props.meeting ? !!props.meeting.add_video_conferencing : !!props.config.default_add_video_meeting,
 				link: props.meeting && props.meeting.provider === 'Manual Link' ? props.meeting.google_meet_link || '' : '',
@@ -424,7 +424,7 @@
 		<div class="demo-box" v-if="demo"><div class="demo-h"><span class="badge demo">Website booking</span><b>{{ m.demo_type_title || m.demo_type || 'Booking' }}</b></div>
 			<div class="demo-utm" v-if="demoUtm.length"><span v-for="u in demoUtm" :key="u[0]"><i>{{ u[0] }}</i> {{ u[1] }}</span></div>
 			<div class="demo-act" v-if="m.can_edit !== false && m.status !== 'Cancelled'"><button class="btn" :class="{ on: m.meeting_outcome === 'Held' }" :disabled="busy" @click="outcome('held')"><ico name="check" /> Held</button><button class="btn" :class="{ on: m.meeting_outcome === 'No Show' }" :disabled="busy" @click="outcome('noshow')"><ico name="x" /> No show</button></div></div>
-		<div class="row" v-if="m.description"><ico name="text" /><div style="white-space:pre-wrap">{{ m.description }}</div></div>
+		<div class="row" v-if="m.description"><ico name="text" /><div style="white-space:pre-wrap">{{ plain(m.description) }}</div></div>
 		<div v-if="m.sync_status === 'Failed' || (m.sync_status === 'Not synced' && m.provider === 'Google Meet')" class="banner" style="margin:0">{{ m.sync_error }}</div>
 		<div>
 			<div class="lbl" style="font-size:12px;font-weight:600;color:var(--text-soft);margin-bottom:4px">{{ guests.length }} guest{{ guests.length === 1 ? '' : 's' }} <span v-if="guests.length" style="font-weight:400">· {{ responded }} responded</span></div>
@@ -714,9 +714,30 @@
 <div v-else class="empty"><div class="banner error" v-if="fatal" style="display:inline-block">{{ fatal }}</div><span class="spin" v-else></span></div>`,
 	}
 
+	// ------------------------------------------------------------------ date range (the same calendar picker as the Sales Dashboard and Follow-ups)
+	const parseDay = (t) => { const p = t.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]) }
+	const PRESETS = [['today', 'Today'], ['tomorrow', 'Tomorrow'], ['next7', 'Next 7 days'], ['next30', 'Next 30 days'], ['week', 'This week'], ['month', 'This month']]
+	function presetRange(key) {
+		const t = sod(new Date()), mon = startOfWeek(t)
+		switch (key) {
+			case 'today': return [t, t]
+			case 'tomorrow': return [addDays(t, 1), addDays(t, 1)]
+			case 'next7': return [t, addDays(t, 6)]
+			case 'next30': return [t, addDays(t, 29)]
+			case 'week': return [mon, addDays(mon, 6)]
+			case 'month': return [new Date(t.getFullYear(), t.getMonth(), 1), new Date(t.getFullYear(), t.getMonth() + 1, 0)]
+			default: return null
+		}
+	}
+	const rangeOf = (r) => (r.preset === 'custom' && r.from && r.to ? [parseDay(r.from), parseDay(r.to)] : presetRange(r.preset) || [sod(new Date()), sod(new Date())])
+	const fmtRange = (a, b) => (dateInput(a) === dateInput(b) ? fmtDay(a) : a.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' \u2013 ' + b.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }))
+	const RangePicker = window.CRMRangePicker.create({ Vue, Ico, presets: PRESETS, presetRange, rangeOf, fmtRange, anyLabel: 'Pick dates', duePrefix: '', compare: false })
+	// text a booking page saved with HTML escapes in it (&lt;, &gt;, &amp;) shown as the person typed it
+	const plain = (t) => (t && /&(lt|gt|amp|quot|#\d+);/.test(t) ? new DOMParser().parseFromString(t, 'text/html').documentElement.textContent : t || '')
+
 	// ------------------------------------------------------------------ app
 	const App = {
-		components: { Editor, Detail, Avatar, Avatars, Ico },
+		components: { Editor, Detail, Avatar, Avatars, Ico, RangePicker },
 		setup() {
 			const config = ref(null)
 			const fatal = ref('')
@@ -817,6 +838,25 @@
 			onBeforeUnmount(() => document.removeEventListener('mousedown', closeSpan))
 			function go(d, v) { cursor.value = sod(d); view.value = v }
 			const goHome = () => { view.value = 'agenda'; cursor.value = sod(new Date()); selected.value = null }
+			// what the calendar shows: the days the current view covers (first to last, both included)
+			const rangeModel = computed({
+				get() {
+					const c = cursor.value
+					let a = c, b = c
+					if (view.value === 'agenda') b = addDays(c, span.value - 1)
+					else if (view.value === 'week') { a = startOfWeek(c); b = addDays(a, 6) }
+					else if (view.value === 'month') { a = new Date(c.getFullYear(), c.getMonth(), 1); b = new Date(c.getFullYear(), c.getMonth() + 1, 0) }
+					const key = PRESETS.map((p) => p[0]).find((k) => { const r = presetRange(k); return dateInput(r[0]) === dateInput(a) && dateInput(r[1]) === dateInput(b) })
+					return { preset: key || 'custom', from: dateInput(a), to: dateInput(b) }
+				},
+				set(v) {
+					const a = sod(parseDay(v.from)), b = sod(parseDay(v.to)), n = Math.round((b - a) / 86400000) + 1
+					const fits = (view.value === 'month' && dateInput(a) === dateInput(new Date(a.getFullYear(), a.getMonth(), 1)) && dateInput(b) === dateInput(new Date(a.getFullYear(), a.getMonth() + 1, 0))) || (view.value === 'week' && n === 7 && dateInput(a) === dateInput(startOfWeek(a)))
+					if (n === 1 && view.value !== 'agenda') { cursor.value = a; if (view.value !== 'day') view.value = 'day'; return }
+					if (!fits) { view.value = 'agenda'; span.value = n } else if (view.value === 'agenda') span.value = n
+					cursor.value = a
+				},
+			})
 			const dateValue = computed(() => dateInput(cursor.value))
 			function jump(e) { if (e.target.value) cursor.value = sod(new Date(e.target.value + 'T00:00:00')) }
 			function openPicker(e) { try { e.target.showPicker() } catch (err) { /* older browsers open it on their own */ } }
@@ -963,7 +1003,7 @@
 			onBeforeUnmount(() => { document.removeEventListener('keydown', onKey); clearInterval(timer); clearInterval(clock) })
 
 			return {
-				config, fatal, view, cursor, span, spanOpen, SPAN_MENU, pickSpan, spanKey, scope, demosOnly, isDemo, demoSource, meetings, loading, selected, editor, toasts, stage, label, agenda, monthCells, columns, days, nowTop,
+				rangeModel, plain, config, fatal, view, cursor, span, spanOpen, SPAN_MENU, pickSpan, spanKey, scope, demosOnly, isDemo, demoSource, meetings, loading, selected, editor, toasts, stage, label, agenda, monthCells, columns, days, nowTop,
 				step, today, go, goHome, dateValue, jump, openPicker, pickMeeting, newMeeting, editMeeting, onSaved, onChanged, closeEditor, closeSelf, openFull, slotClick, toast, load, editorOnly,
 				dowNames: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
 				hours: Array.from({ length: 24 }, (_, h) => h), clockLabel, fmtTime, fmtDay, fromSql, whenText, shortRange, statusClass, sameDay, sod, EMBED, HOUR, refName, seesOthers, othersLabel, demosTab,
@@ -975,12 +1015,10 @@
 	<div class="toolbar" v-if="config">
 		<button class="brand" @click="goHome" title="Upcoming meetings"><span class="brand-ico"><ico name="calendar-check" size="lg" /></span><h1>Meetings</h1></button>
 		<div class="nav">
-			<div class="spanbox" v-if="view === 'agenda'"><button class="btn" @click="today" title="Back to today"><ico name="calendar" /> Today</button><button class="btn spanbtn" :aria-expanded="spanOpen" aria-label="Choose what the agenda shows" @click="spanOpen = !spanOpen"><ico name="chevron-down" /></button>
-				<div class="spanmenu" v-if="spanOpen" role="menu"><button v-for="o in SPAN_MENU" :key="o[0]" role="menuitem" :class="{ on: spanKey === o[0] }" @click="pickSpan(o[0])">{{ o[1] }}<ico v-if="spanKey === o[0]" name="check" /></button></div></div>
-			<button class="btn" v-else @click="today"><ico name="calendar" /> Today</button>
+			<button class="btn" @click="today" title="Back to today"><ico name="calendar" /> Today</button>
 			<div class="navgroup"><button class="btn" @click="step(-1)" aria-label="Previous"><ico name="chevron-left" /></button><button class="btn" @click="step(1)" aria-label="Next"><ico name="chevron-right" /></button></div>
 		</div>
-		<label class="range-picker" title="Jump to a date"><span>{{ label }}</span><ico name="calendar" /><input type="date" :value="dateValue" @change="jump" @click="openPicker" aria-label="Jump to a date" /></label>
+		<div class="mt-range"><range-picker v-model="rangeModel" /></div>
 		<span class="spin" v-if="loading"></span>
 		<span class="spacer"></span>
 		<div class="seg" role="group" aria-label="Which meetings"><button :class="{ on: scope === 'mine' && !demosOnly }" :aria-pressed="scope === 'mine' && !demosOnly" @click="scope = 'mine'; demosOnly = false">Mine</button><button v-if="seesOthers" :class="{ on: scope === 'all' && !demosOnly }" :aria-pressed="scope === 'all' && !demosOnly" @click="scope = 'all'; demosOnly = false">{{ othersLabel }}</button><button v-if="demosTab" :class="{ on: demosOnly }" :aria-pressed="demosOnly" title="Meetings booked through a booking page" @click="demosOnly = true">Bookings</button></div>
