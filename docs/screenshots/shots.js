@@ -69,12 +69,12 @@ const SHOTS = {
   'email-html-editor': { fn: async (ctx) => { const p = await open(ctx, CAMP + '#/templates/email/edit/Fee%20Instalment%20Reminder'); await settle(p, 3500); return p } },
   'meeting-editor': { fn: async (ctx) => { const p = await open(ctx, MEET); await settle(p, 2000); await hideDemos(p); await p.getByText('Programme walkthrough', { exact: false }).first().click(); await settle(p, 2500); return p } },
   'campaign-report-dark': { fn: (ctx) => goCamp(ctx, 'Spring Admissions 2026') },
-  'dashboard-shortcuts': { fn: async (ctx) => { const p = await open(ctx, '/crm/dashboard'); await settle(p, 5000); await calm(p); await hideDemos(p); await p.evaluate(() => document.querySelectorAll('[data-cra-side="demos"], [data-cra-shortcut="demos"]').forEach((e) => { e.style.display = 'none' })); return p } },
   'lead-page-tabs': { fn: async (ctx) => { const p = await open(ctx, '/crm/leads'); await settle(p, 3000); const name = await p.evaluate(async () => { const r = await (await fetch('/api/resource/CRM Lead?limit_page_length=1&fields=["name"]&filters=[["status","=","Contacted"]]')).json(); return r.data && r.data[0] && r.data[0].name }); await p.goto(cap.BASE + '/crm/leads/' + name, { waitUntil: 'networkidle' }); await p.setViewportSize({ width: 1760, height: 900 }); await settle(p, 4000); await calm(p); await p.locator('[data-cra-tab="followups"]').first().click({ timeout: 4000 }).catch(() => {}); await settle(p, 1500); return p } },
   'followup-form': { fn: async (ctx) => { const p = await open(ctx, FU); await settle(p, 2000); await p.getByRole('button', { name: /^Log/ }).first().click(); await settle(p, 1500); const fr = p.frameLocator('iframe'); await fr.locator('button:has-text("Interested - follow up")').first().click(); await sleep(500); await fr.locator('select').nth(1).selectOption({ label: 'Contacted' }).catch(() => {}); await fr.locator('textarea').first().fill('Wants the prospectus and the fee structure. Sending both today.'); await sleep(600); return p } },
   'setup-page': { fn: async (ctx) => { const p = await open(ctx, SETUP); await settle(p, 2500); await p.getByText('Google Meet and Calendar', { exact: true }).first().click().catch(() => {}); await sleep(800); return p } },
 }
 
+Object.assign(SHOTS, require('./suite_shots.js'))
 module.exports.SHOTS = SHOTS
 module.exports.run = async function run(cmd, names) {
   const browser = await chromium.launch()

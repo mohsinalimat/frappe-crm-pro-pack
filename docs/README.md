@@ -1,11 +1,16 @@
 # Frappe CRM Suite Pro documentation
 
-Start with **Getting started**, then pick the guide for the feature you want. Everything here describes release 1.4.0.
+Start with **Getting started**, then pick the guide for the feature you want. Everything here describes release 2.0.0.
 
 ## Guides (task oriented)
 
 | Guide | What is in it |
 |---|---|
+| [The Suite Pro workspace](suite-app.md) | The full app at `/suite`, making it the default app, the menu, notifications |
+| [Leads and the lead page](leads.md) | List, Kanban, Grid, filters, bulk actions, import and export, the lead page, Organizations |
+| [WhatsApp Business inbox](whatsapp-business.md) | Every chat in one place, the 24-hour rule, saved replies, numbers that are not leads |
+| [Integrations](integrations.md) | Email providers, WhatsApp numbers, Google Calendar, Meta lead ads |
+| [Lead forms](lead-forms.md) | Public forms that create CRM leads |
 | [Getting started](getting-started.md) | Install, first-time setup, who gets which role, a 15-minute tour |
 | [Campaigns](campaigns.md) | Your first email campaign, your first WhatsApp campaign, journeys, automations, reading the report, template variables, opt-outs, limits |
 | [Sales Dashboard](sales-dashboard.md) | Sales tab, Campaigns tab, date ranges, customizing, exports |
@@ -22,7 +27,8 @@ Start with **Getting started**, then pick the guide for the feature you want. Ev
 | Document | What is in it |
 |---|---|
 | [CAMPAIGN_MANAGER.md](CAMPAIGN_MANAGER.md) | The full technical reference: architecture, why a message is never sent twice, doctypes, API, flows, performance, rollback |
-| [ADMIN_GUIDE.md](ADMIN_GUIDE.md) | Google Cloud and Frappe setup in detail, reminders, hiding Deals, upgrading to 1.4.0 |
+| [ADMIN_GUIDE.md](ADMIN_GUIDE.md) | Google Cloud and Frappe setup in detail, reminders, hiding Deals, upgrading |
+| [META_LEAD_ADS.md](META_LEAD_ADS.md) | Connect Facebook and Instagram lead ads, step by step |
 | [ASSIGNMENT.md](ASSIGNMENT.md) | The lead assignment reference |
 | [TEST_CHECKLIST.md](TEST_CHECKLIST.md) | A manual test list by role (Sales User, Campaign Manager, Sales Manager, System Manager) |
 | [DEBUGGING.md](DEBUGGING.md) | The temporary diagnostics log |

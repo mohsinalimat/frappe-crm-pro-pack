@@ -1,6 +1,6 @@
 # Demo booking (design and API contract)
 
-Status: design agreed with the owner, being built on branch `feature/demo-booking` (from `main` 1.4.0). Nothing here is merged to `main`.
+Status: shipped (release 1.5.0, extended in 2.0.0 with lead forms). This document is the design and the reference.
 
 ## What it is
 A Cal.com-style booking page built into Frappe CRM Suite Pro. A visitor on one of the owner's websites (Coding Junior, Coding Pro, ...) clicks

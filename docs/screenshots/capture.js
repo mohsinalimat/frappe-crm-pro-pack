@@ -22,6 +22,9 @@ async function newContext(browser, { dark = false, scale = 1, user = USER, pass 
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: scale, colorScheme: dark ? 'dark' : 'light' })
   const r = await ctx.request.post(BASE + '/api/method/login', { form: { usr: user, pwd: pass } })
   if (!r.ok()) throw new Error('login failed ' + r.status())
+  // the administrator's one-time offer to make Suite Pro the default app must not appear in every shot
+  const csrf = await (await ctx.request.get(BASE + '/api/method/crm_addons.api.get_csrf_token')).json().catch(() => ({}))
+  await ctx.request.post(BASE + '/api/method/crm_addons.default_app.dismiss', { headers: { 'X-Frappe-CSRF-Token': csrf.message || '' } }).catch(() => {})
   if (dark) await ctx.addInitScript(() => { try { localStorage.setItem('theme', 'dark') } catch (e) {} })
   else await ctx.addInitScript(() => { try { localStorage.setItem('theme', 'light') } catch (e) {} })
   return ctx

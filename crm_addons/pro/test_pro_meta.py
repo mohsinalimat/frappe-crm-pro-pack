@@ -24,6 +24,7 @@ class TestMeta(AccessCase):
 	def setUp(self):
 		super().setUp()
 		frappe.set_user("Administrator")
+		frappe.db.set_single_value(meta.SETTINGS, "sync_paused", 0)  # a site where the import was stopped by hand must not change what these tests see
 		meta.save_connection(token="TOKEN-SECRET", app_id="123", app_secret="app-secret")
 		frappe.get_doc({"doctype": meta.FORM, "form_id": "F1", "form_name": "Diwali form", "page_id": "P1", "page_name": "Acme", "page_token": "PAGE-TOKEN", "enabled": 1,
 			"mapping": json.dumps({"full_name": "__full_name", "email": "email", "phone_number": "mobile_no", "budget": ""}), "questions": json.dumps(QUESTIONS)}).insert(ignore_permissions=True)

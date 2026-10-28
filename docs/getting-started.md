@@ -35,7 +35,9 @@ Update later with `bench update --apps crm_addons`, then `bench --site your-site
 
 ## 3. First-time setup (the setup page)
 
-Open **`/pro-pack-setup`** as a System Manager. It starts with a live checklist and shows what is missing and how to fix it:
+**Choose where people start.** The standard CRM at `/crm` keeps working and gains the Suite Pro tabs and shortcuts. The full workspace is at `/suite`. The first time a System Manager opens the CRM after installing, a small window offers to make the workspace the default app; you can also set it later in System Settings, Default App. See [The Suite Pro workspace](suite-app.md).
+
+Open **Settings** in the menu (or **`/pro-pack-setup`**) as a System Manager. It starts with a live checklist and shows what is missing and how to fix it:
 
 ![The setup page with the checklist](images/setup-page.png)
 

@@ -8,7 +8,7 @@ with open("README.md", encoding="utf-8") as f:
 
 setup(
 	name="crm_addons",
-	version="1.5.1",
+	version="2.0.0",
 	description=(
 		"Frappe CRM Suite Pro for Frappe CRM: Google Meet meetings, call follow-ups, lead scoring, "
 		"a role-aware Sales Dashboard with Excel export, and reminders."

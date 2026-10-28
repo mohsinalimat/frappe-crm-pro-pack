@@ -405,7 +405,7 @@
 			const demoUtm = computed(() => [['Source', m.value.demo_utm_source], ['Medium', m.value.demo_utm_medium], ['Campaign', m.value.demo_utm_campaign]].filter((x) => x[1]))
 			// the same outcome the follow-up screens record; the booking follows the meeting on the server (Held -> Completed, No Show -> No Show)
 			const outcome = (kind) => run(() => call('crm_addons.api.record_meeting_outcome', { name: m.value.name, outcome: kind === 'held' ? 'Held' : 'No Show' }), (r) => { emit('changed', r); emit('toast', kind === 'held' ? 'Marked as held.' : 'Marked as no-show.') })
-			return { demo, demoUtm, outcome, busy, dialog, notifyGuests, message, byEmail, inApp, m, guests, responded, complete, refresh, cancel, notify, copy, rsvpText, openRecord, finished, whenText, statusClass }
+			return { demo, demoUtm, outcome, busy, dialog, notifyGuests, message, byEmail, inApp, m, guests, responded, complete, refresh, cancel, notify, copy, rsvpText, openRecord, finished, whenText, statusClass, plain }
 		},
 		template: `
 <aside class="drawer">

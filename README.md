@@ -4,15 +4,15 @@
 
 # Frappe CRM Suite Pro
 
-**Turn Frappe CRM into a complete sales and marketing engine: email and WhatsApp campaigns, follow-ups, meetings, lead assignment and analytics in one app.**
+**Turn Frappe CRM into a complete sales workspace: a new leads page and WhatsApp Business inbox, email and WhatsApp campaigns, follow-ups, meetings, lead assignment, bookings, Meta lead ads and analytics in one app.**
 
-A free, open-source Frappe app. Install it like any other. Never fork or patch Frappe CRM.
+A free, open-source Frappe app. Install it like any other. Never fork or patch Frappe CRM. Use it inside the standard CRM, or open the full workspace at `/suite`.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Frappe v15](https://img.shields.io/badge/Frappe-v15-0089FF)](https://frappeframework.com)
 [![Frappe CRM 1.x](https://img.shields.io/badge/Frappe%20CRM-1.x-0089FF)](https://github.com/frappe/crm)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB)](pyproject.toml)
-[![Version 1.5.0](https://img.shields.io/badge/version-1.5.1-6C5CE7)](CHANGELOG.md)
+[![Version 2.0.0](https://img.shields.io/badge/version-2.0.0-6C5CE7)](CHANGELOG.md)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
 [Features](#features) &middot; [Screenshots](#screenshots) &middot; [Install](#quick-start) &middot; [Docs](docs/README.md) &middot; [Changelog](CHANGELOG.md)
@@ -22,7 +22,7 @@ A free, open-source Frappe app. Install it like any other. Never fork or patch F
 ---
 
 <p align="center">
-  <img src="docs/images/campaigns-list.png" alt="The Campaign Manager: email, WhatsApp and multi-channel campaigns with live delivery numbers" width="92%">
+  <img src="docs/images/suite-dashboard.png" alt="The Suite Pro workspace: left menu and the Sales Dashboard" width="92%">
 </p>
 
 > The screenshots in this repository show a showcase site with **made-up sample data** (a fictional company, `example.com` addresses, fake phone numbers). The numbers are not benchmarks.
@@ -34,11 +34,58 @@ A free, open-source Frappe app. Install it like any other. Never fork or patch F
 - **Duplicate-proof sending.** A database-unique key per campaign, step, channel and lead, guarded launches and no blind retries mean nobody gets the same message twice, even after a double click or a worker restart.
 - **Honest analytics.** It shows what Frappe and Meta really report, and says so when a number is not available, instead of guessing.
 - **Role-aware everything.** A Sales User only ever sees their own data, enforced on the server. A Campaign Manager role keeps marketing separate from sales.
-- **Installs in minutes.** `bench get-app`, `install-app`, `migrate`. A setup page with a live checklist tells you what is left.
+- **Installs in minutes, everything arrives with it.** `bench get-app`, `install-app`, `migrate`: the workspace, templates, presets and settings are created for you, and a setup page with a live checklist tells you what is left.
+- **Use it your way.** Stay in the standard CRM (it gains tabs and shortcuts), or open the full workspace at `/suite`. An administrator can make it the default app with one click; the CRM stays at `/crm`.
 
 ## Features
 
-### 1. Campaign Manager: email and WhatsApp
+### 1. The Suite Pro workspace
+
+<img src="docs/images/suite-dashboard.png" alt="The Suite Pro workspace" width="100%">
+
+- **One app, one menu** at `/suite`: Notifications, Sales Dashboard, Leads, Follow-ups, Organizations, WhatsApp Business, Meetings, Campaigns, Templates, Assignment, Bookings, Team and Settings. A page a person may not use is hidden from their menu.
+- **One design everywhere**: the same font, controls, calendar and dropdown pickers on every page; every table and card grid is paged; every log has a date range; it works on a phone.
+- **Make it the default app.** Suite Pro has a tile on Frappe's app screen, and an administrator inside the CRM is offered, once, to make it the default. The standard CRM keeps working at `/crm` either way.
+
+| | |
+|---|---|
+| <img src="docs/images/default-app-offer.png" alt="The one-time offer to an administrator inside the CRM"> | <img src="docs/images/suite-notifications.png" alt="The notifications panel beside the menu"> |
+| **The offer** to make Suite Pro the default app, shown once to an administrator. | **Notifications** slide out beside the menu: chips, search, mark as read, optional sound and desktop alerts. |
+
+Guide: [docs/suite-app.md](docs/suite-app.md)
+
+### 2. Leads and the lead page
+
+| | |
+|---|---|
+| <img src="docs/images/suite-leads.png" alt="The Leads list with search, filters and pages"> | <img src="docs/images/suite-lead-page.png" alt="A lead page with Activity, Follow-ups, Meetings, Emails, WhatsApp and Data"> |
+
+- **List, Kanban and Grid** with one search across every field, include / exclude filters, saved views, your own columns, sorting, grouping and real pages.
+- **Bulk actions**: assign, change status or owner, edit a field, or send an email or an approved WhatsApp template to the selected leads.
+- **Import** from Excel, CSV or a Google Sheet link with a check first; **export** with the columns and order you choose.
+- **The lead page**: previous / next, status and owner in the header; Activity, Follow-ups, Meetings, Emails, WhatsApp, Comments, Data and Campaign tabs; an email composer with templates; the Meta lead ad it came from.
+
+Guide: [docs/leads.md](docs/leads.md)
+
+### 3. WhatsApp Business inbox
+
+<img src="docs/images/suite-whatsapp.png" alt="The WhatsApp Business inbox" width="100%">
+
+- **Every chat in one place**, including numbers that are not leads yet: create a lead, link one, or mark it as not a lead.
+- **Built for WhatsApp's rules**: a template when the 24-hour window is closed, then free chat; saved replies with `/`, emoji, image, video and document attachments, replies, reactions and real delivery ticks.
+- **Shared with permissions**: a person sees their own chats or everyone's, each with their own unread number; a manager assigns new numbers.
+
+Guide: [docs/whatsapp-business.md](docs/whatsapp-business.md)
+
+### 4. Integrations: email, WhatsApp, Google Calendar and Meta lead ads
+
+- **Email**: Gmail, Amazon SES (with bounce and delivery tracking), Outlook, Microsoft 365, Yahoo, Yandex, SendGrid, SparkPost or any SMTP server, with a connection test.
+- **WhatsApp numbers**: connect, edit, switch and test. **Google Calendar and Meet**: connect from the page, with a sync log.
+- **Meta (Facebook and Instagram) lead ads** arrive in Leads within seconds, with the campaign, ad set and ad, and appear on the Sales Dashboard.
+
+Guides: [docs/integrations.md](docs/integrations.md) &middot; [docs/META_LEAD_ADS.md](docs/META_LEAD_ADS.md)
+
+### 5. Campaign Manager: email and WhatsApp
 
 Build, send and measure campaigns without leaving CRM. One campaign can use both channels, one audience, one schedule and one report.
 
@@ -75,7 +122,7 @@ Build, send and measure campaigns without leaving CRM. One campaign can use both
 
 Guide: [docs/campaigns.md](docs/campaigns.md) &middot; Reference: [docs/CAMPAIGN_MANAGER.md](docs/CAMPAIGN_MANAGER.md)
 
-### 2. Sales Dashboard and Campaigns dashboard
+### 6. Sales Dashboard and Campaigns dashboard
 
 | | |
 |---|---|
@@ -89,7 +136,7 @@ Guide: [docs/campaigns.md](docs/campaigns.md) &middot; Reference: [docs/CAMPAIGN
 
 Guide: [docs/sales-dashboard.md](docs/sales-dashboard.md)
 
-### 3. Follow-ups and call logging
+### 7. Follow-ups and call logging
 
 <img src="docs/images/followups.png" alt="Follow-ups workspace with tabs, filters and bulk actions" width="100%">
 
@@ -99,7 +146,7 @@ Guide: [docs/sales-dashboard.md](docs/sales-dashboard.md)
 
 Guide: [docs/follow-ups.md](docs/follow-ups.md)
 
-### 4. Lead assignment
+### 8. Lead assignment
 
 <img src="docs/images/assignment.png" alt="Lead assignment rules" width="100%">
 
@@ -108,7 +155,7 @@ Guide: [docs/follow-ups.md](docs/follow-ups.md)
 
 Guide: [docs/lead-assignment.md](docs/lead-assignment.md)
 
-### 5. Meetings with Google Meet
+### 9. Meetings with Google Meet
 
 | | |
 |---|---|
@@ -120,22 +167,23 @@ Guide: [docs/lead-assignment.md](docs/lead-assignment.md)
 
 Guide: [docs/meetings-google.md](docs/meetings-google.md)
 
-### 6. Lead scoring and stale alerts
+### 10. Lead scoring and stale alerts
 
 - A 0 to 100 **Lead Score** (Hot, Warm, Cold) from connected calls, the latest outcome, meetings and recency, shown as a column on the Leads list and Kanban cards.
 - **Stale-lead alerts** to the owner after N quiet days (default 7). Columns for Next Follow-up, Last Call Outcome, Call Attempt and Next Meeting.
 
-### 7. Bookings: public booking pages
+### 11. Bookings and lead forms: public pages
 
 - A **widget** is a public page (`/book/<name>`) where a visitor picks a date and time and leaves their details. It can be linked or embedded on any website, with its own branding, hours, hosts, form fields and messages.
 - Each booking creates a **Lead** (matched by email, then phone), a **CRM Meeting** with a Google Meet link, and keeps the visitor's first-touch **UTM** source, medium and campaign for the Report.
 - **Messages** go out by email and WhatsApp from the same template library: confirmation, reschedule, cancel and reminders (24 hours, 1 hour, 30 minutes and at the start). The visitor can reschedule or cancel from a link. **Notify** sends them again by hand, and can tell the hosts too.
 - **No double booking**, even with two visitors at the same moment; spam checks without a CAPTCHA (phone and email checks, one open booking per contact, rate limits, a hidden field).
 - Bookings are shown as a table or cards, inside Meetings as **Website booking** (in their own colour), and in a **Report** of bookings by campaign, source, page and day.
+- **Lead forms** work the same way for a plain enquiry: a public form that creates a CRM lead from fields the CRM already has, with embed, messages, consent and anti-spam. Visitor IP addresses are never stored, only a one-way hash.
 
-Guide: [docs/DEMO_BOOKING.md](docs/DEMO_BOOKING.md)
+Guides: [docs/DEMO_BOOKING.md](docs/DEMO_BOOKING.md) &middot; [docs/lead-forms.md](docs/lead-forms.md)
 
-### 8. Team and access
+### 12. Team and access
 
 - A System Manager opens **Team and access** to add people (picture, name, number, designation, company, role, preset, team leader) and to switch accounts on or off.
 - Each person gets a **preset** (Sales Executive, Team Lead, Sales Manager, Campaign Executive, Template Designer, Booking Host) and can have changes on top of it. Levels are *No access / Own only / My team / Everyone*, where **My team** follows CRM's Sales Hierarchy. They apply to follow-ups, meetings, bookings, the dashboard, lead assignment and every part of the Campaign Manager.
@@ -143,7 +191,7 @@ Guide: [docs/DEMO_BOOKING.md](docs/DEMO_BOOKING.md)
 
 Guide: [docs/roles-and-permissions.md](docs/roles-and-permissions.md)
 
-### 9. Setup page, branding, roles and permissions
+### 13. Setup page, branding, roles and permissions
 
 | | |
 |---|---|
@@ -164,6 +212,17 @@ Guide: [docs/roles-and-permissions.md](docs/roles-and-permissions.md) &middot; [
 | | |
 |---|---|
 | <img src="docs/images/sales-dashboard-dark.png" alt="Sales Dashboard in dark theme"> | <img src="docs/images/campaign-report-dark.png" alt="Campaign report in dark theme"> |
+
+</details>
+
+<details>
+<summary>More of the workspace</summary>
+
+| | |
+|---|---|
+| <img src="docs/images/suite-kanban.png" alt="Leads as a Kanban board"> | <img src="docs/images/suite-followups.png" alt="Follow-ups"> |
+| <img src="docs/images/suite-meetings.png" alt="Meetings agenda"> | <img src="docs/images/suite-bookings.png" alt="Website bookings"> |
+| <img src="docs/images/suite-team.png" alt="Team and access"> | <img src="docs/images/suite-settings.png" alt="Settings and the setup checklist"> |
 
 </details>
 
@@ -196,11 +255,16 @@ Frappe CRM 1.x core (as far as we know it) versus CRM with Frappe CRM Suite Pro 
 | Google Meet / Calendar meetings from a lead | Not included | Yes, one company account |
 | Lead score and stale-lead alerts | Not included | Yes |
 | Sales Users see only their own data | CRM's own lead rule | Extended to calls, notes, tasks, follow-ups and meetings |
+| A full workspace with its own menu and one design | Not included | `/suite`, optional default app |
+| WhatsApp Business shared inbox | Not included | Every chat, numbers that are not leads, 24-hour rule, saved replies |
+| Leads page with saved views, bulk actions, import and export | List and Kanban views | List, Kanban and Grid, include / exclude filters, bulk email and WhatsApp |
+| Meta (Facebook and Instagram) lead ads | Not included | Instant leads with campaign, ad set and ad |
+| Public booking pages and lead forms | Not included | Yes |
 
 ## How it works
 
 1. **Install** adds its doctypes, a few custom fields and a Frappe CRM Suite Pro workspace; every `migrate` re-checks them (it never overwrites what an admin changed).
-2. **A script is added to CRM's page** through a Frappe `after_request` hook; it draws the tabs, buttons, menu rows and pages inside CRM.
+2. **A script is added to CRM's page** through a Frappe `after_request` hook; it draws the tabs, buttons, menu rows and pages inside CRM. The same pages also run as a standalone workspace at `/suite`, with their own menu.
 3. **Pages** are plain Vue 3 (no build step) calling whitelisted Python APIs that check the role on every call.
 4. **Campaigns** are materialised into one recipient row per message; the scheduler claims rate-limited batches and workers send them through Frappe mail or `frappe_whatsapp`.
 5. **Status flows back** from Frappe's email records and Meta's webhooks into the recipient rows, and from there into reports.
@@ -234,7 +298,7 @@ bench build --app crm_addons        # only if assets were not linked
 bench restart
 ```
 
-Then hard-refresh the CRM (Ctrl/Cmd + Shift + R) and open **`/pro-pack-setup`** as a System Manager for the checklist. For WhatsApp campaigns also install `frappe_whatsapp`. Update with `bench update --apps crm_addons`, then `migrate` and `restart`. Uninstall with `bench --site your-site.com uninstall-app crm_addons`.
+Then hard-refresh the CRM (Ctrl/Cmd + Shift + R). As a System Manager you are offered, once, to make the new workspace (`/suite`) your default app, and **Settings** opens the checklist (also at `/pro-pack-setup`). Installing creates everything the app needs (templates, presets, settings); `migrate` keeps it current on every update. For WhatsApp campaigns also install `frappe_whatsapp`. Update with `bench update --apps crm_addons`, then `migrate` and `restart`. Uninstall with `bench --site your-site.com uninstall-app crm_addons`.
 
 Full walkthrough: [docs/getting-started.md](docs/getting-started.md).
 
@@ -261,6 +325,7 @@ The shortcuts in CRM's left menu are added by copying CRM's own menu rows, so th
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, setup, roles, 15-minute tour |
 | [Campaigns](docs/campaigns.md) | First email and WhatsApp campaign, journeys, automations, reports, variables, consent |
+| [Workspace](docs/suite-app.md) &middot; [Leads](docs/leads.md) &middot; [WhatsApp Business](docs/whatsapp-business.md) &middot; [Integrations](docs/integrations.md) &middot; [Lead forms](docs/lead-forms.md) | The new workspace |
 | [Sales Dashboard](docs/sales-dashboard.md) &middot; [Follow-ups](docs/follow-ups.md) &middot; [Assignment](docs/lead-assignment.md) &middot; [Meetings](docs/meetings-google.md) | Feature guides |
 | [Roles and permissions](docs/roles-and-permissions.md) &middot; [Settings reference](docs/settings-reference.md) | Reference |
 | [FAQ](docs/faq.md) &middot; [Troubleshooting](docs/troubleshooting.md) | Help |
@@ -305,6 +370,10 @@ crm_addons/
   assignment.py       lead assignment rules, assign now, move leads, undo
   views.py            default list / Kanban views for everybody
   setup_page.py       the setup page and its checklist
+  default_app.py      the app screen tile and the offer to make Suite Pro the default app
+  pro/                the workspace's API: leads, notifications, WhatsApp inbox, integrations, Meta
+  demos/              booking pages and lead forms
+  team_access/        people, presets and the permissions registry
   campaigns/          Campaign Manager: engine, automation, tracking, hygiene, health, ROI, templates
   providers/          Google Meet, Manual Link, Zoom / Teams placeholders
   public/             the UI: plain Vue 3 and JavaScript, no build step
@@ -319,4 +388,4 @@ docs/                 guides and reference
 
 ---
 
-<sub>Topics: Frappe CRM add-on, booking pages for Frappe CRM, Frappe CRM campaigns, WhatsApp and email marketing for Frappe CRM, Google Meet for Frappe CRM, follow-up and call log, lead assignment, lead scoring, sales dashboard, Frappe v15 app.</sub>
+<sub>Topics: Frappe CRM add-on, Frappe CRM workspace, WhatsApp Business inbox for Frappe CRM, Meta lead ads for Frappe CRM, booking pages for Frappe CRM, Frappe CRM campaigns, WhatsApp and email marketing for Frappe CRM, Google Meet for Frappe CRM, follow-up and call log, lead assignment, lead scoring, sales dashboard, Frappe v15 app.</sub>

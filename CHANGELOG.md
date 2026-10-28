@@ -2,6 +2,62 @@
 
 All notable changes to Frappe CRM Suite Pro (the `crm_addons` Frappe app).
 
+## 2.0.0 - 2026-10-29
+
+A major release: Frappe CRM Suite Pro is now a **full sales workspace** as well as an add-on. The CRM pages you already had keep working exactly as before.
+
+**Upgrade (self-hosted admin):** take a backup, then `bench update --apps crm_addons`, `bench --site your-site migrate` and `bench restart`. No `bench build` is needed. Migrate adds a few hidden fields,
+rewrites the Leads list script and drops the stored visitor IP address columns (see *Security*). Everything new can be ignored: nothing changes for a person who stays in the standard CRM, and
+the new workspace does not replace it. A page that is already open notices the new version by itself and asks for a refresh.
+
+### Added
+
+- **The Suite Pro workspace at `/suite`.** One app with its own left menu: Notifications, Sales Dashboard, Leads, Follow-ups, Organizations, WhatsApp Business, Meetings, Campaigns, Templates, Assignment,
+  Bookings, Team and Settings. A page a person has no access to is hidden from their menu. It follows one design everywhere (one font, one set of controls, the same calendar, time and dropdown pickers),
+  works on a phone, and every table and card grid is paged. The old address `/crm-pro` redirects to `/suite`, so links in emails and bookmarks still open it.
+- **Make it the default app.** Suite Pro has its own tile on Frappe's app screen (`/apps`) and can be chosen as the site's default app in System Settings. An administrator who is in the standard CRM sees a
+  one-time offer: *Make Suite Pro the default*, *Take a look first* or *Keep the CRM*. The CRM stays at `/crm` either way.
+- **A new Leads page.** List, Kanban and Grid; one search across every field; include / exclude filters with many values; saved views; your own columns, sorting and grouping; 20, 50 or 100 per page with
+  select-all across pages; bulk actions (assign, clear assignment, change status or owner, edit a field, send an email or an approved WhatsApp template). Import from Excel, CSV or a Google Sheet link with a
+  column-matching step and a check before anything is saved; export with a choice of columns and order, as Excel or CSV. The new-lead form follows the fields the administrator chose.
+- **A new lead page.** One header with the ID, previous and next arrows, status and owner; tabs for Activity, Follow-ups, Meetings, Emails, WhatsApp, Comments, Data and Campaign; an email composer with
+  templates, CC and BCC and attachments; the WhatsApp chat of the lead; the Meta lead ad it came from; Edit and (for the administrator) Delete.
+- **WhatsApp Business inbox.** Every chat in one place, including numbers that are not leads yet: create or link a lead, or mark a chat as not a lead. Filters with counts, search, a per-person unread
+  number, assignment of new numbers by a manager who sees all chats, the 24-hour rule (an approved template when the window is closed), saved replies with `/`, emoji, image, video and document attachments,
+  replies and reactions, and real delivery ticks. A chat opens in its own tab. The same number under another country code is a separate chat.
+- **Notifications panel.** A panel that slides out beside the menu (and closes when you click away), with All, Unread, Assignments, Mentions, Tasks and WhatsApp chips, search, mark as read or unread,
+  "Open in CRM", and an optional sound with a desktop alert when something new arrives while the page is open.
+- **Integrations in Settings.** *Email*: Gmail, Amazon SES (with bounce, complaint and delivery tracking through a signed notice), Outlook, Microsoft 365, Yahoo, Yandex, SendGrid, SparkPost or any SMTP server,
+  with a connection test. *WhatsApp*: connect, edit, switch and test numbers. *Calendar*: connect Google from the page (no files to edit), with a meeting sync log and retry.
+- **Meta (Facebook and Instagram) lead ads.** Connection, instant leads by webhook, lead forms with a field mapping, recent leads, a full log with filters, and Sync now / Stop / Start. The lead keeps its
+  campaign, ad set and ad, and shows them on the lead page and the Sales Dashboard (leads by campaign, with an Excel sheet). Guide: `docs/META_LEAD_ADS.md`.
+- **Lead forms** (Bookings, Lead forms). A public form, built like a booking widget, that creates a CRM lead from fields the CRM already has: embed on other websites, welcome and follow-up messages,
+  consent, allowed websites and anti-spam. Someone who matches an existing lead by email or phone is not added twice.
+- **Settings redesigned.** Groups for General, Leads and sales, Campaigns and Integrations, one search over every option, each option explained under its name, and a note on the pages that change Frappe's own
+  screens. *Add lead*, *Add organization* and *Add person* are arranged from fields and dropdown values the CRM already has. Organizations can have your own columns.
+- **Logs and reports.** Booking report and Lead form report with separate logs; a date range in the header of every log (bookings, lead forms, email, WhatsApp, calendar, Meta).
+- **Team and access.** The Team page, the Leads page, the Organizations page and the WhatsApp inbox are now permissions of their own (No access, Own, My team, Everyone as fitting); a person can be allowed to add and edit
+  people without being a System Manager (never over a System Manager).
+- **Bulk email and WhatsApp.** Send a template picked from the library to the selected leads (opt-outs skipped); every send is saved and listed in Campaigns, Reports, Bulk sends.
+
+### Changed
+
+- The Sales Dashboard, Follow-ups, Meetings, Campaigns and Assignment pages use the same controls, header and tabs as the rest of the app.
+- Rate limit on the public Meta and Amazon SES webhooks (per address, per minute).
+- WhatsApp Business sits between Organizations and Meetings in the menu.
+
+### Security
+
+- **No plain visitor IP address is stored or shown.** Bookings and lead form entries keep only a one-way hash (used for spam limits). Migrate runs a patch that **drops the old `ip_address` columns**; if you
+  need a past address, take it from a backup first.
+
+### Fixed
+
+- The meeting details panel failed to draw (`plain is not a function`) when a meeting was opened from the Meetings page.
+- The WhatsApp inbox paged wrongly and long chats were slow; counts are now done by the database, and a long chat loads its latest 500 messages.
+- A failed row in an import no longer undoes the row before it.
+- Kanban columns scroll as one board; touch targets are larger; a button no longer squashes inside a column.
+
 ## 1.5.1 - 2026-10-27
 
 A patch release. **Upgrade:** take a backup, then `bench --site your-site migrate` and `bench restart` (migrate adds two hidden fields and rewrites the Leads list script), and hard-refresh the CRM once.

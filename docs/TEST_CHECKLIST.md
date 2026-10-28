@@ -1,4 +1,4 @@
-# Test list by role (release 1.5.0)
+# Test list by role (release 2.0.0)
 
 Use three real users: **Sales User** (call them Asha), a second **Sales User** (Ben) who owns different leads, a **Campaign Manager** (Cara, with the Sales User role too) and a **Sales Manager** (Meera). Give Asha and Ben at least one lead, one logged call, one follow-up and one note each. Hard-refresh the CRM (Ctrl/Cmd + Shift + R) once before you start.
 
@@ -99,3 +99,14 @@ Manual (needs CRM with a Sales Hierarchy, which CRM 1.74 does not have):
 3. Give a person *Assignment: History only*: the Assignment page shows only History.
 4. Set *Bookings: Own only* for a host: the Bookings page and the Bookings tab of Meetings show only their demos; switch the tab off and it disappears.
 5. Reset a password from a person's panel: the email arrives.
+
+## Release 2.0.0: the Suite Pro workspace (all roles)
+
+1. As a System Manager open `/suite`: the menu lists every page; `/crm-pro` redirects to `/suite`; the app screen (`/apps`) shows a Suite Pro tile.
+2. In the standard CRM, as a System Manager who has not answered yet, the *Open Suite Pro first?* offer appears once; *Keep the CRM* makes it not appear again; *Make Suite Pro the default* sets System Settings, Default App.
+3. As a Sales User (no preset): Settings and Team are not in the menu; a typed `/suite#/settings` shows nothing it should not.
+4. Leads: search, a filter, a saved view, change columns, select rows across two pages, a bulk status change, an import with one bad row, an export with a chosen column order.
+5. Lead page: change status and owner in the header, log a follow-up, send an email from a template, open the WhatsApp tab.
+6. WhatsApp Business (only with `frappe_whatsapp`): a chat from a new number can be turned into a lead; a chat past 24 hours asks for a template; a Sales User with *Own* sees only their chats.
+7. Notifications: the panel opens beside the menu without dimming it, closes on an outside click, the chips filter, the bell turns alerts on and off.
+8. Every log (bookings, lead forms, email, WhatsApp, Meta) filters by date and is paged.
