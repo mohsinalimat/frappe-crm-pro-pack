@@ -1,7 +1,7 @@
 /* Suite Pro: Settings, Forms. An admin arranges the Add lead, Add organization and Add person forms. The fields and the dropdown values can only be ones the CRM
    already has (nothing is created here, so the data stays the same everywhere); a pop-up explains how to add a missing field or value in the CRM. */
 (() => {
-	const { ref, reactive, computed, onMounted, nextTick } = Vue
+	const { ref, reactive, computed, watch, onMounted, nextTick } = Vue
 	const CM = window.CM
 	const PRO = window.PRO
 	const V = PRO.views
@@ -49,7 +49,12 @@
 			function add(k) { if (!k) return; rows[kind.value].push({ fieldname: k, label: '', reqd: spec(k).locked ? 1 : 0, hidden: 0, full: 0, hide: [] }); dirty.value = true; custom[kind.value] = true }
 			function removeRow(k) { if (spec(k).locked) { CM.toast(spec(k).label + ' is always on this form.', 'err'); return } rows[kind.value] = rows[kind.value].filter((r) => r.fieldname !== k); touch() }
 			function setHidden(k, v) { const r = row(k); r.hidden = v ? 1 : 0; if (v) r.reqd = 0; touch() }
-			const preview = ref(false)
+			const showPv = ref((() => { try { return localStorage.getItem('pro_forms_preview') !== '0' } catch (e) { return true } })()); watch(showPv, (v) => { try { localStorage.setItem('pro_forms_preview', v ? '1' : '0') } catch (e) { /* not remembered */ } })
+			const dragFrom = ref(-1); const dragOver = ref(-1)
+			function drop(j) { const i = dragFrom.value; dragFrom.value = dragOver.value = -1; if (i < 0 || i === j) return; const [x] = rows[kind.value].splice(i, 1); rows[kind.value].splice(j, 0, x); touch() }
+			const TYPE = { Data: 'Text', 'Small Text': 'Textarea', Text: 'Textarea', 'Long Text': 'Textarea', 'Text Editor': 'Textarea', Int: 'Number', Float: 'Number', Currency: 'Number', Phone: 'Phone', Check: 'Switch', Date: 'Date', Datetime: 'Date', Link: 'Dropdown', Select: 'Dropdown' }
+			const typeOf = (sp) => (sp.fieldname && /email/.test(sp.fieldname) ? 'Email' : sp.fieldname && /mobile|phone/.test(sp.fieldname) ? 'Phone' : TYPE[sp.fieldtype] || 'Text')
+			const iconOf = (sp) => ({ Email: 'mail', Phone: 'phone', Number: 'hash', Textarea: 'text', Dropdown: 'list', Date: 'calendar', Switch: 'check' }[typeOf(sp)] || 'text')
 			const shown = computed(() => rows[kind.value].filter((r) => !r.hidden).map((r) => ({ ...r, ...spec(r.fieldname), label: r.label || spec(r.fieldname).label, values: spec(r.fieldname).values.filter((x) => !r.hide.includes(x)) })))
 			const hiddenCount = computed(() => rows[kind.value].filter((r) => r.hidden).length)
 			const touch = () => { dirty.value = true; custom[kind.value] = true }
@@ -81,7 +86,7 @@
 				organization: { doc: 'CRM Organization', what: 'an organization field' },
 				person: { doc: 'User', what: 'a person field' },
 			}
-			return { removeRow, setHidden, preview, shown, hiddenCount, hdr, loading, error, busy, kind, TABS, items, row, spec, canRequire, addable, add, touch, rows, custom, dirty, guide, opt, openOptions, applyOptions, shownValues, toggle, save, reset, links, slug, dt, GUIDE, CM, all, pool }
+			return { showPv, dragFrom, dragOver, drop, typeOf, iconOf, removeRow, setHidden, shown, hiddenCount, hdr, loading, error, busy, kind, TABS, items, row, spec, canRequire, addable, add, touch, rows, custom, dirty, guide, opt, openOptions, applyOptions, shownValues, toggle, save, reset, links, slug, dt, GUIDE, CM, all, pool }
 		},
 		template: `
 		<div class="page">
@@ -89,29 +94,26 @@
 			<ErrorState v-if="error" :message="error" />
 			<div v-else-if="loading" class="card" style="padding:18px"><Skel h="20" /></div>
 			<template v-else>
-				<div class="row" style="gap:10px;flex-wrap:wrap;align-items:center"><Seg v-model="kind" :options="TABS" /><span class="small muted">{{ custom[kind] ? 'Arranged by you' : 'Following the CRM' }}</span><span class="grow"></span><Btn size="sm" variant="ghost" icon="info" @click="guide = true">A field or value is missing</Btn><Btn v-if="custom[kind]" size="sm" variant="ghost" @click="reset">Reset to the CRM form</Btn><Btn size="sm" icon="eye" @click="preview = true">Preview</Btn></div>
-				<div class="fs-split">
+				<div class="row" style="gap:10px;flex-wrap:wrap;align-items:center"><Seg v-model="kind" :options="TABS" /><span class="grow"></span><Btn v-if="custom[kind]" size="sm" variant="ghost" @click="reset">Reset to the CRM form</Btn><Btn size="sm" variant="ghost" icon="info" @click="guide = true">A field or value is missing</Btn><Btn size="sm" :icon="showPv ? 'eye' : 'eye-off'" :aria-pressed="showPv" @click="showPv = !showPv">Preview {{ showPv ? 'on' : 'off' }}</Btn></div>
+				<div class="fs-split" :class="{ solo: !showPv }">
 					<section class="card" style="padding:16px 18px">
-						<p class="small muted" style="margin:0 0 8px">Drag to reorder. <b>Required</b> makes a question compulsory. <b>Hide</b> keeps it on the list but does not ask it (for a value that is preset elsewhere). <b>Full row</b> gives it the whole width. Fields the CRM insists on cannot be hidden or removed.</p>
-						<DragList v-model="items" empty="No fields.">
-							<template #default="{ item: it }">
-								<div class="fs-row" :class="{ off: row(it.key).hidden }">
-									<div class="fs-in"><input class="inp" :value="row(it.key).label" :placeholder="spec(it.key).label" maxlength="80" :aria-label="'Label of ' + spec(it.key).label" @input="row(it.key).label = $event.target.value; touch()" />
-									<Btn v-if="spec(it.key).values.length" size="sm" class="fs-opt" icon="list" @click="openOptions(it.key)">Options<template v-if="row(it.key).hide.length"> ({{ spec(it.key).values.length - row(it.key).hide.length }} of {{ spec(it.key).values.length }})</template></Btn></div>
-									<div class="fs-tg">
-									<label class="fs-t" title="Ask it on two columns or the whole row"><Switch :modelValue="!!row(it.key).full" :label="'Full row: ' + spec(it.key).label" @update:modelValue="(v) => { row(it.key).full = v ? 1 : 0; touch() }" /><span class="small muted">Full row</span></label>
-									<label class="fs-t"><Switch :modelValue="!!row(it.key).reqd || spec(it.key).locked" :disabled="!canRequire(it.key) || !!row(it.key).hidden" :label="'Required: ' + spec(it.key).label" @update:modelValue="(v) => { if (canRequire(it.key)) { row(it.key).reqd = v ? 1 : 0; touch() } }" /><span class="small muted">Required</span></label>
-									<label class="fs-t"><Switch :modelValue="!!row(it.key).hidden" :disabled="spec(it.key).locked" :label="'Hide: ' + spec(it.key).label" @update:modelValue="(v) => setHidden(it.key, v)" /><span class="small muted">Hide</span></label></div>
-								</div>
-							</template>
-						</DragList>
-						<div style="width:260px;margin-top:8px"><Dd modelValue="" :options="addable" searchable placeholder="Add a field" aria-label="Add a field to the form" @update:modelValue="add" /></div>
+						<div class="row" style="margin-bottom:10px"><div class="grow"><b style="font-size:16px">Form fields</b><p class="small muted" style="margin:2px 0 0">Drag to reorder. Click the icons to turn Full row, Required or Hide on or off.</p></div>
+							<div style="width:190px"><Dd modelValue="" :options="addable" searchable placeholder="+ Add field" aria-label="Add a field to the form" @update:modelValue="add" /></div></div>
+						<div class="fs-t-head"><span></span><span>Field name</span><span>Field type</span><span class="c">Full row</span><span class="c">Required</span><span class="c">Hide</span><span class="c">Actions</span></div>
+						<div v-for="(r, i) in rows[kind]" :key="r.fieldname" class="fs-t-row" :class="{ off: r.hidden, over: dragOver === i && dragFrom !== i }" draggable="true" @dragstart="dragFrom = i" @dragover.prevent="dragOver = i" @dragleave="dragOver = -1" @drop.prevent="drop(i)" @dragend="dragFrom = dragOver = -1">
+							<span class="fs-grip" aria-hidden="true"><Ico name="grip" /></span>
+							<span class="fs-nm"><Ico :name="iconOf(spec(r.fieldname))" class="faint" /><input class="fs-nin" :value="r.label" :placeholder="spec(r.fieldname).label" maxlength="80" :aria-label="'Label of ' + spec(r.fieldname).label" @input="r.label = $event.target.value; touch()" /></span>
+							<span><button v-if="spec(r.fieldname).values.length" type="button" class="fs-chip click" :title="'Choose which of the ' + spec(r.fieldname).values.length + ' values are offered'" @click="openOptions(r.fieldname)"><Ico name="list" size="sm" /> Dropdown<span v-if="r.hide.length" class="small muted"> {{ spec(r.fieldname).values.length - r.hide.length }}/{{ spec(r.fieldname).values.length }}</span> <Ico name="chevron-down" size="sm" /></button><span v-else class="fs-chip"><Ico :name="iconOf(spec(r.fieldname))" size="sm" /> {{ typeOf(spec(r.fieldname)) }}</span></span>
+							<span class="c"><button type="button" class="fs-ic" :class="{ on: r.full }" :aria-pressed="!!r.full" title="Full row" aria-label="Full row" @click="r.full = r.full ? 0 : 1; touch()"><Ico name="arrows-h" /></button></span>
+							<span class="c"><button type="button" class="fs-ic" :class="{ on: r.reqd || spec(r.fieldname).locked }" :disabled="!canRequire(r.fieldname) || !!r.hidden" :aria-pressed="!!r.reqd" title="Required" aria-label="Required" @click="r.reqd = r.reqd ? 0 : 1; touch()"><b>*</b></button></span>
+							<span class="c"><button type="button" class="fs-ic" :class="{ on: r.hidden }" :disabled="spec(r.fieldname).locked" :aria-pressed="!!r.hidden" title="Hide on the form" aria-label="Hide" @click="setHidden(r.fieldname, !r.hidden)"><Ico name="eye-off" /></button></span>
+							<span class="c"><button type="button" class="fs-ic plain" :disabled="spec(r.fieldname).locked" :title="spec(r.fieldname).locked ? 'The CRM needs this field' : 'Remove from the form'" aria-label="Remove from the form" @click="removeRow(r.fieldname)"><Ico name="trash" /></button></span>
+						</div>
+						<p v-if="!rows[kind].length" class="small muted" style="padding:14px">No fields.</p>
 					</section>
-					<aside class="card fs-pv" style="padding:16px 18px"><div class="row" style="margin-bottom:10px"><b class="grow">Preview</b><span class="small muted">{{ hiddenCount }} hidden</span></div><FormMock :title="all[kind].title" :fields="shown" /></aside>
+					<aside v-if="showPv" class="card fs-pv"><div class="row" style="margin-bottom:10px"><b class="grow" style="font-size:16px">Preview</b><span class="small muted">{{ hiddenCount }} hidden</span></div><FormMock :title="all[kind].title" :fields="shown" /></aside>
 				</div>
 			</template>
-
-			<Modal v-if="preview" size="lg" :title="all[kind].title" subtitle="How the pop-up looks to people adding." @close="preview = false"><FormMock :title="all[kind].title" :fields="shown" /><template #foot><Btn variant="primary" @click="preview = false">Close</Btn></template></Modal>
 
 			<Modal v-if="opt" size="sm" :title="'Options of ' + opt.label" subtitle="Untick a value to hide it on this form. It stays in the CRM." @close="opt = null">
 				<Inp v-if="opt.values.length > 8" v-model="opt.q" icon="search" placeholder="Search" clearable aria-label="Search the values" />

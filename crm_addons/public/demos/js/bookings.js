@@ -195,7 +195,7 @@
 		},
 		template: `
 		<div class="page wide">
-			<div class="pg-head"><div class="grow"><h1>Bookings</h1><p>Everyone who booked, where they came from, and how it went.</p></div><div class="actions"><Btn icon="list" @click="go('/bookings/log')">Log</Btn><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
+			<div class="pg-head"><div class="grow"><h1>Bookings</h1><p>Everyone who booked, where they came from, and how it went.</p></div><div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Booking dates" /><Btn icon="download" :loading="exporting" :disabled="!rows.length" @click="exportCsv">Export CSV</Btn></div></div>
 			<HdrSlot><LayoutSwitch v-model="layout" /></HdrSlot>
 			<div class="row wrap tools">
 				<div class="chips" role="group" aria-label="Status"><button v-for="c in chips" :key="c[0]" type="button" class="fchip" :class="{ on: status === c[0] }" :aria-pressed="status === c[0]" @click="status = c[0]">{{ c[1] }}</button></div>

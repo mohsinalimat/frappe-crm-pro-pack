@@ -37,45 +37,70 @@
 	V.ProfileMenu = {
 		props: { collapsed: Boolean },
 		setup() {
-			const open = ref(false); const dlg = ref(false); const busy = ref(false); const err = ref('')
+			const open = ref(false); const dlg = ref(false); const busy = ref(false); const err = ref(''); const sec = ref('profile'); const edit = ref(false)
 			const theme = ref((() => { try { return localStorage.getItem('crm_addons_theme_pref') || 'auto' } catch (e) { return 'auto' } })())
-			const p = reactive({ first_name: '', last_name: '', mobile_no: '', email: '' }); const pw = reactive({ old: '', n1: '', n2: '' })
+			const p = reactive({ first_name: '', last_name: '', mobile_no: '', email: '', designation: '', company: '', role: '', reports_to: '', joined: '', full_name: '' }); const pw = reactive({ old: '', n1: '', n2: '' })
 			function setTheme(t) {
 				theme.value = t
 				const eff = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t
 				try { localStorage.setItem('crm_addons_theme_pref', t); if (t === 'auto') { localStorage.removeItem('theme'); localStorage.removeItem('crm_addons_theme') } else { localStorage.setItem('theme', t); localStorage.setItem('crm_addons_theme', t) } } catch (e) { /* not remembered */ }
 				document.documentElement.setAttribute('data-theme', eff)
 			}
-			async function openProfile() { open.value = false; err.value = ''; dlg.value = true; try { Object.assign(p, await PRO.api('get_profile', {})) } catch (e) { err.value = e.message } }
-			async function save() { busy.value = true; err.value = ''; try { const r = await PRO.api('update_profile', { first_name: p.first_name, last_name: p.last_name, mobile_no: p.mobile_no }); PRO.shell.full_name = r.full_name; CM.toast('Profile saved') } catch (e) { err.value = e.message } finally { busy.value = false } }
+			async function openProfile(s) { open.value = false; err.value = ''; sec.value = s || 'profile'; edit.value = false; dlg.value = true; try { Object.assign(p, await PRO.api('get_profile', {})) } catch (e) { err.value = e.message } }
+			async function save() { busy.value = true; err.value = ''; try { const r = await PRO.api('update_profile', { first_name: p.first_name, last_name: p.last_name, mobile_no: p.mobile_no, designation: p.designation, company: p.company }); Object.assign(p, r); PRO.shell.full_name = r.full_name; edit.value = false; CM.toast('Profile saved') } catch (e) { err.value = e.message } finally { busy.value = false } }
 			async function changePw() {
 				if (pw.n1 !== pw.n2) { err.value = 'The two new passwords are not the same.'; return }
 				busy.value = true; err.value = ''
 				try { await PRO.api('change_password', { old_password: pw.old, new_password: pw.n1 }); pw.old = pw.n1 = pw.n2 = ''; CM.toast('Password changed') } catch (e) { err.value = e.message } finally { busy.value = false }
 			}
+			const ROLE = { 'System Manager': ['Administrator', 'You can manage the whole CRM, its settings and its people.'], 'Sales Manager': ['Sales Manager', 'You can see and manage your team\'s leads, meetings and follow-ups.'], 'Sales User': ['Sales User', 'You can manage your own leads, meetings and follow-ups.'] }
+			const role = computed(() => ROLE[p.role] || [p.role || 'Team member', 'What you can see and change is set by an administrator.'])
 			const logout = () => { location.href = '/api/method/logout' }
 			const onDoc = (e) => { if (open.value && !(e.target.closest && e.target.closest('.pf-wrap'))) open.value = false }
 			onMounted(() => document.addEventListener('click', onDoc)); onBeforeUnmount(() => document.removeEventListener('click', onDoc))
-			return { open, dlg, busy, err, theme, setTheme, p, pw, openProfile, save, changePw, logout, PRO }
+			const SECS = [['profile', 'Profile', 'user'], ['security', 'Account & security', 'shield'], ['prefs', 'Preferences', 'settings']]
+			return { open, dlg, busy, err, sec, edit, theme, setTheme, p, pw, openProfile, save, changePw, logout, role, SECS, PRO, CM }
 		},
 		template: `
 		<div class="pf-wrap">
 			<div v-if="open" class="pf-card">
 				<div class="pf-me"><Avatar :name="PRO.shell.full_name || PRO.shell.user" :size="36" /><div style="min-width:0"><b class="ellipsis" style="display:block">{{ PRO.shell.full_name }}</b><span class="small muted ellipsis" style="display:block">{{ PRO.shell.user }}</span></div></div>
-				<button type="button" class="pf-i" @click="openProfile"><Ico name="user" /> My profile</button>
+				<button type="button" class="pf-i" @click="openProfile('profile')"><Ico name="user" /> My profile</button>
+				<button type="button" class="pf-i" @click="openProfile('security')"><Ico name="shield" /> Account &amp; security</button>
 				<div class="pf-th" role="group" aria-label="Theme"><button v-for="t in [['light', 'Light', 'sun'], ['dark', 'Dark', 'moon'], ['auto', 'Auto', 'monitor']]" :key="t[0]" type="button" :class="{ on: theme === t[0] }" :aria-pressed="theme === t[0]" @click="setTheme(t[0])"><Ico :name="t[2]" size="sm" />{{ t[1] }}</button></div>
-				<button type="button" class="pf-i" @click="logout"><Ico name="log-out" /> Log out</button>
+				<button type="button" class="pf-i danger" @click="logout"><Ico name="log-out" /> Log out</button>
 			</div>
 			<button type="button" class="nav pf-btn" :title="collapsed ? PRO.shell.full_name : null" aria-haspopup="menu" :aria-expanded="open" @click.stop="open = !open"><Avatar :name="PRO.shell.full_name || PRO.shell.user" :size="24" /><span class="nav-l ellipsis">{{ PRO.shell.full_name || PRO.shell.user }}</span><Ico name="chevron-up" size="sm" class="nav-l" style="margin-left:auto" /></button>
-			<Modal v-if="dlg" size="md" title="My profile" subtitle="Your own details. Your role and access are set by an administrator." @close="dlg = false" @submit="save">
-				<div class="col" style="gap:14px">
-					<div v-if="err" class="alert err" role="alert"><Ico name="alert" /><div class="grow">{{ err }}</div></div>
-					<div class="g2"><Field label="First name" required><Inp v-model="p.first_name" aria-label="First name" /></Field><Field label="Last name"><Inp v-model="p.last_name" aria-label="Last name" /></Field></div>
-					<div class="g2"><Field label="Email" hint="Your login. An administrator changes it."><Inp :modelValue="p.email" disabled aria-label="Email" /></Field><Field label="Contact number"><Inp v-model="p.mobile_no" aria-label="Contact number" /></Field></div>
-					<div class="pf-pw"><b>Change password</b><div class="g3"><Field label="Current password"><Inp v-model="pw.old" type="password" aria-label="Current password" /></Field><Field label="New password" hint="At least 8 characters."><Inp v-model="pw.n1" type="password" aria-label="New password" /></Field><Field label="New password again"><Inp v-model="pw.n2" type="password" aria-label="New password again" /></Field></div>
-						<Btn size="sm" :loading="busy" :disabled="!pw.old || !pw.n1" @click="changePw">Change password</Btn></div>
+			<Modal v-if="dlg" size="xl" title="My profile" subtitle="Manage your personal information and account settings." @close="dlg = false" @submit="save">
+				<div class="pfm">
+					<nav class="pfm-nav" aria-label="Profile sections"><button v-for="s in SECS" :key="s[0]" type="button" :class="{ on: sec === s[0] }" @click="sec = s[0]; err = ''"><Ico :name="s[2]" />{{ s[1] }}</button></nav>
+					<div class="pfm-main">
+						<div v-if="err" class="alert err" role="alert"><Ico name="alert" /><div class="grow">{{ err }}</div></div>
+						<template v-if="sec === 'profile'">
+							<div class="pfm-hero card"><Avatar :name="p.full_name || p.user" :size="68" /><div class="grow" style="min-width:0"><h3 style="margin:0">{{ p.full_name }}</h3><div class="muted">{{ [p.designation, p.company].filter(Boolean).join(' - ') || 'Add your designation and company below' }}</div>
+								<div class="row wrap" style="gap:16px;margin-top:8px"><span class="small muted"><Ico name="mail" size="sm" /> {{ p.email }}</span><span v-if="p.mobile_no" class="small muted"><Ico name="phone" size="sm" /> {{ p.mobile_no }}</span></div></div></div>
+							<section class="card pfm-sec"><div class="row"><b class="grow">Personal information</b><Btn size="sm" :icon="edit ? 'x' : 'edit'" @click="edit = !edit">{{ edit ? 'Cancel' : 'Edit' }}</Btn></div>
+								<div class="g2"><Field label="First name" required><Inp icon="user" v-model="p.first_name" :disabled="!edit" aria-label="First name" /></Field><Field label="Last name"><Inp icon="user" v-model="p.last_name" :disabled="!edit" aria-label="Last name" /></Field></div>
+								<div class="g2"><Field label="Email" hint="Your login. An administrator changes it."><Inp icon="mail" :modelValue="p.email" disabled aria-label="Email" /></Field><Field label="Contact number"><Inp icon="phone" v-model="p.mobile_no" :disabled="!edit" aria-label="Contact number" /></Field></div></section>
+							<section class="card pfm-sec"><div class="row"><b class="grow">Job and team</b></div>
+								<div class="g2"><Field label="Designation"><Inp icon="briefcase" v-model="p.designation" :disabled="!edit" aria-label="Designation" /></Field><Field label="Company"><Inp icon="building" v-model="p.company" :disabled="!edit" aria-label="Company" /></Field></div>
+								<div class="g2"><Field label="Reports to" hint="Set by an administrator."><Inp icon="user" :modelValue="p.reports_to || 'Nobody'" disabled aria-label="Reports to" /></Field></div></section>
+						</template>
+						<section v-if="sec === 'security'" class="card pfm-sec"><b>Password</b><p class="small muted" style="margin:0">Use at least 8 characters. You stay signed in on this device.</p>
+							<div class="g3"><Field label="Current password"><Inp icon="lock" v-model="pw.old" type="password" aria-label="Current password" /></Field><Field label="New password"><Inp icon="lock" v-model="pw.n1" type="password" aria-label="New password" /></Field><Field label="New password again"><Inp icon="lock" v-model="pw.n2" type="password" aria-label="New password again" /></Field></div>
+							<div><Btn variant="primary" :loading="busy" :disabled="!pw.old || !pw.n1" @click="changePw">Change password</Btn></div></section>
+						<section v-if="sec === 'prefs'" class="card pfm-sec"><b>Theme</b><p class="small muted" style="margin:0">How the CRM looks for you on this device.</p>
+							<div class="pf-th" style="max-width:320px"><button v-for="t in [['light', 'Light', 'sun'], ['dark', 'Dark', 'moon'], ['auto', 'Auto', 'monitor']]" :key="t[0]" type="button" :class="{ on: theme === t[0] }" @click="setTheme(t[0])"><Ico :name="t[2]" size="sm" />{{ t[1] }}</button></div></section>
+					</div>
+					<aside class="pfm-side">
+						<section class="card pfm-sec"><b>My role</b><div class="pfm-role"><Ico name="user" /> {{ role[0] }}</div><p class="small muted" style="margin:0">{{ role[1] }}</p></section>
+						<section class="card pfm-sec"><b>Quick info</b>
+							<div v-if="p.company" class="pfm-q"><Ico name="building" size="sm" /><span>{{ p.company }}</span></div>
+							<div v-if="p.reports_to" class="pfm-q"><Ico name="user" size="sm" /><span>Reports to {{ p.reports_to }}</span></div>
+							<div class="pfm-q"><Ico name="calendar" size="sm" /><span>Joined {{ CM.fmtDate(p.joined) }}</span></div></section>
+					</aside>
 				</div>
-				<template #foot><Btn @click="dlg = false">Close</Btn><Btn variant="primary" :loading="busy" @click="save">Save</Btn></template>
+				<template #foot><button type="button" class="btn pf-out" @click="logout"><Ico name="log-out" /> Log out</button><span class="grow"></span><Btn @click="dlg = false">Close</Btn><Btn v-if="sec === 'profile'" variant="primary" icon="save" :loading="busy" :disabled="!edit" @click="save">Save changes</Btn></template>
 			</Modal>
 		</div>`,
 	}
@@ -109,7 +134,7 @@
 	const GROUP_OF = { branding: 'General', ui: 'General', views: 'General', leads: LF, orgs: LF, forms: LF, meetings: LF, followups: LF, insights: LF, dashboard: LF, campaigns: 'Campaigns', alerts: 'Campaigns', prices: 'Campaigns' }
 	const GROUP_ICON = { General: 'settings', [LF]: 'briefcase', Campaigns: 'send', Other: 'settings' }
 	const SHORT = { start: 'Checklist', branding: 'Branding', ui: 'Screen', views: 'Default views', leads: 'Lead page', orgs: 'Organization page', forms: 'Forms', sales: 'Sales' } // the short names on the tabs
-	const TAB_ICON = { start: 'list', branding: 'palette', ui: 'monitor', views: 'columns', leads: 'users', orgs: 'building', forms: 'rows', sales: 'chart', meetings: 'calendar', followups: 'phone', insights: 'chart', dashboard: 'chart', campaigns: 'send', alerts: 'alert', prices: 'hash' }
+	const TAB_ICON = { start: 'list', branding: 'palette', ui: 'monitor', views: 'columns', leads: 'users', orgs: 'building', forms: 'rows', sales: 'trend', meetings: 'calendar', followups: 'phone', insights: 'chart', dashboard: 'chart', campaigns: 'send', alerts: 'alert', prices: 'hash' }
 	PRO.settingsGroups = () => {
 		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).filter((g) => !SALES.includes(g.key)).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Lead page', group: LF }, { value: 'orgs', label: 'Organization page', group: LF }, { value: 'forms', label: 'Add forms', group: LF }, { value: 'sales', label: 'Follow-ups, scoring and sales', group: LF }].map((x) => ({ ...x, short: SHORT[x.value] || x.label, icon: TAB_ICON[x.value] || 'settings' }))
 		return ['General', LF, 'Campaigns', 'Other'].map((t) => ({ title: t, icon: GROUP_ICON[t], items: all.filter((x) => x.group === t) })).filter((g) => g.items.length)

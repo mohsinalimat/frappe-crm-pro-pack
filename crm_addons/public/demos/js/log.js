@@ -54,8 +54,9 @@
 		},
 		template: `
 		<div class="page">
-			<div class="pg-head"><div class="grow"><button type="button" class="back" @click="go(K.back)"><Ico name="arrow-left" /> {{ kind === 'forms' ? 'Lead forms' : 'Website bookings' }}</button><h1>{{ K.title }}</h1><p>{{ K.sub }}</p></div>
+			<div class="pg-head"><div class="grow"><h1>Log</h1><p>{{ K.sub }}</p></div>
 				<div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Log dates" /><Btn icon="download" :disabled="!log.total" @click="exportCsv">Export CSV</Btn></div></div>
+			<div class="seg" role="tablist" aria-label="Log" style="margin-bottom:14px"><button type="button" role="tab" :class="{ on: kind === 'bookings' }" :aria-selected="kind === 'bookings'" @click="go('/log')"><Ico name="calendar" size="sm" /> Website bookings</button><button type="button" role="tab" :class="{ on: kind === 'forms' }" :aria-selected="kind === 'forms'" @click="go('/log/forms')"><Ico name="file" size="sm" /> Lead forms</button></div>
 			<div class="card" style="overflow:hidden">
 				<div class="row wrap" style="padding:14px 18px;gap:10px"><div class="chips"><button v-for="r in K.results" :key="r[0]" type="button" class="fchip" :class="{ on: result === r[0] }" :aria-pressed="result === r[0]" @click="result = r[0]">{{ r[1] }}</button></div><div class="grow"></div><div style="width:min(300px,100%)"><Inp v-model="search" icon="search" placeholder="Search name, email, phone or campaign" clearable aria-label="Search the log" /></div></div>
 				<ErrorState v-if="log.error" :message="log.error" @retry="load" />

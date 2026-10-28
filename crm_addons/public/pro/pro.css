@@ -439,7 +439,24 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 
 /* Settings, Forms: setup on the left, a live picture of the form on the right */
 .fs-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start }
-.fs-pv { position: sticky; top: 8px }
+.fs-pv { position: sticky; top: 8px; max-height: calc(100vh - 150px); overflow: auto; padding: 16px 18px }
+.fs-split.solo { grid-template-columns: 1fr }
+.fs-t-head, .fs-t-row { display: grid; grid-template-columns: 22px minmax(120px, 1.3fr) minmax(110px, 1fr) 64px 64px 56px 64px; gap: 8px; align-items: center }
+.fs-t-head { font-size: 12px; color: var(--text-muted); padding: 6px 10px; border-bottom: 1px solid var(--border) }
+.fs-t-head .c, .fs-t-row .c { text-align: center }
+.fs-t-row { padding: 6px 10px; margin-top: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface, #fff) }
+.fs-t-row.off { opacity: .6 }
+.fs-t-row.over { border-color: var(--accent, #2563eb) }
+.fs-grip { cursor: grab; color: var(--text-faint); display: inline-flex }
+.fs-nm { display: flex; align-items: center; gap: 8px; min-width: 0 }
+.fs-nin { border: 0; background: transparent; font: inherit; font-weight: 500; min-width: 0; width: 100%; padding: 4px 0; color: inherit }
+.fs-nin:focus { outline: 0; border-bottom: 1px solid var(--accent, #2563eb) }
+.fs-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; font-size: 12px; background: var(--surface, #fff); max-width: 100%; white-space: nowrap }
+.fs-chip.click { cursor: pointer; font: inherit; font-size: 12px }
+.fs-ic { width: 34px; height: 30px; border-radius: 8px; border: 0; background: var(--bg, #eef0f4); color: var(--text-muted); cursor: pointer; display: inline-grid; place-items: center }
+.fs-ic.on { background: var(--accent, #2563eb); color: #fff }
+.fs-ic.plain { background: transparent; color: inherit }
+.fs-ic:disabled { opacity: .4; cursor: not-allowed }
 .fs-row { flex: 1; display: grid; gap: 8px; min-width: 0 }
 .fs-in { display: flex; gap: 8px; align-items: center; min-width: 0 }
 .fs-in .inp { flex: 1 1 0; min-width: 0 }
@@ -457,7 +474,7 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 .fm-sw { width: 34px; height: 18px; border-radius: 9px; background: var(--border-strong, #cbd5e1) }
 .fm-b { display: flex; justify-content: flex-end; gap: 12px; align-items: center; margin-top: 16px; font-size: 13px }
 .fm-b b { background: var(--accent, #2563eb); color: #fff; padding: 7px 16px; border-radius: 8px }
-@media (max-width: 1100px) { .fs-split { grid-template-columns: 1fr } .fs-pv { position: static } }
+@media (max-width: 1100px) { .fs-split { grid-template-columns: 1fr } .fs-pv { position: static; max-height: none } }
 
 /* Lead activity: an edit lists every field it changed, old value to new value */
 .chg { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px }
@@ -478,3 +495,23 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 .pf-th button.on { background: var(--surface, #fff); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); font-weight: 650 }
 .pf-pw { display: grid; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border) }
 .rail.collapsed .pf-btn .nav-l, nav.collapsed .pf-btn .nav-l { display: none }
+
+/* Profile window */
+.pfm { display: grid; grid-template-columns: 200px minmax(0, 1fr) 260px; gap: 16px; align-items: start; min-height: 420px }
+.pfm-nav { display: grid; gap: 4px }
+.pfm-nav button { display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 10px 12px; border-radius: 10px; cursor: pointer; font: inherit; color: inherit; text-align: left }
+.pfm-nav button.on { background: var(--accent-soft, #e8ecfd); color: var(--accent, #2563eb); font-weight: 600 }
+.pfm-main, .pfm-side { display: grid; gap: 14px; min-width: 0 }
+.pfm-hero { display: flex; gap: 16px; align-items: center; padding: 18px }
+.pfm-sec { padding: 16px 18px; display: grid; gap: 12px }
+.pfm-role { display: flex; align-items: center; gap: 8px; background: var(--accent-soft, #e8ecfd); color: var(--accent, #2563eb); border-radius: 8px; padding: 9px 12px; font-weight: 600 }
+.pfm-q { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-muted) }
+.pf-out { color: var(--red, #dc2626); border-color: currentColor }
+.pf-i.danger { color: var(--red, #dc2626) }
+@media (max-width: 900px) { .pfm { grid-template-columns: 1fr } .pfm-nav { grid-auto-flow: column } }
+.pfm .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px }
+.pfm .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px }
+.pfm .g2 > *, .pfm .g3 > * { min-width: 0 }
+.pfm-sec .field, .pfm-sec label.field { display: grid; gap: 6px }
+.fs-ic b { font-size: 20px; line-height: 1; margin-top: 4px }
+@media (max-width: 900px) { .pfm .g2, .pfm .g3 { grid-template-columns: 1fr } }

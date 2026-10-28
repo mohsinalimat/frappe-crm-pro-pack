@@ -55,9 +55,8 @@
 		},
 		template: `
 		<div class="page">
-			<div class="pg-head"><div class="grow"><h1>Lead form report</h1></div><div class="actions"><button v-if="range.preset !== 'any'" type="button" class="fchip" :class="{ on: compare }" :aria-pressed="compare" @click="compare = !compare"><Ico name="refresh" size="sm" />Compare to previous period</button><DateRange v-model="range" any align="right" size="" aria-label="Report dates" /><Btn icon="download" :disabled="!data" @click="exportCsv">Export CSV</Btn></div></div>
-			<div class="row wrap" style="gap:12px;align-items:center"><div class="grow"></div><div style="width:240px;margin-bottom:14px"><Dd v-model="form" :options="forms.map((f) => ({ value: f.name, label: f.title }))" allow-empty="All forms" placeholder="All forms" aria-label="Form" /></div></div>
-			<template v-if="loading"><div class="kpis"><Skel v-for="n in 5" :key="n" h="104" r="12" /></div><Skel h="280" r="12" /></template>
+			<div class="pg-head"><div class="grow"><h1>Lead form report</h1></div><div class="actions"><div style="width:200px"><Dd v-model="form" :options="forms.map((f) => ({ value: f.name, label: f.title }))" allow-empty="All forms" placeholder="All forms" aria-label="Form" /></div><button v-if="range.preset !== 'any'" type="button" class="fchip" :class="{ on: compare }" :aria-pressed="compare" @click="compare = !compare"><Ico name="refresh" size="sm" />Compare to previous period</button><DateRange v-model="range" any align="right" size="" aria-label="Report dates" /><Btn icon="download" :disabled="!data" @click="exportCsv">Export CSV</Btn></div></div>
+						<template v-if="loading"><div class="kpis"><Skel v-for="n in 5" :key="n" h="104" r="12" /></div><Skel h="280" r="12" /></template>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<div v-else class="rep" :class="{ busy }">
 				<div class="kpis five"><div v-for="x in kpis" :key="x.l" class="kpi" :style="{ '--kc': x.c }"><div class="l"><Ico :name="x.i" size="sm" />{{ x.l }}</div><div class="v">{{ x.v }}<span v-if="x.d" class="d" :class="x.d.cls" :title="x.d.tip"><Ico v-if="x.d.arrow" :name="x.d.arrow" /> {{ x.d.text }}</span></div><div class="s">{{ x.s }}</div></div></div>

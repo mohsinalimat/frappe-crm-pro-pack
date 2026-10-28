@@ -233,4 +233,4 @@ html.pro .top { display: none; } /* the Suite Pro header has the search, over ev
 html.pro .body { grid-template-columns: minmax(0, 1fr); max-width: 1180px; padding-top: 14px; }
 
 /* inside the Suite Pro app the tab and its icon are the heading: no title, description or sub-headings in the page */
-html.pro .g-head, html.pro h3.sub:not(.keep) { display: none; }
+html.pro .g-head:not(.keep), html.pro h3.sub:not(.keep) { display: none; }

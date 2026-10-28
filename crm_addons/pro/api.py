@@ -33,22 +33,38 @@ def get_shell():
 
 @frappe.whitelist()
 def get_profile():
-	"""The signed-in person's own basic profile."""
+	"""The signed-in person's own profile: what they can edit, and what only an administrator sets (role, team leader)."""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please log in."), frappe.PermissionError)
-	u = frappe.db.get_value("User", frappe.session.user, ["first_name", "last_name", "email", "mobile_no", "full_name", "user_image"], as_dict=True)
-	return {**u, "user": frappe.session.user}
+	doc = frappe.get_doc("User", frappe.session.user)
+	roles = frappe.get_roles()
+	role = next((r for r in ("System Manager", "Sales Manager", "Sales User") if r in roles), "")
+	leader = None
+	try:
+		from crm_addons.team_access.admin import _leader
+
+		leader = _leader(frappe.session.user)
+	except Exception:
+		frappe.clear_messages()
+	return {
+		"user": doc.name, "first_name": doc.first_name, "last_name": doc.last_name, "email": doc.email, "mobile_no": doc.mobile_no, "full_name": doc.full_name,
+		"image": doc.user_image, "designation": doc.get("crm_designation") or "", "company": doc.get("crm_company") or "", "role": role,
+		"reports_to": frappe.db.get_value("User", leader, "full_name") if leader else "", "joined": str(doc.creation)[:10],
+	}
 
 
 @frappe.whitelist()
-def update_profile(first_name, last_name=None, mobile_no=None):
-	"""Their own name and number; nothing else about the account."""
+def update_profile(first_name, last_name=None, mobile_no=None, designation=None, company=None):
+	"""Their own name, number, designation and company; nothing else about the account."""
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please log in."), frappe.PermissionError)
 	if not cstr(first_name).strip():
 		frappe.throw(_("Enter your first name."))
 	doc = frappe.get_doc("User", frappe.session.user)
 	doc.first_name, doc.last_name, doc.mobile_no = cstr(first_name).strip()[:60], cstr(last_name).strip()[:60], cstr(mobile_no).strip()[:20]
+	for field, value in (("crm_designation", designation), ("crm_company", company)):
+		if value is not None and doc.meta.has_field(field):
+			doc.set(field, cstr(value).strip()[:140])
 	doc.save(ignore_permissions=True)
 	return get_profile()
 
