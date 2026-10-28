@@ -160,3 +160,5 @@
 
 fieldset.ro { border: 0; margin: 0; padding: 0; min-width: 0; }
 tr.off td{opacity:.62}
+
+.logseg button { padding: 5px 9px }

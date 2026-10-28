@@ -56,9 +56,8 @@
 		<div class="page">
 			<div class="pg-head"><div class="grow"><h1>Log</h1><p>{{ K.sub }}</p></div>
 				<div class="actions"><DateRange v-model="range" any align="right" size="" aria-label="Log dates" /><Btn icon="download" :disabled="!log.total" @click="exportCsv">Export CSV</Btn></div></div>
-			<div class="seg" role="tablist" aria-label="Log" style="margin-bottom:14px"><button type="button" role="tab" :class="{ on: kind === 'bookings' }" :aria-selected="kind === 'bookings'" @click="go('/log')"><Ico name="calendar" size="sm" /> Website bookings</button><button type="button" role="tab" :class="{ on: kind === 'forms' }" :aria-selected="kind === 'forms'" @click="go('/log/forms')"><Ico name="file" size="sm" /> Lead forms</button></div>
 			<div class="card" style="overflow:hidden">
-				<div class="row wrap" style="padding:14px 18px;gap:10px"><div class="chips"><button v-for="r in K.results" :key="r[0]" type="button" class="fchip" :class="{ on: result === r[0] }" :aria-pressed="result === r[0]" @click="result = r[0]">{{ r[1] }}</button></div><div class="grow"></div><div style="width:min(300px,100%)"><Inp v-model="search" icon="search" placeholder="Search name, email, phone or campaign" clearable aria-label="Search the log" /></div></div>
+				<div class="row wrap" style="padding:14px 18px;gap:10px"><div class="chips"><button v-for="r in K.results" :key="r[0]" type="button" class="fchip" :class="{ on: result === r[0] }" :aria-pressed="result === r[0]" @click="result = r[0]">{{ r[1] }}</button></div><div class="seg logseg" role="group" aria-label="Show"><button type="button" :class="{ on: kind === 'bookings' }" :aria-pressed="kind === 'bookings'" title="Website bookings" aria-label="Website bookings" @click="go('/log')"><Ico name="calendar" size="sm" /></button><button type="button" :class="{ on: kind === 'forms' }" :aria-pressed="kind === 'forms'" title="Lead forms" aria-label="Lead forms" @click="go('/log/forms')"><Ico name="file" size="sm" /></button></div><div class="grow"></div><div style="width:min(200px,100%)"><Inp v-model="search" icon="search" placeholder="Search" clearable aria-label="Search the log" /></div></div>
 				<ErrorState v-if="log.error" :message="log.error" @retry="load" />
 				<div v-else-if="log.loading && !log.rows.length" style="padding:18px"><Skel h="200" r="10" /></div>
 				<Empty v-else-if="!log.rows.length" icon="file" title="Nothing logged" :text="filtered ? 'No entry matches. Clear the filters.' : 'Nothing was logged over these dates. Pick a longer range.'"><Btn v-if="filtered" @click="result = ''; search = ''">Clear filters</Btn></Empty>
@@ -72,7 +71,7 @@
 						<td><a v-if="e.lead" :href="CM.leadUrl(e.lead)" target="_blank" rel="noopener" class="mono small">{{ e.lead }}</a><span v-else class="faint">-</span></td>
 						<td v-if="log.showIp" class="mono small">{{ e.ip || '-' }}</td>
 					</tr></tbody></table></div>
-				<Pager v-if="log.total > SIZE" v-model:page="page" :size="SIZE" :total="log.total" />
+				<Pager v-if="log.rows.length" v-model:page="page" :size="SIZE" :total="log.total" />
 			</div>
 		</div>`,
 	}
