@@ -1440,5 +1440,27 @@
 		if (badgeListener) window.removeEventListener('cra:followups-changed', badgeListener)
 		;[].slice.call(document.querySelectorAll('[data-cra], [data-crm-addons], [data-cra-tab], .cra-fab, .cra-toast')).forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n) })
 	}
+	// ---- one-time offer to an administrator: make Suite Pro the site's default app ---------------------------------------
+	function offerDefaultApp() {
+		call('default_app.offer').then(function (r) {
+			if (!r || !r.show || document.querySelector('.cra-offer')) return
+			var dlg
+			function answer(method, done) {
+				call(method).then(function () { dlg.close(); if (done) toast(done) }).catch(function (err) { toast(err.message, true) })
+			}
+			dlg = openModal('Open Suite Pro first?', [
+				h('div', { class: 'cra-offer' }, [
+					h('p', { text: 'This site opens the standard CRM by default. Frappe CRM Suite Pro, with the new dashboard, lead page, WhatsApp Business inbox and more, is installed on it and lives at /suite.' }),
+					h('p', { text: 'You can make it the page everyone lands on after signing in. The CRM stays available at /crm either way, and you can change this later in System Settings.' }),
+					h('div', { class: 'cra-actions' }, [
+						h('button', { type: 'button', class: 'cra-btn cra-primary', text: 'Make Suite Pro the default', onclick: function () { answer('default_app.set_default', 'Suite Pro is now the default app') } }),
+						h('a', { class: 'cra-btn', href: '/suite', text: 'Take a look first' }),
+						h('button', { type: 'button', class: 'cra-btn', text: 'Keep the CRM', onclick: function () { answer('default_app.dismiss') } }),
+					]),
+				]),
+			])
+		}).catch(function () { /* an offer is never worth an error */ })
+	}
+	setTimeout(offerDefaultApp, 4000)
 	sync()
 })()

@@ -75,6 +75,17 @@ doc_events = {
 	},
 }
 
+# The app tile on Frappe's app screen (and the choice of default app in System Settings).
+add_to_apps_screen = [
+	{
+		"name": "crm_addons",
+		"logo": "/assets/crm_addons/pro/logo.svg",
+		"title": "Frappe CRM Suite Pro",
+		"route": "/suite",
+		"has_permission": "crm_addons.default_app.check_app_permission",
+	}
+]
+
 # CRM's page has no place for an app's script, so the tag is added to the response (see inject.py).
 after_request = ["crm_addons.inject.add_addon_script", "crm_addons.debuglog.after_request", "crm_addons.demos.framing.add_frame_headers"]
 
