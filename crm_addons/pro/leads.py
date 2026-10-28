@@ -229,6 +229,34 @@ def bulk_update(names, status=None, owner=None):
 
 
 @frappe.whitelist()
+def bulk_edit(names, values):
+	"""Set the same fields on many leads (any field a person may write on these pages). ``lead_owner`` of ``__none__`` clears it. Returns {done, failed}."""
+	_check()
+	from crm_addons.pro import form
+
+	names = _names(names)
+	vals = {k: v for k, v in _loads(values, {}).items()}
+	if not vals:
+		frappe.throw(_("Pick a field to change."))
+	if vals.get("lead_owner") == "__none__":
+		vals["lead_owner"] = ""
+	data = form.clean_values(vals)
+	if "status" in data and data["status"] is None:
+		frappe.throw(_("Pick a status."))
+	done, failed = 0, []
+	for n in names:
+		try:
+			doc = frappe.get_doc(LEAD, n)
+			doc.check_permission("write")
+			doc.update(data)
+			doc.save()
+			done += 1
+		except Exception as e:
+			failed.append({"name": n, "reason": strip_html(cstr(e))[:140]})
+	return {"done": done, "failed": failed}
+
+
+@frappe.whitelist()
 def bulk_delete(names):
 	_check()
 	done, failed = 0, []

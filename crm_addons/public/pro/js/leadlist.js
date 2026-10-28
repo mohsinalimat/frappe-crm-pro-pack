@@ -73,6 +73,66 @@
 		</Modal>`,
 	}
 
+	/** Bulk actions in a dialog in the middle of the screen: pick what to do on the left, set it up on the right. */
+	V.BulkDialog = {
+		props: { count: Number, canDelete: Boolean, owners: Array, statuses: Array, run: Object },
+		emits: ['close', 'go'],
+		setup(props, { emit }) {
+			const action = ref('assign')
+			const form = reactive({ users: [], status: '', owner: '', field: '', value: '' })
+			const specs = ref([])
+			const ACTIONS = computed(() => [
+				{ key: 'assign', label: 'Assign to', icon: 'users', text: 'Give the leads to one or more people.' },
+				{ key: 'clear', label: 'Clear assignment', icon: 'x', text: 'Take the leads off whoever they are assigned to.' },
+				{ key: 'status', label: 'Change status', icon: 'check-circle', text: 'Move the leads to another status.' },
+				{ key: 'owner', label: 'Change lead owner', icon: 'user', text: 'Set who owns the leads, or nobody.' },
+				{ key: 'field', label: 'Edit a field', icon: 'file-text', text: 'Set one field to the same value on all of them.' },
+				{ key: 'convert', label: 'Convert to deals', icon: 'target', text: 'Turn the leads into deals.' },
+				...(props.canDelete ? [{ key: 'delete', label: 'Delete', icon: 'trash', text: 'Remove the leads for good. This cannot be undone.', danger: true }] : []),
+			])
+			const cur = computed(() => ACTIONS.value.find((a) => a.key === action.value))
+			async function loadFields() {
+				if (specs.value.length) return
+				try {
+					const secs = await CM.call('crm_addons.pro.form.get_form', { kind: 'edit' }); const seen = new Set()
+					specs.value = secs.flatMap((x) => x.fields).filter((f) => !f.read_only && !['status', 'lead_owner', 'first_name'].includes(f.fieldname) && !seen.has(f.fieldname) && seen.add(f.fieldname))
+				} catch (e) { /* the list stays empty */ }
+			}
+			const fieldOpts = computed(() => specs.value.map((f) => ({ value: f.fieldname, label: f.label })))
+			const spec = computed(() => specs.value.find((f) => f.fieldname === form.field))
+			const pick = (k) => { if (props.run.busy) return; action.value = k; if (k === 'field') loadFields() }
+			const ready = computed(() => ({ assign: form.users.length > 0, status: !!form.status, field: !!form.field && form.value !== '' && form.value != null, owner: true }[action.value] ?? true))
+			function go() {
+				const k = action.value
+				const payload = k === 'assign' ? { users: form.users } : k === 'status' ? { values: { status: form.status } } : k === 'owner' ? { values: { lead_owner: form.owner || '__none__' } } : k === 'field' ? { values: { [form.field]: form.value } } : {}
+				emit('go', { kind: k, payload })
+			}
+			const pct = computed(() => (props.run.total ? Math.round((props.run.done / props.run.total) * 100) : 0))
+			return { action, form, ACTIONS, cur, fieldOpts, spec, pick, ready, go, pct, ownerOpts: computed(() => [{ value: '', label: 'Nobody' }, ...props.owners.map((o) => ({ value: o.name, label: o.full_name }))]), assignOpts: computed(() => props.owners.map((o) => ({ value: o.name, label: o.full_name }))), statusOpts: computed(() => props.statuses.map((x) => ({ value: x.name, label: x.name }))) }
+		},
+		template: `
+		<Modal title="Bulk actions" :subtitle="count + (count === 1 ? ' lead selected' : ' leads selected')" size="lg" @close="run.busy ? null : $emit('close')">
+			<div class="bulk-grid">
+				<div class="bulk-list" role="listbox" aria-label="Actions"><button v-for="a in ACTIONS" :key="a.key" type="button" class="bulk-act" :class="{ on: action === a.key, danger: a.danger }" role="option" :aria-selected="action === a.key" :disabled="run.busy" @click="pick(a.key)"><Ico :name="a.icon" /><span>{{ a.label }}</span></button></div>
+				<div class="bulk-form">
+					<b>{{ cur.label }}</b><p class="small muted" style="margin:2px 0 14px">{{ cur.text }}</p>
+					<Field v-if="action === 'assign'" label="People"><MultiPick v-model="form.users" :options="assignOpts" label="Choose people" searchable /></Field>
+					<Field v-else-if="action === 'status'" label="New status"><Dd v-model="form.status" :options="statusOpts" placeholder="Choose a status" aria-label="New status" /></Field>
+					<Field v-else-if="action === 'owner'" label="Lead owner"><Dd v-model="form.owner" :options="ownerOpts" searchable aria-label="Lead owner" /></Field>
+					<template v-else-if="action === 'field'">
+						<Field label="Field"><Dd v-model="form.field" :options="fieldOpts" searchable placeholder="Choose a field" aria-label="Field" @update:modelValue="form.value = ''" /></Field>
+						<FormField v-if="spec" :spec="{ ...spec, label: 'New value', reqd: 0 }" v-model="form.value" />
+					</template>
+					<p v-else-if="action === 'delete'" class="err" style="margin:0">{{ count }} {{ count === 1 ? 'lead' : 'leads' }} will be deleted.</p>
+					<div v-if="run.busy || run.finished" style="margin-top:16px"><div class="bar" role="progressbar" :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: pct + '%' }"></i></div>
+						<p class="small">{{ run.busy ? 'Working... ' + run.done + ' of ' + run.total : run.done - run.failed.length + ' done' + (run.failed.length ? ', ' + run.failed.length + ' could not be changed' : '') }}</p>
+						<ul v-if="run.failed.length && !run.busy" class="list" style="max-height:140px;overflow:auto"><li v-for="f in run.failed.slice(0, 100)" :key="f.name" class="li small">{{ f.name }}: {{ f.reason }}</li></ul></div>
+				</div>
+			</div>
+			<template #foot><Btn :disabled="run.busy" @click="$emit('close')">{{ run.finished ? 'Close' : 'Cancel' }}</Btn><Btn :variant="cur.danger ? 'danger' : 'primary'" :loading="run.busy" :disabled="!ready" @click="go">{{ cur.danger ? 'Delete' : 'Apply' }} {{ count }} {{ count === 1 ? 'lead' : 'leads' }}</Btn></template>
+		</Modal>`,
+	}
+
 	V.Leads = {
 		setup() {
 			const data = ref(null); const loading = ref(true); const error = ref(''); const meta = reactive({ statuses: [], owners: [], linkable: [], can_create: false, can_delete: false, can_write: false })
@@ -81,12 +141,13 @@
 			const filterFields = ref([]); const sortFields = ref([]); const groupFields = ref([])
 			const cfg = reactive({ default_view: 'list', show_date: 1, show_status: 1, filters: [], columns: null, sort: 'modified desc' })
 			const showFilters = ref(PRO.leadUtil.store.get('showFilters', false))
-			const picked = ref([]); const dlg = ref(''); const busy = ref(false); const creating = ref(false); const importing = ref(false)
+			const picked = ref([]); const selAll = ref(false); const page = ref(1); const pageSize = ref(PRO.leadUtil.store.get('pageSize', 20)); const dlg = ref(''); const busy = ref(false); const creating = ref(false); const importing = ref(false)
 			const search = ref(''); let seq = 0, timer
 
 			function params() {
 				const f = { ...BASE, ...p.filters }
-				const body = { doctype: DOC, filters: f, order_by: p.orderBy, page_length: p.pageLength, page_length_count: 20, view: { custom_view_name: view.name || '', view_type: view.type, group_by_field: p.groupBy } }
+				if (view.type === 'kanban') delete f[p.columnField]  // the board hides columns itself; CRM would drop every other column
+				const body = { doctype: DOC, filters: f, order_by: p.orderBy, page_length: view.type === 'kanban' ? p.pageLength : page.value * pageSize.value, page_length_count: 20, view: { custom_view_name: view.name || '', view_type: view.type, group_by_field: p.groupBy } }
 				if (p.columns && view.type !== 'kanban') body.columns = JSON.stringify(p.columns)
 				if (p.rows) body.rows = JSON.stringify(p.rows)
 				if (view.type === 'kanban') { body.column_field = p.columnField; if (p.titleField) body.title_field = p.titleField; if (p.kanbanFields) body.kanban_fields = JSON.stringify(p.kanbanFields); if (p.kanbanColumns) body.kanban_columns = JSON.stringify(p.kanbanColumns) }
@@ -99,14 +160,16 @@
 					if (search.value.trim()) { const names = await api('crm_addons.pro.leads.search_names', { text: search.value.trim() }); if (mine !== seq) return; body.filters = { ...body.filters, name: ['IN', names.length ? names : ['-']] } }
 					const r = await api('crm.api.doc.get_data', body)
 					if (mine !== seq) return
-					data.value = r; picked.value = []
+					if (view.type !== 'kanban' && !r.data.length && page.value > 1 && r.total_count > 0) { page.value = Math.ceil(r.total_count / pageSize.value); return load(true) }
+					data.value = r
 					if (r.columns && !p.columns) p.columns = r.columns
 					if (view.type === 'kanban') { p.columnField = r.column_field || p.columnField; p.titleField = r.title_field; p.kanbanFields = r.kanban_fields; p.kanbanColumns = r.kanban_columns.map((c) => ({ name: c.name, order: c.order, page_length: c.page_length || 20, column: c.column })) }
 				} catch (e) { if (mine === seq) error.value = e.message } finally { if (mine === seq) loading.value = false }
 			}
 			const cfgKey = () => JSON.stringify([cfg.columns, cfg.sort])
 			const prefs = () => PRO.leadUtil.store.set('prefs', { base: cfgKey(), columns: p.columns, orderBy: p.orderBy })
-			const change = () => { prefs(); load() }
+			const resetSel = () => { picked.value = []; selAll.value = false }
+			const change = () => { prefs(); page.value = 1; resetSel(); load() }
 
 			onMounted(async () => {
 				try {
@@ -128,7 +191,7 @@
 			const grid = ref(false)
 			const mode = computed(() => (view.type === 'kanban' ? 'kanban' : grid.value ? 'grid' : 'list'))
 			function setMode(m) {
-				grid.value = m === 'grid'; PRO.leadUtil.store.set('mode', m); picked.value = []
+				grid.value = m === 'grid'; PRO.leadUtil.store.set('mode', m); resetSel(); page.value = 1
 				const t = m === 'kanban' ? 'kanban' : 'list'
 				if (t !== view.type) { view.type = t; if (t === 'kanban') { p.kanbanFields = null; p.kanbanColumns = null; p.titleField = null } }
 				load()
@@ -172,13 +235,13 @@
 			function setSort(field, dir) { p.orderBy = field + ' ' + dir; change() }
 			function applyColumns(cols) { p.columns = cols; p.rows = null; dlg.value = ''; change() }
 			const colQ = computed(() => (data.value ? data.value.fields : []).map((f) => ({ ...f })))
-						watch(search, () => { clearTimeout(timer); timer = setTimeout(() => load(true), 300) })
+						watch(search, () => { clearTimeout(timer); timer = setTimeout(() => { page.value = 1; resetSel(); load(true) }, 300) })
 			const groupOpts = computed(() => groupFields.value.map((f) => ({ value: f.fieldname, label: f.label })))
 			const groupName = computed(() => (data.value && data.value.group_by_field && data.value.group_by_field.fieldname) || p.groupBy)
 
 			// ---- list rows
 			const vt = computed(() => (data.value && data.value.view_type ? data.value.view_type : view.type))
-			const rows = computed(() => (data.value && vt.value !== 'kanban' ? data.value.data : []))
+			const rows = computed(() => (data.value && vt.value !== 'kanban' ? data.value.data.slice((page.value - 1) * pageSize.value, page.value * pageSize.value) : []))
 			const columns = computed(() => (data.value ? data.value.columns : []))
 			const groups = computed(() => {
 				if (vt.value !== 'group_by' || !data.value) return []
@@ -189,11 +252,16 @@
 				return out
 			})
 			const total = computed(() => (data.value ? data.value.total_count : 0))
-			const more = () => { p.pageLength += 20; load(true) }
+			const pages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+			const pageNums = computed(() => { const n = pages.value, c = page.value; if (n <= 7) return Array.from({ length: n }, (_, i) => i + 1); const out = [1]; if (c > 3) out.push('...'); for (let i = Math.max(2, c - 1); i <= Math.min(n - 1, c + 1); i++) out.push(i); if (c < n - 2) out.push('...'); out.push(n); return out })
+			const range = computed(() => { const from = (page.value - 1) * pageSize.value + 1; return rows.value.length ? from + '\u2013' + (from + rows.value.length - 1) : '0' })
+			const setPage = (n) => { if (n < 1 || n > pages.value || n === page.value) return; page.value = n; load(true) }
+			const setSize = (n) => { pageSize.value = Number(n); PRO.leadUtil.store.set('pageSize', pageSize.value); page.value = 1; load(true) }
+			const SIZES = [20, 50, 100].map((n) => ({ value: n, label: n + ' per page' }))
 			const open = (n) => { location.hash = '#/leads/' + encodeURIComponent(n) }
 			const allOn = computed(() => rows.value.length > 0 && rows.value.every((r) => picked.value.includes(r.name)))
-			const flipAll = () => { picked.value = allOn.value ? [] : rows.value.map((r) => r.name) }
-			const flip = (n) => { picked.value = picked.value.includes(n) ? picked.value.filter((x) => x !== n) : [...picked.value, n] }
+			const flipAll = () => { selAll.value = false; const on = allOn.value; const here = rows.value.map((r) => r.name); picked.value = on ? picked.value.filter((n) => !here.includes(n)) : [...new Set([...picked.value, ...here])] }
+			const flip = (n) => { selAll.value = false; picked.value = picked.value.includes(n) ? picked.value.filter((x) => x !== n) : [...picked.value, n] }
 			const ago = (s) => PRO.ago(s)
 			const assignees = (r) => jparse(r._assign, [])
 			const slaTone = (s) => ({ Fulfilled: 'green', 'Failed': 'red', 'First Response Due': 'amber', 'Paused': 'neutral' }[s] || 'neutral')
@@ -201,23 +269,49 @@
 
 			// ---- bulk actions
 			const assignUsers = ref([]); const assignOpts = computed(() => meta.owners.map((o) => ({ value: o.name, label: o.full_name })))
-			async function bulk(kind) {
+			// every lead of the current filters, not just this page
+			async function selectEvery() {
 				busy.value = true
 				try {
-					const names = JSON.stringify(picked.value)
-					if (kind === 'delete') {
-						if (!(await CM.confirm({ title: 'Delete ' + picked.value.length + (picked.value.length === 1 ? ' lead?' : ' leads?'), message: 'This cannot be undone.', confirmText: 'Delete', danger: true }))) return
-						await api('crm.api.doc.delete_bulk_docs', { doctype: DOC, items: names, delete_linked: false })
-					} else if (kind === 'clear') await api('frappe.desk.form.assign_to.remove_multiple', { doctype: DOC, names, ignore_permissions: true })
-					else if (kind === 'assign') { await api('frappe.desk.form.assign_to.add_multiple', { doctype: DOC, name: names, assign_to: JSON.stringify(assignUsers.value), bulk_assign: true, re_assign: true }); assignUsers.value = []; dlg.value = '' }
-					else if (kind === 'convert') { if (!(await CM.confirm({ title: 'Convert ' + picked.value.length + ' to deals?', confirmText: 'Convert' }))) return; for (const n of picked.value) await api('crm.fcrm.doctype.crm_lead.crm_lead.convert_to_deal', { lead: n }) }
-					CM.toast('Done'); await load(true)
+					const f = { ...BASE, ...p.filters }
+					if (search.value.trim()) { const names = await api('crm_addons.pro.leads.search_names', { text: search.value.trim() }); f.name = ['IN', names.length ? names : ['-']] }
+					const r = await api('crm.api.doc.get_data', { doctype: DOC, filters: f, order_by: p.orderBy, page_length: Math.min(total.value, 20000), page_length_count: 20, columns: JSON.stringify([{ label: 'ID', type: 'Data', key: 'name' }]), rows: JSON.stringify(['name']), view: { view_type: 'list' } })
+					picked.value = r.data.map((x) => x.name); selAll.value = true
 				} catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false }
 			}
+			const bulkRun = reactive({ busy: false, finished: false, done: 0, total: 0, failed: [] })
+			const chunks = (a, n) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n))
+			async function runBulk({ kind, payload }) {
+				const all = [...picked.value]
+				if (kind === 'delete' && !(await CM.confirm({ title: 'Delete ' + all.length + (all.length === 1 ? ' lead?' : ' leads?'), message: 'This cannot be undone.', confirmText: 'Delete', danger: true }))) return
+				if (kind === 'convert' && !(await CM.confirm({ title: 'Convert ' + all.length + (all.length === 1 ? ' lead' : ' leads') + ' to deals?', confirmText: 'Convert' }))) return
+				Object.assign(bulkRun, { busy: true, finished: false, done: 0, total: all.length, failed: [] })
+				try {
+					for (const part of chunks(all, kind === 'convert' ? 20 : 100)) {
+						const names = JSON.stringify(part)
+						if (kind === 'delete') await api('crm.api.doc.delete_bulk_docs', { doctype: DOC, items: names, delete_linked: false })
+						else if (kind === 'clear') await api('frappe.desk.form.assign_to.remove_multiple', { doctype: DOC, names, ignore_permissions: true })
+						else if (kind === 'assign') await api('frappe.desk.form.assign_to.add_multiple', { doctype: DOC, name: names, assign_to: JSON.stringify(payload.users), bulk_assign: true, re_assign: true })
+						else if (kind === 'convert') { for (const n of part) { try { await api('crm.fcrm.doctype.crm_lead.crm_lead.convert_to_deal', { lead: n }) } catch (e) { bulkRun.failed.push({ name: n, reason: e.message }) } } }
+						else { const r = await api('crm_addons.pro.leads.bulk_edit', { names, values: JSON.stringify(payload.values) }); bulkRun.failed.push(...r.failed) }
+						bulkRun.done += part.length
+					}
+					const ok = bulkRun.done - bulkRun.failed.length
+					CM.toast(ok + (ok === 1 ? ' lead' : ' leads') + ' updated' + (bulkRun.failed.length ? ', ' + bulkRun.failed.length + ' could not be changed' : ''))
+					bulkRun.finished = true; resetSel(); await load(true)
+					if (!bulkRun.failed.length) dlg.value = ''
+				} catch (e) { CM.toast(e.message, 'err') } finally { bulkRun.busy = false }
+			}
+			function openBulk() { Object.assign(bulkRun, { busy: false, finished: false, done: 0, total: 0, failed: [] }); dlg.value = 'bulk' }
 
 			// ---- kanban
 			const drag = reactive({ name: '', over: '' })
-			const board = computed(() => (data.value && vt.value === 'kanban' ? data.value.data.filter((c) => c && c.column) : []))
+			const board = computed(() => {
+				if (!data.value || vt.value !== 'kanban') return []
+				const cols = data.value.data.filter((c) => c && c.column), sel = PRO.filt.valueOf(p.filters, p.columnField)
+				if (!sel.values || !sel.values.length) return cols
+				return cols.filter((c) => (sel.op === 'not in') === !sel.values.includes(c.column.name))
+			})
 			async function drop(col) {
 				const name = drag.name; drag.name = ''; drag.over = ''; if (!name) return
 				const from = board.value.find((c) => c.data.some((r) => r.name === name)); if (!from || from.column.name === col.column.name) return
@@ -261,7 +355,7 @@
 				} catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 			const sortDirOpts = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]
-			return { anyFilter, openExport, exportFields, exportStart, cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
+			return { page, pageSize, pages, pageNums, range, setPage, setSize, SIZES, selAll, selectEvery, bulkRun, runBulk, openBulk, anyFilter, openExport, exportFields, exportStart, cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
 		},
 		template: `
 		<div class="page leads">
@@ -292,8 +386,9 @@
 
 			<div v-if="picked.length" class="card bulk" role="region" aria-label="Selected leads">
 				<b>{{ picked.length }} selected</b>
-				<Btn size="sm" @click="dlg = 'assign'">Assign to</Btn><Btn size="sm" :loading="busy" @click="bulk('clear')">Clear assignment</Btn><Btn size="sm" :loading="busy" @click="bulk('convert')">Convert to deal</Btn>
-				<div class="grow"></div><Btn v-if="meta.can_delete" size="sm" variant="danger" icon="trash" :loading="busy" @click="bulk('delete')">Delete</Btn><Btn size="sm" variant="ghost" @click="picked = []">Cancel</Btn>
+				<button v-if="!selAll && total > picked.length && vt !== 'kanban'" type="button" class="link" :disabled="busy" @click="selectEvery">Select all {{ total }} leads</button>
+				<span v-else-if="selAll" class="small muted">That is every lead in these filters.</span>
+				<div class="grow"></div><Btn size="sm" variant="primary" @click="openBulk">Bulk actions</Btn><Btn size="sm" variant="ghost" @click="picked = []; selAll = false">Clear selection</Btn>
 			</div>
 
 			<ErrorState v-if="error" :message="error" @retry="load()" />
@@ -301,7 +396,7 @@
 
 			<section v-else-if="data" class="card listcard" :style="{ opacity: loading ? .6 : 1 }">
 				<div class="lbar row wrap" style="gap:8px">
-					<span class="small muted grow">{{ vt === 'kanban' ? total + (total === 1 ? ' lead' : ' leads') : (rows.length ? 'Showing 1\u2013' + rows.length + ' of ' + total + ' leads' : '0 leads') }}</span>
+					<span class="small muted grow">{{ vt === 'kanban' ? total + (total === 1 ? ' lead' : ' leads') : (rows.length ? 'Showing ' + range + ' of ' + total + ' leads' : '0 leads') }}</span>
 					<Btn size="sm" icon="refresh" aria-label="Refresh" title="Refresh" @click="load(true)" />
 					<template v-if="true">
 						<div style="width:200px"><Dd :modelValue="sortParts.field" :options="sortOpts" searchable prefix="Sort by" aria-label="Sort by" @update:modelValue="(f) => setSort(f, sortParts.dir)" /></div>
@@ -338,7 +433,12 @@
 							</template>
 						</tbody>
 					</table></div>
-					<div v-if="rows.length" class="pager row" style="gap:10px;padding:10px 14px;border-top:1px solid var(--border)"><span class="small muted">{{ rows.length }} of {{ total }}</span><div class="grow"></div><Btn v-if="rows.length < total" size="sm" :loading="loading" @click="more">Load more</Btn></div>
+					<div v-if="rows.length || page > 1" class="pager row" style="gap:10px;padding:10px 14px;border-top:1px solid var(--border)">
+						<div style="width:140px"><Dd :modelValue="pageSize" :options="SIZES" size="sm" aria-label="Rows per page" @update:modelValue="setSize" /></div><div class="grow"></div>
+						<nav class="pgn row" style="gap:4px" aria-label="Pages"><Btn size="sm" icon="chevron-left" aria-label="Previous page" :disabled="page <= 1" @click="setPage(page - 1)" />
+							<template v-for="(n, i) in pageNums" :key="i"><span v-if="n === '...'" class="small muted" style="padding:0 4px">...</span><button v-else type="button" class="btn sm pg" :class="{ on: n === page }" :aria-current="n === page ? 'page' : null" @click="setPage(n)">{{ n }}</button></template>
+							<Btn size="sm" icon="chevron-right" aria-label="Next page" :disabled="page >= pages" @click="setPage(page + 1)" /></nav>
+					</div>
 				</template>
 
 				<div v-else class="board">
@@ -359,8 +459,7 @@
 			<ExportDialog v-if="dlg === 'export'" :fields="exportFields" :start="exportStart" :count="total" :selected="picked.length" :busy="exporting" @close="dlg = ''" @go="exportCsv" />
 			<FilterDialog v-if="dlg === 'filter'" :fields="filterFields" :filters="p.filters" @close="dlg = ''" @apply="applyFilters" />
 			<ColumnsDialog v-if="dlg === 'columns' && data" :fields="colQ" :columns="columns" @close="dlg = ''" @apply="applyColumns" />
-			<Modal v-if="dlg === 'assign'" title="Assign to" size="sm" @close="dlg = ''"><Field label="People"><MultiPick v-model="assignUsers" :options="assignOpts" label="Choose people" searchable /></Field>
-				<template #foot><Btn @click="dlg = ''">Cancel</Btn><Btn variant="primary" :loading="busy" :disabled="!assignUsers.length" @click="bulk('assign')">Assign</Btn></template></Modal>
+			<BulkDialog v-if="dlg === 'bulk'" :count="picked.length" :can-delete="meta.can_delete" :owners="meta.owners" :statuses="meta.statuses" :run="bulkRun" @close="dlg = ''" @go="runBulk" />
 			<ImportLeads v-if="importing" @close="importing = false" @done="importing = false; load(true)" />
 			<NewLead v-if="creating" :opts="meta" @close="creating = false" @created="(n) => { creating = false; open(n) }" />
 		</div>`,

@@ -117,3 +117,17 @@ class TestProLeads(AccessCase):
 		with mock.patch.object(lead, "get_whatsapp", return_value=msgs), mock.patch.object(frappe.db, "exists", return_value=True):
 			titles = [e["title"] for e in lead.get_activity(doc.name) if e["kind"] == "whatsapp"]
 		self.assertEqual(sorted(titles), ["WhatsApp received", "WhatsApp sent"])
+
+	def test_bulk_edit_sets_any_writable_field(self):
+		frappe.set_user("Administrator")
+		a = self.make_lead(None)
+		b = self.make_lead(None)
+		r = leads.bulk_edit(json.dumps([a.name, b.name]), json.dumps({"job_title": "Zq Boss", "status": "Contacted"}))
+		self.assertEqual(r["done"], 2)
+		self.assertEqual(frappe.db.get_value("CRM Lead", a.name, ["job_title", "status"]), ("Zq Boss", "Contacted"))
+		leads.bulk_edit(json.dumps([a.name]), json.dumps({"lead_owner": "__none__"}))
+		self.assertFalse(frappe.db.get_value("CRM Lead", a.name, "lead_owner"))
+		with self.assertRaises(frappe.ValidationError):
+			leads.bulk_edit(json.dumps([a.name]), json.dumps({"creation": "2000-01-01"}))
+		with self.assertRaises(frappe.ValidationError):
+			leads.bulk_edit(json.dumps([a.name]), json.dumps({}))
