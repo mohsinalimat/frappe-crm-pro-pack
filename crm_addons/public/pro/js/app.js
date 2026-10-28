@@ -55,7 +55,7 @@
 	}
 
 	// The settings, sorted into a few groups for the menu on the left
-	const LF = 'Leads Follow-up Automation'
+	const LF = 'Leads and sales'
 	const GROUP_OF = { branding: 'General', ui: 'General', views: 'General', leads: LF, orgs: LF, meetings: LF, followups: LF, insights: LF, dashboard: LF, campaigns: 'Campaigns', alerts: 'Campaigns', prices: 'Campaigns' }
 	const GROUP_ICON = { General: 'settings', [LF]: 'briefcase', Campaigns: 'send', Other: 'settings' }
 	const SHORT = { start: 'Checklist', branding: 'Branding', ui: 'Screen', views: 'Default views', leads: 'Leads', orgs: 'Organizations' } // the short names on the tabs
@@ -105,10 +105,11 @@
 		},
 		template: `
 		<div class="settings-wrap">
-			<div class="subtabs"><div class="st-head"><b class="st-title">{{ group.title }}</b></div>
-				<nav class="st-tabs" :aria-label="group.title"><a v-for="t in group.items" :key="t.value" :href="'#/settings/' + t.value" class="st-tab" :class="{ on: cur === t.value }" :aria-current="cur === t.value ? 'page' : null"><Ico :name="t.icon" size="sm" />{{ t.short }}</a></nav>
+			<div class="subtabs"><div class="st-head set-head"><b class="st-title">{{ group.title }}</b>
 				<div id="hdr-ctl" class="st-ctl"><div class="gs"><Inp v-model="q" icon="search" placeholder="Search all settings" clearable aria-label="Search all settings" />
 					<div v-if="q.trim()" class="gs-pop" role="listbox"><button v-for="(r, i) in results" :key="i" type="button" class="gs-i" role="option" @click="pick(r)"><b>{{ r.label }}</b><span class="small muted">{{ r.sub }}</span></button><div v-if="!results.length" class="small muted" style="padding:10px">No setting matches "{{ q.trim() }}".</div></div></div></div></div>
+				<nav class="st-tabs" :aria-label="group.title"><a v-for="t in group.items" :key="t.value" :href="'#/settings/' + t.value" class="st-tab" :class="{ on: cur === t.value }" :aria-current="cur === t.value ? 'page' : null"><Ico :name="t.icon" size="sm" />{{ t.short }}</a></nav>
+			</div>
 			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><OrgSetup v-else-if="cur === 'orgs'" :key="'orgcfg'" /><Frame v-if="seen" v-show="cur !== 'leads' && cur !== 'orgs'" page="settings" :tab="frameTab" key="settings" /></div>
 		</div>`,
 	}

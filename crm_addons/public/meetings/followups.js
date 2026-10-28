@@ -653,10 +653,7 @@
 				<button v-for="t in TABS" :key="t[0]" role="tab" :aria-selected="tab === t[0]" class="fu-tab" :class="[t[0], { on: tab === t[0] }]" @click="tab = t[0]">{{ t[1] }}<span class="count">{{ num(data.counts[t[0]]) }}</span></button>
 				<span class="spacer"></span>
 				<span class="sub fu-rate" v-if="rate" :title="rate.hint">Connect rate <b>{{ rate.text }}</b> <span>{{ rate.detail }}</span></span>
-			</div>
-			<div class="fu-lbar">
-				<span class="sub fu-total">{{ items.length ? (items.length < data.total ? 'Showing ' + num(items.length) + ' of ' + num(data.total) : plural(data.total, 'follow-up')) : '0 follow-ups' }}</span>
-				<span class="spacer"></span>
+				<span class="sub" v-if="items.length && items.length < data.total">Showing {{ num(items.length) }} of {{ num(data.total) }}</span>
 				<button class="btn icon" @click="load()" :title="updatedAt ? 'Refresh (updated ' + updatedAt + ')' : 'Refresh'" aria-label="Refresh"><ico name="refresh" /></button>
 				<div class="fu-sort" v-if="view === 'table'"><span class="sub">Sort by</span><pick v-model="sortBy" :options="SORTS" /></div>
 			</div>

@@ -216,3 +216,5 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 .lp .ico, .lp svg { display: block; margin: 0 }
 .settings-wrap .gs{width:230px}.settings-wrap .st-ctl{flex-wrap:nowrap}.settings-wrap > .subtabs .st-tabs{gap:20px}
 .settings-wrap .gs{width:190px}
+.settings-wrap .set-head{display:flex;align-items:center;gap:12px}.settings-wrap .set-head .st-ctl{margin-left:auto;padding-bottom:0}
+.settings-wrap .set-head{flex-direction:row;padding-right:0;min-height:0}
