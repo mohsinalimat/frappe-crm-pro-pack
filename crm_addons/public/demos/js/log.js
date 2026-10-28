@@ -52,7 +52,7 @@
 			<div ref="card" class="card logcard">
 				<div class="row wrap logbar"><div style="width:210px"><MultiDd v-model="result" :options="resultOpts" placeholder="All results" /></div>
 					<div style="width:230px"><Dd v-model="source" :options="sourceOpts" searchable allow-empty="All websites" placeholder="All websites" aria-label="Website" /></div>
-					<div class="seg logseg" role="group" aria-label="Show"><button v-for="k in KINDS" :key="k[0]" type="button" :class="{ on: kind === k[0] }" :aria-pressed="kind === k[0]" :title="k[1]" :aria-label="k[1]" @click="kind = k[0]"><Ico :name="k[2]" size="sm" /></button></div>
+					<div class="seg logseg" role="group" aria-label="Show"><button v-for="k in KINDS" :key="k[0]" type="button" :class="{ on: kind === k[0] }" :aria-pressed="kind === k[0]" :title="k[1]" :aria-label="k[1]" @click="kind = k[0]">{{ k[1] }}</button></div>
 					<div class="grow"></div><div style="width:min(200px,100%)"><Inp v-model="search" icon="search" placeholder="Search" clearable aria-label="Search the log" /></div></div>
 				<ErrorState v-if="log.error" :message="log.error" @retry="load" />
 				<div v-else-if="log.loading && !log.rows.length" style="padding:18px"><Skel h="200" r="10" /></div>

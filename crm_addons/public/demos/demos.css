@@ -161,7 +161,7 @@
 fieldset.ro { border: 0; margin: 0; padding: 0; min-width: 0; }
 tr.off td{opacity:.62}
 
-.logseg button { padding: 5px 9px }
+.logseg button { padding: 6px 14px; white-space: nowrap }
 
 /* Log: the page header stays, the rows scroll under a fixed column header */
 .logbar { padding: 12px 18px; gap: 10px; align-items: center }
