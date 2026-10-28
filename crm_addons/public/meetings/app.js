@@ -1015,7 +1015,6 @@
 	<div class="toolbar" v-if="config">
 		<button class="brand" @click="goHome" title="Upcoming meetings"><span class="brand-ico"><ico name="calendar-check" size="lg" /></span><h1>Meetings</h1></button>
 		<div class="nav">
-			<button class="btn" @click="today" title="Back to today"><ico name="calendar" /> Today</button>
 			<div class="navgroup"><button class="btn" @click="step(-1)" aria-label="Previous"><ico name="chevron-left" /></button><button class="btn" @click="step(1)" aria-label="Next"><ico name="chevron-right" /></button></div>
 		</div>
 		<div class="mt-range"><range-picker v-model="rangeModel" /></div>

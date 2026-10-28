@@ -337,7 +337,8 @@ html.inline .brand-ico { display: none; }
 :root[data-theme="dark"] { --web: #2dd4bf; --web-soft: #12332f; --web-text: #7eeadb; }
 
 /* the calendar picker in the toolbar (same as the Sales Dashboard) */
-.mt-range .pick-btn.range { min-width: 210px; height: 32px }
+.mt-range { flex: 0 0 auto; width: 300px }
+.mt-range .pick-btn.range { min-width: 0; height: 32px }
 .pick-pop.range-pop { display: flex; padding: 0; max-width: calc(100vw - 16px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain }
 .range-pop .presets { display: flex; flex-direction: column; gap: 2px; width: 160px; padding: 10px; border-right: 1px solid var(--border) }
 .range-pop .cal { width: 340px; padding: 12px 14px 14px }
