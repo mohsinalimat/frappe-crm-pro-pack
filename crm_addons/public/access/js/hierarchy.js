@@ -76,12 +76,11 @@
 		},
 		template: `
 		<div class="page wide">
-			<div class="pg-head"><div class="grow"><h1>Hierarchy</h1></div></div>
+			<div class="pg-head"><div class="grow"><h1>Sales Hierarchy in CRM</h1></div><div v-if="!loading && !error && h.available" class="actions"><label class="row" style="gap:10px"><span>Sales Hierarchy in CRM</span><Switch :model-value="!!h.enabled" label="Use the Sales Hierarchy in CRM" :aria-disabled="busy === 'set_hierarchy_enabled'" @update:model-value="(v) => !busy && toggleCrm(v)" /></label></div></div>
 			<div v-if="loading" class="col" style="gap:10px"><Skel h="56" r="10" v-for="n in 5" :key="n" /></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<div v-else-if="!h.available" class="alert warn"><Ico name="info" /><div class="grow"><b>This CRM has no Sales Hierarchy.</b> It exists in newer versions of Frappe CRM. Update CRM to use it; until then "My team" means just the person themselves.</div></div>
 			<template v-else>
-				<div class="card pad row" style="gap:12px"><div class="grow"><b class="hx-big">Use the Sales Hierarchy in CRM</b></div><Switch :model-value="!!h.enabled" label="Use the Sales Hierarchy in CRM" :aria-disabled="busy === 'set_hierarchy_enabled'" @update:model-value="(v) => !busy && toggleCrm(v)" /></div>
 				<div class="hx-grid">
 					<div class="hx-tree card pad">
 						<div class="hx-card hx-root" :class="{ over: rootOver }" @dragover="overRoot" @dragleave="rootOver = false" @drop="dropRoot">

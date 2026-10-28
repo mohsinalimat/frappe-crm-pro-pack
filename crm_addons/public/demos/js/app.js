@@ -7,7 +7,7 @@
 
 	// Bookings first, then the widgets (the booking pages), then the report; each shows only if the person's access allows it
 	const NAV = [
-		{ key: 'bookings', label: 'Bookings', icon: 'users', path: '/bookings', show: (s) => s.demos !== 'none' },
+		{ key: 'bookings', label: 'Website Bookings', icon: 'users', path: '/bookings', show: (s) => s.demos !== 'none' },
 		{ key: 'types', label: 'Widgets', icon: 'calendar', path: '/types', show: (s) => s.widgets !== 'none' },
 		{ key: 'report', label: 'Report', icon: 'chart', path: '/report', show: (s) => s.report },
 	]

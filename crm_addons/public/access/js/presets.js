@@ -72,7 +72,7 @@
 		<div class="page wide">
 			<div class="pg-head"><div class="grow"><h1>Presets</h1><p>A preset is a ready-made set of access. Give one to a person on the People page, then change anything on top. Edit a preset and everyone using it follows.</p></div><div class="actions"><Btn variant="primary" icon="plus" @click="open()">New preset</Btn></div></div>
 			<div v-if="d.error" class="alert err"><Ico name="alert" /><div class="grow">{{ d.error }}</div></div>
-			<div v-if="d.loaded" class="row" style="justify-content:flex-end"><LayoutSwitch v-model="layout" /></div>
+			<HdrSlot v-if="d.loaded"><LayoutSwitch v-model="layout" /></HdrSlot>
 			<div v-if="!d.loaded && !d.error" class="ax-cards"><Skel h="170" r="12" v-for="n in 4" :key="n" /></div>
 			<div v-else-if="d.loaded && layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl">
 				<thead><tr><th>Preset</th><th>What it is for</th><th v-for="s in summary(d.presets[0] || { grants: {} })" :key="s.label">{{ s.label }}</th><th class="num">People</th><th></th></tr></thead>
