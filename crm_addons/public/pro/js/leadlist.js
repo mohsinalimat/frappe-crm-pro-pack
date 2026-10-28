@@ -383,11 +383,10 @@
 				<div class="lbar row wrap" style="gap:8px">
 					<span class="small muted grow">{{ vt === 'kanban' ? total + (total === 1 ? ' lead' : ' leads') : (rows.length ? 'Showing 1\u2013' + rows.length + ' of ' + total + ' leads' : '0 leads') }}</span>
 					<Btn size="sm" icon="refresh" aria-label="Refresh" @click="load(true)">Refresh</Btn>
-					<template v-if="vt !== 'kanban'">
+					<template v-if="true">
 						<div style="width:200px"><Dd :modelValue="sortParts.field" :options="sortOpts" searchable prefix="Sort by" aria-label="Sort by" @update:modelValue="(f) => setSort(f, sortParts.dir)" /></div>
 						<Btn size="sm" :icon="sortParts.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :aria-label="sortParts.dir === 'asc' ? 'Ascending' : 'Descending'" @click="setSort(sortParts.field, sortParts.dir === 'asc' ? 'desc' : 'asc')" />
-						<div v-if="!grid" style="width:170px"><Dd :modelValue="vt === 'group_by' ? groupName : ''" :options="groupPick" searchable prefix="Group:" aria-label="Group by" @update:modelValue="setGroup" /></div>
-						<Btn v-if="!grid" size="sm" icon="columns" title="Columns" aria-label="Columns" @click="dlg = 'columns'" />
+						<Btn v-if="vt !== 'kanban' && !grid" size="sm" icon="columns" title="Columns" aria-label="Columns" @click="dlg = 'columns'" />
 					</template>
 				</div>
 				<template v-if="vt !== 'kanban'">
