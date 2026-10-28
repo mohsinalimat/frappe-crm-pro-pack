@@ -199,3 +199,39 @@ class TestMeta(AccessCase):
 		self.assertEqual(out["mapping"]["email"], "email")
 		self.assertIn("city", out["mapping"])
 		self.assertEqual(out["form_name"], "Diwali form v2")
+
+	def test_stopping_the_sync_keeps_leads_waiting_and_starting_it_imports_them(self):
+		self.assertFalse(meta.set_sync(0)["running"])
+		self.assertEqual(meta.process_lead("S1", "F1", "Webhook"), "Waiting")
+		self.assertEqual(frappe.db.count("CRM Lead", {"email": "sync.person@example.com"}), 0)
+		self.assertEqual(meta.sync_state()["waiting"], 1)
+		with patch("frappe.enqueue") as queue:
+			self.assertTrue(meta.set_sync(1)["running"])
+		self.assertEqual(queue.call_args.args[0], "crm_addons.pro.meta.run_sync")
+		with patch.object(meta, "graph", return_value=lead_payload("S1", "sync.person@example.com")) as g:
+			meta.run_sync()
+		self.assertEqual(frappe.db.get_value(meta.LOG, {"leadgen_id": "S1"}, ["result", "via"]), ("Created", "Sync"))
+		self.assertEqual(frappe.db.count("CRM Lead", {"email": "sync.person@example.com"}), 1)
+		self.assertEqual(meta.sync_state()["waiting"], 0)
+
+	def test_a_stopped_sync_also_pauses_the_hourly_catch_up_but_sync_now_still_works(self):
+		meta.set_sync(0)
+		with patch.object(meta, "graph", return_value={"data": [lead_payload("S2", "paused.person@example.com")]}):
+			meta.catch_up()
+			self.assertEqual(frappe.db.count("CRM Lead", {"email": "paused.person@example.com"}), 0)
+			meta.run_sync()
+		self.assertEqual(frappe.db.count("CRM Lead", {"email": "paused.person@example.com"}), 1)
+		with patch("frappe.enqueue") as queue:
+			meta.sync_now()
+		self.assertEqual(queue.call_args.args[0], "crm_addons.pro.meta.run_sync")
+
+	def test_the_whole_log_is_paged_and_filtered(self):
+		for i in range(3):
+			meta.process_lead(f"P{i}", "F1", "Webhook", lead_payload(f"P{i}", f"page{i}@example.com"))
+		meta.process_lead("P9", "NOPE", "Webhook")
+		out = meta.get_leads(page=1, page_size=2)
+		self.assertEqual((out["total"], len(out["rows"])), (4, 2))
+		self.assertEqual((meta.get_leads(result="Created")["total"], meta.get_leads(result="Duplicate")["total"]), (1, 2))  # the same phone number: the later two are duplicates
+		self.assertEqual(meta.get_leads(search="page1@example.com")["total"], 1)
+		self.assertEqual(meta.get_leads(form="F1")["total"], 3)
+		self.assertEqual((out["counts"]["Created"], out["counts"]["Duplicate"]), (1, 2))

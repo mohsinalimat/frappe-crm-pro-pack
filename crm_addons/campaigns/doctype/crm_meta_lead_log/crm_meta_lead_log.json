@@ -55,7 +55,7 @@
    "fieldname": "result",
    "fieldtype": "Select",
    "label": "Result",
-   "options": "\nCreated\nDuplicate\nFailed\nIgnored",
+   "options": "\nCreated\nDuplicate\nFailed\nIgnored\nWaiting",
    "in_list_view": 1,
    "search_index": 1
   },
@@ -63,7 +63,7 @@
    "fieldname": "via",
    "fieldtype": "Select",
    "label": "Via",
-   "options": "\nWebhook\nCatch-up\nRetry"
+   "options": "\nWebhook\nCatch-up\nRetry\nSync"
   },
   {
    "fieldname": "lead",

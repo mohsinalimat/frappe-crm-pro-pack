@@ -9,7 +9,9 @@
   "app_secret",
   "verify_token",
   "api_version",
-  "last_event"
+  "last_event",
+  "sync_paused",
+  "last_sync"
  ],
  "fields": [
   {
@@ -42,6 +44,17 @@
    "fieldname": "last_event",
    "fieldtype": "Datetime",
    "label": "Last Event",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sync_paused",
+   "fieldtype": "Check",
+   "label": "Sync Paused"
+  },
+  {
+   "fieldname": "last_sync",
+   "fieldtype": "Datetime",
+   "label": "Last Sync",
    "read_only": 1
   }
  ],

@@ -140,7 +140,7 @@ def get_overview():
 		"connected": bool(_system_token()), "app_id": cstr(s.app_id), "has_secret": bool(s.get_password("app_secret", raise_exception=False)), "version": s.api_version or "v23.0",
 		"webhook_url": f"{get_url()}{METHOD}", "verify_token": _verify_token(), "last_event": cstr(s.last_event or ""), "forms": forms,
 		"permissions": [{"key": k, "label": label, "required": req} for k, label, req in PERMISSIONS],
-		"recent": recent_log(15), "fields": crm_fields(),
+		"sync": sync_state(), "recent": recent_log(8), "fields": crm_fields(),
 	}
 
 
@@ -515,6 +515,9 @@ def process_lead(leadgen_id, form_id=None, via="Webhook", data=None):
 	if not form or not cint(form.enabled):
 		_record(leadgen_id, "Ignored", form, via, data={"form_id": form_id}, error=_("This form is not connected, or is switched off."))
 		return "Ignored"
+	if cint(_settings().sync_paused) and via in ("Webhook", "Catch-up"):
+		_record(leadgen_id, "Waiting", form, via, data={"form_id": form_id}, error=_("Sync is stopped. It will be imported when you start the sync."))
+		return "Waiting"
 	try:
 		data = data or graph(leadgen_id, _page_token(form), {"fields": LEAD_FIELDS})
 	except MetaError as exc:
@@ -628,22 +631,82 @@ def retry(entry):
 	"""Fetch a failed lead from Meta again and process it."""
 	_admin()
 	row = frappe.db.get_value(LOG, entry, ["leadgen_id", "form", "result"], as_dict=True)
-	if not row or row.result not in ("Failed", "Ignored"):
-		frappe.throw(_("Only a failed lead can be retried."))
+	if not row or row.result not in ("Failed", "Ignored", "Waiting"):
+		frappe.throw(_("Only a failed or waiting lead can be retried."))
 	return {"result": process_lead(row.leadgen_id, row.form, "Retry")}
 
 
-def catch_up():
+def catch_up(days=3, via="Catch-up"):
 	"""Hourly: ask Meta for the recent leads of every connected form and process the ones the log does not have. A missed notice never loses a lead."""
-	if not frappe.db.exists("DocType", FORM) or not _system_token():
+	if not frappe.db.exists("DocType", FORM) or not _system_token() or (cint(_settings().sync_paused) and via == "Catch-up"):
 		return
 	for f in frappe.get_all(FORM, filters={"enabled": 1}, pluck="name"):
 		try:
 			form = frappe.get_doc(FORM, f)
-			since = int((frappe.utils.get_datetime(add_days(now_datetime(), -3))).timestamp())
+			since = int((frappe.utils.get_datetime(add_days(now_datetime(), -cint(days)))).timestamp())
 			data = graph(f"{form.form_id}/leads", _page_token(form), {"fields": LEAD_FIELDS, "limit": 50, "filtering": json.dumps([{"field": "time_created", "operator": "GREATER_THAN", "value": since}])})
 			for lead in data.get("data", []):
 				if not frappe.db.exists(LOG, {"leadgen_id": cstr(lead.get("id")), "result": ["in", ["Created", "Duplicate"]]}):
-					process_lead(lead.get("id"), form.form_id, "Catch-up", lead)
+					process_lead(lead.get("id"), form.form_id, via, lead)
 		except Exception:
 			frappe.log_error(title="Meta lead ads: the hourly catch-up failed for a form", message=frappe.get_traceback())
+	frappe.db.set_single_value(SETTINGS, "last_sync", now_datetime())
+
+
+# -- the Recent leads page: the whole log, and sync on / off ---------------------------------------------------------------
+
+
+def sync_state():
+	s = _settings()
+	return {"running": not cint(s.sync_paused), "waiting": frappe.db.count(LOG, {"result": "Waiting"}), "last_sync": cstr(s.last_sync or ""), "last_event": cstr(s.last_event or "")}
+
+
+@frappe.whitelist()
+def get_leads(page=1, page_size=25, result=None, form=None, search=None):
+	"""The whole Meta log, newest first, paged."""
+	_admin()
+	filters, or_filters = {}, []
+	picked = [r.strip() for r in cstr(result).split(",") if r.strip()]
+	if picked:
+		filters["result"] = ["in", picked]
+	if form:
+		filters["form"] = form
+	txt = cstr(search).strip()
+	if txt:
+		or_filters = [[LOG, f, "like", f"%{txt}%"] for f in ("person_name", "email", "phone", "campaign_name", "ad_name", "leadgen_id")]
+	page, size = max(1, cint(page)), min(max(1, cint(page_size) or 25), 100)
+	total = len(frappe.get_all(LOG, filters=filters, or_filters=or_filters, pluck="name", limit_page_length=100000))
+	rows = frappe.get_all(LOG, filters=filters, or_filters=or_filters, fields=["name", "creation", "result", "via", "form_name", "platform", "source", "person_name", "email", "phone", "lead", "campaign_name", "adset_name", "ad_name", "error", "applied"],
+		order_by="creation desc", limit_start=(page - 1) * size, limit_page_length=size)
+	counts = {r: n for r, n in frappe.db.sql("select result, count(*) from `tabCRM Meta Lead Log` group by result")}
+	forms = [{"value": f.name, "label": f.form_name or f.name} for f in frappe.get_all(FORM, fields=["name", "form_name"], limit_page_length=100)]
+	return {"rows": [{**r, "creation": cstr(r["creation"])} for r in rows], "total": total, "page": page, "page_size": size, "counts": counts, "forms": forms, "sync": sync_state()}
+
+
+def run_sync():
+	"""Background job: import what is waiting, then ask Meta for the last week of leads for every form."""
+	frappe.set_user("Administrator")
+	for r in frappe.get_all(LOG, filters={"result": "Waiting"}, fields=["leadgen_id", "form"], limit_page_length=500):
+		process_lead(r.leadgen_id, r.form, "Sync")
+	catch_up(days=7, via="Sync")
+
+
+@frappe.whitelist()
+def sync_now():
+	"""Start a sync now, without waiting for the hourly one. Works even while the automatic sync is stopped."""
+	_admin()
+	if not _system_token():
+		frappe.throw(_("Save the access token first."))
+	frappe.enqueue("crm_addons.pro.meta.run_sync", queue="short", enqueue_after_commit=True)
+	return {"queued": True}
+
+
+@frappe.whitelist()
+def set_sync(running):
+	"""Stop or start the automatic import. While stopped, notices from Meta are kept as Waiting (nothing is lost) and imported when it starts again."""
+	_admin()
+	on = cint(running)
+	frappe.db.set_single_value(SETTINGS, "sync_paused", 0 if on else 1)
+	if on:
+		frappe.enqueue("crm_addons.pro.meta.run_sync", queue="short", enqueue_after_commit=True)
+	return sync_state()
