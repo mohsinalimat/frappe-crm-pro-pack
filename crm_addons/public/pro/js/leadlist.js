@@ -75,13 +75,22 @@
 
 	/** Bulk actions in a dialog in the middle of the screen: pick what to do on the left, set it up on the right. */
 	V.BulkDialog = {
-		props: { count: Number, canDelete: Boolean, owners: Array, statuses: Array, run: Object },
+		props: { count: Number, canDelete: Boolean, owners: Array, statuses: Array, run: Object, start: String },
 		emits: ['close', 'go'],
 		setup(props, { emit }) {
-			const action = ref('assign')
-			const form = reactive({ users: [], status: '', owner: '', field: '', value: '' })
+			const action = ref(props.start || 'assign')
+			const form = reactive({ users: [], status: '', owner: '', field: '', value: '', subject: '', message: '', template: '', vars: {} })
+			const send = ref(null)  // what can be sent from here: { email: {ready, problem}, whatsapp: {installed, templates} }
+			async function loadSend() { if (send.value) return; try { send.value = await CM.call('crm_addons.pro.bulk_send.options', {}) } catch (e) { send.value = { email: { ready: false, problem: e.message }, whatsapp: { installed: false, templates: [] }, variables: [] } } }
+			const tpl = computed(() => (send.value ? send.value.whatsapp.templates.find((t) => t.name === form.template) : null))
+			watch(() => form.template, () => { form.vars = tpl.value ? Object.fromEntries(tpl.value.placeholders.map((n) => [String(n), tpl.value.variable_map[String(n)] || ''])) : {} })
+			const tplOpts = computed(() => (send.value ? send.value.whatsapp.templates.map((t) => ({ value: t.name, label: t.label })) : []))
+			const preview = computed(() => (tpl.value ? tpl.value.body.replace(/\{\{\s*(\d+)\s*\}\}/g, (m, n) => '[' + (form.vars[n] || '...').replace(/\{\{\s*|\s*\}\}/g, '') + ']') : ''))
+			const isSend = computed(() => action.value === 'email' || action.value === 'whatsapp')
 			const specs = ref([])
 			const ACTIONS = computed(() => [
+				{ key: 'email', label: 'Send email', icon: 'mail', text: 'Write one email; each lead gets it with their own details filled in.' },
+				{ key: 'whatsapp', label: 'Send WhatsApp', icon: 'whatsapp', text: 'Send an approved WhatsApp template to the leads that have a number.' },
 				{ key: 'assign', label: 'Assign to', icon: 'users', text: 'Give the leads to one or more people.' },
 				{ key: 'clear', label: 'Clear assignment', icon: 'x', text: 'Take the leads off whoever they are assigned to.' },
 				{ key: 'status', label: 'Change status', icon: 'check-circle', text: 'Move the leads to another status.' },
@@ -99,15 +108,16 @@
 			}
 			const fieldOpts = computed(() => specs.value.map((f) => ({ value: f.fieldname, label: f.label })))
 			const spec = computed(() => specs.value.find((f) => f.fieldname === form.field))
-			const pick = (k) => { if (props.run.busy) return; action.value = k; if (k === 'field') loadFields() }
-			const ready = computed(() => ({ assign: form.users.length > 0, status: !!form.status, field: !!form.field && form.value !== '' && form.value != null, owner: true }[action.value] ?? true))
+			const pick = (k) => { if (props.run.busy) return; action.value = k; if (k === 'field') loadFields(); if (k === 'email' || k === 'whatsapp') loadSend() }
+			if (action.value === 'email' || action.value === 'whatsapp') loadSend()
+			const ready = computed(() => ({ email: !!send.value && send.value.email.ready && !!form.subject.trim() && !!form.message.trim(), whatsapp: !!tpl.value && Object.values(form.vars).every((v) => String(v).trim()), assign: form.users.length > 0, status: !!form.status, field: !!form.field && form.value !== '' && form.value != null, owner: true }[action.value] ?? true))
 			function go() {
 				const k = action.value
-				const payload = k === 'assign' ? { users: form.users } : k === 'status' ? { values: { status: form.status } } : k === 'owner' ? { values: { lead_owner: form.owner || '__none__' } } : k === 'field' ? { values: { [form.field]: form.value } } : {}
+				const payload = k === 'email' ? { subject: form.subject, content: form.message } : k === 'whatsapp' ? { template: form.template, variable_map: JSON.stringify(form.vars) } : k === 'assign' ? { users: form.users } : k === 'status' ? { values: { status: form.status } } : k === 'owner' ? { values: { lead_owner: form.owner || '__none__' } } : k === 'field' ? { values: { [form.field]: form.value } } : {}
 				emit('go', { kind: k, payload })
 			}
 			const pct = computed(() => (props.run.total ? Math.round((props.run.done / props.run.total) * 100) : 0))
-			return { action, form, ACTIONS, cur, fieldOpts, spec, pick, ready, go, pct, ownerOpts: computed(() => [{ value: '', label: 'Nobody' }, ...props.owners.map((o) => ({ value: o.name, label: o.full_name }))]), assignOpts: computed(() => props.owners.map((o) => ({ value: o.name, label: o.full_name }))), statusOpts: computed(() => props.statuses.map((x) => ({ value: x.name, label: x.name }))) }
+			return { send, tpl, tplOpts, preview, isSend, action, form, ACTIONS, cur, fieldOpts, spec, pick, ready, go, pct, ownerOpts: computed(() => [{ value: '', label: 'Nobody' }, ...props.owners.map((o) => ({ value: o.name, label: o.full_name }))]), assignOpts: computed(() => props.owners.map((o) => ({ value: o.name, label: o.full_name }))), statusOpts: computed(() => props.statuses.map((x) => ({ value: x.name, label: x.name }))) }
 		},
 		template: `
 		<Modal title="Bulk actions" :subtitle="count + (count === 1 ? ' lead selected' : ' leads selected')" size="lg" @close="run.busy ? null : $emit('close')">
@@ -115,7 +125,25 @@
 				<div class="bulk-list" role="listbox" aria-label="Actions"><button v-for="a in ACTIONS" :key="a.key" type="button" class="bulk-act" :class="{ on: action === a.key, danger: a.danger }" role="option" :aria-selected="action === a.key" :disabled="run.busy" @click="pick(a.key)"><Ico :name="a.icon" /><span>{{ a.label }}</span></button></div>
 				<div class="bulk-form">
 					<b>{{ cur.label }}</b><p class="small muted" style="margin:2px 0 14px">{{ cur.text }}</p>
-					<Field v-if="action === 'assign'" label="People"><MultiPick v-model="form.users" :options="assignOpts" label="Choose people" searchable /></Field>
+					<template v-if="action === 'email'">
+						<p v-if="send && !send.email.ready" class="err" role="alert">{{ send.email.problem || 'Email is not set up on this site.' }}</p>
+						<Field label="Subject"><input class="control" v-model="form.subject" placeholder="Subject" aria-label="Subject" /></Field>
+						<Field label="Message"><textarea class="control" rows="7" v-model="form.message" placeholder="Hi {{ first_name }}, ..." aria-label="Message"></textarea></Field>
+						<p class="small muted" style="margin:6px 0 0">Use <span v-pre>{{ first_name }}</span>, <span v-pre>{{ organization }}</span> and other lead fields; each lead's own value is filled in. Leads without an email, or that opted out, are skipped. An unsubscribe link is added.</p>
+					</template>
+					<template v-else-if="action === 'whatsapp'">
+						<p v-if="send && !send.whatsapp.installed" class="err" role="alert">WhatsApp is not set up on this site.</p>
+						<p v-else-if="send && !tplOpts.length" class="err" role="alert">No approved WhatsApp template yet. Add one under Campaigns, then come back.</p>
+						<template v-else>
+							<Field label="Template"><Dd v-model="form.template" :options="tplOpts" searchable placeholder="Choose a template" aria-label="Template" /></Field>
+							<template v-if="tpl">
+								<Field v-for="n in tpl.placeholders" :key="n" :label="'Variable {{' + n + '}}'"><input class="control" v-model="form.vars[String(n)]" placeholder="{{ first_name }}" :aria-label="'Variable ' + n" /></Field>
+								<div class="card" style="padding:10px 12px;margin-top:8px;background:var(--surface-2,#f6f7f9)"><span class="small muted">Preview</span><div style="white-space:pre-wrap">{{ preview }}</div></div>
+							</template>
+						</template>
+						<p class="small muted" style="margin:6px 0 0">Leads without a valid number, or that opted out, are skipped.</p>
+					</template>
+					<Field v-else-if="action === 'assign'" label="People"><MultiPick v-model="form.users" :options="assignOpts" label="Choose people" searchable /></Field>
 					<Field v-else-if="action === 'status'" label="New status"><Dd v-model="form.status" :options="statusOpts" placeholder="Choose a status" aria-label="New status" /></Field>
 					<Field v-else-if="action === 'owner'" label="Lead owner"><Dd v-model="form.owner" :options="ownerOpts" searchable aria-label="Lead owner" /></Field>
 					<template v-else-if="action === 'field'">
@@ -124,11 +152,11 @@
 					</template>
 					<p v-else-if="action === 'delete'" class="err" style="margin:0">{{ count }} {{ count === 1 ? 'lead' : 'leads' }} will be deleted.</p>
 					<div v-if="run.busy || run.finished" style="margin-top:16px"><div class="bar" role="progressbar" :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: pct + '%' }"></i></div>
-						<p class="small">{{ run.busy ? 'Working... ' + run.done + ' of ' + run.total : run.done - run.failed.length + ' done' + (run.failed.length ? ', ' + run.failed.length + ' could not be changed' : '') }}</p>
+						<p class="small">{{ run.busy ? (isSend ? 'Sending... ' : 'Working... ') + run.done + ' of ' + run.total : run.done - run.failed.length + (isSend ? ' sent' : ' done') + (run.failed.length ? ', ' + run.failed.length + (isSend ? ' skipped' : ' could not be changed') : '') }}</p>
 						<ul v-if="run.failed.length && !run.busy" class="list" style="max-height:140px;overflow:auto"><li v-for="f in run.failed.slice(0, 100)" :key="f.name" class="li small">{{ f.name }}: {{ f.reason }}</li></ul></div>
 				</div>
 			</div>
-			<template #foot><Btn :disabled="run.busy" @click="$emit('close')">{{ run.finished ? 'Close' : 'Cancel' }}</Btn><Btn :variant="cur.danger ? 'danger' : 'primary'" :loading="run.busy" :disabled="!ready" @click="go">{{ cur.danger ? 'Delete' : 'Apply' }} {{ count }} {{ count === 1 ? 'lead' : 'leads' }}</Btn></template>
+			<template #foot><Btn :disabled="run.busy" @click="$emit('close')">{{ run.finished ? 'Close' : 'Cancel' }}</Btn><Btn :variant="cur.danger ? 'danger' : 'primary'" :loading="run.busy" :disabled="!ready" @click="go">{{ cur.danger ? 'Delete' : isSend ? 'Send to' : 'Apply' }} {{ count }} {{ count === 1 ? 'lead' : 'leads' }}</Btn></template>
 		</Modal>`,
 	}
 
@@ -283,23 +311,27 @@
 			async function runBulk({ kind, payload }) {
 				const all = [...picked.value]
 				if (kind === 'delete' && !(await CM.confirm({ title: 'Delete ' + all.length + (all.length === 1 ? ' lead?' : ' leads?'), message: 'This cannot be undone.', confirmText: 'Delete', danger: true }))) return
+				if ((kind === 'email' || kind === 'whatsapp') && !(await CM.confirm({ title: 'Send ' + (kind === 'email' ? 'this email' : 'this WhatsApp message') + ' to ' + all.length + (all.length === 1 ? ' lead?' : ' leads?'), message: 'It goes out right away and cannot be recalled.', confirmText: 'Send' }))) return
 				Object.assign(bulkRun, { busy: true, finished: false, done: 0, total: all.length, failed: [] })
 				try {
 					for (const part of chunks(all, 100)) {
 						const names = JSON.stringify(part)
 						if (kind === 'delete') await api('crm.api.doc.delete_bulk_docs', { doctype: DOC, items: names, delete_linked: false })
+						else if (kind === 'email') { const r = await api('crm_addons.pro.bulk_send.send_email', { names, subject: payload.subject, content: payload.content }); bulkRun.failed.push(...r.skipped) }
+						else if (kind === 'whatsapp') { const r = await api('crm_addons.pro.bulk_send.send_whatsapp', { names, template: payload.template, variable_map: payload.variable_map }); bulkRun.failed.push(...r.skipped) }
 						else if (kind === 'clear') await api('frappe.desk.form.assign_to.remove_multiple', { doctype: DOC, names, ignore_permissions: true })
 						else if (kind === 'assign') await api('frappe.desk.form.assign_to.add_multiple', { doctype: DOC, name: names, assign_to: JSON.stringify(payload.users), bulk_assign: true, re_assign: true })
 						else { const r = await api('crm_addons.pro.leads.bulk_edit', { names, values: JSON.stringify(payload.values) }); bulkRun.failed.push(...r.failed) }
 						bulkRun.done += part.length
 					}
 					const ok = bulkRun.done - bulkRun.failed.length
-					CM.toast(ok + (ok === 1 ? ' lead' : ' leads') + ' updated' + (bulkRun.failed.length ? ', ' + bulkRun.failed.length + ' could not be changed' : ''))
+					CM.toast(ok + (ok === 1 ? ' lead' : ' leads') + (kind === 'email' || kind === 'whatsapp' ? ' sent' : ' updated') + (bulkRun.failed.length ? ', ' + bulkRun.failed.length + (kind === 'email' || kind === 'whatsapp' ? ' skipped' : ' could not be changed') : ''))
 					bulkRun.finished = true; resetSel(); await load(true)
 					if (!bulkRun.failed.length) dlg.value = ''
 				} catch (e) { CM.toast(e.message, 'err') } finally { bulkRun.busy = false }
 			}
-			function openBulk() { Object.assign(bulkRun, { busy: false, finished: false, done: 0, total: 0, failed: [] }); dlg.value = 'bulk' }
+			const bulkStart = ref('')
+			function openBulk(kind) { Object.assign(bulkRun, { busy: false, finished: false, done: 0, total: 0, failed: [] }); bulkStart.value = typeof kind === 'string' ? kind : ''; dlg.value = 'bulk' }
 
 			// ---- kanban
 			const drag = reactive({ name: '', over: '' })
@@ -352,7 +384,7 @@
 				} catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 			const sortDirOpts = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]
-			return { page, pageSize, pages, pageNums, range, setPage, setSize, SIZES, selAll, selectEvery, bulkRun, runBulk, openBulk, anyFilter, openExport, exportFields, exportStart, cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
+			return { page, pageSize, pages, pageNums, range, setPage, setSize, SIZES, selAll, selectEvery, bulkRun, bulkStart, runBulk, openBulk, anyFilter, openExport, exportFields, exportStart, cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
 		},
 		template: `
 		<div class="page leads">
@@ -383,7 +415,8 @@
 
 			<div v-if="picked.length" class="card bulk" role="region" aria-label="Selected leads">
 				<span class="bulk-n"><Ico name="check" size="sm" /></span><b>{{ picked.length }} {{ picked.length === 1 ? 'row' : 'rows' }} selected</b>
-				<Btn size="sm" variant="primary" @click="openBulk">Bulk actions</Btn>
+				<Btn size="sm" icon="mail" aria-label="Send an email to the selected leads" title="Send email" @click="openBulk('email')" /><Btn size="sm" icon="whatsapp" aria-label="Send a WhatsApp message to the selected leads" title="Send WhatsApp" @click="openBulk('whatsapp')" />
+				<Btn size="sm" variant="primary" @click="openBulk()">Bulk actions</Btn>
 				<span class="bulk-sep"></span>
 				<button v-if="!selAll && total > picked.length && vt !== 'kanban'" type="button" class="link" :disabled="busy" @click="selectEvery">Select all {{ total }}</button>
 				<span v-else-if="selAll" class="small muted">All {{ total }} selected</span>
@@ -458,7 +491,7 @@
 			<ExportDialog v-if="dlg === 'export'" :fields="exportFields" :start="exportStart" :count="total" :selected="picked.length" :busy="exporting" @close="dlg = ''" @go="exportCsv" />
 			<FilterDialog v-if="dlg === 'filter'" :fields="filterFields" :filters="p.filters" @close="dlg = ''" @apply="applyFilters" />
 			<ColumnsDialog v-if="dlg === 'columns' && data" :fields="colQ" :columns="columns" @close="dlg = ''" @apply="applyColumns" />
-			<BulkDialog v-if="dlg === 'bulk'" :count="picked.length" :can-delete="meta.can_delete" :owners="meta.owners" :statuses="meta.statuses" :run="bulkRun" @close="dlg = ''" @go="runBulk" />
+			<BulkDialog v-if="dlg === 'bulk'" :count="picked.length" :can-delete="meta.can_delete" :owners="meta.owners" :statuses="meta.statuses" :run="bulkRun" :start="bulkStart" @close="dlg = ''" @go="runBulk" />
 			<ImportLeads v-if="importing" @close="importing = false" @done="importing = false; load(true)" />
 			<NewLead v-if="creating" :opts="meta" @close="creating = false" @created="(n) => { creating = false; open(n) }" />
 		</div>`,
