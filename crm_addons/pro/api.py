@@ -5,7 +5,7 @@ from frappe import _
 from frappe.utils import cint, cstr, strip_html
 
 NOTIFICATION = "CRM Notification"
-TYPES = ("Mention", "Task", "Assignment", "WhatsApp")
+TYPES = ("Mention", "Task", "Assignment", "WhatsApp", "Automation")
 
 
 def _check():
@@ -142,8 +142,9 @@ def list_notifications(show="all", type=None, search=None, start=0, page_length=
 	filters = {"to_user": frappe.session.user}
 	if show == "unread":
 		filters["read"] = 0
-	if type in TYPES:
-		filters["type"] = type
+	kinds = [t for t in cstr(type).split(",") if t in TYPES]
+	if kinds:
+		filters["type"] = ["in", kinds]
 	term = cstr(search).strip()
 	or_filters = None
 	if term:
@@ -167,10 +168,13 @@ def list_notifications(show="all", type=None, search=None, start=0, page_length=
 			"name": r.name, "type": r.type, "read": cint(r.read), "creation": cstr(r.creation),
 			"from_user": r.from_user, "from_name": who.full_name if who else r.from_user, "from_image": who.user_image if who else None,
 			"text": strip_html(cstr(r.notification_text or r.message))[:300],
+			"quote": (strip_html(cstr(r.message))[:200] if r.notification_text and r.message and strip_html(cstr(r.message)) != strip_html(cstr(r.notification_text)) else ""),
 			"reference_doctype": r.reference_doctype, "reference_name": r.reference_name, "title": title,
 		})
 	total = cint(frappe.db.count(NOTIFICATION, filters)) if not or_filters else cint(frappe.get_all(NOTIFICATION, fields=["count(name) as n"], filters=filters, or_filters=or_filters)[0].n)
-	return {"rows": out, "total": total, "unread": unread_count()}
+	mine = {"to_user": frappe.session.user}
+	by_type = {t.type: cint(t.n) for t in frappe.get_all(NOTIFICATION, filters=mine, fields=["type", "count(name) as n"], group_by="type")}
+	return {"rows": out, "total": total, "unread": unread_count(), "counts": {"all": sum(by_type.values()), "by_type": by_type}}
 
 
 @frappe.whitelist()
