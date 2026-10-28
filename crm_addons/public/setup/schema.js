@@ -6,7 +6,7 @@
  */
 window.SETUP_SCHEMA = [
 	{
-		key: 'branding', title: 'Branding', icon: 'palette', custom: 'branding', words: 'name logo favicon login page footer desk brand colour title',
+		key: 'branding', title: 'Branding', icon: 'palette', frappe: 'These change Frappe CRM\'s own screens too (its login page, name, logo, favicon and Desk), not only this app.', custom: 'branding', words: 'name logo favicon login page footer desk brand colour title',
 		desc: 'The name, logo and favicon people see in the CRM, on the login page, in the Desk and in the footer. Leave a field empty to keep the default look.',
 		items: [],
 	},
@@ -68,7 +68,7 @@ window.SETUP_SCHEMA = [
 		],
 	},
 	{
-		key: 'ui', title: 'CRM screens', icon: 'layout',
+		key: 'ui', title: 'CRM screens', icon: 'layout', frappe: 'These change Frappe CRM\'s own screens (the left menu, the Lead pages and the Leads list), not only this app.',
 		desc: 'What this app adds to the CRM screens, and what it hides. These change what people see, not what they are allowed to do.',
 		items: [
 			{ h: 'Buttons and tabs it adds' },
@@ -116,7 +116,7 @@ window.SETUP_SCHEMA = [
 		],
 	},
 	{
-		key: 'views', title: 'Default views', icon: 'layout', custom: 'views', words: 'list kanban columns order filters quick filter leads contacts organizations',
+		key: 'views', title: 'Default views', icon: 'layout', frappe: 'These change how Frappe CRM\'s own Leads, Contacts and Organizations pages open for everybody.', custom: 'views', words: 'list kanban columns order filters quick filter leads contacts organizations',
 		desc: 'How the Leads, Contacts and Organizations pages open for everybody: list or Kanban, the columns, the order, the filters and the quick-filter boxes. People can still change their own view; yours applies until they do.',
 		items: [],
 	},

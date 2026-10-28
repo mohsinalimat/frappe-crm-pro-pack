@@ -511,6 +511,7 @@
 					<section v-for="g in visible" :key="g.key" class="stack">
 						<div class="card pad">
 							<div class="row g-head" :class="{ keep: tab === 'sales' && !term }"><span class="g-i"><Ico :name="g.icon" :size="19" /></span><div class="grow"><h2>{{ g.title }}</h2><p class="muted">{{ g.desc }}</p></div></div>
+					<div v-if="g.frappe" class="frappe-note"><Ico name="info" :size="16" /><span><b>Changing in Frappe's UI.</b> {{ g.frappe }}</span></div>
 							<ViewDefaults v-if="g.custom === 'views'" /><Branding v-if="g.custom === 'branding'" />
 							<template v-for="(it, i) in g.shown" :key="(it.k || it.h) + i">
 								<h3 v-if="it.h" class="sub">{{ it.h }}</h3>

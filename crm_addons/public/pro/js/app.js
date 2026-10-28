@@ -143,15 +143,14 @@
 
 	// The settings, sorted into a few groups for the menu on the left
 	const LF = 'Leads and sales'
-	const SALES = ['followups', 'insights', 'dashboard'] // one menu entry: Follow-ups, Scoring and stale leads, Sales Dashboard counts
 	const INT = ['email', 'whatsapp', 'calendar', 'meta'] // the integration pages
-	const tabOf = (t) => (SALES.includes(t) ? 'sales' : t === 'integrations' ? 'email' : t)
+	const tabOf = (t) => (t === 'sales' ? 'followups' : t === 'integrations' ? 'email' : t) // the old single Sales page opens its first part
 	const GROUP_OF = { branding: 'General', ui: 'General', views: 'General', leads: LF, orgs: LF, forms: LF, meetings: LF, followups: LF, insights: LF, dashboard: LF, campaigns: 'Campaigns', alerts: 'Campaigns', prices: 'Campaigns' }
 	const GROUP_ICON = { General: 'settings', [LF]: 'briefcase', Campaigns: 'send', Integrations: 'plug', Other: 'settings' }
 	const SHORT = { start: 'Checklist', branding: 'Branding', ui: 'Screen', views: 'Default views', leads: 'Lead page', orgs: 'Organization page', forms: 'Forms', sales: 'Sales', email: 'Email', whatsapp: 'WhatsApp', calendar: 'Calendar', meta: 'Meta' } // the short names on the tabs
 	const TAB_ICON = { start: 'list', branding: 'palette', ui: 'monitor', views: 'columns', leads: 'users', orgs: 'building', forms: 'rows', sales: 'trend', email: 'mail', whatsapp: 'whatsapp', calendar: 'calendar', meta: 'meta', meetings: 'calendar', followups: 'phone', insights: 'chart', dashboard: 'chart', campaigns: 'send', alerts: 'alert', prices: 'hash' }
 	PRO.settingsGroups = () => {
-		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).filter((g) => !SALES.includes(g.key)).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Lead page', group: LF }, { value: 'orgs', label: 'Organization page', group: LF }, { value: 'forms', label: 'Add forms', group: LF }, { value: 'sales', label: 'Follow-ups, scoring and sales', group: LF }, { value: 'email', label: 'Email integration', group: 'Integrations' }, { value: 'whatsapp', label: 'WhatsApp integration', group: 'Integrations' }, { value: 'calendar', label: 'Calendar integration', group: 'Integrations' }, { value: 'meta', label: 'Meta lead ads', group: 'Integrations' }].map((x) => ({ ...x, short: SHORT[x.value] || x.label, icon: TAB_ICON[x.value] || 'settings' }))
+		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Lead page', group: LF }, { value: 'orgs', label: 'Organization page', group: LF }, { value: 'forms', label: 'Add forms', group: LF }, { value: 'email', label: 'Email integration', group: 'Integrations' }, { value: 'whatsapp', label: 'WhatsApp integration', group: 'Integrations' }, { value: 'calendar', label: 'Calendar integration', group: 'Integrations' }, { value: 'meta', label: 'Meta lead ads', group: 'Integrations' }].map((x) => ({ ...x, short: SHORT[x.value] || x.label, icon: TAB_ICON[x.value] || 'settings' }))
 		return ['General', LF, 'Campaigns', 'Integrations', 'Other'].map((t) => ({ title: t, icon: GROUP_ICON[t], items: all.filter((x) => x.group === t) })).filter((g) => g.items.length)
 	}
 	// one search over every setting: each option, and the pages that have no list of options (Branding, Default views, Leads screen)
