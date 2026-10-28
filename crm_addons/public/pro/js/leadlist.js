@@ -356,7 +356,7 @@
 		},
 		template: `
 		<div class="page leads">
-			<div class="pg-head"><div class="grow"><h1>Leads</h1><p class="muted small">{{ loading && !data ? '' : total + (total === 1 ? ' lead' : ' leads') }}</p></div>
+			<div class="pg-head"><div class="grow"><h1>Leads</h1></div>
 				<div class="actions">
 					<Seg :modelValue="mode" :options="MODES" @update:modelValue="setMode" />
 					<Btn icon="download" :loading="exporting" title="Download leads: choose the columns and their order" aria-label="Download leads" @click="openExport" />
