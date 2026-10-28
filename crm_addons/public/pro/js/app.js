@@ -19,11 +19,11 @@
 		const campaignAccess = ['campaigns', 'automations', 'email_templates', 'whatsapp_templates', 'audiences'].some((k) => a[k] !== undefined && a[k] !== 'none') || !!Number(a.campaign_reports) || !!Number(a.list_cleanup)
 		const shown = (k) => a[k] === undefined || (typeof a[k] === 'string' ? a[k] !== 'none' : !!Number(a[k])) // a page the person has no access to is hidden, not greyed out
 		const rows = [{ key: 'notifications', label: 'Notifications', icon: 'bell', native: true, badge: true }]
-		if (shown('whatsapp_inbox') && a.whatsapp_inbox !== undefined) rows.push({ key: 'whatsapp', label: 'WhatsApp Business', icon: 'whatsapp' })
 		if (shown('dashboard')) rows.push({ key: 'dashboard', label: 'Sales Dashboard', icon: 'chart' })
 		if (shown('leads')) rows.push({ key: 'leads', label: 'Leads', icon: 'users', native: true })
 		if (c.follow_ups_enabled !== 0 && shown('followups')) rows.push({ key: 'followups', label: 'Follow-ups', icon: 'phone' })
 		if (shown('organizations')) rows.push({ key: 'organizations', label: 'Organizations', icon: 'building', native: true })
+		if (shown('whatsapp_inbox') && a.whatsapp_inbox !== undefined) rows.push({ key: 'whatsapp', label: 'WhatsApp Business', icon: 'whatsapp' })
 		if (shown('meetings')) rows.push({ key: 'meetings', label: 'Meetings', icon: 'calendar' })
 		if (c.campaigns_enabled !== 0 && campaignAccess) { rows.push({ key: 'campaigns', label: 'Campaigns', icon: 'send' }); if (['email_templates', 'whatsapp_templates'].some((k) => shown(k)) || !!Number(a.campaign_create)) rows.push({ key: 'templates', label: 'Templates', icon: 'file' }) }
 		if (c.can_assign) rows.push({ key: 'assignment', label: 'Assignment', icon: 'users' })
