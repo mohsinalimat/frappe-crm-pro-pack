@@ -409,6 +409,9 @@
 						<section class="card"><h3>Follow-up</h3>
 							<div class="facts one"><Fact label="Next follow-up"><span :class="{ overdue: overdue(lead.next_follow_up_on) }">{{ day(lead.next_follow_up_on) || '-' }}</span></Fact><Fact label="Next meeting" :value="day(lead.next_meeting_on)" /><Fact label="Last call" :value="lead.addons_last_outcome" /><Fact label="Call attempts" :value="lead.addons_call_attempts" /><Fact label="Score" :value="lead.addons_score" /></div>
 						</section>
+						<section v-if="lead.crm_meta_campaign_name || lead.crm_meta_form" class="card"><h3>Meta lead ad</h3>
+							<div class="facts one"><Fact label="Platform" :value="lead.source" /><Fact label="Campaign" :value="lead.crm_meta_campaign_name" /><Fact label="Ad set" :value="lead.crm_meta_adset_name" /><Fact label="Ad" :value="lead.crm_meta_ad_name" /><Fact label="Lead form" :value="lead.crm_meta_form" /></div>
+						</section>
 						<section v-if="lead.crm_demo_first_utm_source || lead.crm_demo_first_utm_medium || lead.crm_demo_first_utm_campaign" class="card"><h3>Where they came from</h3>
 							<div class="facts one"><Fact label="UTM source" :value="lead.crm_demo_first_utm_source" /><Fact label="UTM medium" :value="lead.crm_demo_first_utm_medium" /><Fact label="UTM campaign" :value="lead.crm_demo_first_utm_campaign" /></div>
 						</section>

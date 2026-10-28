@@ -31,7 +31,7 @@ def _person(user):
 def get_lead(name):
 	doc = _lead(name)
 	d = doc.as_dict()
-	out = {k: d.get(k) for k in ("name", "lead_name", "image", "creation", "modified", "owner", "converted", "addons_score", "next_follow_up_on", "next_meeting_on", "addons_last_outcome", "addons_last_remark", "addons_call_attempts", "crm_wa_opt_in", "crm_demo_first_utm_source", "crm_demo_first_utm_medium", "crm_demo_first_utm_campaign")}
+	out = {k: d.get(k) for k in ("name", "lead_name", "image", "creation", "modified", "owner", "converted", "addons_score", "next_follow_up_on", "next_meeting_on", "addons_last_outcome", "addons_last_remark", "addons_call_attempts", "crm_wa_opt_in", "crm_demo_first_utm_source", "crm_demo_first_utm_medium", "crm_demo_first_utm_campaign", "crm_meta_form", "crm_meta_campaign_name", "crm_meta_adset_name", "crm_meta_ad_name", "crm_meta_campaign_id", "crm_meta_adset_id", "crm_meta_ad_id")}
 	from crm_addons.pro import form
 
 	side = form.sections("Side Panel")
