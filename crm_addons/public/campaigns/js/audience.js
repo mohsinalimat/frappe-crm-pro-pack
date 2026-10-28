@@ -81,7 +81,7 @@
 		template: `<div><input class="inp" :list="id" :value="modelValue" placeholder="Type to search" @input="input" /><datalist :id="id"><option v-for="o in list" :key="o.value" :value="o.value">{{ o.description }}</option></datalist></div>`,
 	}
 	C.FilterBuilder = {
-		props: { rules: Array, hide: Function, joiner: { type: String, default: 'and' } },
+		props: { rules: Array, hide: Function, joiner: { type: String, default: 'and' }, incl: Boolean }, // incl: a dropdown or link field is asked as include / exclude, not is / is not
 		setup(props) {
 			const fields = computed(() => (CM.shared.fields ? CM.shared.fields.fields : []))
 			const isHidden = (r) => !!(props.hide && props.hide(r))
@@ -90,7 +90,11 @@
 			const fieldOptions = computed(() => fields.value.map((f) => ({ value: f.fieldname, label: f.label, sub: f.fieldname !== f.label ? undefined : undefined })).sort((a, b) => a.label.localeCompare(b.label)))
 			const meta = (r) => fields.value.find((f) => f.fieldname === r.field)
 			const kind = (r) => kindOf(meta(r))
-			const ops = (r) => OPS[kind(r)].map(([value, label]) => ({ value, label }))
+			const pickKind = (r) => props.incl && ['select', 'link'].includes(kind(r))
+			const ops = (r) => (pickKind(r) ? [{ value: 'in', label: 'Include' }, { value: 'not in', label: 'Exclude' }] : OPS[kind(r)].map(([value, label]) => ({ value, label })))
+			const fresh = (r) => { if (pickKind(r)) { r.op = 'in'; r.value = [] } }
+			// a rule saved with "is" / "is not" reads as include / exclude
+			watch(() => props.rules.map((r) => r.field + r.op).join('|') + '|' + fields.value.length, () => props.rules.forEach((r) => { if (pickKind(r) && (r.op === '=' || r.op === '!=')) { r.value = r.value === '' || r.value == null ? [] : [r.value]; r.op = r.op === '=' ? 'in' : 'not in' } }), { immediate: true })
 			// the values of a Link field (organization type, territory, source ...) as CRM has them: loaded once per field, up to 200
 			const linkVals = reactive({})
 			async function loadLink(field) {
@@ -108,9 +112,10 @@
 				const k = kindOf(f); const r = { id: CM.uid(), field: field || '', op: OPS[k][0][0], value: k === 'check' ? 1 : '' }
 				if (field === 'email' || field === 'mobile_no') { r.op = 'set' }
 				if (field === 'creation') { r.op = '>='; r.value = CM.ymd(new Date(Date.now() - 30 * 864e5)) }
+				fresh(r)
 				props.rules.push(r)
 			}
-			function changeField(r) { const k = kind(r); r.op = OPS[k][0][0]; r.value = k === 'check' ? 1 : '' }
+			function changeField(r) { const k = kind(r); r.op = OPS[k][0][0]; r.value = k === 'check' ? 1 : ''; fresh(r) }
 			function changeOp(r) { if (r.op === 'between') r.value = ['', '']; else if (['in', 'not in'].includes(r.op)) r.value = []; else if (Array.isArray(r.value) || ['set', 'notset'].includes(r.op)) r.value = '' }
 			const toggleIn = (r, o) => { const v = Array.isArray(r.value) ? r.value : []; r.value = v.includes(o) ? v.filter((x) => x !== o) : [...v, o] }
 			const csv = (r) => (Array.isArray(r.value) ? r.value.join(', ') : r.value)

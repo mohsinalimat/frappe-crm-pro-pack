@@ -78,7 +78,7 @@
 			return {}
 		},
 		template: `
-		<div><FilterBuilder :rules="rules" :joiner="matchMode === 'Any condition' ? 'or' : 'and'" />
+		<div><FilterBuilder incl :rules="rules" :joiner="matchMode === 'Any condition' ? 'or' : 'and'" />
 			<div v-if="rules.length > 1" class="row" style="gap:8px;margin-top:10px"><span class="small muted">A lead matches when</span><Seg :model-value="matchMode" :options="[{ value: 'All conditions', label: 'all of these are true' }, { value: 'Any condition', label: 'any one is true' }]" @update:model-value="$emit('update:matchMode', $event)" /></div></div>`,
 	}
 
