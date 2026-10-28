@@ -165,6 +165,7 @@
 				const keys = [...new Set([...(cfg.filters || []), ...PRO.filt.activeKeys(p.filters)])].filter((k) => !MAIN.includes(k) && by[k])
 				return keys.map((k) => by[k])
 			})
+			const anyFilter = computed(() => !!(PRO.filt.activeKeys(p.filters).length || search.value.trim()))
 			function flipFilters() { showFilters.value = !showFilters.value; PRO.leadUtil.store.set('showFilters', showFilters.value) }
 			const sortParts = computed(() => { const [f, d] = (p.orderBy || 'modified desc').split(' '); return { field: f, dir: d || 'desc' } })
 			const sortOpts = computed(() => sortFields.value.map((f) => ({ value: f.fieldname, label: f.label })))
@@ -260,7 +261,7 @@
 				} catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 			const sortDirOpts = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]
-			return { openExport, exportFields, exportStart, cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
+			return { anyFilter, openExport, exportFields, exportStart, cfg, showFilters, flipFilters, chips, setFilters, MAIN, statusSel, statusOpts, dateField, dateRange, DATE_FIELDS, setDate, clearAll, MODES, grid, mode, setMode, setGroup, groupPick, vt, data, loading, error, meta, view, p, picked, dlg, busy, creating, importing, search, load, nFilters, applyFilters, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
 		},
 		template: `
 		<div class="page leads">
@@ -279,13 +280,13 @@
 					<DateRange v-if="cfg.show_date" v-model="dateRange" any one-month aria-label="Date" @change="(r) => setDate(r)">
 						<template #top><div class="dr-tabs row" style="gap:6px;padding:8px 12px 0"><button v-for="d in DATE_FIELDS" :key="d.id" type="button" class="btn sm" :class="{ on: dateField === d.id }" @click="dateField = d.id">{{ d.label }}</button></div></template>
 					</DateRange>
-					<div v-if="cfg.show_status" style="width:200px"><MultiPick v-model="statusSel" :options="statusOpts" label="Status" searchable /></div>
+					<div v-if="cfg.show_status" style="width:170px"><MultiPick v-model="statusSel" :options="statusOpts" label="Status" searchable /></div>
 					<button type="button" class="btn icon" :class="{ on: showFilters || nFilters }" :aria-expanded="showFilters" aria-label="Filters" title="Filters" @click="flipFilters"><Ico name="filter" /><span v-if="nFilters" class="n">{{ nFilters }}</span></button>
+					<button type="button" class="btn icon clr" :class="{ on: anyFilter }" :disabled="!anyFilter" aria-label="Clear all filters" title="Clear all filters" @click="clearAll"><Ico name="x" /></button>
 				</div>
 				<div v-if="showFilters" class="row wrap fchips" style="gap:8px">
 					<FilterChip v-for="f in chips" :key="f.fieldname" :field="f" :filters="p.filters" @change="setFilters" />
 					<Btn size="sm" icon="plus" @click="dlg = 'filter'">Custom filter</Btn>
-					<Btn v-if="nFilters || search || statusSel.length || dateRange.preset !== 'any'" size="sm" variant="ghost" @click="clearAll">Clear all</Btn>
 				</div>
 			</section>
 

@@ -320,3 +320,13 @@ html.inline .pg-head .grow { min-width: 0; }
 .pf-mail { margin-left: 8px; }
 
 .mre-dd { width: 128px; } .mre-dd.sm { width: 72px; } .mre-dd .dd-btn { height: 28px; }
+
+/* inside the Suite Pro app: the left menu becomes tabs along the top */
+html.pro .rail { display: none; }
+html.pro .app, html.pro .app.rail-collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+.subtabs { display: flex; align-items: center; gap: 18px; min-height: 56px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.st-title { display: none; }
+.st-tabs { display: flex; gap: 4px; padding: 3px; border-radius: var(--r-ctl); background: var(--bg-soft, #eef0f4); }
+.st-tab { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 5px; color: var(--text-soft); font-weight: 550; white-space: nowrap; text-decoration: none; }
+.st-tab:hover { color: var(--text); text-decoration: none; }
+.st-tab.on { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border); font-weight: 650; }

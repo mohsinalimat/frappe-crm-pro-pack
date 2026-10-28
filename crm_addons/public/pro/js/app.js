@@ -28,7 +28,7 @@
 		if (c.campaigns_enabled !== 0 && campaignAccess) rows.push({ key: 'campaigns', label: 'Campaigns', icon: 'send' })
 		if (c.can_assign) rows.push({ key: 'assignment', label: 'Assignment', icon: 'users' })
 		if (c.demos_enabled !== 0 && (a.demos !== 'none' || (a.demo_widgets || 'none') !== 'none' || Number(a.demo_report))) rows.push({ key: 'bookings', label: 'Bookings', icon: 'target' })
-		if (c.can_manage_access) { rows.push({ key: 'access', label: 'Team and access', icon: 'shield' }); rows.push({ key: 'settings', label: 'Settings', icon: 'settings', native: true }) }
+		if (c.can_manage_access) { rows.push({ key: 'access', label: 'Team', icon: 'shield' }); rows.push({ key: 'settings', label: 'Settings', icon: 'settings', native: true }) }
 		return rows
 	}
 
@@ -36,7 +36,7 @@
 		props: { page: String },
 		setup(props) {
 			const theme = document.documentElement.getAttribute('data-theme') || 'light'
-			const src = computed(() => '/assets/crm_addons/' + FRAMES[props.page] + '?embed=1&theme=' + theme + '&v=' + encodeURIComponent(ver()))
+			const src = computed(() => '/assets/crm_addons/' + FRAMES[props.page] + '?embed=1&inline=1&pro=1&theme=' + theme + '&v=' + encodeURIComponent(ver()))
 			const el = ref(null)
 			// the pages draw a close / open-in-a-tab toolbar when they are a pop-up: not wanted here
 			function tidy() {
@@ -62,7 +62,7 @@
 		},
 		template: `
 		<div class="settings-wrap">
-			<div class="settings-tabs"><Seg :modelValue="cur" :options="TABS" @update:modelValue="go" /></div>
+			<div class="subtabs"><nav class="st-tabs" aria-label="Settings"><a v-for="t in TABS" :key="t.value" :href="t.value === 'leads' ? '#/settings/leads' : '#/settings'" class="st-tab" :class="{ on: cur === t.value }" :aria-current="cur === t.value ? 'page' : null">{{ t.label }}</a></nav></div>
 			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><Frame v-else page="settings" key="settings" /></div>
 		</div>`,
 	}

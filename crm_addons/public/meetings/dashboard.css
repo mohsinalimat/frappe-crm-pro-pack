@@ -215,3 +215,5 @@ html.inline .dash-bar { min-height: 56px; padding: 8px 24px; }
 .pick-search input { width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--input, var(--bg)); color: var(--text); font: inherit; outline: none; }
 .pick-search input:focus { border-color: var(--accent, var(--text)); }
 .pick-none { padding: 10px; color: var(--text-faint); font-size: 13px; }
+
+html.inline .dash-brand .brand-ico { display: none; }

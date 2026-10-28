@@ -42,7 +42,7 @@
 			function nav(e, path) { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return; e.preventDefault(); DM.leave(path) }
 			const nav_items = computed(() => NAV.filter((n) => n.show(DM.session)))
 			const nothing = computed(() => DM.session.ready && !nav_items.value.length)
-			return { view, active, NAV: nav_items, nothing, collapsed, toggleRail, canConfigure, s: DM.session, shared: CM.shared, nav, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
+			return { pro: CM.pro, view, active, NAV: nav_items, nothing, collapsed, toggleRail, canConfigure, s: DM.session, shared: CM.shared, nav, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
@@ -57,6 +57,7 @@
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
 				</div>
 			</nav>
+			<div v-if="pro" class="subtabs"><b class="st-title">Bookings</b><nav class="st-tabs" aria-label="Bookings"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null">{{ n.label }}</a></nav></div>
 			<main class="main">
 				<div v-if="!s.ready" class="page"><Skel h="40" r="10" /><Skel h="220" r="12" /></div>
 				<div v-else-if="s.error" class="page"><ErrorState :message="s.error" @retry="location.reload()" /></div>

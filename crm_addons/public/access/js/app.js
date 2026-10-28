@@ -27,7 +27,7 @@
 				CM.requestClose()
 			}
 			if (CM.embed) { onMounted(() => { window.addEventListener('keydown', onEsc); try { window.focus() } catch (e) { /* the host page focuses the frame too */ } }); onBeforeUnmount(() => window.removeEventListener('keydown', onEsc)) }
-			return { view, active, NAV, collapsed, toggleRail, denied, d: AX.data, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
+			return { pro: CM.pro, view, active, NAV, collapsed, toggleRail, denied, d: AX.data, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
@@ -41,6 +41,7 @@
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
 				</div>
 			</nav>
+			<div v-if="pro" class="subtabs"><b class="st-title">Team</b><nav class="st-tabs" aria-label="Team"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null">{{ n.label }}</a></nav></div>
 			<main class="main">
 				<div v-if="denied" class="page"><Empty icon="shield" title="Only System Managers can change access" text="Ask a System Manager to open this page. Your own access is set there."><a class="btn primary" href="/crm" v-if="!embedded">Back to CRM</a></Empty></div>
 				<component v-else :is="view" :key="active" />

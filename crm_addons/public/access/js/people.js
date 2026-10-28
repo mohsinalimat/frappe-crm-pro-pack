@@ -227,7 +227,7 @@
 		},
 		template: `
 		<div class="page wide">
-			<div class="pg-head"><div class="grow"><h1>Team and access</h1><p>Choose who sees what in Suite Pro: follow-ups, meetings, demos, assignment and the Campaign Manager. Each person gets a preset, and you can change anything on top of it.</p></div><div class="actions"><Btn variant="primary" icon="plus" @click="adding = true">Add person</Btn></div></div>
+			<div class="pg-head"><div class="grow"><h1>Team</h1><p>Choose who sees what in Suite Pro: follow-ups, meetings, demos, assignment and the Campaign Manager. Each person gets a preset, and you can change anything on top of it.</p></div><div class="actions"><Btn variant="primary" icon="plus" @click="adding = true">Add person</Btn></div></div>
 			<div v-if="d.loaded && d.login_template && d.login_template.available" class="alert" :class="d.login_template.ready ? 'ok' : 'info'"><Ico name="info" /><div class="grow">
 				<template v-if="d.login_template.ready"><b>WhatsApp login link is ready.</b> It uses the template <b>{{ d.login_template.label }}</b>.</template>
 				<template v-else-if="!d.login_template.exists"><b>WhatsApp login link is not set up.</b> Choose a WhatsApp template that Meta has approved, or create the ready-made one (Meta reviews it before it can be used).</template>

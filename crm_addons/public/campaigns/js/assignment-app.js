@@ -45,7 +45,7 @@
 			onMounted(() => { CM.loadShared(); if (CM.embed) { window.addEventListener('keydown', onEsc); try { window.focus() } catch (e) { /* the host page focuses the frame too */ } } })
 			onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
 			const navShown = computed(() => NAV.filter((n) => n.show()))
-			return { view, active, NAV: navShown, collapsed, toggleRail, allowed, canConfigure, shared: CM.shared, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
+			return { pro: CM.pro, view, active, NAV: navShown, collapsed, toggleRail, allowed, canConfigure, shared: CM.shared, embedded: CM.embed, close: () => CM.requestClose(), newTab: CM.openInTab }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
@@ -59,6 +59,7 @@
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
 				</div>
 			</nav>
+			<div v-if="pro" class="subtabs"><b class="st-title">Assignment</b><nav class="st-tabs" aria-label="Assignment"><a v-for="n in NAV" :key="n.key" :href="'#' + n.path" class="st-tab" :class="{ on: active === n.key }" :aria-current="active === n.key ? 'page' : null">{{ n.label }}</a></nav></div>
 			<main class="main">
 				<div v-if="shared.error" class="page" style="padding-bottom:0"><div class="alert err"><Ico name="alert" /><div class="grow">{{ shared.error }}</div></div></div>
 				<div v-if="!allowed" class="page"><Empty icon="shield" title="You do not have access to lead assignment" text="Ask a System Manager to give you access on the Team and access page." /></div>

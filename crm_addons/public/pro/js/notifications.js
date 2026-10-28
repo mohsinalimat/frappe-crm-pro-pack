@@ -59,6 +59,7 @@
 				<div v-if="!panel" style="width:170px"><Dd v-model="type" :options="typeOpts" size="sm" aria-label="Type" /></div>
 				<div :style="{ width: panel ? '100%' : 'min(280px,100%)' }"><Inp v-model="q" icon="search" placeholder="Search notifications" clearable aria-label="Search notifications" /></div>
 			</div>
+			<div :class="panel ? 'ntf-body' : ''">
 			<div v-if="loading" class="card" style="padding:0"><div v-for="n in 6" :key="n" style="padding:16px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load()" />
 			<Empty v-else-if="!rows.length" icon="bell" :title="show === 'unread' ? 'You are all caught up' : 'No notifications yet'" :text="show === 'unread' ? 'Nothing unread.' : 'Assignments, mentions, tasks and WhatsApp messages for you show up here.'" />
@@ -77,6 +78,7 @@
 				</section>
 				<div v-if="rows.length < total" style="text-align:center"><Btn :loading="more" @click="more = true; load(true)">Show more</Btn></div>
 			</template>
+			</div>
 		</div>`,
 	}
 })()

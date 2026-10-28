@@ -17,6 +17,8 @@
 	if (CM.embed) document.documentElement.classList.add('embed')
 	CM.inline = CM.embed && params.get('inline') === '1' // shown as a page of the CRM (not a pop-up): no Close / new-tab buttons
 	if (CM.inline) document.documentElement.classList.add('inline')
+	CM.pro = CM.embed && params.get('pro') === '1' // shown inside the Suite Pro app: its own left menu is replaced by tabs along the top
+	if (CM.pro) document.documentElement.classList.add('pro')
 	/** Tell the CRM page that opened us something (the bridge listens for {source:'crm-addons'}). */
 	CM.post = (type, extra) => { try { window.parent.postMessage({ source: 'crm-addons', type, ...(extra || {}) }, location.origin) } catch (e) { /* no parent */ } }
 	function readTheme() {

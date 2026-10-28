@@ -143,3 +143,5 @@ table.by-day .remark { width: 30%; }
 .pick-none { padding: 10px; color: var(--text-faint); font-size: 13px; }
 
 .wa-tpl-body { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--bg-soft, rgba(127,127,127,.1)); white-space: pre-wrap; font-size: 13px; }
+
+html.inline .dash-brand .brand-ico { display: none; }

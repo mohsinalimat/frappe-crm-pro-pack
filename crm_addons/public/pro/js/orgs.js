@@ -69,7 +69,7 @@
 			<div v-else-if="loading && !rows.length" class="card" style="padding:0"><div v-for="n in 6" :key="n" style="padding:16px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div>
 			<section v-else class="card listcard" :style="{ opacity: loading ? .6 : 1 }">
 				<div class="row wrap lbar" style="gap:10px"><span class="muted">Showing {{ total ? (page - 1) * perPage + 1 : 0 }}&ndash;{{ Math.min(total, page * perPage) }} of {{ total }}</span><div class="grow"></div>
-					<button type="button" class="btn ghost sm" @click="load"><Ico name="refresh" /> Refresh</button><span class="small muted">Sort by</span><div style="width:150px"><Dd v-model="sort.by" :options="sortOpts" size="sm" aria-label="Sort by" /></div>
+					<button type="button" class="btn sm icon" aria-label="Refresh" title="Refresh" @click="load"><Ico name="refresh" /></button><span class="small muted">Sort by</span><div style="width:150px"><Dd v-model="sort.by" :options="sortOpts" size="sm" aria-label="Sort by" /></div>
 					<Btn size="sm" :icon="sort.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :aria-label="sort.dir === 'asc' ? 'Ascending' : 'Descending'" @click="sort.dir = sort.dir === 'asc' ? 'desc' : 'asc'" /></div>
 				<Empty v-if="!rows.length" icon="users" title="No organizations" :text="search || industry || territory ? 'No organization matches these filters.' : 'Add your first organization.'" />
 				<div v-else class="table-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Website</th><th>Industry</th><th>Territory</th><th>Employees</th><th class="num">Leads</th><th class="num">Deals</th><th class="num">Annual revenue</th></tr></thead>
