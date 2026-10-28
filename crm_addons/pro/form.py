@@ -247,10 +247,10 @@ def import_csv(content, dry_run=1):
 		if not any(cstr(c).strip() for c in row):
 			continue
 		values = {cols[j]: c for j, c in enumerate(row) if j < len(cols) and cols[j]}
+		frappe.db.savepoint("pro_import_row")
 		try:
 			data = clean_values(values, allowed)
 			data = {k: v for k, v in data.items() if v is not None}
-			frappe.db.savepoint("pro_import_row")
 			frappe.get_doc({"doctype": LEAD, **data}).insert()
 			if cint(dry_run):
 				frappe.db.rollback(save_point="pro_import_row")

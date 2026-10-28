@@ -116,3 +116,9 @@
 .pv.grow { justify-content: flex-start }
 .pv.ico { white-space: nowrap }
 button.link { border: 0; background: none; padding: 0; color: var(--accent, #2563eb); cursor: pointer; font: inherit }
+
+/* upload wizard */
+.mapt { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(200px, 1.2fr); gap: 8px 14px; align-items: center; max-height: 380px; overflow: auto }
+.mapt .mh { font-size: 12px; font-weight: 600; color: var(--muted, #6b7280); position: sticky; top: 0; background: var(--card, #fff) }
+.bar { height: 10px; border-radius: 6px; background: var(--hover, #e9edf1); overflow: hidden; margin: 6px 0 12px }
+.bar i { display: block; height: 100%; background: var(--accent, #2563eb); transition: width .2s }

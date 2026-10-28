@@ -123,32 +123,84 @@
 	}
 
 	/** Upload a CSV of leads: check it first (nothing is saved), then add them. */
+	/** Upload leads: pick an Excel / CSV file or paste a Google Sheet link, match the sheet's columns to lead fields, check, then add with progress. */
 	V.ImportLeads = {
 		emits: ['close', 'done'],
 		setup(props, { emit }) {
-			const text = ref(''); const fileName = ref(''); const result = ref(null); const busy = ref(false); const error = ref('')
-			async function pick(e) {
-				const f = e.target.files[0]; if (!f) return
-				if (f.size > 5e6) { error.value = 'That file is over 5 MB. Split it into parts.'; return }
-				fileName.value = f.name; text.value = await f.text(); result.value = null; error.value = ''; await run(1)
-			}
-			async function run(dry) {
+			const call = (m, a) => CM.call('crm_addons.pro.importer.' + m, a)
+			const step = ref(1); const source = ref('file'); const url = ref(''); const busy = ref(false); const error = ref('')
+			const sheet = reactive({ name: '', headers: [], rows: [], total: 0 })
+			const fields = ref([]); const mapping = ref([])
+			const run = reactive({ phase: '', done: 0, total: 0, created: 0, failed: [] })   // phase: check | add | checked | added
+			const BATCH = 100
+			function toBase64(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(file) }) }
+			async function load(args, name) {
 				busy.value = true; error.value = ''
-				try { result.value = await CM.call('crm_addons.pro.form.import_csv', { content: text.value, dry_run: dry }); if (!dry) { CM.toast(result.value.created + ' leads added'); emit('done') } } catch (e) { error.value = e.message; result.value = null } finally { busy.value = false }
+				try {
+					const s = await call('read_sheet', args)
+					const m = await call('suggest_mapping', { headers: JSON.stringify(s.headers) })
+					Object.assign(sheet, { name, headers: s.headers, rows: s.rows, total: s.total }); fields.value = m.fields; mapping.value = m.mapping; step.value = 2
+				} catch (e) { error.value = e.message } finally { busy.value = false }
 			}
+			async function pick(e) {
+				const f = e.target.files[0]; e.target.value = ''; if (!f) return
+				if (f.size > 8e6) { error.value = 'That file is over 8 MB. Split it into parts.'; return }
+				load({ kind: 'file', filename: f.name, content: await toBase64(f) }, f.name)
+			}
+			const useLink = () => load({ kind: 'sheet', url: url.value.trim() }, 'Google Sheet')
+			const example = (i) => { for (const r of sheet.rows.slice(0, 30)) if (r[i]) return r[i].length > 40 ? r[i].slice(0, 40) + '...' : r[i]; return '' }
+			const used = computed(() => new Set(mapping.value.filter(Boolean)))
+			const opts = (i) => [{ value: '', label: "Don't import" }, ...fields.value.map((f) => ({ value: f.fieldname, label: f.label + (f.fieldname === 'first_name' ? ' (needed)' : ''), disabled: used.value.has(f.fieldname) && mapping.value[i] !== f.fieldname }))]
+			const ready = computed(() => used.value.has('first_name'))
+			async function go(dry) {
+				run.phase = dry ? 'check' : 'add'; run.done = 0; run.total = sheet.rows.length; run.created = 0; run.failed = []; error.value = ''
+				try {
+					for (let i = 0; i < sheet.rows.length; i += BATCH) {
+						const r = await call('add_rows', { mapping: JSON.stringify(mapping.value), rows: JSON.stringify(sheet.rows.slice(i, i + BATCH)), dry_run: dry ? 1 : 0, start: i + 2 })
+						run.created += r.created; run.failed.push(...r.failed); run.done = Math.min(sheet.rows.length, i + BATCH)
+					}
+					run.phase = dry ? 'checked' : 'added'
+					if (!dry) { CM.toast(run.created + (run.created === 1 ? ' lead' : ' leads') + ' added'); emit('done') }
+				} catch (e) { error.value = e.message; run.phase = dry ? '' : 'checked' }
+			}
+			function review() { step.value = 3; go(true) }
 			async function template() { try { const r = await CM.call('crm_addons.pro.form.import_template', {}); csvDownload(r.csv, 'lead-import-template.csv') } catch (e) { CM.toast(e.message, 'err') } }
-			return { text, fileName, result, busy, error, pick, run, template }
+			const pct = computed(() => (run.total ? Math.round((run.done / run.total) * 100) : 0))
+			return { step, source, url, busy, error, sheet, fields, mapping, run, pick, useLink, example, opts, ready, review, go, template, pct, SRC: [{ value: 'file', label: 'Excel or CSV file' }, { value: 'sheet', label: 'Google Sheet link' }] }
 		},
 		template: `
-		<Modal title="Upload leads" subtitle="A CSV file whose first row holds the column names of the lead form." @close="$emit('close')">
-			<div class="row" style="gap:10px;flex-wrap:wrap"><label class="btn"><Ico name="upload" /> Choose a CSV file<input type="file" accept=".csv,text/csv" hidden @change="pick" /></label><Btn variant="ghost" icon="download" @click="template">Download the template</Btn><span v-if="fileName" class="small muted">{{ fileName }}</span></div>
-			<div v-if="error" class="err" role="alert" style="margin-top:10px">{{ error }}</div>
-			<div v-if="result" style="margin-top:14px">
-				<p><b>{{ result.created }}</b> of {{ result.total }} {{ result.dry_run ? 'leads are ready to add' : 'leads added' }}<template v-if="result.failed.length">; <b>{{ result.failed.length }}</b> need fixing</template>.</p>
-				<p v-if="result.unknown.length" class="small muted">Columns not used (no such field on the lead form): {{ result.unknown.join(', ') }}</p>
-				<ul v-if="result.failed.length" class="list" style="max-height:200px;overflow:auto"><li v-for="f in result.failed" :key="f.row" class="li small">Row {{ f.row }}: {{ f.reason }}</li></ul>
+		<Modal title="Upload leads" :subtitle="step === 1 ? 'Step 1 of 3: choose your sheet' : step === 2 ? 'Step 2 of 3: match the columns' : 'Step 3 of 3: check and add'" size="lg" @close="$emit('close')">
+			<div v-if="step === 1">
+				<Seg v-model="source" :options="SRC" />
+				<div v-if="source === 'file'" style="margin-top:14px"><label class="btn"><Ico name="upload" /> Choose an Excel or CSV file<input type="file" accept=".xlsx,.csv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden @change="pick" /></label>
+					<Btn variant="ghost" icon="download" style="margin-left:8px" @click="template">Download a template</Btn></div>
+				<div v-else style="margin-top:14px"><Field label="Link of the Google Sheet" hint="Open the sheet, click Share and set General access to Anyone with the link (Viewer). Only the first tab, or the tab in the link, is read."><Inp v-model="url" placeholder="https://docs.google.com/spreadsheets/d/..." aria-label="Google Sheet link" @keydown.enter="useLink" /></Field>
+					<Btn variant="primary" :loading="busy" :disabled="!url.trim()" @click="useLink">Read the sheet</Btn></div>
+				<p v-if="busy && source === 'file'" class="muted small" style="margin-top:12px">Reading the file...</p>
+				<div v-if="error" class="err" role="alert" style="margin-top:12px">{{ error }}</div>
 			</div>
-			<template #foot><Btn @click="$emit('close')">Close</Btn><Btn variant="primary" :loading="busy" :disabled="!result || !result.dry_run || !result.created" @click="run(0)">Add {{ result && result.dry_run ? result.created : '' }} leads</Btn></template>
+			<div v-else-if="step === 2">
+				<p class="small muted" style="margin:0 0 10px"><b>{{ sheet.name }}</b>: {{ sheet.total }} leads, {{ sheet.headers.length }} columns. For each column of your sheet, pick the lead field it goes to.</p>
+				<div class="mapt"><div class="mh">Column in your sheet</div><div class="mh">An example</div><div class="mh">Field in the CRM</div>
+					<template v-for="(h, i) in sheet.headers" :key="i"><div class="ellipsis"><b>{{ h }}</b></div><div class="ellipsis muted small">{{ example(i) || '(empty)' }}</div><div><Dd v-model="mapping[i]" :options="opts(i)" searchable :aria-label="'Field for ' + h" /></div></template></div>
+				<div v-if="!ready" class="err" role="alert" style="margin-top:10px">Match one column to First name: every lead needs it.</div>
+			</div>
+			<div v-else>
+				<div class="bar" role="progressbar" :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: pct + '%' }"></i></div>
+				<p v-if="run.phase === 'check'">Checking... {{ run.done }} of {{ run.total }} rows</p>
+				<p v-else-if="run.phase === 'add'">Adding leads... {{ run.done }} of {{ run.total }} rows</p>
+				<p v-else-if="run.phase === 'checked'"><b>{{ run.created }}</b> of {{ run.total }} leads are ready to add<template v-if="run.failed.length">; <b>{{ run.failed.length }}</b> need fixing and will be skipped</template>.</p>
+				<p v-else-if="run.phase === 'added'"><b>Done.</b> {{ run.created }} leads added<template v-if="run.failed.length">, {{ run.failed.length }} skipped</template>.</p>
+				<ul v-if="run.failed.length && (run.phase === 'checked' || run.phase === 'added')" class="list" style="max-height:200px;overflow:auto"><li v-for="f in run.failed.slice(0, 200)" :key="f.row" class="li small">Row {{ f.row }}: {{ f.reason }}</li></ul>
+				<div v-if="error" class="err" role="alert" style="margin-top:10px">{{ error }}</div>
+			</div>
+			<template #foot>
+				<Btn v-if="step === 2" @click="step = 1">Back</Btn><Btn v-if="step === 3 && run.phase === 'checked'" @click="step = 2">Back</Btn>
+				<div class="grow"></div>
+				<Btn @click="$emit('close')">{{ run.phase === 'added' ? 'Close' : 'Cancel' }}</Btn>
+				<Btn v-if="step === 2" variant="primary" :disabled="!ready" @click="review">Check the sheet</Btn>
+				<Btn v-if="step === 3 && run.phase === 'checked'" variant="primary" :disabled="!run.created" @click="go(false)">Add {{ run.created }} leads</Btn>
+			</template>
 		</Modal>`,
 	}
 
