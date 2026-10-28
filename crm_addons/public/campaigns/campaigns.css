@@ -333,6 +333,7 @@ html.pro .app, html.pro .app.rail-collapsed { grid-template-columns: minmax(0, 1
 .st-tab:hover { color: var(--text); text-decoration: none; }
 .st-tab.on { color: var(--accent-text, var(--accent)); border-bottom-color: var(--accent); font-weight: 650; }
 /* the page's own title is the header above; only its buttons stay, at the top right */
-html.pro .main > .page > .pg-head:first-child:has(> .actions) { min-height: 0; padding: 0; margin: 0; border: 0; }
+html.pro .main > .page > .pg-head:first-child:has(> .actions) { display: contents; }
+html.pro .main > .page { padding-top: 14px; }
 html.pro .main > .page > .pg-head:first-child:has(> .actions) > .grow { display: none; }
 html.pro .main > .page > .pg-head:first-child > .actions { position: fixed; top: 20px; right: 24px; z-index: 12; margin: 0; }
