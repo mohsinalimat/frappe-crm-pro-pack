@@ -76,7 +76,7 @@
 				<section class="card" style="padding:16px 18px" aria-label="Preview">
 					<b>Preview</b>
 					<div class="prev">
-						<div class="row" style="gap:8px;flex-wrap:wrap"><span class="pv grow">Search anything: name, email, phone ...</span><span v-if="c.show_date" class="pv">Any time</span><span v-if="c.show_status" class="pv">Status</span><span class="pv ico">Filter icon</span></div>
+						<div class="row" style="gap:8px;flex-wrap:wrap"><span class="pv grow">Search anything: name, email, phone ...</span><span v-if="c.show_date" class="pv">Any time</span><span v-if="c.show_status" class="pv">Status</span><span class="pv ico" title="Filter icon" aria-label="Filter icon"><Ico name="filter" size="sm" /></span></div>
 						<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px"><span v-for="f in filters" :key="f.key" class="pv">{{ f.label }}</span><span class="pv dash">+ Custom filter</span></div>
 						<div class="pv-tbl"><span v-for="col in (columns.length ? columns : [{ key: 'a', label: 'CRM default columns' }])" :key="col.key">{{ col.label }}</span></div>
 					</div>

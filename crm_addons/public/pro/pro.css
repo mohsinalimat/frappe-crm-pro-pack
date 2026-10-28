@@ -208,3 +208,6 @@ button.link { border: 0; background: none; padding: 0; color: var(--accent, #256
 .gs-pop{position:absolute;z-index:30;top:calc(100% + 4px);right:0;left:0;max-height:340px;overflow:auto;background:var(--surface,#fff);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px}
 .gs-i{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;padding:8px 10px;border:0;background:transparent;border-radius:6px;text-align:left;cursor:pointer;color:inherit;font:inherit}
 .gs-i:hover{background:var(--bg-hover)}
+
+.settings-body > .page { padding-top: 0 }
+.settings-wrap > .subtabs .st-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 4px }
