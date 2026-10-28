@@ -7,6 +7,7 @@
 
 	// ------------------------------------------------------------------ theme (same rules as the other pages)
 	const params = new URLSearchParams(location.search)
+	if (params.get('pro') === '1') document.documentElement.classList.add('pro')
 	const embedded = params.get('embed') === '1' // opened inside the CRM (a page of it): no Back to CRM link
 	function readTheme() {
 		let t = params.get('theme')
@@ -325,6 +326,7 @@
 			const draft = reactive({}) // values being edited
 			const choices = ref({}); const status = ref({ checks: [], todo: 0, ready: 0, total: 0 })
 			const tab = ref(params.get('tab') || 'start'); const q = ref('')
+			window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.source === 'pro-shell' && e.data.tab) { q.value = ''; tab.value = e.data.tab } }) // the Suite Pro app picks the section from its own tabs
 			const saving = ref(false); const toast = reactive({ text: '', tone: '' })
 			const open = reactive({}); const test = reactive({ busy: false, text: '', ok: false }); const rechecking = ref(false)
 			const itemMap = {}; SCHEMA.forEach((g) => g.items.forEach((it) => { if (it.k) { itemMap[it.k] = it; it.group = g.key } }))

@@ -224,3 +224,10 @@ input.inp.wide[type="text"], textarea.inp.wide { width: 100%; } .br-card { align
 .row-i.wide .watpl, .row-i.wide .metabox { align-items: flex-start; max-width: 560px; width: 100%; }
 .row-i.wide .watpl .sel { min-width: 260px; }
 .row-i.wide .inp.area { width: min(560px, 100%); }
+
+/* inside the Suite Pro app: its header tabs choose the section, so the left list and the big title go */
+html.pro .side, html.pro .top .grow { display: none; }
+html.pro .top { background: transparent; border-bottom: 0; }
+html.pro .top-in { justify-content: flex-end; max-width: 1180px; padding: 14px 24px 0; }
+html.pro .search { width: 320px; }
+html.pro .body { grid-template-columns: minmax(0, 1fr); max-width: 1180px; padding-top: 14px; }

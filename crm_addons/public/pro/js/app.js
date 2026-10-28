@@ -33,10 +33,11 @@
 	}
 
 	V.Frame = {
-		props: { page: String },
+		props: { page: String, tab: String },
 		setup(props) {
 			const theme = document.documentElement.getAttribute('data-theme') || 'light'
-			const src = computed(() => '/assets/crm_addons/' + FRAMES[props.page] + '?embed=1&inline=1&pro=1&theme=' + theme + '&v=' + encodeURIComponent(ver()))
+			const first = props.tab
+			const src = computed(() => '/assets/crm_addons/' + FRAMES[props.page] + '?embed=1&inline=1&pro=1&theme=' + theme + (first ? '&tab=' + encodeURIComponent(first) : '') + '&v=' + encodeURIComponent(ver()))
 			const el = ref(null)
 			// the pages draw a close / open-in-a-tab toolbar when they are a pop-up: not wanted here
 			function tidy() {
@@ -47,6 +48,7 @@
 					d.head.appendChild(s)
 				} catch (e) { /* not ours */ }
 			}
+			watch(() => props.tab, (t) => { try { if (t && el.value) el.value.contentWindow.postMessage({ source: 'pro-shell', tab: t }, location.origin) } catch (e) { /* the page is not there yet */ } })
 			return { src, el, tidy }
 		},
 		template: `<iframe ref="el" class="pro-frame" :src="src" :title="page" @load="tidy"></iframe>`,
@@ -56,14 +58,19 @@
 	V.SettingsPage = {
 		props: { tab: String },
 		setup(props) {
-			const TABS = [{ value: 'general', label: 'General' }, { value: 'leads', label: 'Leads screen' }]
-			const cur = computed(() => (props.tab === 'leads' ? 'leads' : 'general'))
-			return { TABS, cur, go: (t) => { location.hash = t === 'leads' ? '#/settings/leads' : '#/settings' } }
+			const TABS = computed(() => [{ value: 'start', label: 'Setup checklist' }, ...((window.SETUP_SCHEMA || []).map((g) => ({ value: g.key, label: g.title }))), { value: 'leads', label: 'Leads screen' }])
+			const cur = computed(() => (TABS.value.some((t) => t.value === props.tab) ? props.tab : 'start'))
+			const first = props.tab && props.tab !== 'leads' ? props.tab : 'start'
+			const frameTab = ref(first); watch(cur, (t) => { if (t !== 'leads') frameTab.value = t })
+			const seen = ref(cur.value === 'leads' ? false : true)   // the setup page loads when first needed, and then stays (its unsaved changes survive a visit to the other tab)
+			watch(cur, (t) => { if (t !== 'leads') seen.value = true })
+			watch(cur, () => nextTick(() => { const el = document.querySelector('.settings-wrap .st-tab.on'); if (el) el.scrollIntoView({ inline: 'center', block: 'nearest' }) }))
+			return { TABS, cur, frameTab, seen }
 		},
 		template: `
 		<div class="settings-wrap">
-			<div class="subtabs"><nav class="st-tabs" aria-label="Settings"><a v-for="t in TABS" :key="t.value" :href="t.value === 'leads' ? '#/settings/leads' : '#/settings'" class="st-tab" :class="{ on: cur === t.value }" :aria-current="cur === t.value ? 'page' : null">{{ t.label }}</a></nav></div>
-			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><Frame v-else page="settings" key="settings" /></div>
+			<div class="subtabs"><nav class="st-tabs" aria-label="Settings"><a v-for="t in TABS" :key="t.value" :href="'#/settings/' + t.value" class="st-tab" :class="{ on: cur === t.value }" :aria-current="cur === t.value ? 'page' : null">{{ t.label }}</a></nav></div>
+			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><Frame v-if="seen" v-show="cur !== 'leads'" page="settings" :tab="frameTab" key="settings" /></div>
 		</div>`,
 	}
 
