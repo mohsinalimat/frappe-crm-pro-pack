@@ -346,3 +346,33 @@ html[data-theme="dark"] .wa-emoji { background: #233138; } html[data-theme="dark
 .wa-head > .grow { min-width: 0; } .wa-head .small, .wa-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
 .wa-compose, .wa-lock { flex: none; } .wa-in { min-width: 0; }
 @media (max-width: 640px) { .wa-chat { height: clamp(220px, calc(100vh - 420px), 480px); } .wa-bub { max-width: 88%; } .wa-lock { flex-direction: column; align-items: stretch; } }
+
+/* whatsapp: slimmer header, emoji groups, attach menu, saved replies */
+.wa-head { padding: 7px 12px; gap: 8px; } .wa-head b { font-size: 14px; } .wa-head .small { font-size: 12px; }
+.wa-win { font-size: 11.5px; padding: 2px 8px; }
+.wa-tpl { border: 1px solid rgba(255,255,255,.5); background: rgba(255,255,255,.14); color: #fff; border-radius: 8px; height: 30px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.wa-tpl:hover { background: rgba(255,255,255,.26); }
+.wa-emoji { display: block; width: min(340px, calc(100% - 20px)); padding: 6px; }
+.wa-etabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 4px; }
+.wa-etabs button { flex: 1; border: 0; background: none; font-size: 18px; border-radius: 6px; padding: 3px 0; cursor: pointer; opacity: .6; } .wa-etabs button.on { opacity: 1; background: rgba(0,0,0,.08); }
+.wa-egrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 210px; overflow-y: auto; }
+.wa-egrid button { border: 0; background: none; font-size: 21px; cursor: pointer; border-radius: 6px; padding: 3px; } .wa-egrid button:hover { background: rgba(0,0,0,.07); }
+.wa-attach { position: absolute; bottom: 100%; left: 50px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 3; display: flex; flex-direction: column; min-width: 160px; }
+.wa-attach button { display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 9px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; color: #111b21; } .wa-attach button:hover { background: rgba(0,0,0,.06); }
+.wa-slash { position: absolute; bottom: 100%; left: 10px; right: 10px; background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 3; padding: 4px; max-height: 260px; overflow-y: auto; }
+.wa-slash button { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: #111b21; }
+.wa-slash button span { font-size: 12.5px; color: #667781; max-width: 100%; } .wa-slash button.on { background: #e7f6ef; }
+.wa-foot { padding: 4px 10px; border-top: 1px solid var(--border); background: #f0f2f5; }
+html[data-theme="dark"] .wa-attach, html[data-theme="dark"] .wa-slash { background: #233138; } html[data-theme="dark"] .wa-attach button, html[data-theme="dark"] .wa-slash button { color: #e9edef; } html[data-theme="dark"] .wa-slash button.on { background: #2a3942; } html[data-theme="dark"] .wa-foot { background: #202c33; }
+.reply-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 12px; } .reply-row .grow { display: flex; flex-direction: column; gap: 6px; }
+
+/* the lead page keeps its header and tabs in place; the tab and the details panel scroll on their own */
+@media (min-width: 961px) {
+	.main > .page.lead-page { flex: 1 1 auto; min-height: 0; overflow: hidden; padding-bottom: 16px; }
+	.lead-page .lead-layout { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+	.lead-page .lead-main { display: flex; flex-direction: column; min-height: 0; }
+	.lead-page .lead-main > .ltabs { flex: none; }
+	.lead-page .lead-main > .tabbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+	.lead-page .lead-side { min-height: 0; overflow-y: auto; padding-right: 2px; }
+	.wa-chat { height: clamp(200px, calc(100vh - 575px), 560px); }
+}

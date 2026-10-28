@@ -81,3 +81,19 @@ class TestProConfig(AccessCase):
 			leads.field_values("creation")
 		with self.assertRaises(frappe.ValidationError):
 			leads.field_values("owner")
+
+
+class TestWhatsAppReplies(AccessCase):
+	def test_only_a_system_manager_saves_replies_and_blanks_are_dropped(self):
+		frappe.set_user("Administrator")
+		out = config.save_whatsapp_replies(json.dumps([{"title": " Pricing ", "text": "Hi {name}"}, {"title": "", "text": "x"}, {"title": "y", "text": ""}]))
+		self.assertEqual(out["replies"], [{"title": "Pricing", "text": "Hi {name}"}])
+		self.assertTrue(config.get_whatsapp_replies()["can_manage"])
+		person = self.person("pro.replies@example.org", "Sales User")
+		self.addCleanup(frappe.set_user, "Administrator")
+		self.addCleanup(lambda: frappe.db.set_default(config.WA_REPLIES_KEY, "[]"))
+		frappe.set_user(person)
+		self.assertEqual(config.get_whatsapp_replies()["replies"], out["replies"])
+		self.assertFalse(config.get_whatsapp_replies()["can_manage"])
+		with self.assertRaises(frappe.PermissionError):
+			config.save_whatsapp_replies("[]")
