@@ -146,7 +146,8 @@
 		</Modal>`,
 	}
 
-	const STD = [{ type: 'list', label: 'List', icon: 'list' }, { type: 'group_by', label: 'Group by', icon: 'columns' }, { type: 'kanban', label: 'Kanban', icon: 'grid2' }]
+	const STD = [{ type: 'list', label: 'List', icon: 'list' }, { type: 'group_by', label: 'Group by', icon: 'columns' }, { type: 'kanban', label: 'Kanban', icon: 'columns' }]
+	const MODES = [{ value: 'list', label: 'List', icon: 'list' }, { value: 'grid', label: 'Grid', icon: 'grid2' }, { value: 'kanban', label: 'Kanban', icon: 'columns' }]
 
 	V.Leads = {
 		setup() {
@@ -198,7 +199,16 @@
 			const customViews = computed(() => views.value.filter((v) => !v.is_standard && (v.public || v.user === PRO.shell.user)).sort((a, b) => (b.pinned || 0) - (a.pinned || 0)))
 			const currentView = computed(() => views.value.find((v) => (view.name ? v.name === view.name : v.is_standard && v.type === view.type)))
 			const viewOpts = computed(() => [...STD.map((s) => ({ value: 'std:' + s.type, label: s.label, icon: s.icon })), ...customViews.value.map((v) => ({ value: 'v:' + v.name, label: v.label, icon: (STD.find((s) => s.type === v.type) || STD[0]).icon, badge: v.public ? 'Public' : '' }))])
-			const typeOpts = STD.map((s) => ({ value: s.type, label: s.label, icon: s.icon }))
+			const grid = ref(PRO.leadUtil.store.get('grid', false))
+			const mode = computed(() => (view.type === 'kanban' ? 'kanban' : grid.value ? 'grid' : 'list'))
+			function setMode(m) {
+				grid.value = m === 'grid'; PRO.leadUtil.store.set('grid', grid.value)
+				if (m === 'kanban') pickView('std:kanban')
+				else if (view.type === 'kanban') pickView('std:list')
+				else if (view.type === 'group_by' && grid.value) { view.type = 'list'; load(true) }
+			}
+			function setGroup(f) { if (!f) { view.type = 'list'; load(true) } else { view.type = 'group_by'; p.groupBy = f; change() } }
+			const groupPick = computed(() => [{ value: '', label: 'None' }, ...groupOpts.value])
 			const savedOpts = computed(() => [{ value: 'std:' + view.type, label: 'Default' }, ...viewOpts.value.filter((o) => o.value.startsWith('v:'))])
 			const viewKey = computed(() => (view.name ? 'v:' + view.name : 'std:' + view.type))
 			function applyView(v, quiet) {
@@ -333,13 +343,13 @@
 				} catch (e) { CM.toast(e.message, 'err') } finally { exporting.value = false }
 			}
 			const sortDirOpts = [{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]
-			return { customViews, typeOpts, savedOpts, vt, data, loading, error, meta, view, p, dirty, picked, dlg, busy, creating, importing, quickVals, search, load, viewOpts, viewKey, pickView, currentView, saveChanges, newView, createView, dropView, flipPublic, flipPin, nFilters, applyFilters, quick, quickSet, quickFor, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
+			return { MODES, grid, mode, setMode, setGroup, groupPick, customViews, savedOpts, vt, data, loading, error, meta, view, p, dirty, picked, dlg, busy, creating, importing, quickVals, search, load, viewOpts, viewKey, pickView, currentView, saveChanges, newView, createView, dropView, flipPublic, flipPin, nFilters, applyFilters, quick, quickSet, quickFor, filterFields, sortParts, sortOpts, setSort, sortDirOpts, applyColumns, colQ, groupOpts, groupName, rows, columns, groups, total, more, open, allOn, flipAll, flip, ago, assignees, slaTone, colWidth, assignOpts, assignUsers, bulk, drag, board, drop, colMore, cardFields, fieldLabel, exporting, exportCsv, change, TIME_KEYS, PRO, CM }
 		},
 		template: `
 		<div class="page leads">
 			<div class="pg-head"><div class="grow"><h1>Leads</h1><p class="muted small">{{ loading && !data ? '' : total + (total === 1 ? ' lead' : ' leads') }}</p></div>
 				<div class="actions">
-					<Seg :modelValue="view.type" :options="typeOpts" @update:modelValue="(t) => pickView('std:' + t)" />
+					<Seg :modelValue="mode" :options="MODES" @update:modelValue="setMode" />
 					<Btn icon="download" :loading="exporting" title="Download every field of the leads (the selected ones, or all of these filters) as CSV" aria-label="Export leads" @click="exportCsv" />
 					<Btn v-if="meta.can_create" icon="upload" title="Upload leads from a CSV file" aria-label="Upload leads" @click="importing = true" />
 					<Btn v-if="meta.can_create" variant="primary" icon="plus" @click="creating = true">Create</Btn>
@@ -355,8 +365,8 @@
 						<div style="width:150px"><Dd :modelValue="sortParts.field" :options="sortOpts" searchable prefix="Sort:" aria-label="Sort by" @update:modelValue="(f) => setSort(f, sortParts.dir)" /></div>
 						<Btn :icon="sortParts.dir === 'asc' ? 'arrow-up' : 'arrow-down'" :aria-label="sortParts.dir === 'asc' ? 'Ascending' : 'Descending'" @click="setSort(sortParts.field, sortParts.dir === 'asc' ? 'desc' : 'asc')" />
 					</template>
-					<div v-if="view.type === 'group_by'" style="width:170px"><Dd :modelValue="groupName" :options="groupOpts" searchable prefix="Group:" aria-label="Group by" @update:modelValue="(g) => { p.groupBy = g; change() }" /></div>
-					<Btn v-if="view.type !== 'kanban'" icon="list" @click="dlg = 'columns'">Columns</Btn>
+					<div v-if="view.type !== 'kanban' && !grid" style="width:170px"><Dd :modelValue="view.type === 'group_by' ? groupName : ''" :options="groupPick" searchable prefix="Group:" aria-label="Group by" @update:modelValue="setGroup" /></div>
+					<Btn v-if="view.type !== 'kanban' && !grid" icon="list" @click="dlg = 'columns'">Columns</Btn>
 					<Btn icon="refresh" aria-label="Refresh" title="Refresh" @click="load(true)" />
 					<Btn v-if="dirty" variant="primary" :loading="busy" @click="saveChanges">Save changes</Btn>
 					<Btn v-if="dirty" @click="newView.open = true">Create view</Btn>
@@ -383,6 +393,12 @@
 			<section v-else-if="data" class="card listcard" :style="{ opacity: loading ? .6 : 1 }">
 				<template v-if="vt !== 'kanban'">
 					<Empty v-if="!rows.length" icon="users" title="No leads here" :text="nFilters || search ? 'No lead matches these filters.' : 'There are no leads yet.'"><Btn v-if="nFilters || search" @click="applyFilters({}); search = ''">Clear filters</Btn></Empty>
+					<div v-else-if="grid" class="gridv"><div v-for="r in rows" :key="r.name" class="kcard" tabindex="0" @click="open(r.name)" @keydown.enter="open(r.name)">
+						<div class="row" style="gap:10px"><Pic :name="r.lead_name || r.first_name || '?'" :image="r.image" :size="36" /><div class="grow" style="min-width:0"><b class="ellipsis" style="display:block">{{ r.lead_name || r.name }}</b><span class="small muted ellipsis" style="display:block">{{ r.organization || '' }}</span></div><input type="checkbox" :checked="picked.includes(r.name)" :aria-label="'Select ' + (r.lead_name || r.name)" @click.stop @change="flip(r.name)" /></div>
+						<div class="row" style="gap:6px;flex-wrap:wrap"><StatusTag :status="r.status" /><span v-if="r.sla_status" class="badge nodot" :class="slaTone(r.sla_status)">{{ r.sla_status }}</span></div>
+						<div v-if="r.mobile_no" class="small">{{ r.mobile_no }}</div><div v-if="r.email" class="small muted ellipsis">{{ r.email }}</div>
+						<div class="row small muted" style="justify-content:space-between;gap:6px"><span v-if="assignees(r).length" class="row" style="gap:4px"><UserPic v-for="u in assignees(r).slice(0, 2)" :key="u" :user="u" :size="18" /></span><span v-else class="faint">Unassigned</span><span :title="r.modified">{{ ago(r.modified) }}</span></div>
+					</div></div>
 					<div v-else class="table-wrap"><table class="tbl">
 						<thead><tr><th style="width:36px"><input type="checkbox" :checked="allOn" aria-label="Select all" @change="flipAll" /></th><th v-for="c in columns" :key="c.key" :style="colWidth(c)">{{ c.label }}</th></tr></thead>
 						<tbody>
