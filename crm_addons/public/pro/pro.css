@@ -73,8 +73,11 @@
 	.page.leads .listcard > .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
 	.page.leads .listcard > .pager, .page.leads .listcard > .lbar { flex: none; }
 	.page.leads .tbl th { position: sticky; top: 0; z-index: 2; }
-	.page.leads .board { flex: 1 1 auto; min-height: 0; align-items: stretch; overflow-x: auto; overflow-y: hidden; padding: 12px 14px; }
-	.page.leads .board .col { max-height: none; min-height: 0; height: 100%; }
+	/* the whole board scrolls, so every column moves together (a column never scrolls on its own) */
+	.page.leads .board { flex: 1 1 auto; min-height: 0; align-items: flex-start; overflow: auto; padding: 0 14px 12px; }
+	.page.leads .board .col { max-height: none; min-height: 160px; height: auto; margin-top: 12px; }
+	.page.leads .board .col-body { overflow: visible; }
+	.page.leads .board .col header { position: sticky; top: 0; z-index: 2; background: var(--bg-soft); border-radius: 12px 12px 0 0 }
 	.page.leads .bulk, .page.leads .fbar, .page.leads .pg-head { flex: none; }
 }
 
