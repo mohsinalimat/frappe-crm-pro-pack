@@ -70,26 +70,29 @@
 	const App = {
 		setup() {
 			const r = CM.route
+			if (!location.hash) CM.replace('/dashboard')   // the shared router starts on Campaigns; this app starts on the Sales Dashboard
 			const items = computed(() => menu(PRO.shell.config))
-			const active = computed(() => { const k = r.parts[0] || 'notifications'; return items.value.some((i) => i.key === k) ? k : (items.value[0] ? items.value[0].key : 'notifications') })
+			const active = computed(() => { const k = r.parts[0] && r.parts[0] !== 'notifications' ? r.parts[0] : 'dashboard'; return items.value.some((i) => i.key === k) ? k : (items.value[0] ? items.value[0].key : 'notifications') })
 			const current = computed(() => items.value.find((i) => i.key === active.value) || {})
-			const health = ref(null)
+			const health = ref(null); const ntf = ref(false)
 			async function checkHealth() { try { const h = await CM.call('crm_addons.pro.compat.get_health', {}); health.value = h.show ? h : null } catch (e) { /* the check is a help, never a blocker */ } }
 			async function seen() { try { await CM.call('crm_addons.pro.compat.acknowledge', {}); health.value = null } catch (e) { CM.toast(e.message, 'err') } }
 			onMounted(async () => { await PRO.loadShell(); CM.loadShared(); if (PRO.shell.config && PRO.shell.config.can_manage_access) checkHealth() })
 			let saved = false; try { saved = localStorage.getItem('pro_rail_collapsed') === '1' } catch (e) { /* storage blocked */ }
 			const collapsed = ref(saved)
 			const toggleRail = () => { collapsed.value = !collapsed.value; try { localStorage.setItem('pro_rail_collapsed', collapsed.value ? '1' : '0') } catch (e) { /* not remembered */ } }
+			watch(() => r.parts[0], (v) => { if (v === 'notifications') { ntf.value = true; location.hash = '#/dashboard' } }, { immediate: true })
 			watch(active, () => { document.title = (current.value.label || 'Suite Pro') + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			// the unread count stays fresh while the page is open
 			let t; onMounted(() => { t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000) }); onBeforeUnmount(() => clearInterval(t))
-			return { health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
+			return { ntf, health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
 		},
 		template: `
 		<div class="app" :class="{ 'rail-collapsed': collapsed }">
 			<nav class="rail" :class="{ collapsed }" aria-label="Suite Pro">
 				<div class="brand"><img v-if="PRO.shell.brand.logo" :src="PRO.shell.brand.logo" alt="" class="brand-img" /><span v-else class="brand-ico" aria-hidden="true"><Ico name="grid2" /></span><div class="brand-txt"><b>{{ PRO.shell.brand.name || 'Suite Pro' }}</b><span>{{ PRO.shell.full_name }}</span></div></div>
-				<a v-for="n in items" :key="n.key" :href="'#/' + n.key" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></a>
+				<template v-for="n in items" :key="n.key"><button v-if="n.key === 'notifications'" type="button" class="nav" :class="{ on: ntf }" :aria-expanded="String(ntf)" :title="collapsed ? n.label : null" :aria-label="n.label" @click="ntf = !ntf"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></button>
+								<a v-else :href="'#/' + n.key" class="nav" :class="{ on: active === n.key }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === n.key ? 'page' : null"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></a></template>
 				<div class="rail-foot">
 					<button type="button" class="nav rail-toggle" @click="toggleRail" :title="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-label="collapsed ? 'Expand the menu' : 'Collapse the menu'" :aria-expanded="String(!collapsed)"><Ico :name="collapsed ? 'chevron-right' : 'chevron-left'" /><span class="nav-l">Collapse menu</span></button>
 				</div>
@@ -100,14 +103,14 @@
 					<Btn v-if="!health.problems.length" size="sm" @click="seen">I have seen this</Btn></div>
 				<div v-if="PRO.shell.error" class="page"><Empty icon="alert" title="Could not start" :text="PRO.shell.error"><a class="btn primary" href="/login?redirect-to=/crm-pro">Log in</a></Empty></div>
 				<div v-else-if="!PRO.shell.loaded" class="page"><Skel h="40" r="10" /><Skel h="300" r="12" /></div>
-				<Notifications v-else-if="active === 'notifications'" :key="'n'" />
-				<Lead v-else-if="active === 'leads' && r.parts[1]" :key="'l' + r.parts[1]" :name="r.parts[1]" />
+								<Lead v-else-if="active === 'leads' && r.parts[1]" :key="'l' + r.parts[1]" :name="r.parts[1]" />
 				<Leads v-else-if="active === 'leads'" :key="'ls'" />
 				<Organization v-else-if="active === 'organizations' && r.parts[1]" :key="'o' + r.parts[1]" :name="r.parts[1]" />
 				<Organizations v-else-if="active === 'organizations'" :key="'os'" />
 				<SettingsPage v-else-if="active === 'settings'" :tab="r.parts[1]" />
 				<Frame v-else :page="active" :key="active" />
 			</main>
+			<template v-if="ntf"><div class="ntf-back" @click="ntf = false"></div><aside class="ntf-panel" role="dialog" aria-label="Notifications" @keydown.esc="ntf = false"><Notifications panel @close="ntf = false" /></aside></template>
 			<Toasts /><ConfirmHost />
 		</div>`,
 	}

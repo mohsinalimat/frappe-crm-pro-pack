@@ -14,6 +14,8 @@
 	const TYPE_ICON = { Assignment: 'users', Mention: 'mail', Task: 'check-circle', WhatsApp: 'whatsapp' }
 
 	V.Notifications = {
+		props: { panel: Boolean },
+		emits: ['close'],
 		setup() {
 			const rows = ref([]); const total = ref(0); const loading = ref(true); const error = ref(''); const more = ref(false)
 			const show = ref('all'); const type = ref(''); const q = ref('')
@@ -49,13 +51,13 @@
 			return { rows, total, loading, error, show, type, q, groups, typeOpts, open, toggle, readAll, load, more, TYPE_ICON, PRO, CM }
 		},
 		template: `
-		<div class="page">
-			<div class="pg-head"><div class="grow"><h1>Notifications</h1></div><div class="actions"><Btn icon="check" :disabled="!PRO.shell.unread" @click="readAll">Mark all as read</Btn></div></div>
+		<div :class="panel ? 'ntf-in' : 'page'">
+			<div class="pg-head"><div class="grow"><h1>Notifications</h1></div><div class="actions"><Btn icon="check" :disabled="!PRO.shell.unread" @click="readAll">Mark all as read</Btn><Btn v-if="panel" variant="ghost" icon="x" aria-label="Close notifications" title="Close" @click="$emit('close')" /></div></div>
 			<div class="row wrap tools" style="gap:10px">
 				<div class="chips"><button type="button" class="fchip" :class="{ on: show === 'all' }" @click="show = 'all'">All</button><button type="button" class="fchip" :class="{ on: show === 'unread' }" @click="show = 'unread'">Unread<span class="n">{{ PRO.shell.unread }}</span></button></div>
 				<div class="grow"></div>
-				<div style="width:170px"><Dd v-model="type" :options="typeOpts" size="sm" aria-label="Type" /></div>
-				<div style="width:min(280px,100%)"><Inp v-model="q" icon="search" placeholder="Search notifications" clearable aria-label="Search notifications" /></div>
+				<div v-if="!panel" style="width:170px"><Dd v-model="type" :options="typeOpts" size="sm" aria-label="Type" /></div>
+				<div :style="{ width: panel ? '100%' : 'min(280px,100%)' }"><Inp v-model="q" icon="search" placeholder="Search notifications" clearable aria-label="Search notifications" /></div>
 			</div>
 			<div v-if="loading" class="card" style="padding:0"><div v-for="n in 6" :key="n" style="padding:16px 18px;border-bottom:1px solid var(--border)"><Skel h="18" /></div></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load()" />
