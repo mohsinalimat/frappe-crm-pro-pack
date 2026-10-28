@@ -526,3 +526,27 @@ html[data-theme="dark"] .wx-stage { background-color: #0b141a; }
 .pfm-lock * { pointer-events: none }
 .pfm-n { display: flex; align-items: center; gap: 14px; padding: 6px 0; border-top: 1px solid var(--border) }
 .pfm-n:first-of-type { border-top: 0 }
+
+/* Settings, Integrations */
+.it-card { padding: 18px 20px; margin-bottom: 16px }
+.it-h { gap: 10px; align-items: flex-start; margin-bottom: 12px }
+.it-t { font-size: 16px }
+.it-acc { display: flex; gap: 14px; align-items: flex-start; padding: 14px; margin-top: 10px; border: 1px solid var(--border); border-radius: 12px }
+.it-acc.on { border-color: var(--accent, #2563eb); background: var(--accent-soft, #f3f6ff) }
+.it-ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: none; background: #eef0f4; color: #475569 }
+.it-ic.gmail { background: #fdecea; color: #d93025 }
+.it-ic.ses { background: #fff1e0; color: #e07b00 }
+.it-ic.wa { background: #e3f8ea; color: #1a9d4b }
+.it-main { flex: 1; min-width: 0 }
+.it-act { display: flex; gap: 6px; flex: none }
+.it-stats { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 8px; align-items: center }
+.it-s { display: inline-flex; gap: 6px; align-items: baseline; font-size: 12.5px; color: var(--text-muted) }
+.it-s b { font-size: 15px; color: var(--text) }
+.it-s.green b { color: #15803d } .it-s.red b { color: #b91c1c } .it-s.amber b { color: #b45309 } .it-s.blue b { color: #1d4ed8 }
+.it-warn { margin-top: 8px; display: flex; gap: 6px; align-items: center; color: #b45309 }
+.it-steps { margin: 4px 0 12px 18px; padding: 0; line-height: 1.7; color: var(--text) }
+.it-url { gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2, #f8fafc) }
+.it-url code { word-break: break-all; font-size: 12.5px }
+.it-form { display: grid; gap: 14px }
+.it-sw { gap: 12px; padding-top: 4px; align-items: center }
+.it-page { padding-top: 16px }

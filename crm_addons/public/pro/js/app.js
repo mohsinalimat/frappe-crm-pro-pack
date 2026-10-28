@@ -145,12 +145,12 @@
 	const SALES = ['followups', 'insights', 'dashboard'] // one menu entry: Follow-ups, Scoring and stale leads, Sales Dashboard counts
 	const tabOf = (t) => (SALES.includes(t) ? 'sales' : t)
 	const GROUP_OF = { branding: 'General', ui: 'General', views: 'General', leads: LF, orgs: LF, forms: LF, meetings: LF, followups: LF, insights: LF, dashboard: LF, campaigns: 'Campaigns', alerts: 'Campaigns', prices: 'Campaigns' }
-	const GROUP_ICON = { General: 'settings', [LF]: 'briefcase', Campaigns: 'send', Other: 'settings' }
-	const SHORT = { start: 'Checklist', branding: 'Branding', ui: 'Screen', views: 'Default views', leads: 'Lead page', orgs: 'Organization page', forms: 'Forms', sales: 'Sales' } // the short names on the tabs
-	const TAB_ICON = { start: 'list', branding: 'palette', ui: 'monitor', views: 'columns', leads: 'users', orgs: 'building', forms: 'rows', sales: 'trend', meetings: 'calendar', followups: 'phone', insights: 'chart', dashboard: 'chart', campaigns: 'send', alerts: 'alert', prices: 'hash' }
+	const GROUP_ICON = { General: 'settings', [LF]: 'briefcase', Campaigns: 'send', Integrations: 'mail', Other: 'settings' }
+	const SHORT = { start: 'Checklist', branding: 'Branding', ui: 'Screen', views: 'Default views', leads: 'Lead page', orgs: 'Organization page', forms: 'Forms', sales: 'Sales', integrations: 'Email and WhatsApp' } // the short names on the tabs
+	const TAB_ICON = { start: 'list', branding: 'palette', ui: 'monitor', views: 'columns', leads: 'users', orgs: 'building', forms: 'rows', sales: 'trend', integrations: 'mail', meetings: 'calendar', followups: 'phone', insights: 'chart', dashboard: 'chart', campaigns: 'send', alerts: 'alert', prices: 'hash' }
 	PRO.settingsGroups = () => {
-		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).filter((g) => !SALES.includes(g.key)).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Lead page', group: LF }, { value: 'orgs', label: 'Organization page', group: LF }, { value: 'forms', label: 'Add forms', group: LF }, { value: 'sales', label: 'Follow-ups, scoring and sales', group: LF }].map((x) => ({ ...x, short: SHORT[x.value] || x.label, icon: TAB_ICON[x.value] || 'settings' }))
-		return ['General', LF, 'Campaigns', 'Other'].map((t) => ({ title: t, icon: GROUP_ICON[t], items: all.filter((x) => x.group === t) })).filter((g) => g.items.length)
+		const all = [{ value: 'start', label: 'Setup checklist', group: 'General' }, ...((window.SETUP_SCHEMA || []).filter((g) => !SALES.includes(g.key)).map((g) => ({ value: g.key, label: g.title, group: GROUP_OF[g.key] || 'Other' }))), { value: 'leads', label: 'Lead page', group: LF }, { value: 'orgs', label: 'Organization page', group: LF }, { value: 'forms', label: 'Add forms', group: LF }, { value: 'sales', label: 'Follow-ups, scoring and sales', group: LF }, { value: 'integrations', label: 'Email and WhatsApp', group: 'Integrations' }].map((x) => ({ ...x, short: SHORT[x.value] || x.label, icon: TAB_ICON[x.value] || 'settings' }))
+		return ['General', LF, 'Campaigns', 'Integrations', 'Other'].map((t) => ({ title: t, icon: GROUP_ICON[t], items: all.filter((x) => x.group === t) })).filter((g) => g.items.length)
 	}
 	// one search over every setting: each option, and the pages that have no list of options (Branding, Default views, Leads screen)
 	PRO.settingsSearch = (term) => {
@@ -161,6 +161,7 @@
 		const page = (tab, label, words) => { if (hit(label + ' ' + words)) out.push({ tab, label, sub: groupOf(tab) }) }
 		page('start', 'Setup checklist', 'checklist ready connect google calendar')
 		page('leads', 'Lead page', 'columns list view filters card fields quick filters sort top row search')
+		page('integrations', 'Email and WhatsApp', 'integrations email gmail amazon ses smtp sending whatsapp bounce bounced delivery read sender provider')
 		page('forms', 'Add forms', 'add lead organization person user form fields required options dropdown source industry territory customise')
 		page('orgs', 'Organization page', 'organizations filters industry territory top row')
 		for (const g of window.SETUP_SCHEMA || []) {
@@ -177,9 +178,9 @@
 		setup(props) {
 			const TABS = computed(() => PRO.settingsGroups().flatMap((g) => g.items.map((i) => ({ ...i, group: g.title }))))
 			const cur = computed(() => { const t = tabOf(props.tab); return TABS.value.some((x) => x.value === t) ? t : 'start' })
-			const first = props.tab && props.tab !== 'leads' && props.tab !== 'orgs' && props.tab !== 'forms' ? props.tab : 'start'
-			const frameTab = ref(first); watch(cur, (t) => { if (t !== 'leads' && t !== 'orgs' && t !== 'forms') frameTab.value = t })
-			const native = (t) => t === 'leads' || t === 'orgs' || t === 'forms'
+			const first = props.tab && props.tab !== 'leads' && props.tab !== 'orgs' && props.tab !== 'forms' && props.tab !== 'integrations' ? props.tab : 'start'
+			const frameTab = ref(first); watch(cur, (t) => { if (t !== 'leads' && t !== 'orgs' && t !== 'forms' && t !== 'integrations') frameTab.value = t })
+			const native = (t) => t === 'leads' || t === 'orgs' || t === 'forms' || t === 'integrations'
 			const seen = ref(native(cur.value) ? false : true)   // the setup page loads when first needed, and then stays (its unsaved changes survive a visit to the other tab)
 			watch(cur, (t) => { if (!native(t)) seen.value = true })
 			const curItem = computed(() => TABS.value.find((t) => t.value === cur.value) || {})
@@ -199,7 +200,7 @@
 					<div v-if="q.trim()" class="gs-pop" role="listbox"><button v-for="(r, i) in results" :key="i" type="button" class="gs-i" role="option" @click="pick(r)"><b>{{ r.label }}</b><span class="small muted">{{ r.sub }}</span></button><div v-if="!results.length" class="small muted" style="padding:10px">No setting matches "{{ q.trim() }}".</div></div></div></div></div>
 				<nav class="st-tabs" :aria-label="group.title"><a v-for="t in group.items" :key="t.value" :href="'#/settings/' + t.value" class="st-tab" :class="{ on: cur === t.value }" :aria-current="cur === t.value ? 'page' : null"><Ico :name="t.icon" size="sm" />{{ t.short }}</a></nav>
 			</div>
-			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><OrgSetup v-else-if="cur === 'orgs'" :key="'orgcfg'" /><FormsSetup v-else-if="cur === 'forms'" :key="'formcfg'" /><Frame v-if="seen" v-show="cur !== 'leads' && cur !== 'orgs' && cur !== 'forms'" page="settings" :tab="frameTab" key="settings" /></div>
+			<div class="settings-body"><LeadSetup v-if="cur === 'leads'" :key="'cfg'" /><OrgSetup v-else-if="cur === 'orgs'" :key="'orgcfg'" /><FormsSetup v-else-if="cur === 'forms'" :key="'formcfg'" /><Integrations v-else-if="cur === 'integrations'" :key="'intcfg'" /><Frame v-if="seen" v-show="cur !== 'leads' && cur !== 'orgs' && cur !== 'forms' && cur !== 'integrations'" page="settings" :tab="frameTab" key="settings" /></div>
 		</div>`,
 	}
 
