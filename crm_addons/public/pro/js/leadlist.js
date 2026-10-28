@@ -382,10 +382,12 @@
 			</section>
 
 			<div v-if="picked.length" class="card bulk" role="region" aria-label="Selected leads">
-				<b>{{ picked.length }} selected</b>
-				<button v-if="!selAll && total > picked.length && vt !== 'kanban'" type="button" class="link" :disabled="busy" @click="selectEvery">Select all {{ total }} leads</button>
-				<span v-else-if="selAll" class="small muted">That is every lead in these filters.</span>
-				<div class="grow"></div><Btn size="sm" variant="primary" @click="openBulk">Bulk actions</Btn><Btn size="sm" variant="ghost" @click="picked = []; selAll = false">Clear selection</Btn>
+				<span class="bulk-n"><Ico name="check" size="sm" /></span><b>{{ picked.length }} {{ picked.length === 1 ? 'row' : 'rows' }} selected</b>
+				<Btn size="sm" variant="primary" @click="openBulk">Bulk actions</Btn>
+				<span class="bulk-sep"></span>
+				<button v-if="!selAll && total > picked.length && vt !== 'kanban'" type="button" class="link" :disabled="busy" @click="selectEvery">Select all {{ total }}</button>
+				<span v-else-if="selAll" class="small muted">All {{ total }} selected</span>
+				<Btn size="sm" variant="ghost" icon="x" aria-label="Clear selection" title="Clear selection" @click="picked = []; selAll = false" />
 			</div>
 
 			<ErrorState v-if="error" :message="error" @retry="load()" />
