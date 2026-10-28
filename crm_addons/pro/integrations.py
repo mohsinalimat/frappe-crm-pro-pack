@@ -689,3 +689,75 @@ def get_whatsapp_log(page=1, page_size=25, status=None, account=None, search=Non
 		r["creation"] = cstr(r["creation"])
 	accounts = [{"value": a.name, "label": a.account_name or a.name} for a in frappe.get_all("WhatsApp Account", fields=["name", "account_name"], limit_page_length=20)]
 	return {"rows": rows, "total": total, "page": page, "page_size": size, "counts": counts, "accounts": accounts}
+
+
+# -- calendar (Google Calendar + Google Meet) ------------------------------------------------------
+
+
+@frappe.whitelist()
+def get_calendar():
+	"""Where Google Calendar / Meet stands: is Google set up, which calendar meetings go on, who connected a personal one, and how the last 30 days of meetings synced."""
+	_admin()
+	from frappe.utils import get_url
+
+	from crm_addons.providers.google_meet import GoogleMeetProvider, _usable
+	from crm_addons.utils import get_settings
+
+	settings = get_settings()
+	google = frappe.get_cached_doc("Google Settings")
+	calendars = []
+	for c in frappe.get_all("Google Calendar", fields=["name", "user", "google_calendar_id", "enable", "push_to_google_calendar"], limit_page_length=100):
+		calendars.append({**c, "usable": _usable(c.name), "company": c.name == settings.google_calendar})
+	since = frappe.utils.add_days(frappe.utils.nowdate(), -30)
+	counts = {s or "None": n for s, n in frappe.db.sql("SELECT sync_status, COUNT(*) FROM `tabCRM Meeting` WHERE creation >= %s AND status != 'Cancelled' AND provider = 'Google Meet' GROUP BY sync_status", since)}
+	status = GoogleMeetProvider().status()
+	return {
+		"ready": status["ready"],
+		"message": status["message"],
+		"provider": settings.default_provider,
+		"company": settings.google_calendar,
+		"personal": bool(settings.use_personal_calendars),
+		"google_enabled": bool(google.enable),
+		"has_client": bool(google.client_id and google.get_password("client_secret", raise_exception=False)),
+		"calendars": calendars,
+		"counts": {"Synced": counts.get("Synced", 0), "Failed": counts.get("Failed", 0), "Not synced": counts.get("Not synced", 0)},
+		"redirect_uri": get_url() + "?cmd=frappe.integrations.doctype.google_calendar.google_calendar.google_callback",
+		"site_url": get_url(),
+	}
+
+
+@frappe.whitelist()
+def get_calendar_log(page=1, page_size=25, status=None, search=None):
+	"""Meetings with how they synced to the calendar, newest first, failures with the reason."""
+	_admin()
+	page, size = _paging(page, page_size)
+	where, values = ["m.status != 'Cancelled'"], {}
+	if status in ("Synced", "Failed", "Not synced"):
+		where.append("m.provider = 'Google Meet' AND m.sync_status = %(st)s")
+		values["st"] = status
+	txt = cstr(search).strip()
+	if txt:
+		where.append("(m.subject LIKE %(q)s OR m.reference_docname LIKE %(q)s OR m.organizer LIKE %(q)s)")
+		values["q"] = f"%{txt}%"
+	w = " AND ".join(where)
+	total = frappe.db.sql(f"SELECT COUNT(*) FROM `tabCRM Meeting` m WHERE {w}", values)[0][0]
+	rows = frappe.db.sql(
+		f"""SELECT m.name, m.subject, m.starts_on, m.provider, m.sync_status, m.sync_error, m.organizer, m.google_calendar, m.google_meet_link, m.external_event_url, m.reference_doctype, m.reference_docname
+		FROM `tabCRM Meeting` m WHERE {w} ORDER BY m.starts_on DESC LIMIT %(limit)s OFFSET %(offset)s""",
+		{**values, "limit": size, "offset": (page - 1) * size},
+		as_dict=True,
+	)
+	for r in rows:
+		r["starts_on"] = cstr(r["starts_on"])
+	return {"rows": rows, "total": total, "page": page, "page_size": size}
+
+
+@frappe.whitelist()
+def retry_meeting(name):
+	"""Try the calendar sync of a meeting again (create the event, or update it when it already exists)."""
+	_admin()
+	doc = frappe.get_doc("CRM Meeting", name)
+	if doc.status == "Cancelled":
+		frappe.throw(_("A cancelled meeting is not synced."))
+	out = doc.sync("update" if doc.external_event_id else "create", False)
+	return {"status": out["status"], "error": out["error"]}

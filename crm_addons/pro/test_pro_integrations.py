@@ -272,3 +272,25 @@ class TestLogs(AccessCase):
 		for call in (integrations.get_email_log, integrations.get_whatsapp_log, lambda: integrations.retry_email("x")):
 			with self.assertRaises(frappe.PermissionError):
 				call()
+
+
+class TestCalendar(AccessCase):
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("Administrator")
+
+	def test_the_calendar_overview_reports_google_state(self):
+		out = integrations.get_calendar()
+		for key in ("ready", "message", "company", "calendars", "counts", "redirect_uri"):
+			self.assertIn(key, out)
+		self.assertEqual(set(out["counts"]), {"Synced", "Failed", "Not synced"})
+
+	def test_the_calendar_log_pages_and_filters(self):
+		out = integrations.get_calendar_log(status="Failed", page_size=5)
+		self.assertTrue(all(r["sync_status"] == "Failed" for r in out["rows"]))
+		self.assertLessEqual(len(out["rows"]), 5)
+
+	def test_only_an_admin_can_read_the_calendar_page(self):
+		frappe.set_user("Guest")
+		with self.assertRaises(frappe.PermissionError):
+			integrations.get_calendar()
