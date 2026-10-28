@@ -21,9 +21,17 @@ FIELDS = ["name", "type", "to", "from", "content_type", "message_type", "attach"
 
 
 def key_of(number):
-	"""The chat a number belongs to: its digits, the last ten when there are more (country codes and a leading 0 differ between sources)."""
+	"""The chat a number belongs to: its digits, the last ten when there are more (country codes and a leading 0 differ between sources).
+
+	Two numbers that end in the same ten digits but carry different country codes are different people, so the later one gets a chat of its own, keyed by all its digits."""
 	digits = "".join(c for c in cstr(number) if c.isdigit())
-	return digits[-10:]
+	key = digits[-10:]
+	code = digits[:-10].lstrip("0")  # a leading 0 is a trunk prefix, not a country code
+	if code and key:
+		held = "".join(c for c in cstr(frappe.db.get_value(CHAT, key, "number")) if c.isdigit())
+		if held[:-10].lstrip("0") not in ("", code):
+			return digits
+	return key
 
 
 # -- who may do what ------------------------------------------------------------------------------

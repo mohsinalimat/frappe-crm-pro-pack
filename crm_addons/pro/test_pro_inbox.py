@@ -36,6 +36,15 @@ class TestInbox(AccessCase):
 	def _lead(self, mobile, owner=None, first="Wa"):
 		return frappe.get_doc({"doctype": "CRM Lead", "first_name": first, "last_name": mobile[-4:], "mobile_no": mobile, "lead_owner": owner or self.rep}).insert(ignore_permissions=True)
 
+	def test_the_same_last_ten_digits_with_another_country_code_is_another_chat(self):
+		self._msg("919811100001", "from India")
+		self.assertEqual(inbox.key_of("+91 98111 00001"), "9811100001")
+		self.assertEqual(inbox.key_of("09811100001"), "9811100001")  # no country code: the same person
+		other = "449811100001"
+		self.assertEqual(inbox.key_of(other), other)  # a different country code: its own chat
+		self._msg(other, "from the UK")
+		self.assertEqual(frappe.db.count("CRM WhatsApp Chat", {"number_key": ["in", ["9811100001", other]]}), 2)
+
 	def test_a_message_from_an_unknown_number_makes_an_unassigned_chat(self):
 		self._msg(NEW, "Hi, do you teach coding?")
 		chat = frappe.get_doc("CRM WhatsApp Chat", inbox.key_of(NEW))
