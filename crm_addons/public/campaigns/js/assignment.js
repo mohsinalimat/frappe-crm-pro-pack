@@ -369,14 +369,14 @@
 			<div v-else-if="layout === 'list'" class="card" style="padding:0;overflow:hidden"><div class="table-wrap"><table class="tbl"><thead><tr><th>Rule</th><th>When</th><th>Given to</th><th>Leads assigned</th><th>On</th><th></th></tr></thead><tbody>
 				<tr v-for="r in pg.rows" :key="r.name" class="click" :class="{ 'asg-off': !r.enabled }" tabindex="0" @click="go('/rules/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/rules/edit/' + encodeURIComponent(r.name))"><td><b>{{ r.name }}</b><div v-if="r.overlaps.length" class="small rule-overlap"><Ico name="alert" size="sm" /> Also matches {{ r.overlaps.join(', ') }}</div></td><td class="small">{{ r.match_mode === 'Any condition' ? 'Any of' : 'All of' }}: {{ when(r) }}</td><td class="small">{{ r.assignees.map(nameOf).join(', ') }}<span class="badge blue nodot" v-if="r.assignees.length > 1" style="margin-left:6px">{{ HOW_TEXT[r.distribution] }}</span></td><td>{{ CM.num(r.assigned_count) }}</td>
 					<td @click.stop><button type="button" class="sw" :class="{ on: r.enabled }" role="switch" :aria-checked="!!r.enabled" :aria-label="(r.enabled ? 'Turn off ' : 'Turn on ') + r.name" :disabled="!CM.canManageRules()" @click="toggle(r)"><span class="sw-k"></span></button></td><td @click.stop style="text-align:right"><Menu :items="menu(r)" :label="'Actions for ' + r.name" /></td></tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
-			<div v-else class="cgrid">
-				<article v-for="r in shown" :key="r.name" class="ccard card hover" tabindex="0" @click="go('/rules/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/rules/edit/' + encodeURIComponent(r.name))" :class="{ 'asg-off': !r.enabled }">
+			<div v-else><div class="cgrid">
+				<article v-for="r in pg.rows" :key="r.name" class="ccard card hover" tabindex="0" @click="go('/rules/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/rules/edit/' + encodeURIComponent(r.name))" :class="{ 'asg-off': !r.enabled }">
 					<div class="row" style="align-items:flex-start"><div class="grow" style="min-width:0"><div class="ccard-t" :title="r.name">{{ r.name }}</div><div class="small faint">{{ r.match_mode === 'Any condition' ? 'Any of' : 'All of' }}: {{ when(r) }}</div></div><span class="badge nodot" :class="r.enabled ? 'green' : 'neutral'">{{ r.enabled ? 'On' : 'Off' }}</span><span @click.stop><Menu :items="menu(r)" /></span></div>
 					<div class="row wrap" style="gap:6px"><span v-for="(u, i) in r.assignees" :key="u" class="tchip">{{ nameOf(u) }}</span><span class="badge blue nodot" v-if="r.assignees.length > 1">{{ HOW_TEXT[r.distribution] }}</span></div>
 					<div v-if="r.overlaps.length" class="small rule-overlap"><Ico name="alert" size="sm" /> Also matches {{ r.overlaps.join(', ') }}</div>
 					<div class="ccard-f"><span>{{ plural(r.assigned_count, 'lead') }} assigned</span><span @click.stop><button type="button" class="sw" :class="{ on: r.enabled }" role="switch" :aria-checked="!!r.enabled" :aria-label="(r.enabled ? 'Turn off ' : 'Turn on ') + r.name" :disabled="!CM.canManageRules()" @click="toggle(r)"><span class="sw-k"></span></button></span></div>
 				</article>
-			</div>
+			</div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:12px 4px 0" /></div>
 		</div>`,
 	}
 

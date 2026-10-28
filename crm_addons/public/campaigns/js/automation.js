@@ -50,7 +50,8 @@
 				{ key: 'reply', icon: 'inbox', title: 'Follow up when a lead replies', text: 'Create a follow-up for the owner the day after a reply.' },
 				{ key: 'click', icon: 'link', title: 'Act on interest', text: 'When a lead clicks a link, change their status and remind the owner.' },
 			]
-			return { rows, loading, error, q, busy, canManage, load, toggle, menu, PRESETS, ACTION_INFO, CM, go: CM.go }
+			const pg = CM.usePaged(() => rows.value)
+			return { pg, rows, loading, error, q, busy, canManage, load, toggle, menu, PRESETS, ACTION_INFO, CM, go: CM.go }
 		},
 		template: `
 		<div class="page">
@@ -64,8 +65,8 @@
 				<div v-if="canManage" class="auto-presets"><button v-for="p in PRESETS" :key="p.key" type="button" class="card hover auto-preset" @click="go('/automations/new?preset=' + p.key)"><span class="mi"><Ico :name="p.icon" size="lg" /></span><b>{{ p.title }}</b><span class="small muted">{{ p.text }}</span></button></div>
 			</template>
 			<Empty v-else-if="!rows.length" icon="search" title="No automation matches" text="Try another word." />
-			<div v-else class="col" style="gap:10px">
-				<article v-for="r in rows" :key="r.name" class="card auto-row" :class="{ off: !r.enabled }">
+			<div v-else><div class="col" style="gap:10px">
+				<article v-for="r in pg.rows" :key="r.name" class="card auto-row" :class="{ off: !r.enabled }">
 					<button type="button" class="sw" :class="{ on: r.enabled }" role="switch" :aria-checked="!!r.enabled" :aria-label="(r.enabled ? 'Turn off ' : 'Turn on ') + r.automation_name" :disabled="busy === r.name || !canManage" @click="toggle(r)"><span class="sw-k"></span></button>
 					<div class="grow auto-main" role="link" tabindex="0" @click="go('/automations/edit/' + encodeURIComponent(r.name))" @keydown.enter="go('/automations/edit/' + encodeURIComponent(r.name))">
 						<div class="row" style="gap:8px"><b class="ellipsis">{{ r.automation_name }}</b><span v-if="!r.enabled" class="badge neutral nodot">Off</span><span v-else-if="r.campaign_status === 'Paused'" class="badge amber nodot">Messages paused</span></div>
@@ -75,7 +76,7 @@
 					<div class="auto-stats"><div><b>{{ CM.num(r.runs) }}</b><span>leads</span></div><div><b>{{ CM.num(r.runs_7d) }}</b><span>last 7 days</span></div><div v-if="r.campaign"><b>{{ CM.num(r.messaged) }}</b><span>messaged</span></div></div>
 					<Menu :items="menu(r)" />
 				</article>
-			</div>
+			</div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:12px 4px 0" /></div>
 		</div>`,
 	}
 

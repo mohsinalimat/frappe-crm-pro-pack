@@ -381,7 +381,8 @@
 			}
 			const use = (s) => CM.go('/campaigns/new?segment=' + encodeURIComponent(s.name))
 			const defOf = (s) => ({ mode: 'Saved Segment', saved_view: s.name })
-			return { rows, loading, error, q, shown, load, detail, createOpen, fields, remove, a, seg, saving, isManager, openCreate, create, use, defOf, A, CM, ready: computed(() => A.ready(a)), defn: computed(() => A.definition(a)) }
+			const pg = CM.usePaged(() => shown.value)
+			return { pg, rows, loading, error, q, shown, load, detail, createOpen, fields, remove, a, seg, saving, isManager, openCreate, create, use, defOf, A, CM, ready: computed(() => A.ready(a)), defn: computed(() => A.definition(a)) }
 		},
 		template: `
 		<div class="page">
@@ -390,14 +391,14 @@
 			<div v-if="loading" class="seg-grid"><Skel v-for="n in 6" :key="n" h="132" r="12" /></div>
 			<ErrorState v-else-if="error" :message="error" @retry="load" />
 			<Empty v-else-if="!shown.length" icon="users" :title="rows.length ? 'No segments match' : 'No saved segments yet'" :text="rows.length ? 'Try a different search.' : 'Save a set of filters as a segment to reuse it across campaigns.'"><Btn v-if="!rows.length" variant="primary" icon="plus" @click="openCreate">Create segment</Btn></Empty>
-			<div v-else class="seg-grid">
-				<article v-for="s in shown" :key="s.name" class="segc card hover" tabindex="0" @click="detail = s" @keydown.enter="detail = s">
+			<div v-else><div class="seg-grid">
+				<article v-for="s in pg.rows" :key="s.name" class="segc card hover" tabindex="0" @click="detail = s" @keydown.enter="detail = s">
 					<div class="row"><b class="grow ellipsis">{{ s.label }}</b><span class="badge nodot" :class="s.public ? 'blue' : 'neutral'">{{ s.public ? 'Shared' : 'Private' }}</span><Menu :items="[{ label: 'Use in a campaign', icon: 'send', run: () => use(s) }, { label: 'View leads', icon: 'eye', run: () => (detail = s) }, { sep: true }, { label: 'Delete', icon: 'trash', danger: true, run: () => remove(s) }]" /></div>
 					<div class="segc-n">{{ s.count == null ? '-' : CM.num(s.count) }} <span class="small muted">leads</span></div>
 					<div class="row wrap" style="gap:5px"><span v-for="(r, i) in s.rules.slice(0, 3)" :key="i" class="tchip">{{ A.describe(r, fields) }}</span><span v-if="s.rules.length > 3" class="tchip">+{{ s.rules.length - 3 }} more</span><span v-if="!s.rules.length" class="tchip">All leads</span></div>
 					<div class="small faint">Updated {{ CM.ago(s.modified) }}<template v-if="!s.mine"> - shared by a colleague</template></div>
 				</article>
-			</div>
+			</div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:12px 4px 0" /></div>
 			<Drawer v-if="detail" wide :title="detail.label" :subtitle="CM.num(detail.count) + ' leads'" @close="detail = null">
 				<div class="row wrap" style="gap:6px"><span v-for="(r, i) in detail.rules" :key="i" class="tchip">{{ A.describe(r, fields) }}</span><span v-if="!detail.rules.length" class="tchip">All leads</span></div>
 				<AudienceInsight :definition="defOf(detail)" />

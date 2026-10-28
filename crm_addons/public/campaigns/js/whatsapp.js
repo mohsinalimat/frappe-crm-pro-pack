@@ -138,15 +138,15 @@
 					<td><span v-for="v in vars(r.text)" :key="v" class="tchip" style="margin-right:4px">{{ v }}</span><span v-if="!vars(r.text).length" class="faint">-</span></td>
 					<td><span v-if="r.attach_name" class="small"><Ico name="paperclip" size="sm" /> {{ r.attach_name }}</span><span v-else class="faint">-</span></td>
 					<td class="num" @click.stop><Btn v-if="canEdit" size="sm" variant="ghost" icon="trash" aria-label="Delete reply" @click="drop(r)" /></td></tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
-			<div v-else class="wgrid">
-				<article v-for="r in shown" :key="r.id" class="wcard card hover" tabindex="0" @click="canEdit && openEdit(r)" @keydown.enter="canEdit && openEdit(r)">
+			<div v-else><div class="wgrid">
+				<article v-for="r in pg.rows" :key="r.id" class="wcard card hover" tabindex="0" @click="canEdit && openEdit(r)" @keydown.enter="canEdit && openEdit(r)">
 					<div class="wcard-pv"><WaTemplateBubble :t="bubble(r)" compact /></div>
 					<div class="wcard-b">
 						<div class="row"><b class="grow ellipsis" :title="r.title">{{ r.title }}</b><Btn v-if="canEdit" size="sm" variant="ghost" icon="trash" aria-label="Delete reply" @click.stop="drop(r)" /></div>
 						<div class="row wrap" style="gap:6px"><span v-for="v in vars(r.text)" :key="v" class="tchip">{{ v }}</span><span v-if="r.attach_name" class="tchip"><Ico name="paperclip" size="sm" /> {{ r.attach_name }}</span><span v-if="!vars(r.text).length && !r.attach_name" class="tchip">Plain text</span></div>
 					</div>
 				</article>
-			</div>
+			</div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:12px 4px 0" /></div>
 			<Modal v-if="ed" :title="ed.id ? 'Edit saved reply' : 'New saved reply'" size="lg" @close="ed = null">
 				<div class="grid2" style="align-items:start"><div class="stack" style="gap:12px">
 					<Field label="Title" hint="What people see when they type /"><Inp v-model="ed.title" placeholder="e.g. Introduction" aria-label="Reply title" /></Field>
@@ -209,8 +209,8 @@
 						<td><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-else class="faint">-</span></td><td>{{ catLabel(t.category) || '-' }}</td><td><span class="badge" :class="stateTone(t.state)">{{ stateLabel(t.state) }}</span></td><td>{{ t.language_code || 'en' }}</td>
 						<td class="num" @click.stop><Btn v-if="data && data.can_create" size="sm" :variant="t.approved ? 'primary' : ''" :disabled="!t.approved" @click="use(t)">Use in campaign</Btn></td>
 					</tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
-				<div v-else class="wgrid">
-					<article v-for="t in shown" :key="t.name" class="wcard card hover" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
+				<div v-else><div class="wgrid">
+					<article v-for="t in pg.rows" :key="t.name" class="wcard card hover" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="detail = t" @keydown.enter="detail = t">
 						<div class="wcard-pv"><WaTemplateBubble :t="t" compact /></div>
 						<div class="wcard-b">
 							<div class="row"><b class="grow ellipsis" :title="t.template_name">{{ t.template_name }}</b><span class="badge" :class="stateTone(t.state)">{{ stateLabel(t.state) }}</span></div>
@@ -218,7 +218,7 @@
 							<div class="row" style="margin-top:6px"><Btn size="sm" :variant="t.approved ? 'primary' : ''" :disabled="!t.approved" :title="t.approved ? '' : 'Only approved templates can be used'" @click.stop="use(t)" v-if="data && data.can_create">Use in campaign</Btn><span class="grow"></span><Btn size="sm" variant="ghost" icon="eye" @click.stop="detail = t">Details</Btn></div>
 						</div>
 					</article>
-				</div>
+				</div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:12px 4px 0" /></div>
 			</template>
  			<ProtectedDelete v-if="protectedDel" kind="whatsapp" :template="protectedDel" @close="protectedDel = null" @deleted="protectedDel = null; detail = null; load(true)" />
 			<WaTemplateCreate v-if="createOpen" :languages="(data && data.languages) || ['en']" @close="createOpen = false" @created="created" />

@@ -84,14 +84,14 @@
 					<td class="num">{{ p.users }}</td>
 					<td class="num nowrap" @click.stop><Btn size="sm" variant="ghost" icon="copy" aria-label="Duplicate" title="Duplicate" @click="duplicate(p)" /><Btn size="sm" variant="ghost" icon="trash" aria-label="Delete" title="Delete" @click="remove(p)" /></td>
 				</tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
-			<div v-else-if="d.loaded" class="ax-cards">
-				<article v-for="p in d.presets" :key="p.name" class="card pad ax-preset">
+			<div v-else-if="d.loaded"><div class="ax-cards">
+				<article v-for="p in pg.rows" :key="p.name" class="card pad ax-preset">
 					<div class="row" style="gap:8px"><b class="grow" style="font-size:15px">{{ p.preset_name }}</b><span v-if="p.is_system" class="badge sm nodot">Ready-made</span></div>
 					<p class="small muted" style="margin:4px 0 10px;min-height:36px">{{ p.description || 'No description.' }}</p>
 					<dl class="ax-sum"><template v-for="s in summary(p)" :key="s.label"><dt>{{ s.label }}</dt><dd>{{ s.value }}</dd></template></dl>
 					<div class="row" style="gap:6px;margin-top:12px"><span class="small muted grow">{{ p.users }} {{ p.users === 1 ? 'person' : 'people' }}</span><Btn size="sm" @click="open(p.name)">Edit</Btn><Btn size="sm" variant="ghost" icon="copy" aria-label="Duplicate" title="Duplicate" @click="duplicate(p)" /><Btn size="sm" variant="ghost" icon="trash" aria-label="Delete" title="Delete" @click="remove(p)" /></div>
 				</article>
-			</div>
+			</div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:12px 4px 0" /></div>
 			<PresetEditor v-if="editing" :name="editing.name" :copy-of="copyOf" @close="editing = null" />
 		</div>`,
 	}

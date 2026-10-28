@@ -64,8 +64,8 @@
 			<ErrorState v-else-if="error" :message="error" @retry="load()" />
 			<Empty v-else-if="!rows.length" icon="file" title="No lead forms yet" text="Create one to get a page, or a form for your website. Whoever fills it in becomes a lead in the CRM."><Btn v-if="canManage" variant="primary" icon="plus" @click="go('/forms/new/details')">Create form</Btn></Empty>
 			<Empty v-else-if="!shown.length" icon="search" title="No form matches" text="Try a different search or filter."><Btn @click="q = ''; filter = 'all'">Clear filters</Btn></Empty>
-			<div v-else-if="layout === 'cards'" class="dgrid">
-				<article v-for="r in shown" :key="r.name" class="card dcard" :class="{ off: !DM.bool(r.enabled) }">
+			<div v-else-if="layout === 'cards'"><div class="dgrid">
+				<article v-for="r in pg.rows" :key="r.name" class="card dcard" :class="{ off: !DM.bool(r.enabled) }">
 					<div class="dcard-h">
 						<button type="button" class="dcard-t" @click="edit(r)" :aria-label="'Edit ' + r.title"><b class="ellipsis">{{ r.title }}</b><span class="small muted">{{ r.assignment_mode }}<template v-if="r.lead_source"> - source {{ r.lead_source }}</template></span></button>
 						<span class="dcard-sw"><span class="small" :class="DM.bool(r.enabled) ? '' : 'faint'">{{ DM.bool(r.enabled) ? 'On' : 'Off' }}</span><Switch :model-value="DM.bool(r.enabled)" :aria-disabled="!canManage" :label="'Turn ' + r.title + (DM.bool(r.enabled) ? ' off' : ' on')" @update:model-value="(v) => canManage && !busy[r.name] && setEnabled(r, v)" /></span>
@@ -75,7 +75,7 @@
 					<dl class="dcard-d"><div><dt>Fields</dt><dd><b>{{ r.field_count }}</b></dd></div><div><dt>Messages</dt><dd><b>{{ r.message_count }}</b></dd></div></dl>
 					<div class="dcard-f"><Btn size="sm" variant="ghost" icon="chart" @click="go('/report/forms?form=' + encodeURIComponent(r.name))">Report</Btn><span class="grow"></span><Btn size="sm" @click="edit(r)">Edit</Btn></div>
 				</article>
-			</div>
+			</div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:12px 4px 0" /></div>
 			<div v-else class="card" style="padding:0"><div class="table-wrap"><table class="tbl wl-tbl">
 				<thead><tr><th>Form</th><th>Page</th><th>New leads go to</th><th class="num">Fields</th><th class="num">Messages</th><th>On</th><th></th></tr></thead>
 				<tbody><tr v-for="r in pg.rows" :key="r.name" class="click" :class="{ off: !DM.bool(r.enabled) }" tabindex="0" @click="edit(r)" @keydown.enter="edit(r)">

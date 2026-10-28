@@ -243,13 +243,13 @@
 					<td><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-else class="faint">-</span></td><td>{{ t.purpose ? '-' : (t.category || '-') }}</td><td class="nowrap">{{ t.editor_mode }}</td><td class="num">{{ t.used_in }}</td>
 					<td class="num" @click.stop><Menu :items="menu(t)" :label="'Actions for ' + t.template_name" /></td>
 				</tr></tbody></table></div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:10px 14px;border-top:1px solid var(--border)" /></div>
-			<div v-else class="tgrid">
-				<article v-for="t in shown" :key="t.name" class="tcard card hover" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
+			<div v-else><div class="tgrid">
+				<article v-for="t in pg.rows" :key="t.name" class="tcard card hover" :class="t.purpose ? 'p-system' : ''" tabindex="0" @click="open(t)" @keydown.enter="open(t)">
 					<div class="tcard-th"><Thumb :html="CM.sampleFill(t.body_html)" /><button type="button" class="star" :class="{ on: favs.includes(t.name) }" :aria-pressed="favs.includes(t.name)" :aria-label="favs.includes(t.name) ? 'Remove from favourites' : 'Add to favourites'" @click.stop="toggleFav(t.name)"><Ico name="star" /></button><span v-if="!t.enabled" class="badge neutral nodot arch">Archived</span></div>
 					<div class="tcard-b"><div class="row"><b class="grow ellipsis">{{ t.template_name }}</b><Menu :items="menu(t)" /></div><span class="small muted ellipsis">{{ t.subject }}</span>
 						<div class="row" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><PurposeTag v-if="t.purpose" :purpose="t.purpose" /><span v-if="t.category && !t.purpose" class="tchip">{{ t.category }}</span><span class="tchip"><Ico :name="t.editor_mode === 'Visual Builder' ? 'layers' : t.editor_mode === 'Rich Text' ? 'edit' : 'code'" size="sm" style="margin-right:4px" />{{ t.editor_mode }}</span></div><div class="tiny faint" style="margin-top:2px">{{ t.used_in ? 'Used in ' + t.used_in + ' campaign' + (t.used_in > 1 ? 's' : '') : 'Not used yet' }} - updated {{ CM.ago(t.modified) }}</div></div></div>
 				</article>
-			</div>
+			</div><Pager v-model:page="pg.page" :size="pg.size" :total="pg.total" style="padding:12px 4px 0" /></div>
 			<Modal v-if="createOpen" size="lg" title="How would you like to create your email?" subtitle="You can always change the content later." @close="createOpen = false">
 				<div class="mode-grid"><button v-for="m in MODE_INFO" :key="m.key" type="button" class="mode card hover" @click="create(m.key)"><span class="art"><Ico :name="m.icon" size="xl" /></span><b>{{ m.title }}</b><span class="muted small">{{ m.text }}</span><span v-if="m.tag" class="badge blue nodot">{{ m.tag }}</span></button>
 					<button type="button" class="mode card hover" @click="createOpen = false; startOpen = true"><span class="art"><Ico name="copy" size="xl" /></span><b>Start from a template</b><span class="muted small">Copy one of your existing templates and change it.</span></button></div>
