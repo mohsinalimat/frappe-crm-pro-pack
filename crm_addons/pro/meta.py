@@ -420,6 +420,9 @@ def webhook():
 	"""Meta's address. GET answers Meta's verification; POST carries new-lead notices, accepted only with a valid signature."""
 	from werkzeug.wrappers import Response
 
+	from crm_addons.pro import throttle
+
+	throttle.check("meta")
 	if frappe.request.method == "GET":
 		token = cstr(frappe.form_dict.get("hub.verify_token"))
 		expected = cstr(_settings().verify_token)

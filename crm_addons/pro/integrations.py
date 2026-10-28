@@ -361,6 +361,9 @@ def _verify_sns(msg):
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def ses_events(t=None):
 	"""Where Amazon SNS posts what SES reports about each email. The secret in the address and Amazon's own signature are both checked first."""
+	from crm_addons.pro import throttle
+
+	throttle.check("ses")
 	if not t or not hmac.compare_digest(cstr(t), cstr(frappe.db.get_default(KEY_TOKEN))):
 		frappe.throw(_("Not allowed."), frappe.PermissionError)
 	try:
