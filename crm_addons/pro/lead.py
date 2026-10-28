@@ -363,7 +363,7 @@ def get_activity(name):
 		add("email", "mail", ("Email sent: " if e.sent_or_received == "Sent" else "Email received: ") + cstr(e.subject), e.preview, None, e.creation)
 	if frappe.db.exists("DocType", "WhatsApp Message"):
 		for w in get_whatsapp(name)["messages"][-30:]:
-			add("whatsapp", "whatsapp", "WhatsApp " + ("received" if w.type == "Incoming" else "sent"), _clip(w.message), None, w.creation)
+			add("whatsapp", "whatsapp", "WhatsApp " + ("received" if w.get("type") == "Incoming" else "sent"), _clip(w.get("message")), None, w.get("creation"))
 	for r in get_campaigns(name):
 		if r.sent_at or r.status in ("Failed", "Skipped"):
 			add("campaign", "send", cstr(r.campaign_title) + " - " + cstr(r.channel) + " " + cstr(r.status).lower(), _clip(r.failure_reason or r.skip_reason), None, r.sent_at or r.creation)

@@ -107,3 +107,13 @@ class TestProLeads(AccessCase):
 		self.assertIn("followup", kinds)
 		self.assertFalse(any(e["kind"] == "comment" and e["text"][:1] == "\U0001F4DE" for e in lead.get_activity(doc.name)))
 		self.addCleanup(lambda: [frappe.delete_doc("CRM Follow Up", n, force=1, ignore_permissions=True) for n in frappe.get_all("CRM Follow Up", filters={"reference_docname": doc.name}, pluck="name")])
+
+	def test_activity_with_whatsapp_messages(self):
+		from unittest import mock
+
+		frappe.set_user("Administrator")
+		doc = self.make_lead("Administrator")
+		msgs = {"installed": True, "messages": [{"type": "Incoming", "message": "hi", "creation": "2026-01-01 10:00:00"}, {"type": "Outgoing", "message": "hello", "creation": "2026-01-01 10:01:00"}]}
+		with mock.patch.object(lead, "get_whatsapp", return_value=msgs), mock.patch.object(frappe.db, "exists", return_value=True):
+			titles = [e["title"] for e in lead.get_activity(doc.name) if e["kind"] == "whatsapp"]
+		self.assertEqual(sorted(titles), ["WhatsApp received", "WhatsApp sent"])
