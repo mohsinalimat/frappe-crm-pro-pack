@@ -26,14 +26,16 @@
 			async function loadAcc() { try { acc.value = await call('get_access'); PRO.shell.waUnread = acc.value.unread } catch (e) { acc.value = { level: 'none', unread: 0 } } }
 			async function openChat(key, quiet) {
 				cur.value = key; if (!quiet) { chatLoading.value = true; chatErr.value = '' }
-				try { chat.value = await call('get_chat', { key }); await Promise.all([loadAcc(), loadList(true)]) } catch (e) { chatErr.value = e.message; if (!quiet) chat.value = null } finally { chatLoading.value = false }
+				try { chat.value = await call('get_chat', { key }); await Promise.all([loadAcc(), solo.value ? null : loadList(true)]) } catch (e) { chatErr.value = e.message; if (!quiet) chat.value = null } finally { chatLoading.value = false }
 			}
 			watch(() => [list.view], () => { list.page = 1; loadList() }); watch(() => list.q, () => { clearTimeout(tQ); tQ = setTimeout(() => { list.page = 1; loadList() }, 300) })
 			watch(() => CM.route.parts[1], (k) => { if (k && k !== cur.value) openChat(k) })
 			let poll = null
-			onMounted(async () => { await loadAcc(); if (acc.value.level !== 'none') { await loadList(); if (cur.value) openChat(cur.value) } else list.loading = false; poll = setInterval(() => { if (document.hidden || !acc.value || acc.value.level === 'none') return; loadAcc(); loadList(true); if (cur.value && chat.value && !busy.value) openChat(cur.value, true) }, 10000) })
+			onMounted(async () => { await loadAcc(); if (acc.value.level !== 'none') { if (!solo.value) await loadList(); if (cur.value) openChat(cur.value) } else list.loading = false; poll = setInterval(() => { if (document.hidden || !acc.value || acc.value.level === 'none') return; loadAcc(); if (!solo.value) loadList(true); if (cur.value && chat.value && !busy.value) openChat(cur.value, true) }, 10000) })
 			onBeforeUnmount(() => clearInterval(poll))
 			const busy = ref(false)
+			const solo = computed(() => !!CM.route.query.solo)
+			watch(() => chat.value && chat.value.chat.title, (t) => { if (solo.value && t) document.title = t + ' - WhatsApp Business' })
 			// the chat's own calls
 			const sendWa = async (p) => { await call('send', { key: cur.value, message: p.text, attach: p.attach, content_type: p.type, reply_to: p.replyTo }); await openChat(cur.value, true) }
 			const reactWa = async (m, emoji) => { await call('react', { key: cur.value, message: m.name, emoji }); await openChat(cur.value, true) }
@@ -66,12 +68,12 @@
 			async function openAssign() { asg.value = !asg.value; if (asg.value && !users.value.length) { try { users.value = await call('assignable_users') } catch (e) { CM.toast(e.message, 'err') } } }
 			async function assignTo(u) { asg.value = false; try { await call('assign', { key: cur.value, user: u }); CM.toast(u ? 'Assigned' : 'Back to unassigned'); await openChat(cur.value, true) } catch (e) { CM.toast(e.message, 'err') } }
 			const back = () => { cur.value = ''; chat.value = null }
-			return { MORE, fmenu, kmenu, info, fmtNum, acc, list, cur, chat, chatErr, chatLoading, VIEWS, openChat, sendWa, reactWa, tp, tpSel, preview, openTpl, sendTpl, cl, openCreate, createLead, lk, openLink, linkTo, notALead, users, asg, openAssign, assignTo, back, ago, PRO, CM, loadList }
+			return { solo, MORE, fmenu, kmenu, info, fmtNum, acc, list, cur, chat, chatErr, chatLoading, VIEWS, openChat, sendWa, reactWa, tp, tpSel, preview, openTpl, sendTpl, cl, openCreate, createLead, lk, openLink, linkTo, notALead, users, asg, openAssign, assignTo, back, ago, PRO, CM, loadList }
 		},
 		template: `
 		<div class="wi-page">
 			<div v-if="acc && acc.level === 'none'" class="page"><Empty icon="whatsapp" title="No access to the WhatsApp inbox" text="Ask an administrator to give you access under Team." /></div>
-			<div v-else class="wi-in" :class="{ chatting: !!cur }">
+			<div v-else class="wi-in" :class="{ chatting: !!cur, solo }">
 				<aside class="wi-list" aria-label="Chats">
 					<div class="wi-lh"><span class="wi-logo"><Ico name="whatsapp" /></span><h1>WhatsApp Business</h1></div>
 					<div class="wi-search"><div class="grow"><Inp v-model="list.q" icon="search" placeholder="Search name, number or message..." clearable aria-label="Search chats" /></div>
@@ -108,8 +110,8 @@
 							</div>
 						</div>
 						<WaChat class="wi-chat" :messages="chat.messages" :window-open="chat.window_open" :window-until="chat.window_until" :can-write="chat.can_write" :can-template="chat.can_write" :title="chat.chat.title" :title-href="chat.chat.lead ? CM.leadUrl(chat.chat.lead.name) : ''" :subtitle="(chat.chat.lead && chat.chat.lead.organization ? chat.chat.lead.organization + ' \u00b7 ' : '') + fmtNum(chat.chat.number)" person="Contact" :send="sendWa" :react="reactWa" @template="openTpl">
-							<template #head><span class="wi-chipbtn static" :class="chat.chat.lead ? 'lead' : 'contact'">{{ chat.chat.lead ? 'Lead' : 'Contact' }}</span><button type="button" class="wx-tpl wi-back" @click="back"><Ico name="arrow-left" size="sm" /> Chats</button></template>
-							<template #tools><a class="wx-tpl" :href="'#/whatsapp/' + cur" target="_blank" rel="noopener" title="Open this chat in a new tab" aria-label="Open this chat in a new tab"><Ico name="external-link" size="sm" /></a></template>
+							<template #head><span class="wi-chipbtn static" :class="chat.chat.lead ? 'lead' : 'contact'">{{ chat.chat.lead ? 'Lead' : 'Contact' }}</span><button v-if="!solo" type="button" class="wx-tpl wi-back" @click="back"><Ico name="arrow-left" size="sm" /> Chats</button></template>
+							<template #tools><a v-if="!solo" class="wx-tpl" :href="'#/whatsapp/' + cur + '?solo=1'" target="_blank" rel="noopener" title="Open this chat in a new tab" aria-label="Open this chat in a new tab"><Ico name="external-link" size="sm" /></a></template>
 							<template #end><span class="wi-pop wi-kwrap"><button type="button" class="wx-tpl wi-dots" aria-label="More" @click="chat.chat.lead ? (info = !info) : (kmenu = !kmenu)"><Ico name="more-vertical" size="sm" /></button>
 									<div v-if="info && chat.chat.lead" class="wi-card right"><b>{{ chat.chat.lead.lead_name }}</b><div class="small muted">{{ chat.chat.lead.name }}</div>
 										<dl><dt>Company</dt><dd>{{ chat.chat.lead.organization || '-' }}</dd><dt>Status</dt><dd>{{ chat.chat.lead.status || '-' }}</dd><dt>Owner</dt><dd>{{ chat.chat.lead.owner_name || '-' }}</dd><dt>Phone</dt><dd>{{ chat.chat.lead.mobile_no || '-' }}</dd><dt>Email</dt><dd>{{ chat.chat.lead.email || '-' }}</dd><dt>Source</dt><dd>{{ chat.chat.lead.source || '-' }}</dd></dl>

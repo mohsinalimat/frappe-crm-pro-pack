@@ -237,13 +237,14 @@
 			watch(active, () => { document.title = (current.value.label || 'Suite Pro') + ' - ' + (PRO.shell.brand.name || 'Suite Pro') })
 			// the unread count stays fresh while the page is open
 			let t, t2; onMounted(() => { t = setInterval(async () => { if (!document.hidden) { try { PRO.shell.unread = (await PRO.api('get_shell', {})).unread } catch (e) { /* later */ } } }, 120000); if (items.value.some((i) => i.key === 'whatsapp')) { const wa = async () => { try { PRO.shell.waUnread = (await CM.call('crm_addons.pro.inbox.get_access')).unread } catch (e) { /* later */ } }; wa(); t2 = setInterval(() => { if (!document.hidden && active.value !== 'whatsapp') wa() }, 30000) } }); onBeforeUnmount(() => clearInterval(t))
+			const solo = computed(() => r.parts[0] === 'whatsapp' && !!r.query.solo) // a chat opened in its own tab: no menu around it
 			const setOpen = ref(r.parts[0] === 'settings'); watch(() => r.parts[0], (v) => { if (v === 'settings') setOpen.value = true })
 			const settingsMenu = computed(() => PRO.settingsGroups())
-			return { setOpen, settingsMenu, sendDlg, sendRun, runSend, ntf, health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
+			return { solo, setOpen, settingsMenu, sendDlg, sendRun, runSend, ntf, health, seen, r, items, active, current, collapsed, toggleRail, PRO, FRAMES }
 		},
 		template: `
-		<div class="app" :class="{ 'rail-collapsed': collapsed }">
-			<nav class="rail" :class="{ collapsed }" aria-label="Suite Pro">
+		<div class="app" :class="{ 'rail-collapsed': collapsed, solo }">
+			<nav v-if="!solo" class="rail" :class="{ collapsed }" aria-label="Suite Pro">
 				<div class="brand"><img v-if="PRO.shell.brand.logo" :src="PRO.shell.brand.logo" alt="" class="brand-img" /><span v-else class="brand-ico" aria-hidden="true"><Ico name="grid2" /></span><div class="brand-txt"><b>{{ PRO.shell.brand.name || 'Suite Pro' }}</b><span>{{ PRO.shell.full_name }}</span></div></div>
 				<template v-for="n in items" :key="n.key"><button v-if="n.key === 'notifications'" type="button" class="nav" :class="{ on: ntf }" :aria-expanded="String(ntf)" :title="collapsed ? n.label : null" :aria-label="n.label" @click="ntf = !ntf"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span><span v-if="n.badge && PRO.shell.unread" class="pro-badge">{{ PRO.shell.unread > 99 ? '99+' : PRO.shell.unread }}</span></button>
 								<div v-else-if="n.key === 'settings'" class="nav-grp"><div class="nav-split"><a :href="'#/settings/' + (r.parts[0] === 'settings' && r.parts[1] ? r.parts[1] : 'start')" class="nav" :class="{ on: active === 'settings' }" :title="collapsed ? n.label : null" :aria-label="n.label" :aria-current="active === 'settings' ? 'page' : null" @click="setOpen = active === 'settings' ? !setOpen : true"><Ico :name="n.icon" /><span class="nav-l">{{ n.label }}</span></a><button v-if="!collapsed" type="button" class="nav-chev" :class="{ open: setOpen }" :aria-expanded="String(setOpen)" aria-label="Show the settings groups" @click="setOpen = !setOpen"><Ico name="chevron-down" size="sm" /></button></div>
