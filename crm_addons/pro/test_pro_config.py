@@ -84,16 +84,25 @@ class TestProConfig(AccessCase):
 
 
 class TestWhatsAppReplies(AccessCase):
-	def test_only_a_system_manager_saves_replies_and_blanks_are_dropped(self):
+	def test_replies_are_saved_edited_and_removed_with_ids(self):
+		from crm_addons.campaigns import replies
+
+		self.addCleanup(lambda: frappe.db.set_default(replies.KEY, "[]"))
+		rows = replies.save(" Pricing ", "Hi {{ first_name }}")
+		rid = rows[0]["id"]
+		self.assertEqual(rows[0]["title"], "Pricing")
+		self.assertEqual(replies.save("Pricing 2", "Hi", rid)[0]["title"], "Pricing 2")
+		with self.assertRaises(frappe.ValidationError):
+			replies.save("", "x")
+		self.assertEqual(replies.remove(rid), [])
+
+	def test_everyone_reads_them_but_only_template_editors_change_them(self):
+		from crm_addons.campaigns import api, replies
+
+		self.addCleanup(lambda: frappe.db.set_default(replies.KEY, "[]"))
 		frappe.set_user("Administrator")
-		out = config.save_whatsapp_replies(json.dumps([{"title": " Pricing ", "text": "Hi {name}"}, {"title": "", "text": "x"}, {"title": "y", "text": ""}]))
-		self.assertEqual(out["replies"], [{"title": "Pricing", "text": "Hi {name}"}])
-		self.assertTrue(config.get_whatsapp_replies()["can_manage"])
-		person = self.person("pro.replies@example.org", "Sales User")
+		api.save_whatsapp_reply("Thanks", "Thank you {{ first_name }}")
+		person = self.person("pro.replies2@example.org", "Sales User")
 		self.addCleanup(frappe.set_user, "Administrator")
-		self.addCleanup(lambda: frappe.db.set_default(config.WA_REPLIES_KEY, "[]"))
 		frappe.set_user(person)
-		self.assertEqual(config.get_whatsapp_replies()["replies"], out["replies"])
-		self.assertFalse(config.get_whatsapp_replies()["can_manage"])
-		with self.assertRaises(frappe.PermissionError):
-			config.save_whatsapp_replies("[]")
+		self.assertEqual([r["title"] for r in config.get_whatsapp_replies()["replies"]], ["Thanks"])

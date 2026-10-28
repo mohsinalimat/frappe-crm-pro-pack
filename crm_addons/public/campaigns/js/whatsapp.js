@@ -103,10 +103,43 @@
 		</Modal>`,
 	}
 
+	/** Saved replies for the WhatsApp chat on a lead: short messages with variables. They are filled in for the lead and shown in the message box first, never sent on their own. */
+	V.WaReplies = {
+		setup() {
+			const rows = ref([]); const loading = ref(true); const error = ref(''); const canEdit = ref(false); const ed = ref(null); const busy = ref(false); const box = ref(null)
+			async function load() { loading.value = true; error.value = ''; try { const r = await CM.api('list_whatsapp_replies', {}); rows.value = r.rows; canEdit.value = r.can_edit } catch (e) { error.value = e.message } finally { loading.value = false } }
+			onMounted(() => { CM.loadShared(); load() })
+			const openNew = () => { ed.value = { id: '', title: '', text: '' } }
+			const openEdit = (r) => { ed.value = { ...r } }
+			const vars = (t) => [...new Set([...String(t).matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => m[1]))]
+			const insert = (token) => CM.insertAtCursor(box.value, token)
+			async function save() { busy.value = true; try { const r = await CM.api('save_whatsapp_reply', { title: ed.value.title, text: ed.value.text, reply_id: ed.value.id || undefined }); rows.value = r.rows; ed.value = null; CM.toast('Saved reply stored') } catch (e) { CM.toast(e.message, 'err') } finally { busy.value = false } }
+			async function drop(r) { if (!(await CM.confirm({ title: 'Delete "' + r.title + '"?', confirmText: 'Delete', danger: true }))) return; try { rows.value = (await CM.api('delete_whatsapp_reply', { reply_id: r.id })).rows } catch (e) { CM.toast(e.message, 'err') } }
+			return { rows, loading, error, canEdit, ed, busy, box, openNew, openEdit, vars, insert, save, drop, load }
+		},
+		template: `
+		<div class="stack" style="gap:14px">
+			<div class="alert"><Ico name="info" /><div class="grow"><b>Saved replies are not templates.</b> <span style="color:inherit;opacity:.85">They are quick messages for an open chat (the lead wrote in the last 24 hours). On a lead's WhatsApp tab, type <b>/</b> to pick one: it is filled in with the lead's details and shown in the message box so you can change it before sending.</span></div></div>
+			<div class="row"><div class="grow"></div><Btn v-if="canEdit" variant="primary" icon="plus" @click="openNew">New saved reply</Btn></div>
+			<div v-if="loading" class="card pad"><Skel h="60" /></div>
+			<ErrorState v-else-if="error" :message="error" @retry="load" />
+			<Empty v-else-if="!rows.length" icon="whatsapp" title="No saved replies yet" :text="canEdit ? 'Add the answers your team gives again and again, such as pricing or a thank-you.' : 'Someone who edits templates can add them.'" />
+			<div v-else class="card" style="padding:0;overflow:hidden"><ul class="list" style="margin:0">
+				<li v-for="r in rows" :key="r.id" class="li row" style="gap:12px;align-items:flex-start;padding:12px 16px"><Ico name="whatsapp" /><div class="grow" style="min-width:0"><b>{{ r.title }}</b><div class="small muted" style="white-space:pre-wrap;overflow-wrap:anywhere">{{ r.text }}</div><div v-if="vars(r.text).length" class="row wrap" style="gap:6px;margin-top:6px"><span v-for="v in vars(r.text)" :key="v" class="tchip">{{ v }}</span></div></div>
+					<template v-if="canEdit"><Btn size="sm" icon="edit" @click="openEdit(r)">Edit</Btn><Btn size="sm" variant="ghost" icon="trash" aria-label="Delete reply" @click="drop(r)" /></template></li></ul></div>
+			<Modal v-if="ed" :title="ed.id ? 'Edit saved reply' : 'New saved reply'" @close="ed = null">
+				<Field label="Title" hint="What people see when they type /"><Inp v-model="ed.title" placeholder="e.g. Pricing" aria-label="Reply title" /></Field>
+				<Field label="Message"><textarea ref="box" class="inp" rows="5" v-model="ed.text" placeholder="Hi {{ first_name }}, ..." aria-label="Reply message"></textarea><div style="margin-top:6px"><VarMenu @pick="insert" /></div></Field>
+				<div class="small muted">Variables such as <b v-pre>{{ first_name }}</b> are filled in from the lead. The person can still edit the text before it is sent.</div>
+				<template #foot><Btn @click="ed = null">Cancel</Btn><Btn variant="primary" :loading="busy" :disabled="!ed.title.trim() || !ed.text.trim()" @click="save">Save</Btn></template>
+			</Modal>
+		</div>`,
+	}
+
 	V.WhatsAppTemplates = {
 		setup() {
 			const data = ref(null); const loading = ref(true); const error = ref(''); const syncing = ref(false)
-			const q = reactive({ search: '', category: '', status: '', purpose: '' }); const layout = CM.useLayout('crm_wa_templates_layout'); const protectedDel = ref(null); const detail = ref(null); const createOpen = ref(false)
+			const view = ref('templates'); const q = reactive({ search: '', category: '', status: '', purpose: '' }); const layout = CM.useLayout('crm_wa_templates_layout'); const protectedDel = ref(null); const detail = ref(null); const createOpen = ref(false)
 			const created = async () => { createOpen.value = false; await load(true) }
 			async function load(quiet) { if (!quiet) loading.value = true; error.value = ''; try { data.value = await CM.api('list_whatsapp_templates', {}) } catch (e) { error.value = e.message } finally { loading.value = false } }
 			onMounted(() => { CM.loadShared(); load() })
@@ -125,12 +158,15 @@
 			async function refresh() { await load(true); CM.toast('List refreshed') }
 			const use = (t) => { if (!t.approved) return CM.toast('Only templates approved by Meta can be used in a campaign.', 'warn'); CM.go('/campaigns/new?wa=' + encodeURIComponent(t.name)) }
 			const cats = computed(() => CATEGORIES.filter((c) => rows.value.some((r) => r.category === c)).map((c) => ({ value: c, label: catLabel(c) })))
-			return { protectedDel, layout, purposeCount, createOpen, created, data, loading, error, syncing, q, shown, rows, count, sync, refresh, detail, use, load, STATUSES, cats, stateTone, stateLabel, catLabel, CM }
+			return { view, protectedDel, layout, purposeCount, createOpen, created, data, loading, error, syncing, q, shown, rows, count, sync, refresh, detail, use, load, STATUSES, cats, stateTone, stateLabel, catLabel, CM }
 		},
 		template: `
 		<div class="page">
-			<div class="pg-head"><div class="grow"><h1>WhatsApp templates</h1><p>Message templates approved by Meta for WhatsApp Business. Pick one when you build a campaign.</p></div>
-				<div class="actions"><Btn v-if="data && data.installed && data.can_create" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn><Btn icon="refresh" :loading="loading && !!data" @click="refresh">Refresh</Btn><Btn v-if="data && data.can_sync" variant="primary" icon="download" :loading="syncing" @click="sync">{{ syncing ? 'Syncing' : 'Sync status from Meta' }}</Btn></div></div>
+			<div class="pg-head"><div class="grow"><h1>{{ view === 'templates' ? 'WhatsApp templates' : 'WhatsApp saved replies' }}</h1><p>{{ view === 'templates' ? 'Message templates approved by Meta for WhatsApp Business. Pick one when you build a campaign.' : 'Quick messages with variables for open chats. Shown to the person before they send.' }}</p></div>
+				<div v-show="view === 'templates'" class="actions"><Btn v-if="data && data.installed && data.can_create" variant="primary" icon="plus" @click="createOpen = true">Create template</Btn><Btn icon="refresh" :loading="loading && !!data" @click="refresh">Refresh</Btn><Btn v-if="data && data.can_sync" variant="primary" icon="download" :loading="syncing" @click="sync">{{ syncing ? 'Syncing' : 'Sync status from Meta' }}</Btn></div></div>
+			<Seg v-model="view" :options="[{ value: 'templates', label: 'Templates' }, { value: 'replies', label: 'Saved replies' }]" style="align-self:flex-start" />
+			<WaReplies v-if="view === 'replies'" />
+			<template v-if="view === 'templates'">
 			<div class="alert"><Ico name="info" /><div class="grow"><b>Create a template here and Meta reviews it.</b> <span class="muted" style="color:inherit;opacity:.85">New templates start as Pending and can be used once Meta approves them. Press Sync from Meta to update their status.</span> <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener">Open WhatsApp Manager <Ico name="external" size="sm" /></a></div></div>
 			<div v-if="data && !data.can_sync" class="small faint">Only managers can sync from Meta. Use Refresh to reload this list.</div>
 			<div v-if="data && !data.installed"><Empty icon="whatsapp" title="WhatsApp is not set up" text="The frappe_whatsapp app is not installed on this site, so there are no WhatsApp templates. Email campaigns work without it." /></div>
@@ -163,6 +199,7 @@
 					</article>
 				</div>
 			</template>
+ 			</template>
  			<ProtectedDelete v-if="protectedDel" kind="whatsapp" :template="protectedDel" @close="protectedDel = null" @deleted="protectedDel = null; detail = null; load(true)" />
 			<WaTemplateCreate v-if="createOpen" :languages="(data && data.languages) || ['en']" @close="createOpen = false" @created="created" />
 			<Drawer v-if="detail" :title="detail.template_name" :subtitle="stateLabel(detail.state) + ' - ' + catLabel(detail.category)" @close="detail = null">

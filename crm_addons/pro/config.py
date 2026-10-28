@@ -160,36 +160,10 @@ def save_orgs_config(config):
 	return out
 
 
-WA_REPLIES_KEY = "crm_pro_whatsapp_replies"
-MAX_REPLIES = 100
-
-
-def _replies():
-	try:
-		saved = json.loads(frappe.db.get_default(WA_REPLIES_KEY) or "[]")
-	except ValueError:
-		saved = []
-	return [{"title": cstr(r.get("title")), "text": cstr(r.get("text"))} for r in saved if isinstance(r, dict) and r.get("title") and r.get("text")] if isinstance(saved, list) else []
-
-
 @frappe.whitelist()
 def get_whatsapp_replies():
-	"""The saved replies everyone can pick in a WhatsApp chat (type / in the message box)."""
+	"""The saved replies everyone can pick in a WhatsApp chat (type / in the message box). They are written under Campaigns, next to the WhatsApp templates."""
 	_check()
-	return {"replies": _replies(), "can_manage": frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles()}
+	from crm_addons.campaigns import replies
 
-
-@frappe.whitelist()
-def save_whatsapp_replies(replies):
-	"""System Managers only: the whole list of saved replies, each with a short title and the message."""
-	_admin()
-	rows = json.loads(replies) if isinstance(replies, str) else replies
-	if not isinstance(rows, list) or len(rows) > MAX_REPLIES:
-		frappe.throw(_("Send a list of at most {0} replies.").format(MAX_REPLIES))
-	out = []
-	for r in rows:
-		title, text = cstr((r or {}).get("title")).strip()[:60], cstr((r or {}).get("text")).strip()[:1000]
-		if title and text:
-			out.append({"title": title, "text": text})
-	frappe.db.set_default(WA_REPLIES_KEY, json.dumps(out))
-	return {"replies": out}
+	return {"replies": replies.all_replies()}

@@ -174,25 +174,28 @@
 			const mailState = (e) => (e.sent_or_received === 'Received' ? 'Received' : e.read_by_recipient ? 'Read' : e.delivery_status || 'Sent')
 
 			// whatsapp: shaped like the app, with the 24-hour rule of the WhatsApp Business platform
-			const wa = reactive({ text: '', busy: false, emoji: false, cat: '😀', menu: false, replies: [], canManage: false, hi: 0, edit: null, saving: false }); const chat = ref(null); const pics = ref(null); const vids = ref(null); const docs = ref(null)
+			const wa = reactive({ text: '', busy: false, emoji: false, cat: '😀', menu: false, replies: [], hi: 0 }); const chat = ref(null); const pics = ref(null); const vids = ref(null); const docs = ref(null)
 			const waTemplate = () => window.postMessage({ source: 'crm-addons', type: 'pro-send', kind: 'whatsapp', names: [props.name] }, location.origin)
 			const waMessages = computed(() => (data.whatsapp ? [...data.whatsapp.messages].sort((a, b) => String(a.creation).localeCompare(String(b.creation))) : []))
 			const waDays = computed(() => { const out = []; for (const m of waMessages.value) { const k = dayKey(m.creation); const last = out[out.length - 1]; if (last && last.key === k) last.items.push(m); else out.push({ key: k, label: dayLabel(m.creation), items: [m] }) } return out })
 			watch(() => data.whatsapp, () => nextTick(() => { if (chat.value) chat.value.scrollTop = chat.value.scrollHeight }))
 			// saved replies: type / in the box and pick one
-			async function loadReplies() { try { const r = await CM.call('crm_addons.pro.config.get_whatsapp_replies', {}); wa.replies = r.replies; wa.canManage = r.can_manage } catch (e) { /* the box works without them */ } }
+			async function loadReplies() { try { const r = await CM.call('crm_addons.pro.config.get_whatsapp_replies', {}); wa.replies = r.replies } catch (e) { /* the box works without them */ } }
 			watch(tab, (t) => { if (t === 'whatsapp') loadReplies() }, { immediate: true })
 			const slash = computed(() => { if (!wa.text.startsWith('/')) return []; const q = wa.text.slice(1).toLowerCase(); return wa.replies.filter((r) => (r.title + ' ' + r.text).toLowerCase().includes(q)).slice(0, 8) })
 			watch(slash, () => { wa.hi = 0 })
-			const fill = (r) => (r.text || '').replace(/\{name\}/gi, (lead.value && lead.value.first_name) || (lead.value && lead.value.lead_name) || '')
-			function useReply(r) { wa.text = fill(r); wa.menu = false; nextTick(() => { const el = document.querySelector('.wa-in'); if (el) el.focus() }) }
+			// the reply is filled in for this lead on the server and only put in the box: the person reads and edits it, then sends
+			async function useReply(r) {
+				wa.menu = false; wa.text = r.text
+				try { wa.text = await call('render_reply', { name: props.name, text: r.text }) } catch (e) { /* the raw text stays for editing */ }
+				nextTick(() => { const el = document.querySelector('.wa-in'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length) } })
+			}
 			function onKeys(e) {
 				if (!slash.value.length) return
 				if (e.key === 'ArrowDown') { e.preventDefault(); wa.hi = Math.min(slash.value.length - 1, wa.hi + 1) } else if (e.key === 'ArrowUp') { e.preventDefault(); wa.hi = Math.max(0, wa.hi - 1) }
 				else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); useReply(slash.value[wa.hi]) } else if (e.key === 'Escape') wa.text = ''
 			}
-			const openReplies = () => { wa.edit = wa.replies.map((r) => ({ ...r })); if (!wa.edit.length) wa.edit.push({ title: '', text: '' }) }
-			async function saveReplies() { wa.saving = true; try { const r = await CM.call('crm_addons.pro.config.save_whatsapp_replies', { replies: JSON.stringify(wa.edit) }); wa.replies = r.replies; wa.edit = null; CM.toast('Saved replies updated') } catch (e) { CM.toast(e.message, 'err') } finally { wa.saving = false } }
+			const grouped = (d, i) => i > 0 && d.items[i - 1].type === d.items[i].type
 			const mediaOf = (m) => { const a = m.attach; if (!a) return ''; const t = m.content_type; if (t === 'image' || /\.(png|jpe?g|gif|webp)$/i.test(a)) return 'image'; if (t === 'video' || /\.(mp4|3gp|mov)$/i.test(a)) return 'video'; if (t === 'audio' || /\.(mp3|ogg|opus|m4a|aac|amr)$/i.test(a)) return 'audio'; return 'document' }
 			const fileName = (u) => decodeURIComponent(String(u || '').split('/').pop().split('?')[0])
 			const caption = (m) => (m.message && m.message !== m.attach ? m.message : '')
@@ -211,7 +214,7 @@
 			const shortTime = (s) => { const d = new Date(String(s || '').replace(' ', 'T')); if (isNaN(d)) return ''; const t = new Date(); const sameDay = d.toDateString() === t.toDateString(); return (sameDay ? '' : d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ', ') + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }
 
 			const ICON = { change: 'edit', comment: 'message', assigned: 'users' }
-			return { lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, dropLead, edit, openEdit, saveEdit, comment, commenting, addComment, comments, ovl, openOverlay, frame, doneFollowup, dropFollowup, fu, overdue, attemptTone, bandTone, em, opened, openEmail, tplOpts, pickTemplate, attach, sendEmail, mailState, wa, waTemplate, sendWa, pickFile, pics, vids, docs, addEmoji, EMOJI, EMOJI_TABS, slash, useReply, onKeys, openReplies, saveReplies, shortTime, chat, waMessages, waDays, mediaOf, fileName, caption, bubbleText, tick, clock, ICON, day, load, PRO, CM }
+			return { lead, error, loading, tab, TABS, data, busyTab, back, around, step, statusOpts, ownerOpts, setStatus, setOwner, title, copy, dropLead, edit, openEdit, saveEdit, comment, commenting, addComment, comments, ovl, openOverlay, frame, doneFollowup, dropFollowup, fu, overdue, attemptTone, bandTone, em, opened, openEmail, tplOpts, pickTemplate, attach, sendEmail, mailState, wa, waTemplate, sendWa, pickFile, pics, vids, docs, addEmoji, EMOJI, EMOJI_TABS, slash, useReply, onKeys, shortTime, grouped, chat, waMessages, waDays, mediaOf, fileName, caption, bubbleText, tick, clock, ICON, day, load, PRO, CM }
 		},
 		template: `
 		<div class="page lead-page">
@@ -246,7 +249,7 @@
 					<div class="lead-main">
 						<div class="ltabs" role="tablist"><button v-for="t in TABS" :key="t.id" type="button" role="tab" class="ltab" :class="{ on: tab === t.id }" :aria-selected="String(tab === t.id)" @click="tab = t.id"><Ico :name="t.icon" size="sm" /> {{ t.label }}</button></div>
 
-						<section class="card tabbody" :aria-busy="String(busyTab === tab)">
+						<section class="card tabbody" :class="{ fill: tab === 'whatsapp' }" :aria-busy="String(busyTab === tab)">
 							<template v-if="tab === 'activity'">
 								<Skel v-if="!data.activity" h="40" />
 								<Empty v-else-if="!data.activity.length" icon="clock" title="No activity yet" text="Everything that happens with this lead shows up here." />
@@ -331,7 +334,7 @@
 										<button v-if="lead.can_write && lead.mobile_no" type="button" class="wa-tpl" @click="waTemplate"><Ico name="send" size="sm" /> Template</button></div>
 									<div ref="chat" class="wa-chat"><p v-if="!waMessages.length" class="wa-note">No messages yet. Start with a template.</p>
 										<template v-for="d in waDays" :key="d.key"><div class="wa-day"><span>{{ d.label }}</span></div>
-											<div v-for="m in d.items" :key="m.name" class="wa-row" :class="m.type === 'Incoming' ? 'in' : 'out'"><div class="wa-bub">
+											<div v-for="(m, mi) in d.items" :key="m.name" class="wa-row" :class="[m.type === 'Incoming' ? 'in' : 'out', grouped(d, mi) ? 'cont' : 'first']"><div class="wa-bub">
 												<template v-if="mediaOf(m) === 'image'"><a :href="m.attach" target="_blank" rel="noopener"><img class="wa-img" :src="m.attach" alt="Image" loading="lazy" /></a></template>
 												<video v-else-if="mediaOf(m) === 'video'" class="wa-img" :src="m.attach" controls preload="metadata"></video>
 												<audio v-else-if="mediaOf(m) === 'audio'" :src="m.attach" controls preload="metadata"></audio>
@@ -343,7 +346,7 @@
 									<form v-else-if="lead.can_write" class="wa-compose" @submit.prevent="sendWa()">
 										<div v-if="wa.emoji" class="wa-emoji"><div class="wa-etabs"><button v-for="t in EMOJI_TABS" :key="t" type="button" :class="{ on: wa.cat === t }" :aria-label="'Emoji group ' + t" @click="wa.cat = t">{{ t }}</button></div><div class="wa-egrid"><button v-for="x in EMOJI[wa.cat]" :key="x" type="button" :aria-label="'Emoji ' + x" @click="addEmoji(x)">{{ x }}</button></div></div>
 										<div v-if="wa.menu" class="wa-attach"><button type="button" @click="pics.click()"><Ico name="image" /> Image</button><button type="button" @click="vids.click()"><Ico name="play" /> Video</button><button type="button" @click="docs.click()"><Ico name="file" /> Document</button></div>
-										<div v-if="slash.length || (wa.text === '/' && !wa.replies.length)" class="wa-slash" role="listbox" aria-label="Saved replies"><button v-for="(r, i) in slash" :key="r.title" type="button" role="option" :class="{ on: i === wa.hi }" :aria-selected="String(i === wa.hi)" @mousedown.prevent="useReply(r)" @mouseenter="wa.hi = i"><b>{{ r.title }}</b><span class="ellipsis">{{ r.text }}</span></button><p v-if="!slash.length" class="small muted" style="margin:6px 10px">No saved replies yet.</p></div>
+										<div v-if="slash.length || (wa.text === '/' && !wa.replies.length)" class="wa-slash" role="listbox" aria-label="Saved replies"><button v-for="(r, i) in slash" :key="r.title" type="button" role="option" :class="{ on: i === wa.hi }" :aria-selected="String(i === wa.hi)" @mousedown.prevent="useReply(r)" @mouseenter="wa.hi = i"><b>{{ r.title }}</b><span class="ellipsis">{{ r.text }}</span></button><p v-if="!slash.length" class="small muted" style="margin:6px 10px">No saved replies yet. Add them under Campaigns, WhatsApp templates, Saved replies.</p></div>
 										<button type="button" class="wa-ib" aria-label="Emoji" title="Emoji" @click="wa.emoji = !wa.emoji; wa.menu = false">😊</button>
 										<button type="button" class="wa-ib" aria-label="Attach an image, video or document" title="Attach" :disabled="wa.busy" @click="wa.menu = !wa.menu; wa.emoji = false"><Ico name="paperclip" /></button>
 										<button type="button" class="wa-ib" aria-label="Saved replies" title="Saved replies (or type /)" @click="wa.text = '/'; wa.emoji = false; wa.menu = false"><Ico name="zap" /></button>
@@ -351,7 +354,6 @@
 										<input class="wa-in" v-model="wa.text" placeholder="Type a message, or / for saved replies" aria-label="WhatsApp message" @keydown="onKeys" @focus="wa.emoji = false" />
 										<button type="submit" class="wa-send" aria-label="Send" :disabled="wa.busy || !wa.text.trim() || (wa.text.startsWith('/') && slash.length > 0)"><Ico name="send" /></button>
 									</form>
-									<div v-if="wa.canManage" class="wa-foot"><button type="button" class="btn ghost sm" @click="openReplies"><Ico name="zap" size="sm" /> Manage saved replies</button></div>
 								</div>
 							</template>
 						</section>
@@ -375,12 +377,6 @@
 					<FormFields :sections="edit.sections" :values="edit.v" />
 					<div v-if="edit.error" class="err" role="alert" style="margin-top:10px">{{ edit.error }}</div>
 					<template #foot><Btn @click="edit.open = false">Cancel</Btn><Btn variant="primary" :loading="edit.busy" @click="saveEdit">Save</Btn></template>
-				</Modal>
-				<Modal v-if="wa.edit" title="Saved replies" size="lg" @close="wa.edit = null">
-					<p class="small muted" style="margin:0 0 10px">Everyone can pick these in a WhatsApp chat by typing /. Use {name} for the lead's first name.</p>
-					<div v-for="(r, i) in wa.edit" :key="i" class="reply-row"><div class="grow"><Inp v-model="r.title" placeholder="Short title, e.g. Pricing" :aria-label="'Reply title ' + (i + 1)" /><textarea class="inp" rows="2" v-model="r.text" placeholder="Message" :aria-label="'Reply text ' + (i + 1)"></textarea></div><button type="button" class="btn ghost icon sm" :aria-label="'Remove reply ' + (i + 1)" @click="wa.edit.splice(i, 1)"><Ico name="trash" /></button></div>
-					<Btn icon="plus" size="sm" @click="wa.edit.push({ title: '', text: '' })">Add a reply</Btn>
-					<template #foot><Btn @click="wa.edit = null">Cancel</Btn><Btn variant="primary" :loading="wa.saving" @click="saveReplies">Save</Btn></template>
 				</Modal>
 				<div v-if="ovl.open" class="ovl" role="dialog" aria-modal="true" :aria-label="ovl.title" @click.self="ovl.open = false"><div class="ovl-box"><iframe ref="frame" :src="ovl.src" :title="ovl.title" :style="{ height: ovl.height + 'px' }"></iframe></div></div>
 				<Modal v-if="em.open" title="New email" size="lg" @close="em.open = false">

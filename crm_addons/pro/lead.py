@@ -265,6 +265,16 @@ def send_email(name, recipients, subject, content, cc=None, bcc=None, html=0, at
 
 
 @frappe.whitelist()
+def render_reply(name, text):
+	"""A saved reply with its variables filled in for this lead. Nothing is sent: the person sees it in the message box first."""
+	from crm_addons.campaigns import personalization
+
+	doc = _lead(name)
+	who = frappe._dict(campaign_owner=frappe.session.user, owner=frappe.session.user)
+	return personalization.render(cstr(text), personalization.build_context(doc, who))
+
+
+@frappe.whitelist()
 def followup_options():
 	meta = frappe.get_meta("CRM Follow Up")
 

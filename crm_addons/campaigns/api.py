@@ -738,6 +738,40 @@ def send_test_whatsapp(step, number, lead=None):
 # -- WhatsApp templates (owned by frappe_whatsapp; read here, synced from Meta there) -------------------------
 
 
+def _can_edit_replies():
+	return access.allows("whatsapp_templates", "create") or access.allows("campaign_create", 1)
+
+
+@frappe.whitelist()
+def list_whatsapp_replies():
+	"""Saved replies for the WhatsApp chat on a lead."""
+	_check_user()
+	_need_any(_("WhatsApp saved replies"), ("whatsapp_templates", "view"), ("campaign_create", 1))
+	from crm_addons.campaigns import replies
+
+	return {"rows": replies.all_replies(), "can_edit": bool(_can_edit_replies())}
+
+
+@frappe.whitelist()
+def save_whatsapp_reply(title, text, reply_id=None):
+	_check_user()
+	if not _can_edit_replies():
+		frappe.throw(_("You do not have access to {0}.").format(_("WhatsApp saved replies")), frappe.PermissionError)
+	from crm_addons.campaigns import replies
+
+	return {"rows": replies.save(title, text, reply_id)}
+
+
+@frappe.whitelist()
+def delete_whatsapp_reply(reply_id):
+	_check_user()
+	if not _can_edit_replies():
+		frappe.throw(_("You do not have access to {0}.").format(_("WhatsApp saved replies")), frappe.PermissionError)
+	from crm_addons.campaigns import replies
+
+	return {"rows": replies.remove(reply_id)}
+
+
 @frappe.whitelist()
 def list_whatsapp_templates(search=None, category=None, status=None):
 	"""Templates from frappe_whatsapp with everything needed to draw them. Read-only."""
