@@ -1,4 +1,4 @@
-"""The Suite Pro app at /crm-pro: a signed-in page (the app itself is plain scripts under public/pro)."""
+"""The Suite Pro app at /suite (the old /crm-pro address redirects here): a signed-in page (the app itself is plain scripts under public/pro)."""
 
 import frappe
 
@@ -12,7 +12,7 @@ no_breadcrumbs = 1
 
 def get_context(context):
 	if frappe.session.user == "Guest":
-		frappe.local.flags.redirect_location = "/login?redirect-to=/crm-pro"
+		frappe.local.flags.redirect_location = "/login?redirect-to=/suite"
 		raise frappe.Redirect
 	context.no_cache = 1
 	context.no_header = 1

@@ -83,6 +83,7 @@ before_request = ["crm_addons.debuglog.before_request"]
 
 # Short addresses for the full-screen Sales Dashboard, Follow-ups, Campaign Manager and the setup page.
 website_redirects = [
+	{"source": "/crm-pro", "target": "/suite"},  # the first name of the full app: old links in emails and bookmarks still open it
 	{"source": "/sales-dashboard", "target": "/assets/crm_addons/meetings/dashboard.html"},
 	{"source": "/followups", "target": "/assets/crm_addons/meetings/followups.html"},
 	{"source": "/campaigns", "target": "/assets/crm_addons/campaigns/index.html"},

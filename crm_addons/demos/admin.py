@@ -289,7 +289,7 @@ def _booking_admin(name):
 			{k: (str(m.get(k)) if k in ("due_at", "sent_at") and m.get(k) else m.get(k)) for k in ("name", "event", "minutes_before", "channel", "status", "due_at", "sent_at", "error", "reference")}
 			for m in sorted(messages, key=lambda m: m.get("idx") or 0)
 		],
-		"lead_url": get_url(f"/crm-pro#/leads/{doc.lead}") if doc.lead else "",
+		"lead_url": get_url(f"/suite#/leads/{doc.lead}") if doc.lead else "",
 		"meeting_url": get_url_to_form("CRM Meeting", doc.meeting) if doc.meeting else "",
 		"sync_status": (meeting or {}).get("sync_status") or "",
 		"sync_error": (meeting or {}).get("sync_error") or "",

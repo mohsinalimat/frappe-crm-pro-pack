@@ -181,10 +181,10 @@
 	CM.pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : 0)
 	CM.pctText = (a, b) => (b ? (Math.round((a / b) * 1000) / 10).toString().replace(/\.0$/, '') + '%' : '-')
 	CM.size = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB')
-	CM.leadUrl = (name) => '/crm-pro#/leads/' + encodeURIComponent(name) // our own Leads page
+	CM.leadUrl = (name) => '/suite#/leads/' + encodeURIComponent(name) // our own Leads page
 	// inside the Suite Pro app a lead link moves the app itself, never the frame
 	document.addEventListener('click', (e) => {
-		const a = e.target.closest && e.target.closest('a[href*="/crm-pro#/leads/"]')
+		const a = e.target.closest && e.target.closest('a[href*="/suite#/leads/"], a[href*="/crm-pro#/leads/"]')
 		if (!a || !CM.pro || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return
 		e.preventDefault(); CM.post('pro-open-lead', { name: decodeURIComponent(a.getAttribute('href').split('#/leads/')[1] || '') })
 	}, true)

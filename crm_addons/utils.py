@@ -46,7 +46,7 @@ def crm_url(reference_doctype, reference_docname):
 	if not meta or not reference_docname:
 		return None
 	if reference_doctype == "CRM Lead":  # a lead opens on our own Leads page, not on the stock CRM one
-		return get_url(f"/crm-pro#/leads/{reference_docname}")
+		return get_url(f"/suite#/leads/{reference_docname}")
 	return get_url(f"/crm/{meta['route']}/{reference_docname}")
 
 

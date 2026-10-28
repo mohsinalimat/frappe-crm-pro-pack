@@ -322,7 +322,7 @@ class TestManagerApi(ApiCase):
 		self.assertEqual(detail["booking"]["first_touch"], {"utm_source": "bing"})
 		self.assertEqual(detail["sync_status"], "Synced")
 		self.assertEqual(detail["owners"][0]["user"], self.owner.name)
-		self.assertIn("/crm-pro#/leads/", detail["lead_url"])
+		self.assertIn("/suite#/leads/", detail["lead_url"])
 
 		done = admin.set_booking_status(name, "Completed")
 		self.assertEqual(done["booking"]["status"], "Completed")

@@ -1,4 +1,4 @@
-"""The standalone Suite Pro app (``/crm-pro``): the pages that are our own, not CRM's. Every call here works on the signed-in person's own data."""
+"""The standalone Suite Pro app (``/suite``): the pages that are our own, not CRM's. Every call here works on the signed-in person's own data."""
 
 import frappe
 from frappe import _

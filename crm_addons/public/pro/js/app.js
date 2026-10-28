@@ -1,4 +1,4 @@
-/* Suite Pro app: the shell at /crm-pro. A left menu with every Suite Pro page: the ones that are native here (Notifications ...) and the existing ones shown in a frame. */
+/* Suite Pro app: the shell at /suite. A left menu with every Suite Pro page: the ones that are native here (Notifications ...) and the existing ones shown in a frame. */
 (() => {
 	const { createApp, ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } = Vue
 	const CM = window.CM
@@ -258,7 +258,7 @@
 				<div v-if="health" class="compat" role="alert"><Ico name="alert" /><div class="grow"><b>Frappe CRM changed or something it needs is missing.</b>
 					<ul><li v-for="(p, i) in health.problems" :key="'p' + i" :class="p.level">{{ p.text }}</li><li v-for="(c, i) in health.changes" :key="'c' + i">{{ c }}</li></ul></div>
 					<Btn v-if="!health.problems.length" size="sm" @click="seen">I have seen this</Btn></div>
-				<div v-if="PRO.shell.error" class="page"><Empty icon="alert" title="Could not start" :text="PRO.shell.error"><a class="btn primary" href="/login?redirect-to=/crm-pro">Log in</a></Empty></div>
+				<div v-if="PRO.shell.error" class="page"><Empty icon="alert" title="Could not start" :text="PRO.shell.error"><a class="btn primary" href="/login?redirect-to=/suite">Log in</a></Empty></div>
 				<div v-else-if="!PRO.shell.loaded" class="page"><Skel h="40" r="10" /><Skel h="300" r="12" /></div>
 								<Lead v-else-if="active === 'leads' && r.parts[1]" :key="'l' + r.parts[1]" :name="r.parts[1]" />
 				<Leads v-else-if="active === 'leads'" :key="'ls'" />

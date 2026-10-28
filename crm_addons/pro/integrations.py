@@ -874,7 +874,7 @@ def google_callback(code=None, state=None, error=None):
 	frappe.cache.set_value(f"crm_google_result:{frappe.session.user}", message or "ok", expires_in_sec=600)
 	frappe.db.commit()
 	frappe.local.response["type"] = "redirect"
-	frappe.local.response["location"] = "/crm-pro#/settings/calendar"
+	frappe.local.response["location"] = "/suite#/settings/calendar"
 
 
 @frappe.whitelist()
