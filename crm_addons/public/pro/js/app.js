@@ -167,7 +167,7 @@
 				<Frame v-else :page="active" :key="active" />
 			</main>
 			<template v-if="ntf"><div class="ntf-back" @click="ntf = false"></div><aside class="ntf-panel" role="dialog" aria-label="Notifications" @keydown.esc="ntf = false"><Notifications panel @close="ntf = false" /></aside></template>
-			<BulkDialog v-if="sendDlg" :count="sendDlg.names.length" :only="['email', 'whatsapp']" :start="sendDlg.kind" :owners="[]" :statuses="[]" :run="sendRun" @close="sendDlg = null" @go="runSend" />
+			<BulkDialog v-if="sendDlg" :count="sendDlg.names.length" :only="sendDlg.kind ? [sendDlg.kind] : ['email', 'whatsapp']" :start="sendDlg.kind" :owners="[]" :statuses="[]" :run="sendRun" @close="sendDlg = null" @go="runSend" />
 			<Toasts /><ConfirmHost />
 		</div>`,
 	}

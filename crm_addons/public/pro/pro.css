@@ -338,3 +338,11 @@ html[data-theme="dark"] .wa-compose { background: #202c33; } html[data-theme="da
 html[data-theme="dark"] .wa-emoji { background: #233138; } html[data-theme="dark"] .wa-lock { background: #3a3000; color: #ffe9a0; }
 .lead-page .ltabs { flex-wrap: nowrap; overflow-x: auto; }
 .lead-page .ltab { padding: 10px 8px; font-size: 13.5px; }
+
+/* whatsapp: the whole chat, header to composer, stays inside the window */
+.wa { min-width: 0; max-width: 100%; }
+.wa-chat { height: clamp(220px, calc(100vh - 540px), 520px); min-height: 0; overflow-x: hidden; }
+.wa-bub { min-width: 0; }
+.wa-head > .grow { min-width: 0; } .wa-head .small, .wa-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.wa-compose, .wa-lock { flex: none; } .wa-in { min-width: 0; }
+@media (max-width: 640px) { .wa-chat { height: clamp(220px, calc(100vh - 420px), 480px); } .wa-bub { max-width: 88%; } .wa-lock { flex-direction: column; align-items: stretch; } }

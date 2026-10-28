@@ -168,7 +168,7 @@
 			// whatsapp: shaped like the app, with the 24-hour rule of the WhatsApp Business platform
 			const wa = reactive({ text: '', busy: false, emoji: false }); const chat = ref(null); const upload = ref(null)
 			const waTemplate = () => window.postMessage({ source: 'crm-addons', type: 'pro-send', kind: 'whatsapp', names: [props.name] }, location.origin)
-			const waMessages = computed(() => (data.whatsapp ? data.whatsapp.messages : []))
+			const waMessages = computed(() => (data.whatsapp ? [...data.whatsapp.messages].sort((a, b) => String(a.creation).localeCompare(String(b.creation))) : []))
 			const waDays = computed(() => { const out = []; for (const m of waMessages.value) { const k = dayKey(m.creation); const last = out[out.length - 1]; if (last && last.key === k) last.items.push(m); else out.push({ key: k, label: dayLabel(m.creation), items: [m] }) } return out })
 			watch(() => data.whatsapp, () => nextTick(() => { if (chat.value) chat.value.scrollTop = chat.value.scrollHeight }))
 			const mediaOf = (m) => { const a = m.attach; if (!a) return ''; const t = m.content_type; if (t === 'image' || /\.(png|jpe?g|gif|webp)$/i.test(a)) return 'image'; if (t === 'video' || /\.(mp4|3gp|mov)$/i.test(a)) return 'video'; if (t === 'audio' || /\.(mp3|ogg|opus|m4a|aac|amr)$/i.test(a)) return 'audio'; return 'document' }
